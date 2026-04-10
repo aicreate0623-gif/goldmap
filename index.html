@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>砂金探索マップ</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ━━━ STATUS BAR ━━━ -->
+<div id="statusbar">
+  <div class="sb-dot" id="gps-dot"></div>
+  <span id="sb-gps-lbl">GPS オフ</span>
+  <span id="sb-gps-err" style="display:none;color:#ff5a47;font-size:10px;"></span>
+  <span id="sb-coord">—</span>
+  <span id="sb-pt">ポイント: 0件</span>
+  <span id="sb-cache">キャッシュ: —</span>
+</div>
+
+<!-- ━━━ MAP ━━━ -->
+<div id="map"></div>
+
+<!-- ━━━ FLOATING CONTROLS ━━━ -->
+<div id="float-ctrl">
+  <button class="fc-btn base-active" id="btn-std"   onclick="setBase('std')"  title="地理院地図">
+    <span class="fc-ico">🗾</span><span>地理院</span>
+  </button>
+  <button class="fc-btn" id="btn-photo" onclick="setBase('photo')" title="航空写真">
+    <span class="fc-ico">📷</span><span>航空</span>
+  </button>
+  <button class="fc-btn" id="btn-topo"  onclick="setBase('topo')"  title="地形図">
+    <span class="fc-ico">⛰</span><span>地形</span>
+  </button>
+  <button class="fc-btn" id="btn-geo"   onclick="toggleGeo()"      title="地質図">
+    <span class="fc-ico">🪨</span><span>地質</span>
+  </button>
+  <div id="geo-row">
+    <label>透過</label>
+    <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
+    <span id="geo-opv">50%</span>
+  </div>
+  <button class="fc-btn" id="btn-mine"  onclick="toggleMine()"     title="砂金DB">
+    <span class="fc-ico">⛏</span><span>砂金DB</span>
+  </button>
+  <button class="fc-btn" id="btn-kinno" onclick="toggleKinnoLayer()" title="kinno調査記（鉱山調査地）">
+    <span class="fc-ico">📌</span><span>調査記</span>
+  </button>
+  <button class="fc-btn" id="btn-gsj" onclick="toggleGsjLayer()" title="鉱床・鉱徴地">
+    <span class="fc-ico">🔶</span><span>鉱床</span>
+  </button>
+  <button class="fc-btn" id="btn-heat" onclick="toggleHeat()" title="砂金採取ヒートマップ">
+    <span class="fc-ico">🔥</span><span>分布</span>
+  </button>
+  <button class="fc-btn" id="btn-wiki" onclick="toggleWikiLayer()" title="Wikidata鉱山">
+    <span class="fc-ico">🌐</span><span>Wiki鉱山</span>
+  </button>
+  <button class="fc-btn" id="btn-gps"   onclick="toggleGps()"      title="現在地">
+    <span class="fc-ico">📍</span><span>GPS</span>
+  </button>
+  <button class="fc-btn" id="btn-flw"   onclick="toggleFollow()"   title="追従">
+    <span class="fc-ico">🎯</span><span>追従</span>
+  </button>
+</div>
+
+
+
+<!-- ━━━ ピン追加バナー ━━━ -->
+<div id="add-banner">
+  ピンをドラッグして位置決め
+  <button class="btn sm accent" onclick="openAddDlg()">入力へ</button>
+  <button class="btn sm" onclick="cancelAdd()">✕</button>
+</div>
+<div id="rect-banner">ドラッグして範囲を選択　ESC でキャンセル</div>
+
+<!-- ━━━ TAB BAR ━━━ -->
+<div id="tabbar">
+  <button class="tab-btn active" id="tab-map"     onclick="switchTab('map')">
+    <span class="t-ico">🗺</span>地図
+  </button>
+  <button class="tab-btn"        id="tab-pts"     onclick="switchTab('pts')">
+    <span class="t-ico">📍</span>ポイント
+  </button>
+  <button class="tab-btn"        id="tab-offline" onclick="switchTab('offline')">
+    <span class="t-ico">⬇</span>オフライン
+  </button>
+  <button class="tab-btn"        id="tab-cfg"     onclick="switchTab('cfg')">
+    <span class="t-ico">⚙</span>設定
+  </button>
+</div>
+
+<!-- ━━━ POINT SHEET ━━━ -->
+<div class="sheet" id="pt-sheet">
+  <div class="sheet-head">
+    <h2>📍 ポイント一覧</h2>
+    <button class="sheet-close" onclick="switchTab('map')">✕</button>
+  </div>
+  <div class="pt-actions">
+    <button class="btn accent" onclick="startAddPt(); switchTab('map')">＋ ポイント追加</button>
+    <button class="btn sm" onclick="exportPts()">📤 書出</button>
+    <button class="btn sm" onclick="document.getElementById('impf').click()">📥 読込</button>
+    <input type="file" id="impf" accept=".geojson,.json" style="display:none" onchange="importPts(event)">
+  </div>
+  <div class="pt-list" id="pt-list">
+    <div class="pt-empty">まだポイントがありません<br>「＋ ポイント追加」で地図上に登録できます</div>
+  </div>
+</div>
+
+<!-- ━━━ OFFLINE SHEET ━━━ -->
+<div class="sheet" id="dl-sheet">
+  <div class="sheet-head">
+    <h2>⬇ オフライン管理</h2>
+    <button class="sheet-close" onclick="switchTab('map')">✕</button>
+  </div>
+  <div class="sheet-body">
+
+    <!-- レジュームバナー -->
+    <div id="resume-banner">
+      <strong>⏸ 前回の続きがあります</strong><br>
+      <span id="resume-desc"></span>
+      <div class="resume-btns">
+        <button class="btn sm blue" onclick="resumeDl()">▶ 再開</button>
+        <button class="btn sm red"  onclick="clearResume()">✕ 破棄</button>
+      </div>
+    </div>
+
+    <!-- レイヤー選択 -->
+    <div class="dl-section">
+      <div class="sec-ttl">ダウンロードするレイヤー</div>
+      <div class="ck-row"><input type="checkbox" id="ck-std" checked><label for="ck-std">地理院地図</label></div>
+      <div class="ck-row"><input type="checkbox" id="ck-photo"><label for="ck-photo">航空写真</label></div>
+      <div class="ck-row"><input type="checkbox" id="ck-topo"><label for="ck-topo">地形図 (OpenTopoMap)</label></div>
+    </div>
+
+    <!-- ベースタイル -->
+    <div class="dl-section">
+      <div class="sec-ttl">① ベースタイル（全日本 Z5〜Z10）</div>
+      <div class="sl2-row">
+        <label>最大ズーム</label>
+        <select id="base-zmax" onchange="updBaseEst()">
+          <option value="8">Z8（軽量・推奨）</option>
+          <option value="9">Z9</option>
+          <option value="10" selected>Z10（標準）</option>
+        </select>
+      </div>
+      <div class="info-box" id="base-est">計算中…</div>
+      <div class="btn-row">
+        <button class="btn blue"  id="btn-dlbase"  onclick="startDl('base')">▶ DL 開始</button>
+        <button class="btn red"   id="btn-stpbase" onclick="stopDl()" style="display:none">■ 停止</button>
+      </div>
+    </div>
+
+    <!-- 詳細タイル -->
+    <div class="dl-section">
+      <div class="sec-ttl">② 詳細タイル（指定範囲）</div>
+      <div class="btn-row" style="margin-bottom:10px">
+        <button class="btn sm" onclick="useView(); switchTab('map'); setTimeout(()=>switchTab('offline'),300)">現在表示範囲</button>
+        <button class="btn sm" id="btn-drawrect" onclick="startRectDraw(); switchTab('map')">地図上で矩形選択</button>
+      </div>
+      <div class="info-box" id="rect-info">範囲: 未選択</div>
+      <div class="sl2-row">
+        <label>最小ズーム</label>
+        <select id="det-zmin" onchange="updDetEst()">
+          <option value="11" selected>Z11</option><option value="12">Z12</option><option value="13">Z13</option>
+        </select>
+      </div>
+      <div class="sl2-row">
+        <label>最大ズーム</label>
+        <select id="det-zmax" onchange="updDetEst()">
+          <option value="12">Z12</option><option value="13">Z13</option><option value="14">Z14</option>
+          <option value="15" selected>Z15</option><option value="16">Z16</option>
+          <option value="17">Z17</option><option value="18">Z18</option>
+        </select>
+      </div>
+      <div class="info-box" id="det-est">— 範囲を選択してください —</div>
+      <div class="btn-row">
+        <button class="btn blue" id="btn-dldet"  onclick="startDl('detail')" disabled>▶ DL 開始</button>
+        <button class="btn red"  id="btn-stpdet" onclick="stopDl()" style="display:none">■ 停止</button>
+      </div>
+    </div>
+
+    <!-- 鉱床データ -->
+    <div class="dl-section">
+      <div class="sec-ttl">③ 鉱床・鉱徴地データ</div>
+      <div class="info-box">
+        産総研地質調査総合センターの鉱床・鉱徴地データ（組み込み件）。<br>
+        <b>取得</b>ボタンで地図に表示。GeoJSONファイルの追加インポートも可能。<br>
+        削除ボタンは追加インポート分のみ削除（組み込みは常に維持）。
+      </div>
+      <div id="mine-cache-info" class="info-box" style="margin-top:6px;color:var(--txt-sub)">状態: 未読込</div>
+      <!-- 取得進捗バー -->
+      <div id="mine-prog-wrap" style="display:none;margin-top:8px;">
+        <div style="font-size:11px;color:var(--txt-sub);margin-bottom:4px;">読込中… <span id="mine-prog-pct">0%</span></div>
+        <div class="prog-bar-bg"><div class="prog-bar-fill" id="mine-prog-bar" style="width:0%"></div></div>
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn blue sm" id="btn-mine-load" onclick="loadMineData(true)">📥 取得</button>
+        <button class="btn sm" onclick="document.getElementById('mine-geojson-impf').click()">➕ GeoJSON追加</button>
+        <button class="btn red sm" onclick="clearMineCache()">🗑 追加分削除</button>
+      </div>
+      <input type="file" id="mine-geojson-impf" accept=".geojson,.json" style="display:none" onchange="importMineGeoJSON(event)">
+    </div>
+    <!-- 鉱床フィルター（鉱床ONのときのみ表示） -->
+    <div class="dl-section" id="mine-filter-section" style="display:none;">
+      <div class="sec-ttl">鉱床フィルター</div>
+      <div class="ck-row"><input type="checkbox" id="mf-metal" checked onchange="applyMineFilter()"><label for="mf-metal">🔴 金属鉱物</label></div>
+      <div class="ck-row"><input type="checkbox" id="mf-nonmetal" checked onchange="applyMineFilter()"><label for="mf-nonmetal">🟧 非金属鉱物</label></div>
+      <div class="ck-row"><input type="checkbox" id="mf-fuel" checked onchange="applyMineFilter()"><label for="mf-fuel">✖ 燃料鉱物</label></div>
+      <div class="ck-row"><input type="checkbox" id="mf-trace" checked onchange="applyMineFilter()"><label for="mf-trace">鉱徴を含む</label></div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn sm" onclick="openMineLegend()">📋 凡例を見る</button>
+      </div>
+    </div>
+
+    <!-- 位置情報DB -->
+    <div class="dl-section">
+      <div class="sec-ttl">④ kinno調査記（鉱山調査地）</div>
+      <div class="info-box">
+        kinno lab.（金野実）氏による鉱山調査記の位置プロット。<br>
+        組み込み済み（215地点）。地図ボタン「📌調査記」でON/OFF。<br>
+        ★マーカーをタップするとPDF調査記へリンク。
+      </div>
+      <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
+        出典: <a href="https://kinno-homepage.sakura.ne.jp/kinno_mineral.html" target="_blank" style="color:#4a90d9">kinno-homepage.sakura.ne.jp</a>
+      </div>
+    </div>
+
+    <!-- Wikidata -->
+    <div class="dl-section">
+      <div class="sec-ttl">⑤ Wikidata 日本鉱山（自動取得）</div>
+      <div class="info-box">
+        Wikidataに登録された日本国内の鉱山（座標付き）を自動取得。<br>
+        起動時にSPARQLクエリで取得・7日間キャッシュ保持。<br>
+        地図ボタン「🌐Wiki鉱山」でON/OFF・紫ダイヤで表示。
+      </div>
+      <div id="wiki-status" style="font-size:11px;padding:4px 6px;margin-top:4px;color:var(--txt-sub);">
+        ステータス: 確認中…
+      </div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn sm" onclick="reloadWikiData()">🔄 再取得</button>
+      </div>
+      <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
+        出典: <a href="https://www.wikidata.org/" target="_blank" style="color:#4a90d9">Wikidata</a>（CC0）
+      </div>
+    </div>
+
+    <!-- プログレス -->
+    <div class="dl-section" id="prog-section">
+      <div class="sec-ttl">ダウンロード進捗</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-val" id="pg-done">0</div><div class="stat-lbl">完了</div></div>
+        <div class="stat-card"><div class="stat-val" id="pg-rem">—</div><div class="stat-lbl">残り</div></div>
+        <div class="stat-card"><div class="stat-val" id="pg-tot">—</div><div class="stat-lbl">合計</div></div>
+        <div class="stat-card"><div class="stat-val" id="pg-mb">0 MB</div><div class="stat-lbl">推定容量</div></div>
+      </div>
+      <div class="prog-bar-bg"><div class="prog-bar-fill" id="pg-bar" style="width:0%"></div></div>
+      <div class="dl-log" id="dl-log"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ━━━ SETTINGS SHEET ━━━ -->
+<div class="sheet" id="cfg-sheet">
+  <div class="sheet-head">
+    <h2>⚙ 設定</h2>
+    <button class="sheet-close" onclick="switchTab('map')">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="cfg-row">
+      <div>
+        <div class="cfg-label">キャッシュ容量</div>
+        <div class="cfg-sub cfg-val" id="cache-info">読み込み中…</div>
+      </div>
+      <button class="btn sm" onclick="refreshCache()">更新</button>
+    </div>
+    <div class="cfg-row">
+      <div>
+        <div class="cfg-label">キャッシュ削除</div>
+        <div class="cfg-sub">保存済みタイルを全て削除します</div>
+      </div>
+      <button class="btn sm red" onclick="clearCache()">全削除</button>
+    </div>
+    <div class="cfg-row">
+      <div>
+        <div class="cfg-label">ポイント書出</div>
+        <div class="cfg-sub">GeoJSON形式でエクスポート</div>
+      </div>
+      <button class="btn sm" onclick="exportPts()">📤 書出</button>
+    </div>
+    <div class="cfg-row">
+      <div>
+        <div class="cfg-label">ポイント読込</div>
+        <div class="cfg-sub">GeoJSONファイルをインポート</div>
+      </div>
+      <button class="btn sm" onclick="document.getElementById('impf2').click()">📥 読込</button>
+      <input type="file" id="impf2" accept=".geojson,.json" style="display:none" onchange="importPts(event)">
+    </div>
+
+    <!-- ━━━ カテゴリ区切り ━━━ -->
+    <div style="
+      margin: 20px -18px 0;
+      padding: 10px 18px 0;
+      border-top: 1px solid rgba(200,170,80,0.14);
+      background: linear-gradient(180deg, rgba(200,170,80,0.04) 0%, transparent 100%);
+    ">
+      <div style="
+        display:flex; align-items:center; gap:8px;
+        margin-bottom: 14px;
+      ">
+        <span style="font-size:11px; color:var(--gold); font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.8;">🪨 地質図 凡例</span>
+        <span style="flex:1; height:1px; background:rgba(200,170,80,0.18);"></span>
+        <span style="font-size:9px; color:var(--txt-dim); white-space:nowrap;">産総研 V2</span>
+      </div>
+
+      <!-- 見方の説明 -->
+      <div style="font-size:11px;color:var(--txt-sub);background:rgba(255,255,255,0.04);
+                  border-radius:6px;padding:8px 11px;margin-bottom:12px;line-height:1.8;
+                  border:1px solid rgba(255,255,255,0.07);">
+        <b style="color:var(--txt);">縦軸</b>：地質時代（新しい↑ 古い↓）<br>
+        <b style="color:var(--txt);">横軸</b>：岩石の種類　
+        <b style="color:var(--gold);">★</b> = 砂金採取と関連性が高い地質
+      </div>
+
+      <!-- 凡例マトリックス表 -->
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <table id="geo-legend-table" style="
+          border-collapse:collapse;
+          width:100%;min-width:300px;
+          font-size:10px;
+        ">
+          <!-- ヘッダー行 -->
+          <thead>
+            <tr>
+              <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
+                         border:1px solid rgba(255,255,255,0.1);font-size:9px;white-space:nowrap;
+                         min-width:62px;">地質時代</th>
+              <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
+                         border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">堆積岩</th>
+              <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
+                         border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">付加体</th>
+              <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
+                         border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">火成岩</th>
+              <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
+                         border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">変成岩</th>
+            </tr>
+          </thead>
+          <tbody id="geo-legend-body">
+            <!-- JS で挿入 -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 特記（砂金関連） -->
+      <div style="margin-top:10px;font-size:11px;color:var(--txt-sub);
+                  background:rgba(200,170,80,0.07);border:1px solid rgba(200,170,80,0.16);
+                  border-radius:6px;padding:8px 11px;line-height:1.8;">
+        <b style="color:var(--gold);">★ 砂金採取のヒント</b><br>
+        <span style="color:rgba(255,220,100,0.85);">新第三紀・火成岩（緑系）</span>：熱水脈型金鉱床が多い<br>
+        <span style="color:rgba(255,220,100,0.85);">中生代・火成岩（青緑系）</span>：接触交代型鉱床<br>
+        <span style="color:rgba(255,220,100,0.85);">変成岩（紫・赤紫系）</span>：変成熱水型金鉱脈を伴う場合あり<br>
+        <span style="color:rgba(255,220,100,0.85);">第四紀・堆積岩（黄系）</span>：砂金が集積しやすい河川堆積物
+      </div>
+
+      <!-- 線記号の説明 -->
+      <div style="margin-top:10px;font-size:11px;color:var(--txt-sub);
+                  background:rgba(255,255,255,0.03);border-radius:6px;padding:8px 11px;line-height:1.9;
+                  border:1px solid rgba(255,255,255,0.06);">
+        <b style="color:var(--txt);">線記号</b><br>
+        <span style="display:inline-block;width:28px;height:2px;background:#e03020;vertical-align:middle;margin-right:4px;"></span>活断層<br>
+        <span style="display:inline-block;width:28px;height:2px;background:#606060;vertical-align:middle;margin-right:4px;border-top:1px dashed #aaa;"></span>断層（不確かなもの含む）<br>
+        <span style="display:inline-block;width:28px;height:2px;background:#a06030;vertical-align:middle;margin-right:4px;border-top:2px dotted #c08040;"></span>地質境界
+      </div>
+
+      <!-- 出典 -->
+      <div style="margin-top:8px;margin-bottom:4px;font-size:10px;color:var(--txt-dim);line-height:1.7;padding:0 2px;">
+        出典: 産業技術総合研究所 地質調査総合センター<br>
+        「20万分の1日本シームレス地質図 V2」　© AIST All Rights Reserved.
+      </div>
+    </div>
+    <!-- /地質図凡例 -->
+
+  </div>
+</div>
+
+<!-- ━━━ 鉱種凡例モーダル ━━━ -->
+<div id="mine-legend-overlay" onclick="if(event.target===this)closeMineLegend()">
+  <div id="mine-legend-box">
+    <div id="mine-legend-head">
+      <h3>⛏ 鉱種 凡例</h3>
+      <button class="sheet-close" onclick="closeMineLegend()">✕</button>
+    </div>
+    <div id="mine-legend-body">
+      <img id="mine-legend-img" src="" alt="鉱種凡例">
+      <p style="font-size:10px;color:var(--txt-dim);margin-top:8px;line-height:1.7;">
+        出典: 産総研 シームレス地質図 鉱床・鉱徴地データ<br>
+        ※ 同色は金属/非金属で共通の場合あり
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━ DIALOGS ━━━ -->
+<div id="overlay">
+  <div class="dialog" id="dlg-edit" style="display:none">
+    <h3 id="dlg-edit-ttl">ポイントを追加</h3>
+    <label>名前</label><input type="text" id="pt-name" placeholder="例：○○川上流">
+    <label>メモ</label><textarea id="pt-memo" placeholder="採取状況・特記事項など"></textarea>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="cancelEdit()">キャンセル</button>
+      <button class="dbtn ok" onclick="reqSave()">保存する</button>
+    </div>
+  </div>
+  <div class="dialog" id="dlg-savecf" style="display:none">
+    <h3>保存の確認</h3>
+    <p class="dlg-msg" id="save-msg"></p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="showDlg('dlg-edit')">戻る</button>
+      <button class="dbtn ok" onclick="confirmSave()">保存</button>
+    </div>
+  </div>
+  <div class="dialog" id="dlg-detail" style="display:none">
+    <h3 id="det-name"></h3>
+    <p class="dlg-msg" id="det-memo" style="margin-bottom:0"></p>
+    <p style="font-size:11px;color:#604828;margin-top:8px" id="det-coord"></p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="closeOv()">閉じる</button>
+      <button class="dbtn" onclick="editCur()">編集</button>
+      <button class="dbtn del" onclick="reqDel()">削除</button>
+    </div>
+  </div>
+  <div class="dialog" id="dlg-del" style="display:none">
+    <h3>削除の確認</h3>
+    <p class="dlg-msg" id="del-msg"></p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="showDlg('dlg-detail')">キャンセル</button>
+      <button class="dbtn del" onclick="confirmDel()">削除する</button>
+    </div>
+  </div>
+  <div class="dialog" id="dlg-imp" style="display:none">
+    <h3>インポート</h3>
+    <p class="dlg-msg" id="imp-msg"></p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="closeOv()">キャンセル</button>
+      <button class="dbtn ok" onclick="doImport('add')">追加</button>
+      <button class="dbtn del" onclick="doImport('over')">上書き</button>
+    </div>
+  </div>
+  <div class="dialog" id="dlg-alr" style="display:none">
+    <h3 id="alr-ttl">通知</h3>
+    <p class="dlg-msg" id="alr-msg"></p>
+    <div class="dlg-btns">
+      <button class="dbtn ok" onclick="closeOv()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━ アプリ終了確認オーバーレイ（地図表示中バック時） ━━━ -->
+<div id="exit-overlay" style="
+  display:none; position:fixed; inset:0; z-index:9000;
+  background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);
+  align-items:center; justify-content:center;
+">
+  <div id="dlg-exit">
+    <div class="exit-icon">🗺</div>
+    <h3>アプリを終了しますか？</h3>
+    <p>地図画面を表示中です。<br>このまま終了してもよいですか？</p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="closeExitDlg()">キャンセル</button>
+      <button class="dbtn del" onclick="doExitApp()">終了する</button>
+    </div>
+  </div>
+</div>
+
+  <script src="js/cache.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/points.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/firebase.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
