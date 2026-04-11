@@ -7,14 +7,25 @@ let gpsHeading=null, gpsCompassMk=null;
 let _orientHandler=null;
 let _bearingTimer=null;
 
-// ── ベアリング設定（タイル再描画付き）────────────
+// ── ローパスフィルター（10フレーム平均）──────────
+const _headingBuf=[];
+const _HEADING_BUF_SIZE=10;
+function _smoothHeading(raw){
+  _headingBuf.push(raw);
+  if(_headingBuf.length>_HEADING_BUF_SIZE) _headingBuf.shift();
+  // 角度の平均（0/360の折り返しを考慮）
+  let sinSum=0, cosSum=0;
+  _headingBuf.forEach(h=>{ sinSum+=Math.sin(h*Math.PI/180); cosSum+=Math.cos(h*Math.PI/180); });
+  return (Math.atan2(sinSum/_headingBuf.length, cosSum/_headingBuf.length)*180/Math.PI+360)%360;
+}
+
+// ── ベアリング設定（_resetView削除・invalidateSizeのみ）──
 function _applyBearing(deg){
   if(!map.setBearing) return;
   map.setBearing(deg);
   clearTimeout(_bearingTimer);
   _bearingTimer=setTimeout(()=>{
     map.invalidateSize({pan:false});
-    map._resetView(map.getCenter(), map.getZoom(), true);
   }, 150);
 }
 
@@ -96,27 +107,41 @@ function startOrientation(){
 }
 function _addOrientListener(){
   _orientHandler=e=>{
-    let heading=null;
+    let raw=null;
     if(e.webkitCompassHeading!=null){
-      heading=e.webkitCompassHeading;
-    } else if(e.absolute && e.alpha!=null){
-      heading=(360-e.alpha)%360;
+      raw=e.webkitCompassHeading;           // iOS: 真北基準・高精度
     } else if(e.alpha!=null){
-      heading=(360-e.alpha)%360;
+      // Android: 画面回転補正を加えて真北基準に変換
+      let screenAngle=0;
+      if(screen.orientation && screen.orientation.angle!=null){
+        screenAngle=screen.orientation.angle;
+      } else if(window.orientation!=null){
+        screenAngle=window.orientation;
+      }
+      raw=((360-e.alpha)+screenAngle)%360;
     }
-    if(heading===null) return;
+    if(raw===null) return;
+    const heading=_smoothHeading(raw);      // ローパスフィルター通過
     gpsHeading=heading;
     if(gpsLL) updateCompassMarker(gpsLL.lat,gpsLL.lng,heading);
     if(gpsRot) _applyBearing(heading);
   };
-  window.addEventListener('deviceorientation',_orientHandler,true);
+  // Android: deviceorientationabsolute（真北基準）を優先
+  const evtName=('ondeviceorientationabsolute' in window)
+    ? 'deviceorientationabsolute'
+    : 'deviceorientation';
+  window.addEventListener(evtName,_orientHandler,true);
+  // stopOrientationで使うためにイベント名を保持
+  _orientHandler._evtName=evtName;
 }
 function stopOrientation(){
   if(_orientHandler){
-    window.removeEventListener('deviceorientation',_orientHandler,true);
+    const evtName=_orientHandler._evtName||'deviceorientation';
+    window.removeEventListener(evtName,_orientHandler,true);
     _orientHandler=null;
   }
   gpsHeading=null;
+  _headingBuf.length=0; // バッファもリセット
 }
 
 // ── サーチライト扇形マーカー（グラデーション）────
