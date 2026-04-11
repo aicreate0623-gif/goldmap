@@ -2,9 +2,21 @@
 //  GPS + 方位コンパス
 // ═══════════════════════════════════════════
 let gpsOn=false, gpsFlw=false, gpsRot=false;
-let gpsWid=null, gpsLL=null, gpsMk=null, gpsCI=null;
+let gpsWid=null, gpsLL=null, gpsCI=null;
 let gpsHeading=null, gpsCompassMk=null;
 let _orientHandler=null;
+let _bearingTimer=null;
+
+// ── ベアリング設定（タイル再描画付き）────────────
+function _applyBearing(deg){
+  if(!map.setBearing) return;
+  map.setBearing(deg);
+  clearTimeout(_bearingTimer);
+  _bearingTimer=setTimeout(()=>{
+    map.invalidateSize({pan:false});
+    map._resetView(map.getCenter(), map.getZoom(), true);
+  }, 150);
+}
 
 // ── GPSトグル ────────────────────────────────
 function toggleGps(){
@@ -23,11 +35,9 @@ function toggleGps(){
     rotBtn.classList.remove('active'); rotBtn.style.display='none';
     stopWatch();
     stopOrientation();
-    if(gpsMk){map.removeLayer(gpsMk);gpsMk=null;}
     if(gpsCI){map.removeLayer(gpsCI);gpsCI=null;}
     if(gpsCompassMk){map.removeLayer(gpsCompassMk);gpsCompassMk=null;}
-    // 回転リセット
-    if(map.setBearing) map.setBearing(0);
+    _applyBearing(0);
   }
   updGps();
 }
@@ -45,9 +55,10 @@ function toggleRotate(){
   if(!gpsOn) return;
   gpsRot=!gpsRot;
   document.getElementById('btn-rot').classList.toggle('active',gpsRot);
-  if(!gpsRot){
-    // 回転OFF時は北向きに戻す
-    if(map.setBearing) map.setBearing(0);
+  if(gpsRot && gpsHeading!==null){
+    _applyBearing(gpsHeading);
+  } else {
+    _applyBearing(0);
   }
   updGps();
 }
@@ -63,14 +74,10 @@ function stopWatch(){
 function onGps(pos){
   const{latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
   gpsLL=L.latLng(lat,lng);
-  if(!gpsMk) gpsMk=L.circleMarker([lat,lng],{radius:9,fillColor:'#3080e8',color:'#fff',weight:2.5,fillOpacity:.97,pane:'paneUser'}).addTo(map);
-  else gpsMk.setLatLng([lat,lng]);
-  if(!gpsCI) gpsCI=L.circle([lat,lng],{radius:acc,color:'#3080e8',fillColor:'#3080e8',fillOpacity:.1,weight:1}).addTo(map);
+  if(!gpsCI) gpsCI=L.circle([lat,lng],{radius:acc,color:'#3080e8',fillColor:'#3080e8',fillOpacity:.1,weight:1,pane:'paneUser'}).addTo(map);
   else{gpsCI.setLatLng([lat,lng]);gpsCI.setRadius(acc);}
   if(gpsFlw) map.setView([lat,lng]);
-  if(gpsRot && gpsHeading!==null){
-    if(map.setBearing) map.setBearing(gpsHeading);
-  }
+  if(gpsRot && gpsHeading!==null) _applyBearing(gpsHeading);
   updateCompassMarker(lat,lng,gpsHeading);
   document.getElementById('sb-coord').textContent=lat.toFixed(5)+', '+lng.toFixed(5)+' ±'+Math.round(acc)+'m';
   updGps();
@@ -79,7 +86,6 @@ function onGps(pos){
 // ── 方位センサー ─────────────────────────────
 function startOrientation(){
   if(!window.DeviceOrientationEvent) return;
-  // iOS 13+は許可リクエストが必要
   if(typeof DeviceOrientationEvent.requestPermission==='function'){
     DeviceOrientationEvent.requestPermission()
       .then(r=>{ if(r==='granted') _addOrientListener(); })
@@ -92,16 +98,16 @@ function _addOrientListener(){
   _orientHandler=e=>{
     let heading=null;
     if(e.webkitCompassHeading!=null){
-      heading=e.webkitCompassHeading; // iOS
+      heading=e.webkitCompassHeading;
+    } else if(e.absolute && e.alpha!=null){
+      heading=(360-e.alpha)%360;
     } else if(e.alpha!=null){
-      heading=(360-e.alpha)%360;      // Android
+      heading=(360-e.alpha)%360;
     }
     if(heading===null) return;
     gpsHeading=heading;
     if(gpsLL) updateCompassMarker(gpsLL.lat,gpsLL.lng,heading);
-    if(gpsRot){
-      if(map.setBearing) map.setBearing(heading);
-    }
+    if(gpsRot) _applyBearing(heading);
   };
   window.addEventListener('deviceorientation',_orientHandler,true);
 }
@@ -113,23 +119,28 @@ function stopOrientation(){
   gpsHeading=null;
 }
 
-// ── サーチライト扇形マーカー ──────────────────
+// ── サーチライト扇形マーカー（グラデーション）────
 function updateCompassMarker(lat,lng,heading){
   const rot = heading != null ? heading : 0;
-  // SVGで扇形（60°）＋中心ドット
-  const html = `<div style="width:80px;height:80px;position:relative;transform:rotate(${rot}deg);transform-origin:40px 40px;">
-    <svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
-      <!-- 扇形サーチライト（上向き・60°） -->
-      <path d="M40,40 L22,4 A38,38 0 0,1 58,4 Z"
-            fill="rgba(80,180,255,0.25)"
-            stroke="rgba(80,180,255,0.7)"
-            stroke-width="1.2"
+  const html = `<div style="width:100px;height:100px;position:relative;transform:rotate(${rot}deg);transform-origin:50px 50px;">
+    <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="sg" cx="50%" cy="62%" r="50%">
+          <stop offset="0%"   stop-color="rgba(80,180,255,0.55)"/>
+          <stop offset="60%"  stop-color="rgba(80,180,255,0.20)"/>
+          <stop offset="100%" stop-color="rgba(80,180,255,0.00)"/>
+        </radialGradient>
+      </defs>
+      <path d="M50,50 L24,3 A48,48 0 0,1 76,3 Z"
+            fill="url(#sg)"
+            stroke="rgba(80,180,255,0.6)"
+            stroke-width="1"
             stroke-linejoin="round"/>
-      <!-- 中心ドット -->
-      <circle cx="40" cy="40" r="6" fill="#3080e8" stroke="#fff" stroke-width="2"/>
+      <circle cx="50" cy="50" r="8" fill="#3080e8" stroke="#fff" stroke-width="2.5"/>
+      <circle cx="50" cy="50" r="3" fill="#fff"/>
     </svg>
   </div>`;
-  const ico = L.divIcon({html, className:'', iconSize:[80,80], iconAnchor:[40,40]});
+  const ico = L.divIcon({html, className:'', iconSize:[100,100], iconAnchor:[50,50]});
   if(!gpsCompassMk){
     gpsCompassMk = L.marker([lat,lng],{icon:ico,zIndexOffset:200,pane:'paneUser',interactive:false}).addTo(map);
   } else {
