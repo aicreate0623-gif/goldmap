@@ -1,6 +1,9 @@
 'use strict';
 initMap();
 
+// ── Firebase初期化（Phase2: コメントアウト解除で有効化）──
+   initFirebase().then(() => fetchHeatPoints());
+
 // ═══════════════════════════════════════════
 //  地質図凡例マトリックス生成
 //  出典: 産総研 シームレス地質図 V2 簡略版
