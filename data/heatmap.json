@@ -1,6 +1,21 @@
 {
   "type": "FeatureCollection",
-  "generated_at": "",
-  "_comment": "このファイルはGitHub Actionsが自動生成します。手動編集不要。",
-  "features": []
+  "generated_at": "2026-04-11T02:03:39Z",
+  "total_submissions": 1,
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          139.46,
+          35.12
+        ]
+      },
+      "properties": {
+        "weight": 1.0,
+        "count": 1
+      }
+    }
+  ]
 }
