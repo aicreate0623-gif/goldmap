@@ -36,6 +36,7 @@ async function initMap(){
   TILES={std:mk('std'),photo:mk('photo'),topo:mk('topo')};
   TILES.std.addTo(map);
   mineLayer.addTo(map);
+  document.getElementById('btn-mine').classList.toggle('active', mineV);
   loadPts();
   updBaseEst();
   refreshCache();

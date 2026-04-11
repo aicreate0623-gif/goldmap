@@ -612,3 +612,49 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 .contrib-toggle.on .contrib-off-lbl { opacity: 0; }
 .contrib-toggle.on .contrib-on-lbl  { opacity: 1; }
+
+/* ━━━ GPSコンパス針マーカー ━━━ */
+.gps-compass-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+.gps-compass-needle {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease-out;
+  transform-origin: center center;
+}
+.gps-needle-n {
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 20px solid #e84040;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+}
+.gps-needle-s {
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 20px solid rgba(255,255,255,0.85);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+}
+.gps-dot-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3080e8;
+  border: 2.5px solid #fff;
+  box-shadow: 0 0 6px rgba(48,128,232,0.7);
+  z-index: 1;
+}

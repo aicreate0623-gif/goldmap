@@ -1,41 +1,157 @@
 'use strict';
-//  GPS
+//  GPS + 方位コンパス
 // ═══════════════════════════════════════════
-let gpsOn=false,gpsFlw=false,gpsWid=null,gpsLL=null,gpsMk=null,gpsCI=null;
+let gpsOn=false, gpsFlw=false, gpsRot=false;
+let gpsWid=null, gpsLL=null, gpsMk=null, gpsCI=null;
+let gpsHeading=null, gpsCompassMk=null;
+let _orientHandler=null;
+
+// ── GPSトグル ────────────────────────────────
 function toggleGps(){
   gpsOn=!gpsOn;
   document.getElementById('btn-gps').classList.toggle('active',gpsOn);
-  const fb=document.getElementById('btn-flw');
-  if(gpsOn){fb.style.display='flex';startWatch();}
-  else{gpsFlw=false;fb.classList.remove('active');fb.style.display='none';stopWatch();
+  const flwBtn=document.getElementById('btn-flw');
+  const rotBtn=document.getElementById('btn-rot');
+  if(gpsOn){
+    flwBtn.style.display='flex';
+    rotBtn.style.display='flex';
+    startWatch();
+    startOrientation();
+  } else {
+    gpsFlw=false; gpsRot=false;
+    flwBtn.classList.remove('active'); flwBtn.style.display='none';
+    rotBtn.classList.remove('active'); rotBtn.style.display='none';
+    stopWatch();
+    stopOrientation();
     if(gpsMk){map.removeLayer(gpsMk);gpsMk=null;}
-    if(gpsCI){map.removeLayer(gpsCI);gpsCI=null;}}
+    if(gpsCI){map.removeLayer(gpsCI);gpsCI=null;}
+    if(gpsCompassMk){map.removeLayer(gpsCompassMk);gpsCompassMk=null;}
+    // 回転リセット
+    if(map.setBearing) map.setBearing(0);
+  }
   updGps();
 }
+
+// ── 追従トグル ───────────────────────────────
 function toggleFollow(){
-  if(!gpsOn)return; gpsFlw=!gpsFlw;
+  if(!gpsOn) return;
+  gpsFlw=!gpsFlw;
   document.getElementById('btn-flw').classList.toggle('active',gpsFlw);
-  if(gpsFlw&&gpsLL)map.setView(gpsLL);
+  if(gpsFlw&&gpsLL) map.setView(gpsLL);
 }
+
+// ── 回転トグル ───────────────────────────────
+function toggleRotate(){
+  if(!gpsOn) return;
+  gpsRot=!gpsRot;
+  document.getElementById('btn-rot').classList.toggle('active',gpsRot);
+  if(!gpsRot){
+    // 回転OFF時は北向きに戻す
+    if(map.setBearing) map.setBearing(0);
+    map.invalidateSize();
+    map.eachLayer(l=>{ if(l.redraw) l.redraw(); });
+  }
+  updGps();
+}
+
+// ── GPS位置監視 ──────────────────────────────
 function startWatch(){
   if(!navigator.geolocation){showAlert('非対応','GPSに対応していません');gpsOn=false;return;}
   gpsWid=navigator.geolocation.watchPosition(onGps,()=>{},{enableHighAccuracy:true});
 }
-function stopWatch(){if(gpsWid!==null){navigator.geolocation.clearWatch(gpsWid);gpsWid=null;}}
+function stopWatch(){
+  if(gpsWid!==null){navigator.geolocation.clearWatch(gpsWid);gpsWid=null;}
+}
 function onGps(pos){
   const{latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
   gpsLL=L.latLng(lat,lng);
-  if(!gpsMk)gpsMk=L.circleMarker([lat,lng],{radius:8,fillColor:'#3080e8',color:'#fff',weight:2,fillOpacity:.95,pane:'paneUser'}).addTo(map);
+  if(!gpsMk) gpsMk=L.circleMarker([lat,lng],{radius:9,fillColor:'#3080e8',color:'#fff',weight:2.5,fillOpacity:.97,pane:'paneUser'}).addTo(map);
   else gpsMk.setLatLng([lat,lng]);
-  if(!gpsCI)gpsCI=L.circle([lat,lng],{radius:acc,color:'#3080e8',fillColor:'#3080e8',fillOpacity:.1,weight:1}).addTo(map);
+  if(!gpsCI) gpsCI=L.circle([lat,lng],{radius:acc,color:'#3080e8',fillColor:'#3080e8',fillOpacity:.1,weight:1}).addTo(map);
   else{gpsCI.setLatLng([lat,lng]);gpsCI.setRadius(acc);}
-  if(gpsFlw)map.setView([lat,lng]);
+  if(gpsFlw) map.setView([lat,lng]);
+  if(gpsRot && gpsHeading!==null){
+    if(map.setBearing) map.setBearing(gpsHeading);
+    map.invalidateSize();
+    map.eachLayer(l=>{ if(l.redraw) l.redraw(); });
+  }
+  updateCompassMarker(lat,lng,gpsHeading);
   document.getElementById('sb-coord').textContent=lat.toFixed(5)+', '+lng.toFixed(5)+' ±'+Math.round(acc)+'m';
   updGps();
 }
+
+// ── 方位センサー ─────────────────────────────
+function startOrientation(){
+  if(!window.DeviceOrientationEvent) return;
+  // iOS 13+は許可リクエストが必要
+  if(typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission()
+      .then(r=>{ if(r==='granted') _addOrientListener(); })
+      .catch(()=>{});
+  } else {
+    _addOrientListener();
+  }
+}
+function _addOrientListener(){
+  _orientHandler=e=>{
+    let heading=null;
+    if(e.webkitCompassHeading!=null){
+      heading=e.webkitCompassHeading; // iOS
+    } else if(e.alpha!=null){
+      heading=(360-e.alpha)%360;      // Android
+    }
+    if(heading===null) return;
+    gpsHeading=heading;
+    if(gpsLL) updateCompassMarker(gpsLL.lat,gpsLL.lng,heading);
+    if(gpsRot){
+      if(map.setBearing) map.setBearing(heading);
+      // タイル再描画（前回不具合対策）
+      clearTimeout(window._rotTimer);
+      window._rotTimer=setTimeout(()=>{
+        map.invalidateSize();
+        map.eachLayer(l=>{ if(l.redraw) l.redraw(); });
+      },150);
+    }
+  };
+  window.addEventListener('deviceorientation',_orientHandler,true);
+}
+function stopOrientation(){
+  if(_orientHandler){
+    window.removeEventListener('deviceorientation',_orientHandler,true);
+    _orientHandler=null;
+  }
+  gpsHeading=null;
+}
+
+// ── コンパス針マーカー ────────────────────────
+function updateCompassMarker(lat,lng,heading){
+  const rot=heading!=null?heading:0;
+  const html=`<div class="gps-compass-wrap">
+    <div class="gps-compass-needle" style="transform:rotate(${rot}deg)">
+      <div class="gps-needle-n"></div>
+      <div class="gps-needle-s"></div>
+    </div>
+    <div class="gps-dot-center"></div>
+  </div>`;
+  const ico=L.divIcon({html,className:'',iconSize:[48,48],iconAnchor:[24,24]});
+  if(!gpsCompassMk){
+    gpsCompassMk=L.marker([lat,lng],{icon:ico,zIndexOffset:200,pane:'paneUser',interactive:false}).addTo(map);
+  } else {
+    gpsCompassMk.setLatLng([lat,lng]);
+    gpsCompassMk.setIcon(ico);
+  }
+}
+
+// ── ステータス更新 ────────────────────────────
 function updGps(){
   document.getElementById('gps-dot').className='sb-dot'+(gpsOn?' on':'');
-  document.getElementById('sb-gps-lbl').textContent=gpsOn?(gpsFlw?'GPS 追従中':'GPS オン'):'GPS オフ';
+  let lbl='GPS オフ';
+  if(gpsOn){
+    if(gpsRot) lbl='GPS 回転中';
+    else if(gpsFlw) lbl='GPS 追従中';
+    else lbl='GPS オン';
+  }
+  document.getElementById('sb-gps-lbl').textContent=lbl;
 }
 
 // ━━━ 座標表示（マウス/タッチ）
