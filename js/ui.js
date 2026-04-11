@@ -48,8 +48,6 @@ function toggleRotate(){
   if(!gpsRot){
     // 回転OFF時は北向きに戻す
     if(map.setBearing) map.setBearing(0);
-    map.invalidateSize();
-    map.eachLayer(l=>{ if(l.redraw) l.redraw(); });
   }
   updGps();
 }
@@ -72,8 +70,6 @@ function onGps(pos){
   if(gpsFlw) map.setView([lat,lng]);
   if(gpsRot && gpsHeading!==null){
     if(map.setBearing) map.setBearing(gpsHeading);
-    map.invalidateSize();
-    map.eachLayer(l=>{ if(l.redraw) l.redraw(); });
   }
   updateCompassMarker(lat,lng,gpsHeading);
   document.getElementById('sb-coord').textContent=lat.toFixed(5)+', '+lng.toFixed(5)+' ±'+Math.round(acc)+'m';
@@ -105,12 +101,6 @@ function _addOrientListener(){
     if(gpsLL) updateCompassMarker(gpsLL.lat,gpsLL.lng,heading);
     if(gpsRot){
       if(map.setBearing) map.setBearing(heading);
-      // タイル再描画（前回不具合対策）
-      clearTimeout(window._rotTimer);
-      window._rotTimer=setTimeout(()=>{
-        map.invalidateSize();
-        map.eachLayer(l=>{ if(l.redraw) l.redraw(); });
-      },150);
     }
   };
   window.addEventListener('deviceorientation',_orientHandler,true);
@@ -123,19 +113,25 @@ function stopOrientation(){
   gpsHeading=null;
 }
 
-// ── コンパス針マーカー ────────────────────────
+// ── サーチライト扇形マーカー ──────────────────
 function updateCompassMarker(lat,lng,heading){
-  const rot=heading!=null?heading:0;
-  const html=`<div class="gps-compass-wrap">
-    <div class="gps-compass-needle" style="transform:rotate(${rot}deg)">
-      <div class="gps-needle-n"></div>
-      <div class="gps-needle-s"></div>
-    </div>
-    <div class="gps-dot-center"></div>
+  const rot = heading != null ? heading : 0;
+  // SVGで扇形（60°）＋中心ドット
+  const html = `<div style="width:80px;height:80px;position:relative;transform:rotate(${rot}deg);transform-origin:40px 40px;">
+    <svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+      <!-- 扇形サーチライト（上向き・60°） -->
+      <path d="M40,40 L22,4 A38,38 0 0,1 58,4 Z"
+            fill="rgba(80,180,255,0.25)"
+            stroke="rgba(80,180,255,0.7)"
+            stroke-width="1.2"
+            stroke-linejoin="round"/>
+      <!-- 中心ドット -->
+      <circle cx="40" cy="40" r="6" fill="#3080e8" stroke="#fff" stroke-width="2"/>
+    </svg>
   </div>`;
-  const ico=L.divIcon({html,className:'',iconSize:[48,48],iconAnchor:[24,24]});
+  const ico = L.divIcon({html, className:'', iconSize:[80,80], iconAnchor:[40,40]});
   if(!gpsCompassMk){
-    gpsCompassMk=L.marker([lat,lng],{icon:ico,zIndexOffset:200,pane:'paneUser',interactive:false}).addTo(map);
+    gpsCompassMk = L.marker([lat,lng],{icon:ico,zIndexOffset:200,pane:'paneUser',interactive:false}).addTo(map);
   } else {
     gpsCompassMk.setLatLng([lat,lng]);
     gpsCompassMk.setIcon(ico);
