@@ -102,6 +102,23 @@
     <h2>📍 ポイント一覧</h2>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
+
+  <!-- ヒートマップ協力トグル -->
+  <div class="contrib-bar">
+    <div class="contrib-bar-left">
+      <span class="contrib-icon">🗺️</span>
+      <div class="contrib-label">
+        <span class="contrib-title">ヒートマップに協力</span>
+        <span class="contrib-sub">位置情報を匿名で提供</span>
+      </div>
+    </div>
+    <button class="contrib-toggle" id="contrib-toggle" onclick="onContribToggle()">
+      <span class="contrib-off-lbl">OFF</span>
+      <span class="contrib-thumb"></span>
+      <span class="contrib-on-lbl">ON</span>
+    </button>
+  </div>
+
   <div class="pt-actions">
     <button class="btn accent" onclick="startAddPt(); switchTab('map')">＋ ポイント追加</button>
     <button class="btn sm" onclick="exportPts()">📤 書出</button>
@@ -453,6 +470,37 @@
       <button class="dbtn del" onclick="doImport('over')">上書き</button>
     </div>
   </div>
+  <!-- 協力同意ダイアログ -->
+  <div class="dialog" id="dlg-contrib-on" style="display:none">
+    <h3>🗺️ ヒートマップへのご協力</h3>
+    <p class="dlg-msg" style="text-align:left;font-size:12px;line-height:1.7;">
+      砂金採取ポイントの位置情報を匿名で収集し、<br>
+      砂金分布ヒートマップの作成に活用させていただきます。<br><br>
+      <b>【収集する情報】</b><br>
+      ・約1km²単位に丸めた位置情報のみ<br>
+      ・氏名・端末情報など個人を特定する情報は一切収集しません<br><br>
+      <b>【利用目的】</b><br>
+      ・砂金分布ヒートマップの生成のみ<br>
+      ・第三者への提供は行いません<br><br>
+      ご協力いただける場合は「協力する」をタップしてください。<br>
+      いつでもOFFに戻せます。
+    </p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="closeOv()">キャンセル</button>
+      <button class="dbtn ok" onclick="confirmContribOn()">協力する</button>
+    </div>
+  </div>
+
+  <!-- 協力停止確認ダイアログ -->
+  <div class="dialog" id="dlg-contrib-off" style="display:none">
+    <h3>協力を停止しますか？</h3>
+    <p class="dlg-msg">以降のポイント保存時に位置情報を送信しません。<br>既に送信済みのデータは引き続きヒートマップに使用されます。</p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="closeOv()">キャンセル</button>
+      <button class="dbtn del" onclick="confirmContribOff()">停止する</button>
+    </div>
+  </div>
+
   <div class="dialog" id="dlg-alr" style="display:none">
     <h3 id="alr-ttl">通知</h3>
     <p class="dlg-msg" id="alr-msg"></p>

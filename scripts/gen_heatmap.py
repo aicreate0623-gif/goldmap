@@ -26,17 +26,17 @@ def coord_to_grid(lat, lng):
             round(lng / GRID_SIZE) * GRID_SIZE)
 
 def fetch_coords_from_firestore():
-    # [PHASE2 UNCOMMENT]
-    # import firebase_admin
-    # from firebase_admin import credentials, firestore
-    # project_id = os.environ['FIREBASE_PROJECT_ID']
-    # if not firebase_admin._apps:
-    #     cred = credentials.ApplicationDefault()
-    #     firebase_admin.initialize_app(cred, {'projectId': project_id})
-    # db = firestore.client()
-    # docs = db.collection('coords').stream()
-    # return [{'lat': d.get('lat'), 'lng': d.get('lng')} for d in docs
-    #         if d.get('lat') and d.get('lng')]
+     [PHASE2 UNCOMMENT]
+     import firebase_admin
+     from firebase_admin import credentials, firestore
+     project_id = os.environ['FIREBASE_PROJECT_ID']
+     if not firebase_admin._apps:
+         cred = credentials.ApplicationDefault()
+         firebase_admin.initialize_app(cred, {'projectId': project_id})
+     db = firestore.client()
+     docs = db.collection('coords').stream()
+     return [{'lat': d.get('lat'), 'lng': d.get('lng')} for d in docs
+             if d.get('lat') and d.get('lng')]
 
     print("[gen_heatmap.py] STUB: Firestore未接続 - サンプルデータを使用", file=sys.stderr)
     return [

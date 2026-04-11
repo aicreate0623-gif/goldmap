@@ -44,11 +44,11 @@ jobs:
       #   run: |
       #     echo "${{ secrets.FIREBASE_SA_KEY }}" | base64 -d > /tmp/sa_key.json
 
-      - name: Generate heatmap.json
-        env:
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          # [PHASE2 UNCOMMENT]
-          # GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa_key.json
+     - name: Decode Firebase SA key
+       run: |
+           echo "${{ secrets.FIREBASE_SA_KEY }}" | base64 -d > /tmp/sa_key.json
+
+        GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa_key.json
         run: |
           python scripts/gen_heatmap.py
 
