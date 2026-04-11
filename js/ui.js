@@ -62,8 +62,18 @@ function toggleFollow(){
 
 // ── GPS位置監視 ──────────────────────────────
 function startWatch(){
-  if(!navigator.geolocation){showAlert('非対応','GPSに対応していません');gpsOn=false;return;}
-  gpsWid=navigator.geolocation.watchPosition(onGps,()=>{},{enableHighAccuracy:true});
+  if(!navigator.geolocation){showAlert('非対応','GPSに対応していません');gpsOn=false;updGps();return;}
+  gpsWid=navigator.geolocation.watchPosition(
+    onGps,
+    (err)=>{
+      console.warn('[GPS] error', err.code, err.message);
+      if(err.code===1){
+        showAlert('位置情報の許可が必要です','設定アプリ → Chrome → 位置情報 → 許可 に変更してください');
+        gpsOn=false; updGps();
+      }
+    },
+    {enableHighAccuracy:true, timeout:15000, maximumAge:0}
+  );
 }
 function stopWatch(){
   if(gpsWid!==null){navigator.geolocation.clearWatch(gpsWid);gpsWid=null;}
@@ -131,10 +141,11 @@ function stopOrientation(){
 // ── サーチライト扇形マーカー（グラデーション）────
 function updateCompassMarker(lat,lng,heading){
   const rot = heading != null ? heading : 0;
+  const gid = 'sg_' + Date.now(); // IDの重複を防ぐ
   const html = `<div style="width:140px;height:140px;position:relative;transform:rotate(${rot}deg);transform-origin:70px 70px;">
     <svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <radialGradient id="sg" cx="50%" cy="57%" r="50%">
+        <radialGradient id="${gid}" cx="50%" cy="57%" r="50%">
           <stop offset="0%"   stop-color="rgba(80,180,255,0.75)"/>
           <stop offset="50%"  stop-color="rgba(80,180,255,0.40)"/>
           <stop offset="100%" stop-color="rgba(80,180,255,0.00)"/>
@@ -142,7 +153,7 @@ function updateCompassMarker(lat,lng,heading){
       </defs>
       <!-- 扇形サーチライト（上向き・90°） -->
       <path d="M70,70 L24,24 A65,65 0 0,1 116,24 Z"
-            fill="url(#sg)"
+            fill="url(#${gid})"
             stroke="rgba(80,180,255,0.7)"
             stroke-width="1.2"
             stroke-linejoin="round"/>
