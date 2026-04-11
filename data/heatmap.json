@@ -1,21 +1,6 @@
 {
   "type": "FeatureCollection",
-  "generated_at": "2026-04-11T02:03:39Z",
-  "total_submissions": 1,
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          139.46,
-          35.12
-        ]
-      },
-      "properties": {
-        "weight": 1.0,
-        "count": 1
-      }
-    }
-  ]
+  "generated_at": "2026-04-11T19:51:25Z",
+  "total_submissions": 0,
+  "features": []
 }
