@@ -1,7 +1,7 @@
 'use strict';
 //  GPS + 方位コンパス
 // ═══════════════════════════════════════════
-let gpsOn=false, gpsFlw=false, gpsRot=false;
+let gpsOn=false, gpsFlw=false;
 let gpsWid=null, gpsLL=null, gpsCI=null;
 let gpsHeading=null, gpsCompassMk=null;
 let _orientHandler=null;
@@ -34,16 +34,13 @@ function toggleGps(){
   gpsOn=!gpsOn;
   document.getElementById('btn-gps').classList.toggle('active',gpsOn);
   const flwBtn=document.getElementById('btn-flw');
-  const rotBtn=document.getElementById('btn-rot');
   if(gpsOn){
     flwBtn.style.display='flex';
-    rotBtn.style.display='flex';
     startWatch();
     startOrientation();
   } else {
-    gpsFlw=false; gpsRot=false;
+    gpsFlw=false;
     flwBtn.classList.remove('active'); flwBtn.style.display='none';
-    rotBtn.classList.remove('active'); rotBtn.style.display='none';
     stopWatch();
     stopOrientation();
     if(gpsCI){map.removeLayer(gpsCI);gpsCI=null;}
@@ -62,17 +59,6 @@ function toggleFollow(){
 }
 
 // ── 回転トグル ───────────────────────────────
-function toggleRotate(){
-  if(!gpsOn) return;
-  gpsRot=!gpsRot;
-  document.getElementById('btn-rot').classList.toggle('active',gpsRot);
-  if(gpsRot && gpsHeading!==null){
-    _applyBearing(gpsHeading);
-  } else {
-    _applyBearing(0);
-  }
-  updGps();
-}
 
 // ── GPS位置監視 ──────────────────────────────
 function startWatch(){
@@ -88,7 +74,6 @@ function onGps(pos){
   if(!gpsCI) gpsCI=L.circle([lat,lng],{radius:acc,color:'#3080e8',fillColor:'#3080e8',fillOpacity:.1,weight:1,pane:'paneUser'}).addTo(map);
   else{gpsCI.setLatLng([lat,lng]);gpsCI.setRadius(acc);}
   if(gpsFlw) map.setView([lat,lng]);
-  if(gpsRot && gpsHeading!==null) _applyBearing(gpsHeading);
   updateCompassMarker(lat,lng,gpsHeading);
   document.getElementById('sb-coord').textContent=lat.toFixed(5)+', '+lng.toFixed(5)+' ±'+Math.round(acc)+'m';
   updGps();
@@ -124,7 +109,6 @@ function _addOrientListener(){
     const heading=_smoothHeading(raw);      // ローパスフィルター通過
     gpsHeading=heading;
     if(gpsLL) updateCompassMarker(gpsLL.lat,gpsLL.lng,heading);
-    if(gpsRot) _applyBearing(heading);
   };
   // Android: deviceorientationabsolute（真北基準）を優先
   const evtName=('ondeviceorientationabsolute' in window)
@@ -147,25 +131,27 @@ function stopOrientation(){
 // ── サーチライト扇形マーカー（グラデーション）────
 function updateCompassMarker(lat,lng,heading){
   const rot = heading != null ? heading : 0;
-  const html = `<div style="width:100px;height:100px;position:relative;transform:rotate(${rot}deg);transform-origin:50px 50px;">
-    <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  const html = `<div style="width:140px;height:140px;position:relative;transform:rotate(${rot}deg);transform-origin:70px 70px;">
+    <svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <radialGradient id="sg" cx="50%" cy="62%" r="50%">
-          <stop offset="0%"   stop-color="rgba(80,180,255,0.55)"/>
-          <stop offset="60%"  stop-color="rgba(80,180,255,0.20)"/>
+        <radialGradient id="sg" cx="50%" cy="57%" r="50%">
+          <stop offset="0%"   stop-color="rgba(80,180,255,0.75)"/>
+          <stop offset="50%"  stop-color="rgba(80,180,255,0.40)"/>
           <stop offset="100%" stop-color="rgba(80,180,255,0.00)"/>
         </radialGradient>
       </defs>
-      <path d="M50,50 L24,3 A48,48 0 0,1 76,3 Z"
+      <!-- 扇形サーチライト（上向き・90°） -->
+      <path d="M70,70 L24,24 A65,65 0 0,1 116,24 Z"
             fill="url(#sg)"
-            stroke="rgba(80,180,255,0.6)"
-            stroke-width="1"
+            stroke="rgba(80,180,255,0.7)"
+            stroke-width="1.2"
             stroke-linejoin="round"/>
-      <circle cx="50" cy="50" r="8" fill="#3080e8" stroke="#fff" stroke-width="2.5"/>
-      <circle cx="50" cy="50" r="3" fill="#fff"/>
+      <!-- 中心ドット -->
+      <circle cx="70" cy="70" r="9" fill="#3080e8" stroke="#fff" stroke-width="2.5"/>
+      <circle cx="70" cy="70" r="3.5" fill="#fff"/>
     </svg>
   </div>`;
-  const ico = L.divIcon({html, className:'', iconSize:[100,100], iconAnchor:[50,50]});
+  const ico = L.divIcon({html, className:'', iconSize:[140,140], iconAnchor:[70,70]});
   if(!gpsCompassMk){
     gpsCompassMk = L.marker([lat,lng],{icon:ico,zIndexOffset:200,pane:'paneUser',interactive:false}).addTo(map);
   } else {
@@ -179,8 +165,7 @@ function updGps(){
   document.getElementById('gps-dot').className='sb-dot'+(gpsOn?' on':'');
   let lbl='GPS オフ';
   if(gpsOn){
-    if(gpsRot) lbl='GPS 回転中';
-    else if(gpsFlw) lbl='GPS 追従中';
+    if(gpsFlw) lbl='GPS 追従中';
     else lbl='GPS オン';
   }
   document.getElementById('sb-gps-lbl').textContent=lbl;
