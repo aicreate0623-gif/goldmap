@@ -12,8 +12,8 @@ const FIREBASE_CONFIG = {
   appId:             "1:876401235278:web:bbf7d2491ac3f49357fa1f"
 };
 
-// ── フリープランのポイント上限 ────────────────────────
-const FREE_PLAN_LIMIT = 3;
+// ── プラン制限定数 ────────────────────────────
+const FREE_POINT_LIMIT = 3;   // 無料ユーザーのポイント保存上限
 
 // ─────────────────────────────────────────────────────
 // 初期化
@@ -22,7 +22,6 @@ async function initFirebase() {
   firebase.initializeApp(FIREBASE_CONFIG);
   const auth = firebase.auth();
 
-  // onAuthStateChanged でUID確定を待つ（signInAnonymously直後はcurrentUserがnullの場合がある）
   await new Promise((resolve, reject) => {
     const unsubscribe = auth.onAuthStateChanged(user => {
       unsubscribe();
@@ -39,17 +38,92 @@ async function initFirebase() {
 }
 
 // ─────────────────────────────────────────────────────
-// 課金ユーザー判定（Phase4で実装）
+// 課金ユーザー判定
+//   Phase2: Firestoreの users/{uid}.premium フラグを参照
+//   Phase1: 常に false（スタブ）
 // ─────────────────────────────────────────────────────
 async function isPremiumUser() {
-  return false; // スタブ: 常に無料ユーザー扱い
+  // [Phase2 UNCOMMENT] ↓
+  // if (!window._fbUid) return false;
+  // try {
+  //   const doc = await firebase.firestore()
+  //     .collection('users').doc(window._fbUid).get();
+  //   return doc.exists && doc.data().premium === true;
+  // } catch (e) {
+  //   console.warn('[firebase.js] isPremiumUser error', e);
+  //   return false;
+  // }
+  return false; // Phase1スタブ
 }
 
 // ─────────────────────────────────────────────────────
-// ポイント保存前の制限チェック
+// 自分の投稿件数を取得
+//   Phase2: Firestoreの coords を uid で絞り込み
+//   Phase1: localStorage の gm_pts の fsId 付き件数で代替
 // ─────────────────────────────────────────────────────
-async function checkPointLimit(pts) {
-  return true; // スタブ: 常に保存続行
+async function getUserPostCount() {
+  // [Phase2 UNCOMMENT] ↓
+  // if (!window._fbUid) return 0;
+  // try {
+  //   const snap = await firebase.firestore()
+  //     .collection('coords')
+  //     .where('uid', '==', window._fbUid)
+  //     .get();
+  //   return snap.size;
+  // } catch (e) {
+  //   console.warn('[firebase.js] getUserPostCount error', e);
+  //   return 0;
+  // }
+
+  // Phase1スタブ: fsId 付きポイントを送信済みとして件数を返す
+  try {
+    const saved = JSON.parse(localStorage.getItem('gm_pts') || '[]');
+    return saved.filter(p => !!p.fsId).length;
+  } catch (e) {
+    return 0;
+  }
+}
+
+// ─────────────────────────────────────────────────────
+// 課金ゲート表示
+//   type: 'point_limit' | 'offline' | 'heatmap_hd'
+//   → 各typeで文言を差し替えてモーダル表示
+//   → Phase2でCTAのStripeリンクを差し込むだけで完結する構造
+// ─────────────────────────────────────────────────────
+function showPremiumGate(type) {
+  const GATE_CONTENT = {
+    point_limit: {
+      icon:  '📍',
+      title: 'ポイント上限に達しました',
+      body:  `無料プランでは最大 ${FREE_POINT_LIMIT} 件まで保存できます。\nプレミアムプランにアップグレードすると、ポイントを無制限に保存できます。`,
+    },
+    offline: {
+      icon:  '⬇',
+      title: 'オフライン機能はプレミアム',
+      body:  'タイルのダウンロード・オフライン利用はプレミアムプランの機能です。\nアップグレードすると電波のない山中でも地図を使えます。',
+    },
+    heatmap_hd: {
+      icon:  '🔥',
+      title: '高解像度ヒートマップはプレミアム',
+      body:  '高解像度の砂金分布ヒートマップはプレミアムプランの機能です。\nまた、自分のポイントを1件以上投稿していることが条件です。',
+    },
+  };
+
+  const c = GATE_CONTENT[type] || GATE_CONTENT['point_limit'];
+  document.getElementById('premium-gate-icon').textContent  = c.icon;
+  document.getElementById('premium-gate-title').textContent = c.title;
+  document.getElementById('premium-gate-body').textContent  = c.body;
+  showDlg('dlg-premium-gate');
+}
+
+// ─────────────────────────────────────────────────────
+// 課金フロー起動（Phase2: Stripe決済画面へ遷移）
+// ─────────────────────────────────────────────────────
+function startPurchaseFlow() {
+  closeOv();
+  // [Phase2 UNCOMMENT] ↓
+  // window.location.href = 'https://buy.stripe.com/xxxx';
+  showAlert('準備中', 'サブスクリプション機能は近日公開予定です。');
 }
 
 // ─────────────────────────────────────────────────────
@@ -63,15 +137,14 @@ async function submitCoord(lat, lng) {
     ts:  firebase.firestore.FieldValue.serverTimestamp(),
   });
   console.log('[firebase.js] submitCoord OK', lat, lng, 'fsId=', ref.id);
-  return ref.id; // ← ドキュメントIDを返す
+  return ref.id;
 }
 
 // ─────────────────────────────────────────────────────
 // Firestoreからドキュメントを削除
-//   fsId: submitCoord() が返したドキュメントID
 // ─────────────────────────────────────────────────────
 async function deleteCoord(fsId) {
-  if(!fsId) return;
+  if (!fsId) return;
   const db = firebase.firestore();
   await db.collection('coords').doc(fsId).delete();
   console.log('[firebase.js] deleteCoord OK fsId=', fsId);
@@ -90,16 +163,4 @@ async function fetchHeatPoints() {
     lat: d.data().lat, lng: d.data().lng, weight: 1.0
   }));
   addHeatPoints(points);
-}
-
-// ─────────────────────────────────────────────────────
-// 課金誘導ダイアログ（Phase4で実装）
-// ─────────────────────────────────────────────────────
-function showPremiumDialog() {
-  showAlert(
-    'プレミアム機能',
-    '無料プランではポイントを' + FREE_PLAN_LIMIT + '件まで保存できます。\n' +
-    'プレミアムプランにアップグレードすると無制限に保存・\n' +
-    'ヒートマップ閲覧・オフライン機能が利用できます。'
-  );
 }

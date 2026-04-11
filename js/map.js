@@ -1,7 +1,7 @@
 'use strict';
 const map=L.map('map',{center:[36.5,137.5],zoom:7,zoomControl:true,rotate:true,bearing:0});
 map.zoomControl.setPosition('bottomright');
-let TILES={}, curBase='std';
+let TILES={}, curBase='photo'; // デフォルト: 航空写真
 
 async function initMap(){
   await openDB().catch(()=>console.warn('IndexedDB unavailable'));
@@ -34,7 +34,10 @@ async function initMap(){
     });
   };
   TILES={std:mk('std'),photo:mk('photo'),topo:mk('topo')};
-  TILES.std.addTo(map);
+  // デフォルト: 航空写真
+  TILES.photo.addTo(map);
+  curBase='photo';
+  document.getElementById('btn-photo').classList.add('base-active','active');
   mineLayer.addTo(map);
   document.getElementById('btn-mine').classList.toggle('active', mineV);
   loadPts();
@@ -56,6 +59,22 @@ function setBase(k){
     btn.classList.remove('base-active','active');
     if(b===k) btn.classList.add('base-active','active');
   });
+}
+
+// ── ヒートマップ高解像度トグル（ゲートC）────────────
+async function toggleHeatHD(){
+  // ゲートC条件チェック: isPremium かつ 自投稿1件以上
+  const [premium, postCount] = await Promise.all([
+    isPremiumUser(),
+    getUserPostCount(),
+  ]);
+  if(!premium || postCount < 1){
+    showPremiumGate('heatmap_hd');
+    return;
+  }
+  // Premium & 投稿あり → HD切り替え実行
+  // Phase2: renderHeatmap('paid') に差し替える
+  showAlert('HD表示', '高解像度ヒートマップに切り替えました。（Phase2実装予定）');
 }
 
 // 地質図

@@ -260,6 +260,8 @@ map.on('zoomend', () => {
 function toggleHeat() {
   heatOn = !heatOn;
   document.getElementById('btn-heat').classList.toggle('active', heatOn);
+  // HDボタン: ヒートマップON時のみ表示
+  document.getElementById('btn-hd').style.display = heatOn ? 'flex' : 'none';
   if (heatOn) {
     initHeatLayer();
   } else {
@@ -529,6 +531,22 @@ let curTab='map';
 const SHEETS={pts:'pt-sheet', offline:'dl-sheet', cfg:'cfg-sheet'};
 
 function switchTab(tab){
+  // ── ゲートB: オフラインタブを開く時に課金チェック ──────
+  if(tab === 'offline'){
+    isPremiumUser().then(premium => {
+      if(!premium){
+        showPremiumGate('offline');
+      } else {
+        _openTab('offline');
+      }
+    });
+    return;
+  }
+  // ────────────────────────────────────────────────────────
+  _openTab(tab);
+}
+
+function _openTab(tab){
   // 前のタブのシートを閉じる
   if(curTab!=='map' && SHEETS[curTab]){
     document.getElementById(SHEETS[curTab]).classList.remove('open');
@@ -549,7 +567,7 @@ function switchTab(tab){
 // ═══════════════════════════════════════════
 //  ダイアログ
 // ═══════════════════════════════════════════
-const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp','dlg-alr','dlg-contrib-on','dlg-contrib-off'];
+const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp','dlg-alr','dlg-contrib-on','dlg-contrib-off','dlg-premium-gate'];
 function showDlg(id){DLGS.forEach(d=>document.getElementById(d).style.display='none');document.getElementById(id).style.display='block';document.getElementById('overlay').classList.add('open');}
 function closeOv(){document.getElementById('overlay').classList.remove('open');DLGS.forEach(d=>document.getElementById(d).style.display='none');eid=null;}
 function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;document.getElementById('alr-msg').textContent=msg;showDlg('dlg-alr');}
@@ -653,6 +671,20 @@ document.addEventListener('keydown',e=>{
 (function(){
   const _orig = switchTab;
   switchTab = function(tab){
+    if(tab === 'offline'){
+      isPremiumUser().then(premium => {
+        if(!premium){
+          showPremiumGate('offline');
+        } else {
+          const wasMap = (curTab === 'map');
+          _openTab(tab);
+          if(!_suppressPush && wasMap){
+            _pushHistory();
+          }
+        }
+      });
+      return;
+    }
     const wasMap = (curTab === 'map');
     _orig(tab);
     if(!_suppressPush && wasMap && tab !== 'map'){

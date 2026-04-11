@@ -29,16 +29,22 @@
 <!-- ━━━ MAP ━━━ -->
 <div id="map"></div>
 
-<!-- ━━━ FLOATING CONTROLS ━━━ -->
+<!-- ━━━ FLOATING CONTROLS (top bar) ━━━ -->
 <div id="float-ctrl">
-  <button class="fc-btn base-active" id="btn-std"   onclick="setBase('std')"  title="地理院地図">
+  <button class="fc-btn" id="btn-std"   onclick="setBase('std')"  title="地理院地図">
     <span class="fc-ico">🗾</span><span>地理院</span>
   </button>
-  <button class="fc-btn" id="btn-photo" onclick="setBase('photo')" title="航空写真">
+  <button class="fc-btn base-active active" id="btn-photo" onclick="setBase('photo')" title="航空写真">
     <span class="fc-ico">📷</span><span>航空</span>
   </button>
   <button class="fc-btn" id="btn-topo"  onclick="setBase('topo')"  title="地形図">
     <span class="fc-ico">⛰</span><span>地形</span>
+  </button>
+  <button class="fc-btn" id="btn-heat" onclick="toggleHeat()" title="砂金採取ヒートマップ">
+    <span class="fc-ico">🔥</span><span>分布</span>
+  </button>
+  <button class="fc-btn" id="btn-hd" onclick="toggleHeatHD()" title="高解像度ヒートマップ（プレミアム）" style="display:none">
+    <span class="fc-ico">🔒</span><span>HD</span>
   </button>
   <button class="fc-btn" id="btn-geo"   onclick="toggleGeo()"      title="地質図">
     <span class="fc-ico">🪨</span><span>地質</span>
@@ -48,6 +54,10 @@
     <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
     <span id="geo-opv">50%</span>
   </div>
+</div>
+
+<!-- ━━━ FLOATING CONTROLS RIGHT (map tools) ━━━ -->
+<div id="float-ctrl-right">
   <button class="fc-btn" id="btn-mine"  onclick="toggleMine()"     title="砂金DB">
     <span class="fc-ico">⛏</span><span>砂金DB</span>
   </button>
@@ -56,9 +66,6 @@
   </button>
   <button class="fc-btn" id="btn-gsj" onclick="toggleGsjLayer()" title="鉱床・鉱徴地">
     <span class="fc-ico">🔶</span><span>鉱床</span>
-  </button>
-  <button class="fc-btn" id="btn-heat" onclick="toggleHeat()" title="砂金採取ヒートマップ">
-    <span class="fc-ico">🔥</span><span>分布</span>
   </button>
   <button class="fc-btn" id="btn-wiki" onclick="toggleWikiLayer()" title="Wikidata鉱山">
     <span class="fc-ico">🌐</span><span>Wiki鉱山</span>
@@ -507,6 +514,17 @@
     <p class="dlg-msg" id="alr-msg"></p>
     <div class="dlg-btns">
       <button class="dbtn ok" onclick="closeOv()">OK</button>
+    </div>
+  </div>
+
+  <!-- 課金ゲートダイアログ（type別に文言を差し替えて共用） -->
+  <div class="dialog" id="dlg-premium-gate" style="display:none">
+    <div class="premium-gate-icon" id="premium-gate-icon">🔒</div>
+    <h3 id="premium-gate-title">プレミアム機能</h3>
+    <p class="dlg-msg" id="premium-gate-body"></p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="closeOv()">閉じる</button>
+      <button class="dbtn ok premium-cta" onclick="startPurchaseFlow()">アップグレード</button>
     </div>
   </div>
 </div>

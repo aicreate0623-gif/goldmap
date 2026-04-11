@@ -128,11 +128,24 @@ function reqSave(){
   document.getElementById('save-msg').textContent=`「${n}」を\n緯度 ${lat.toFixed(5)}\n経度 ${lng.toFixed(5)}\nに保存しますか？`;
   showDlg('dlg-savecf');
 }
-function confirmSave(){
+async function confirmSave(){
   const n=document.getElementById('pt-name').value.trim(),m=document.getElementById('pt-memo').value.trim();
-  if(eid!==null){const p=pts.find(q=>q.id===eid);p.name=n;p.memo=m;}
-  else{
+  if(eid!==null){
+    // 編集の場合は件数チェック不要
+    const p=pts.find(q=>q.id===eid);p.name=n;p.memo=m;
+  } else {
     if(pts.length>=MAX_PT){showAlert('上限','最大1000件です');cancelAdd();closeOv();return;}
+
+    // ── ゲートA: 無料プランのポイント上限チェック ──────────
+    if(pts.length >= FREE_POINT_LIMIT){
+      const premium = await isPremiumUser();
+      if(!premium){
+        showPremiumGate('point_limit');
+        return; // 保存ブロック（ダイアログ表示後、ピンはそのまま残す）
+      }
+    }
+    // ────────────────────────────────────────────────────────
+
     const ll=tPin.getLatLng(),p={id:nid++,lat:ll.lat,lng:ll.lng,name:n,memo:m};
     pts.push(p);addMk(p);cancelAdd();
     if(isContribOn()){

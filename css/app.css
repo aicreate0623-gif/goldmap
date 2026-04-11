@@ -60,9 +60,20 @@ html, body {
 #sb-pt      { color: var(--txt-sub); }
 #sb-cache   { margin-left: auto; color: var(--txt-dim); font-size: 9px; }
 
-/* ━━━ FLOATING CONTROLS (right-top) ━━━ */
+/* ━━━ FLOATING CONTROLS TOP BAR (左上・横並び) ━━━ */
 #float-ctrl {
-  position: fixed; top: calc(var(--sb-h) + 10px); right: 10px;
+  position: fixed;
+  top: calc(var(--sb-h) + 8px);
+  left: 10px;
+  z-index: 900;
+  display: flex; flex-direction: row; gap: 5px; align-items: flex-start;
+  flex-wrap: wrap;
+  max-width: calc(100vw - 70px); /* 右コントロールとの衝突回避 */
+}
+
+/* ━━━ FLOATING CONTROLS RIGHT (右縦並び・既存位置) ━━━ */
+#float-ctrl-right {
+  position: fixed; top: calc(var(--sb-h) + 8px); right: 10px;
   z-index: 900;
   display: flex; flex-direction: column; gap: 5px; align-items: flex-end;
 }
@@ -99,17 +110,35 @@ html, body {
 /* GPS追従ボタン（GPS ON時のみ表示）*/
 #btn-flw { display: none; }
 
-/* 地質図透過スライダー行 */
+/* 地質図透過スライダー行（上部バー内・横並び） */
 #geo-row {
   display: none; align-items: center; gap: 5px;
   background: rgba(13,12,8,0.88); backdrop-filter: blur(6px);
   border: 1px solid var(--border); border-radius: 8px;
   padding: 5px 8px;
+  height: 42px; /* fc-btnと高さを揃える */
 }
 #geo-row.show { display: flex; }
 #geo-row label { font-size: 9px; color: var(--txt-sub); white-space: nowrap; }
 input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer; }
 #geo-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
+
+/* ━━━ 課金ゲートダイアログ ━━━ */
+.premium-gate-icon {
+  font-size: 32px; text-align: center; margin-bottom: 8px;
+}
+#dlg-premium-gate h3 {
+  text-align: center;
+}
+#dlg-premium-gate .dlg-msg {
+  white-space: pre-line; /* \n で改行 */
+}
+.premium-cta {
+  background: linear-gradient(135deg, var(--gold-dk) 0%, var(--gold) 100%) !important;
+  color: #1a1400 !important;
+  font-weight: 700 !important;
+  border-color: var(--gold-lt) !important;
+}
 
 /* ━━━ TAB BAR ━━━ */
 #tabbar {
