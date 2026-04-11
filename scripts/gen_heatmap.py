@@ -26,26 +26,17 @@ def coord_to_grid(lat, lng):
             round(lng / GRID_SIZE) * GRID_SIZE)
 
 def fetch_coords_from_firestore():
-     [PHASE2 UNCOMMENT]
-     import firebase_admin
-     from firebase_admin import credentials, firestore
-     project_id = os.environ['FIREBASE_PROJECT_ID']
-     if not firebase_admin._apps:
-         cred = credentials.ApplicationDefault()
-         firebase_admin.initialize_app(cred, {'projectId': project_id})
-     db = firestore.client()
-     docs = db.collection('coords').stream()
-     return [{'lat': d.get('lat'), 'lng': d.get('lng')} for d in docs
-             if d.get('lat') and d.get('lng')]
+    import firebase_admin
+    from firebase_admin import credentials, firestore
 
-    print("[gen_heatmap.py] STUB: Firestore未接続 - サンプルデータを使用", file=sys.stderr)
-    return [
-        {'lat': 44.975, 'lng': 142.383},
-        {'lat': 42.733, 'lng': 143.300},
-        {'lat': 37.920, 'lng': 138.400},
-        {'lat': 35.517, 'lng': 138.750},
-        {'lat': 36.817, 'lng': 140.283},
-    ]
+    project_id = os.environ['FIREBASE_PROJECT_ID']
+    if not firebase_admin._apps:
+        cred = credentials.ApplicationDefault()
+        firebase_admin.initialize_app(cred, {'projectId': project_id})
+    db = firestore.client()
+    docs = db.collection('coords').stream()
+    return [{'lat': d.get('lat'), 'lng': d.get('lng')} for d in docs
+            if d.get('lat') and d.get('lng')]
 
 def aggregate_to_grid(coords):
     grid = {}

@@ -39,16 +39,14 @@ jobs:
       - name: Install dependencies
         run: pip install firebase-admin
 
-      # [PHASE2 UNCOMMENT] サービスアカウントキーをデコード
-      # - name: Decode Firebase SA key
-      #   run: |
-      #     echo "${{ secrets.FIREBASE_SA_KEY }}" | base64 -d > /tmp/sa_key.json
+      - name: Decode Firebase SA key
+        run: |
+          echo "${{ secrets.FIREBASE_SA_KEY }}" | base64 -d > /tmp/sa_key.json
 
-     - name: Decode Firebase SA key
-       run: |
-           echo "${{ secrets.FIREBASE_SA_KEY }}" | base64 -d > /tmp/sa_key.json
-
-        GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa_key.json
+      - name: Generate heatmap.json
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa_key.json
         run: |
           python scripts/gen_heatmap.py
 
