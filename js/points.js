@@ -64,7 +64,7 @@ function updPtCnt(){
   renderPtList();
 }
 function savePts(){
-  try{localStorage.setItem('gm_pts',JSON.stringify(pts.map(p=>({id:p.id,lat:p.lat,lng:p.lng,name:p.name,memo:p.memo}))));}catch(e){}
+  try{localStorage.setItem('gm_pts',JSON.stringify(pts.map(p=>({id:p.id,lat:p.lat,lng:p.lng,name:p.name,memo:p.memo,fsId:p.fsId||null}))));}catch(e){}
 }
 function loadPts(){
   try{
@@ -167,8 +167,8 @@ function confirmDel(){
   if(i!==-1){
     const p=pts[i];
     map.removeLayer(p.mk);
-    // 協力ON かつ fsId があればFirestoreからも削除
-    if(isContribOn() && p.fsId){
+    // fsIdがあればFirestoreからも削除（協力ON/OFF問わず・ローカル削除に連動）
+    if(p.fsId){
       deleteCoord(p.fsId).catch(e=>console.warn('[points] deleteCoord失敗', e));
     }
     pts.splice(i,1);

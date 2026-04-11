@@ -21,9 +21,21 @@ const FREE_PLAN_LIMIT = 3;
 async function initFirebase() {
   firebase.initializeApp(FIREBASE_CONFIG);
   const auth = firebase.auth();
-  await auth.signInAnonymously();
-  window._fbUid = auth.currentUser.uid;
-  console.log('[firebase.js] initFirebase OK uid=', window._fbUid);
+
+  // onAuthStateChanged でUID確定を待つ（signInAnonymously直後はcurrentUserがnullの場合がある）
+  await new Promise((resolve, reject) => {
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      unsubscribe();
+      if (user) {
+        window._fbUid = user.uid;
+        console.log('[firebase.js] initFirebase OK uid=', window._fbUid);
+        resolve();
+      } else {
+        reject(new Error('auth user is null'));
+      }
+    });
+    auth.signInAnonymously().catch(reject);
+  });
 }
 
 // ─────────────────────────────────────────────────────
