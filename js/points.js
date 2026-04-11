@@ -2,6 +2,58 @@
 //  ユーザーポイント
 // ═══════════════════════════════════════════
 const MAX_PT=1000; let pts=[],nid=1;
+
+// ── ヒートマップ協力トグル ────────────────────────────
+const CONTRIB_KEY = 'gm_contrib';
+
+function isContribOn(){
+  return localStorage.getItem(CONTRIB_KEY) === 'on';
+}
+
+function applyContribUI(){
+  const btn = document.getElementById('contrib-toggle');
+  if(!btn) return;
+  if(isContribOn()){
+    btn.classList.add('on');
+  } else {
+    btn.classList.remove('on');
+  }
+}
+
+function onContribToggle(){
+  if(isContribOn()){
+    // ON→OFF: 停止確認ダイアログ
+    showDlg('dlg-contrib-off');
+  } else {
+    // OFF→ON: 同意ダイアログ
+    showDlg('dlg-contrib-on');
+  }
+}
+
+function confirmContribOn(){
+  localStorage.setItem(CONTRIB_KEY, 'on');
+  applyContribUI();
+  closeOv();
+  // 既存ポイントを一括送信
+  if(pts.length > 0){
+    let sent = 0;
+    pts.forEach(p => {
+      if(p.fsId){ sent++; if(sent===pts.length) showAlert('協力ありがとうございます', pts.length+'件の位置情報を送信しました。'); return; }
+      submitCoord(p.lat, p.lng)
+        .then(fsId=>{ p.fsId=fsId; sent++; if(sent===pts.length){ savePts(); showAlert('協力ありがとうございます', pts.length+'件の位置情報を送信しました。'); } })
+        .catch(e => { sent++; console.warn('[contrib] 送信失敗', e); });
+    });
+  } else {
+    showAlert('協力ありがとうございます', '次回のポイント保存から位置情報を送信します。');
+  }
+}
+
+function confirmContribOff(){
+  localStorage.setItem(CONTRIB_KEY, 'off');
+  applyContribUI();
+  closeOv();
+}
+// ────────────────────────────────────────────
 const uIco=()=>L.divIcon({html:'<div class="upin"></div>',className:'',iconSize:[18,22],iconAnchor:[9,22]});
 function addMk(p){
   const m=L.marker([p.lat,p.lng],{icon:uIco(),zIndexOffset:100,pane:'paneUser'});
@@ -20,6 +72,7 @@ function loadPts(){
     d.forEach(p=>{if(p.id>=nid)nid=p.id+1; pts.push(p); addMk(p);});
     updPtCnt();
   }catch(e){}
+  applyContribUI();
 }
 
 function renderPtList(){
@@ -82,6 +135,11 @@ function confirmSave(){
     if(pts.length>=MAX_PT){showAlert('上限','最大1000件です');cancelAdd();closeOv();return;}
     const ll=tPin.getLatLng(),p={id:nid++,lat:ll.lat,lng:ll.lng,name:n,memo:m};
     pts.push(p);addMk(p);cancelAdd();
+    if(isContribOn()){
+      submitCoord(ll.lat, ll.lng)
+        .then(fsId=>{ p.fsId=fsId; savePts(); })
+        .catch(e=>console.warn('[points] submitCoord失敗', e));
+    }
   }
   savePts();updPtCnt();closeOv();eid=null;
 }
@@ -106,7 +164,15 @@ function reqDel(){
 }
 function confirmDel(){
   const i=pts.findIndex(p=>p.id===did);
-  if(i!==-1){map.removeLayer(pts[i].mk);pts.splice(i,1);}
+  if(i!==-1){
+    const p=pts[i];
+    map.removeLayer(p.mk);
+    // 協力ON かつ fsId があればFirestoreからも削除
+    if(isContribOn() && p.fsId){
+      deleteCoord(p.fsId).catch(e=>console.warn('[points] deleteCoord失敗', e));
+    }
+    pts.splice(i,1);
+  }
   savePts();updPtCnt();closeOv();
 }
 function exportPts(){

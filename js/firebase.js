@@ -45,12 +45,24 @@ async function checkPointLimit(pts) {
 // ─────────────────────────────────────────────────────
 async function submitCoord(lat, lng) {
   const db = firebase.firestore();
-  await db.collection('coords').add({
+  const ref = await db.collection('coords').add({
     lat, lng,
     uid: window._fbUid || 'anonymous',
     ts:  firebase.firestore.FieldValue.serverTimestamp(),
   });
-  console.log('[firebase.js] submitCoord OK', lat, lng);
+  console.log('[firebase.js] submitCoord OK', lat, lng, 'fsId=', ref.id);
+  return ref.id; // ← ドキュメントIDを返す
+}
+
+// ─────────────────────────────────────────────────────
+// Firestoreからドキュメントを削除
+//   fsId: submitCoord() が返したドキュメントID
+// ─────────────────────────────────────────────────────
+async function deleteCoord(fsId) {
+  if(!fsId) return;
+  const db = firebase.firestore();
+  await db.collection('coords').doc(fsId).delete();
+  console.log('[firebase.js] deleteCoord OK fsId=', fsId);
 }
 
 // ─────────────────────────────────────────────────────
