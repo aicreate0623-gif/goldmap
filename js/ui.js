@@ -332,13 +332,56 @@ function initHeatLayer(tier) {
   if (btnHd) btnHd.classList.toggle('active', tier === 'hd');
 }
 
-// ── ズーム変化時にradius更新
+// ── ズーム変化時にradius更新 & free tier zoom制限
+const HEAT_FREE_MAX_ZOOM = 13; // free tierはこれ以上拡大で非表示
+
 map.on('zoomend', () => {
-  if (heatOn && heatLayer) {
+  if(!heatOn || !heatLayer) return;
+  const z = map.getZoom();
+  if(heatTier === 'free'){
+    if(z > HEAT_FREE_MAX_ZOOM){
+      // zoom超過: レイヤーを非表示にしてHD誘導バナーを表示
+      map.removeLayer(heatLayer);
+      _showHeatZoomBanner(true);
+    } else {
+      // zoom範囲内: レイヤー再表示
+      if(!map.hasLayer(heatLayer)) heatLayer.addTo(map);
+      _showHeatZoomBanner(false);
+      heatLayer.setOptions({ radius: heatRadius(heatTier) });
+      heatLayer.redraw();
+    }
+  } else {
+    // HD tier: 制限なし
+    _showHeatZoomBanner(false);
     heatLayer.setOptions({ radius: heatRadius(heatTier) });
     heatLayer.redraw();
   }
 });
+
+// HD誘導バナー表示制御
+function _showHeatZoomBanner(show){
+  let banner = document.getElementById('heat-zoom-banner');
+  if(show){
+    if(!banner){
+      banner = document.createElement('div');
+      banner.id = 'heat-zoom-banner';
+      banner.innerHTML = '🔒 この拡大率では高解像度版が必要です <button onclick="toggleHeatHD()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">HDを見る</button>';
+      banner.style.cssText = `
+        position:fixed; bottom:calc(var(--tab-h) + 10px); left:50%;
+        transform:translateX(-50%); z-index:1050;
+        background:rgba(0,0,0,0.85); border:1px solid var(--gold);
+        border-radius:20px; padding:7px 14px;
+        font-size:12px; color:var(--txt); white-space:nowrap;
+        pointer-events:auto;
+      `;
+      document.body.appendChild(banner);
+    }
+    banner.style.display = 'flex';
+    banner.style.alignItems = 'center';
+  } else {
+    if(banner) banner.style.display = 'none';
+  }
+}
 
 // ── ON/OFF切替（デフォルトは常にfree tier）
 function toggleHeat() {
@@ -355,6 +398,7 @@ function toggleHeat() {
     // HDボタンのアクティブ解除
     const btnHd = document.getElementById('btn-hd');
     if (btnHd) btnHd.classList.remove('active');
+    _showHeatZoomBanner(false);
   }
 }
 
@@ -652,15 +696,14 @@ function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;d
 // ═══════════════════════════════════════════
 //  バックボタン制御
 //  優先順位:
-//    ① overlay(ダイアログ)open → 閉じる
-//    ② 終了確認ダイアログopen  → 閉じる
-//    ③ シートopen              → 地図に戻す
-//    ④ 地図表示中              → 終了確認ダイアログ
+//    ① overlay(ダイアログ)open → 閉じる → push（次のバックに備える）
+//    ② 終了確認ダイアログopen  → 閉じる（pushしない: 次バックで自然終了）
+//    ③ シートopen              → 地図に戻す → push（④に備える）
+//    ④ 地図表示中              → 終了確認ダイアログ → push（②に備える）
 //
-//  設計:
-//    popstate発火の先頭で即座に pushState する。
-//    これにより「次のバック」が必ず新しいentryを消費し
-//    Android連続バックによる二重消費を防ぐ。
+//  設計原則:
+//    「次のバックで何かアクションが必要な状態」の場合だけ push する。
+//    終了確認を閉じた後は次のバックでアプリ終了するため push しない。
 // ═══════════════════════════════════════════
 let _backDepth = 0;
 let _suppressPush = false;
@@ -668,9 +711,6 @@ let _suppressPush = false;
 (function initHistory(){
   history.replaceState({appBack:true, depth:0}, '');
   _backDepth = 0;
-  // 起動直後にdepth:1を積む（地図表示中の初期エントリ）
-  _backDepth++;
-  history.pushState({appBack:true, depth:_backDepth}, '');
 })();
 
 function _pushHistory(){
@@ -682,13 +722,11 @@ window.addEventListener('popstate', function(e){
   const st = e.state;
   if(!st || !st.appBack) return;
 
-  // ★ 先頭で即pushして次のバック用エントリを確保 ★
-  _pushHistory();
-
   // ① overlay(ダイアログ)が開いているなら閉じる
   const ov = document.getElementById('overlay');
   if(ov.classList.contains('open')){
     closeOv();
+    _pushHistory(); // ダイアログを閉じた後も次バックに備える
     return;
   }
 
@@ -696,6 +734,7 @@ window.addEventListener('popstate', function(e){
   const exitOv = document.getElementById('exit-overlay');
   if(exitOv.style.display === 'flex'){
     closeExitDlg();
+    // pushしない → 次のバックはOS標準動作（アプリ終了）に委ねる
     return;
   }
 
@@ -704,11 +743,13 @@ window.addEventListener('popstate', function(e){
     _suppressPush = true;
     _openTab('map');
     _suppressPush = false;
+    _pushHistory(); // 地図に戻った後、④に備える
     return;
   }
 
   // ④ 地図表示中 → 終了確認ダイアログ
   _showExitDlg();
+  _pushHistory(); // 終了確認を表示した後、②に備える
 });
 
 function _showExitDlg(){
@@ -737,7 +778,7 @@ document.addEventListener('keydown',e=>{
 
 // switchTab ラッパー:
 //   ・offline → ゲートB（課金チェック）
-//   ・map以外 → history push
+//   ・map以外へ切替時 → _pushHistory()で③用エントリを積む
 (function(){
   const _orig = switchTab;
   switchTab = function(tab){
@@ -755,6 +796,7 @@ document.addEventListener('keydown',e=>{
     }
     const wasMap = (curTab === 'map');
     _orig(tab);
+    // 地図→シートへの切替時のみpush（シート表示状態を③用に積む）
     if(!_suppressPush && wasMap && tab !== 'map') _pushHistory();
   };
 })();

@@ -211,9 +211,8 @@ async function initWikiLayer(){
       const cached = await dbGetMine(WIKI_IDB_KEY);
       if(cached && cached.data && Date.now() - cached.savedAt < WIKI_TTL_MS){
         buildWikiLayer(cached.data);
-        wikiVisible = true;
-        wikiLayer.addTo(map);
-        document.getElementById('btn-wiki').classList.add('active');
+        // デフォルトOFF: 自動表示しない（ボタンONで表示）
+        wikiVisible = false;
         setWikiStatus(`✅ ${cached.data.length}件（キャッシュ ${new Date(cached.savedAt).toLocaleDateString('ja-JP')}）`, '#40c870');
         return;
       }
@@ -237,11 +236,9 @@ async function fetchAndBuildWiki(){
     if(db){
       try{ await dbPutMine(WIKI_IDB_KEY, {data, savedAt: Date.now()}); }catch(e){}
     }
-    // 取得後は自動表示
-    wikiVisible = true;
-    wikiLayer.addTo(map);
-    btn.classList.add('active');
-    setWikiStatus(`✅ ${data.length}件取得完了`, '#40c870');
+    // デフォルトOFF: 自動表示しない
+    wikiVisible = false;
+    setWikiStatus(`✅ ${data.length}件取得完了（地図ボタンでON）`, '#40c870');
   }catch(e){
     setWikiStatus(`❌ 取得失敗: ${e.message}`, '#ff5a47');
     console.warn('Wikidata fetch error:', e);
