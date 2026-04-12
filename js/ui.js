@@ -40,7 +40,6 @@ function toggleGps(){
       document.getElementById('btn-flw').style.display='flex';
       startWatch();
       startOrientation();
-      _watchGpsPermission(); // OS側の変化を監視
       updGps();
     });
   } else {
@@ -70,29 +69,15 @@ async function _checkGpsPermission(){
     showAlert('非対応','このブラウザはGPSに対応していません');
     return false;
   }
-  if(!navigator.permissions) return true; // APIなし→楽観的に許可
+  if(!navigator.permissions) return true;
   try{
     const result = await navigator.permissions.query({name:'geolocation'});
     if(result.state==='denied'){
       _showGpsSettingsDialog();
       return false;
     }
-  }catch(e){ /* permissionsAPI未対応ブラウザは無視 */ }
+  }catch(e){}
   return true;
-}
-
-// OS側の位置情報変化を監視
-let _gpsPermWatcher=null;
-function _watchGpsPermission(){
-  if(!navigator.permissions) return;
-  navigator.permissions.query({name:'geolocation'}).then(result=>{
-    _gpsPermWatcher=result;
-    result.onchange=()=>{
-      if(result.state==='denied' && gpsOn){
-        _showGpsForceOffDialog();
-      }
-    };
-  }).catch(()=>{});
 }
 
 // 位置情報設定への誘導ダイアログ
@@ -103,15 +88,15 @@ function _showGpsSettingsDialog(){
   );
 }
 
-// OS側でオフにされた時の強制OFFダイアログ
-function _showGpsForceOffDialog(){
-  document.getElementById('alr-ttl').textContent='位置情報が無効になりました';
-  document.getElementById('alr-msg').textContent='スマホ側で位置情報がオフになったため、GPS機能を停止します。';
-  // OKボタンで強制OFF
-  const okBtn=document.querySelector('#dlg-alr .dbtn.ok');
-  const _orig=okBtn.getAttribute('onclick');
-  okBtn.setAttribute('onclick','closeOv();_forceGpsOff();this.setAttribute("onclick","'+_orig+'")');
-  showDlg('dlg-alr');
+// GPS信号途絶ダイアログ（待機 or 強制OFF）
+let _gpsLostDialogShown = false;
+function _showGpsLostDialog(){
+  if(_gpsLostDialogShown) return; // 重複表示防止
+  _gpsLostDialogShown = true;
+  showDlg('dlg-gps-lost');
+}
+function _onGpsLostDialogClose(){
+  _gpsLostDialogShown = false;
 }
 
 // ── 追従トグル ───────────────────────────────
@@ -130,15 +115,15 @@ function startWatch(){
   gpsWid=navigator.geolocation.watchPosition(
     onGps,
     (err)=>{
+      if(!gpsOn) return;
       console.warn('[GPS] error', err.code, err.message);
       if(err.code===1){ // PERMISSION_DENIED
         _showGpsSettingsDialog();
         _forceGpsOff();
-      } else if(err.code===2){ // POSITION_UNAVAILABLE
-        // 一時的なエラーはスルー（再取得を待つ）
-      } else if(err.code===3){ // TIMEOUT
-        // タイムアウトもスルー
+      } else if(err.code===2){ // POSITION_UNAVAILABLE: GPS信号途絶
+        _showGpsLostDialog();
       }
+      // TIMEOUT(3)はスルー
     },
     {enableHighAccuracy:true, timeout:15000, maximumAge:0}
   );
@@ -147,7 +132,12 @@ function stopWatch(){
   if(gpsWid!==null){navigator.geolocation.clearWatch(gpsWid);gpsWid=null;}
 }
 function onGps(pos){
-  if(!gpsOn) return; // GPS OFFになった後の遅延コールバックを無視
+  if(!gpsOn) return;
+  // 信号回復: 途絶ダイアログが出ていれば閉じる
+  if(_gpsLostDialogShown){
+    closeOv();
+    _gpsLostDialogShown = false;
+  }
   const{latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
   gpsLL=L.latLng(lat,lng);
   if(!gpsCI) gpsCI=L.circle([lat,lng],{radius:acc,color:'#3080e8',fillColor:'#3080e8',fillOpacity:.1,weight:1,pane:'paneUser'}).addTo(map);
@@ -287,20 +277,55 @@ function buildHeatPoints() {
   return pts;
 }
 
+// ── シンプルスムースノイズ（Perlin風・外部ライブラリ不要）
+function _sNoise(x, y){
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return (n - Math.floor(n)) * 2 - 1;
+}
+function _smoothNoise(x, y){
+  const ix=Math.floor(x), iy=Math.floor(y), fx=x-ix, fy=y-iy;
+  const ux=fx*fx*(3-2*fx), uy=fy*fy*(3-2*fy);
+  return _sNoise(ix,iy)*(1-ux)*(1-uy) + _sNoise(ix+1,iy)*ux*(1-uy)
+       + _sNoise(ix,iy+1)*(1-ux)*uy   + _sNoise(ix+1,iy+1)*ux*uy;
+}
+
+// ── ノイズ付きサブポイント散布（縁をジャギー化）
+function _addNoisyEdge(pts, tier){
+  const noisy = [...pts];
+  const edgeDeg = tier === 'hd' ? 0.006 : 0.035; // hd≒0.7km / free≒3.9km
+  const subCount = 8;
+  pts.forEach(([lat, lng, w]) => {
+    if(w < 0.15) return;
+    for(let i = 0; i < subCount; i++){
+      const angle = (i / subCount) * Math.PI * 2;
+      const nv = _smoothNoise(lat * 20 + i, lng * 20 + i);
+      const r = edgeDeg * (0.5 + 0.5 * Math.abs(nv));
+      noisy.push([
+        lat + Math.sin(angle) * r * (0.7 + 0.3 * _smoothNoise(lat+i, lng)),
+        lng + Math.cos(angle) * r * (0.7 + 0.3 * _smoothNoise(lat, lng+i)),
+        w * 0.3
+      ]);
+    }
+  });
+  return noisy;
+}
+
 // ── 現在のtier管理: 'free' | 'hd'
 let heatTier = 'free';
 
-// ── ズームレベルに応じてradiusを動的調整
-//   tier='free': 大きなblur・広いradius（低解像度）
-//   tier='hd'  : 小さなblur・狭いradius（高解像度）
+// free: z9まで / hd: z14まで
+const HEAT_FREE_MAX_ZOOM = 9;
+const HEAT_HD_MAX_ZOOM   = 14;
+
+// ── ズームに応じたradius
 function heatRadius(tier) {
   const z = map.getZoom();
   if (tier === 'hd') {
-    // HD: z5=6, z7=10, z9=18, z11=28, z13=44
-    return Math.round(6 * Math.pow(1.38, z - 5));
+    // 約1.5km幅・z14まで: z5=8, z7=14, z9=24, z11=40, z13=66, z14=80
+    return Math.round(8 * Math.pow(1.41, z - 5));
   }
-  // free: z5=14, z7=28, z9=50, z11=80, z13=128（広域・粗め）
-  return Math.round(14 * Math.pow(1.46, z - 5));
+  // free: z5=16, z7=32, z9=62
+  return Math.round(16 * Math.pow(1.46, z - 5));
 }
 
 // ── ヒートマップ初期化・再描画
@@ -309,75 +334,58 @@ function initHeatLayer(tier) {
   heatTier = tier;
   if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
 
-  const pts = buildHeatPoints();
+  const basePts = buildHeatPoints();
+  const pts = _addNoisyEdge(basePts, tier);
   const isFree = (tier === 'free');
   heatLayer = L.heatLayer(pts, {
     radius:     heatRadius(tier),
-    blur:       isFree ? 50 : 15,   // free=強いぼかし / hd=シャープ
-    maxZoom:    13,
+    blur:       isFree ? 50 : 22,
+    maxZoom:    isFree ? HEAT_FREE_MAX_ZOOM : HEAT_HD_MAX_ZOOM,
     max:        1.0,
-    minOpacity: isFree ? 0.15 : 0.28,
-    gradient: {
-      0.00: '#001233',
-      0.25: '#0d3d8a',
-      0.50: '#c86400',
-      0.75: '#e8a800',
-      1.00: '#fff5a0',
+    minOpacity: isFree ? 0.15 : 0.10,
+    gradient: isFree ? {
+      0.00: '#001233', 0.25: '#0d3d8a',
+      0.50: '#c86400', 0.75: '#e8a800', 1.00: '#fff5a0',
+    } : {
+      // HD: 薄め・グラデーション緩め
+      0.00: '#001233', 0.20: '#0d3d8a',
+      0.45: '#c86400', 0.70: '#e8a800', 1.00: '#fff5a0',
     },
     pane: 'paneHeat',
   }).addTo(map);
 
-  // HDボタンのアクティブ状態を反映
   const btnHd = document.getElementById('btn-hd');
   if (btnHd) btnHd.classList.toggle('active', tier === 'hd');
 }
 
-// ── ズーム変化時にradius更新 & free tier zoom制限
-const HEAT_FREE_MAX_ZOOM = 13; // free tierはこれ以上拡大で非表示
-
+// ── ズーム変化時: zoom制限チェック & radius更新
 map.on('zoomend', () => {
   if(!heatOn || !heatLayer) return;
   const z = map.getZoom();
-  if(heatTier === 'free'){
-    if(z > HEAT_FREE_MAX_ZOOM){
-      // zoom超過: レイヤーを非表示にしてHD誘導バナーを表示
-      map.removeLayer(heatLayer);
-      _showHeatZoomBanner(true);
-    } else {
-      // zoom範囲内: レイヤー再表示
-      if(!map.hasLayer(heatLayer)) heatLayer.addTo(map);
-      _showHeatZoomBanner(false);
-      heatLayer.setOptions({ radius: heatRadius(heatTier) });
-      heatLayer.redraw();
-    }
+  const maxZ = heatTier === 'hd' ? HEAT_HD_MAX_ZOOM : HEAT_FREE_MAX_ZOOM;
+  if(z > maxZ){
+    map.removeLayer(heatLayer);
+    _showHeatZoomBanner(true);
   } else {
-    // HD tier: 制限なし
+    if(!map.hasLayer(heatLayer)) heatLayer.addTo(map);
     _showHeatZoomBanner(false);
     heatLayer.setOptions({ radius: heatRadius(heatTier) });
     heatLayer.redraw();
   }
 });
 
-// HD誘導バナー表示制御
+// HD誘導バナー
 function _showHeatZoomBanner(show){
   let banner = document.getElementById('heat-zoom-banner');
   if(show){
     if(!banner){
       banner = document.createElement('div');
       banner.id = 'heat-zoom-banner';
-      banner.innerHTML = '🔒 この拡大率では高解像度版が必要です <button onclick="toggleHeatHD()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">HDを見る</button>';
-      banner.style.cssText = `
-        position:fixed; bottom:calc(var(--tab-h) + 10px); left:50%;
-        transform:translateX(-50%); z-index:1050;
-        background:rgba(0,0,0,0.85); border:1px solid var(--gold);
-        border-radius:20px; padding:7px 14px;
-        font-size:12px; color:var(--txt); white-space:nowrap;
-        pointer-events:auto;
-      `;
+      banner.innerHTML = '🔒 この拡大率は高解像度版で閲覧できます <button onclick="toggleHeatHD()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">HDを見る</button>';
+      banner.style.cssText = 'position:fixed;bottom:calc(var(--tab-h)+10px);left:50%;transform:translateX(-50%);z-index:1050;background:rgba(0,0,0,0.85);border:1px solid var(--gold);border-radius:20px;padding:7px 14px;font-size:12px;color:var(--txt);white-space:nowrap;pointer-events:auto;display:flex;align-items:center;';
       document.body.appendChild(banner);
     }
     banner.style.display = 'flex';
-    banner.style.alignItems = 'center';
   } else {
     if(banner) banner.style.display = 'none';
   }
@@ -688,7 +696,7 @@ function _openTab(tab){
 // ═══════════════════════════════════════════
 //  ダイアログ
 // ═══════════════════════════════════════════
-const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp','dlg-alr','dlg-contrib-on','dlg-contrib-off','dlg-premium-gate'];
+const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp','dlg-alr','dlg-contrib-on','dlg-contrib-off','dlg-premium-gate','dlg-gps-lost'];
 function showDlg(id){DLGS.forEach(d=>document.getElementById(d).style.display='none');document.getElementById(id).style.display='block';document.getElementById('overlay').classList.add('open');}
 function closeOv(){document.getElementById('overlay').classList.remove('open');DLGS.forEach(d=>document.getElementById(d).style.display='none');eid=null;}
 function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;document.getElementById('alr-msg').textContent=msg;showDlg('dlg-alr');}

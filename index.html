@@ -516,6 +516,16 @@
     </div>
   </div>
 
+  <!-- GPS信号途絶ダイアログ -->
+  <div class="dialog" id="dlg-gps-lost" style="display:none">
+    <h3>📍 GPS信号が途絶えました</h3>
+    <p class="dlg-msg">スマホのGPS機能がオフになっているか、電波が届いていません。<br><br>GPSを継続するには設定からGPS（位置情報）をオンにしてください。</p>
+    <div class="dlg-btns">
+      <button class="dbtn del" onclick="closeOv();_forceGpsOff();">OFFにする</button>
+      <button class="dbtn ok" onclick="closeOv();">待機する</button>
+    </div>
+  </div>
+
   <!-- 課金ゲートダイアログ（type別に文言を差し替えて共用） -->
   <div class="dialog" id="dlg-premium-gate" style="display:none">
     <div class="premium-gate-icon" id="premium-gate-icon">🔒</div>
