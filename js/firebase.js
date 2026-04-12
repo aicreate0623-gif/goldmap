@@ -37,12 +37,32 @@ async function initFirebase() {
   });
 }
 
+// ── 開発用: 課金状態オーバーライド ──────────────
+let _devPremium = false; // デフォルト: 無料
+
+function devTogglePremium(){
+  _devPremium = !_devPremium;
+  const btn = document.getElementById('dev-premium-btn');
+  if(_devPremium){
+    btn.textContent = 'DEV: PREMIUM';
+    btn.style.background = 'rgba(50,200,100,0.18)';
+    btn.style.borderColor = 'rgba(80,220,120,0.5)';
+    btn.style.color = '#80e8a0';
+  } else {
+    btn.textContent = 'DEV: FREE';
+    btn.style.background = 'rgba(255,50,50,0.18)';
+    btn.style.borderColor = 'rgba(255,80,80,0.5)';
+    btn.style.color = '#ff8888';
+  }
+}
+
 // ─────────────────────────────────────────────────────
 // 課金ユーザー判定
 //   Phase2: Firestoreの users/{uid}.premium フラグを参照
-//   Phase1: 常に false（スタブ）
+//   Phase1: 常に false（スタブ）、dev override あり
 // ─────────────────────────────────────────────────────
 async function isPremiumUser() {
+  if(_devPremium) return true; // 開発用オーバーライド
   // [Phase2 UNCOMMENT] ↓
   // if (!window._fbUid) return false;
   // try {

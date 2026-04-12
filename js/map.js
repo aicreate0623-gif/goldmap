@@ -38,8 +38,9 @@ async function initMap(){
   TILES.photo.addTo(map);
   curBase='photo';
   document.getElementById('btn-photo').classList.add('base-active','active');
-  mineLayer.addTo(map);
-  document.getElementById('btn-mine').classList.toggle('active', mineV);
+  // 右フロートボタン: デフォルトは全てOFF
+  // mineLayerは起動時に追加しない（ボタンもactive付けない）
+  document.getElementById('btn-mine').classList.remove('active');
   loadPts();
   updBaseEst();
   refreshCache();

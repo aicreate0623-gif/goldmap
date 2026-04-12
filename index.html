@@ -31,9 +31,6 @@
 
 <!-- ━━━ FLOATING CONTROLS (top bar) ━━━ -->
 <div id="float-ctrl">
-  <button class="fc-btn" id="btn-std"   onclick="setBase('std')"  title="地理院地図">
-    <span class="fc-ico">🗾</span><span>地理院</span>
-  </button>
   <button class="fc-btn" id="btn-geo"   onclick="toggleGeo()"      title="地質図">
     <span class="fc-ico">🪨</span><span>地質</span>
   </button>
@@ -42,6 +39,9 @@
     <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
     <span id="geo-opv">50%</span>
   </div>
+  <button class="fc-btn" id="btn-std"   onclick="setBase('std')"  title="地理院地図">
+    <span class="fc-ico">🗾</span><span>地理院</span>
+  </button>
   <button class="fc-btn base-active active" id="btn-photo" onclick="setBase('photo')" title="航空写真">
     <span class="fc-ico">📷</span><span>航空</span>
   </button>
@@ -419,6 +419,13 @@
   <div class="dialog" id="dlg-edit" style="display:none">
     <h3 id="dlg-edit-ttl">ポイントを追加</h3>
     <label>名前</label><input type="text" id="pt-name" placeholder="例：○○川上流">
+    <label>採取評価</label>
+    <div class="star-rating" id="star-rating">
+      <button type="button" class="star-btn" data-v="1" onclick="setStarRating(1)">★</button>
+      <button type="button" class="star-btn" data-v="2" onclick="setStarRating(2)">★</button>
+      <button type="button" class="star-btn" data-v="3" onclick="setStarRating(3)">★</button>
+      <span class="star-label" id="star-label">未評価</span>
+    </div>
     <label>メモ</label><textarea id="pt-memo" placeholder="採取状況・特記事項など"></textarea>
     <div class="dlg-btns">
       <button class="dbtn" onclick="cancelEdit()">キャンセル</button>
@@ -435,6 +442,7 @@
   </div>
   <div class="dialog" id="dlg-detail" style="display:none">
     <h3 id="det-name"></h3>
+    <div id="det-stars" style="font-size:18px;margin-bottom:4px;letter-spacing:2px;"></div>
     <p class="dlg-msg" id="det-memo" style="margin-bottom:0"></p>
     <p style="font-size:11px;color:#604828;margin-top:8px" id="det-coord"></p>
     <div class="dlg-btns">
@@ -510,6 +518,15 @@
     </div>
   </div>
 </div>
+
+<!-- ━━━ 開発用: 課金状態トグルボタン ━━━ -->
+<button id="dev-premium-btn" onclick="devTogglePremium()"
+  style="position:fixed;left:10px;bottom:calc(var(--tab-h) + 8px);z-index:1200;
+         padding:5px 10px;font-size:10px;font-weight:700;border-radius:6px;
+         background:rgba(255,50,50,0.18);border:1px solid rgba(255,80,80,0.5);
+         color:#ff8888;cursor:pointer;backdrop-filter:blur(8px);">
+  DEV: FREE
+</button>
 
 <!-- ━━━ アプリ終了確認オーバーレイ（地図表示中バック時） ━━━ -->
 <div id="exit-overlay" style="

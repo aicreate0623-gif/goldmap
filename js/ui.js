@@ -79,6 +79,7 @@ function stopWatch(){
   if(gpsWid!==null){navigator.geolocation.clearWatch(gpsWid);gpsWid=null;}
 }
 function onGps(pos){
+  if(!gpsOn) return; // GPS OFFになった後の遅延コールバックを無視
   const{latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
   gpsLL=L.latLng(lat,lng);
   if(!gpsCI) gpsCI=L.circle([lat,lng],{radius:acc,color:'#3080e8',fillColor:'#3080e8',fillOpacity:.1,weight:1,pane:'paneUser'}).addTo(map);
@@ -102,6 +103,7 @@ function startOrientation(){
 }
 function _addOrientListener(){
   _orientHandler=e=>{
+    if(!gpsOn) return; // GPS OFF後の遅延イベントを無視
     let raw=null;
     if(e.webkitCompassHeading!=null){
       raw=e.webkitCompassHeading;           // iOS: 真北基準・高精度
@@ -154,9 +156,7 @@ function updateCompassMarker(lat,lng,heading){
       <!-- 扇形サーチライト（上向き・90°） -->
       <path d="M70,70 L24,24 A65,65 0 0,1 116,24 Z"
             fill="url(#${gid})"
-            stroke="rgba(80,180,255,0.7)"
-            stroke-width="1.2"
-            stroke-linejoin="round"/>
+            stroke="none"/>
       <!-- 中心ドット -->
       <circle cx="70" cy="70" r="9" fill="#3080e8" stroke="#fff" stroke-width="2.5"/>
       <circle cx="70" cy="70" r="3.5" fill="#fff"/>
@@ -615,8 +615,12 @@ let _suppressPush = false;
 })();
 
 function _pushHistory(){
-  _backDepth++;
-  history.pushState({appBack:true, depth:_backDepth}, '');
+  // setTimeout(0) でマイクロタスク後に push することで
+  // Android の popstate 二重消費（連続バック）を防ぐ
+  setTimeout(()=>{
+    _backDepth++;
+    history.pushState({appBack:true, depth:_backDepth}, '');
+  }, 0);
 }
 
 window.addEventListener('popstate', function(e){

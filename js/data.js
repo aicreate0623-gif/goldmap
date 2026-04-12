@@ -70,7 +70,7 @@ const MINES=[
   {lat:35.900,lng:138.433,name:'清里（川俣川）',note:'山梨県北杜市清里。川俣川のキャンプ場近辺で砂金採取との記載。【座標要検証：概略値】'},
   {lat:32.217,lng:130.767,name:'人吉市（球磨川支流）',note:'熊本県人吉市。球磨川支流での砂金採取情報あり。既存「五木村」エントリーとのエリア重複確認要。【座標要検証：概略値】'},
 ];
-const mineLayer=L.layerGroup({pane:'paneMine'}); let mineV=true;
+const mineLayer=L.layerGroup({pane:'paneMine'}); let mineV=false;
 const mIco=()=>L.divIcon({html:'<div class="mpin"></div>',className:'',iconSize:[14,18],iconAnchor:[7,18]});
 MINES.forEach(m=>L.marker([m.lat,m.lng],{icon:mIco(),pane:'paneMine'}).bindPopup(
   `<b style="color:#c06030">${m.name}</b><br><small>${m.note}</small>`).addTo(mineLayer));
