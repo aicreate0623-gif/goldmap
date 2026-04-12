@@ -31,23 +31,87 @@ function _applyBearing(deg){
 
 // ── GPSトグル ────────────────────────────────
 function toggleGps(){
-  gpsOn=!gpsOn;
-  document.getElementById('btn-gps').classList.toggle('active',gpsOn);
-  const flwBtn=document.getElementById('btn-flw');
-  if(gpsOn){
-    flwBtn.style.display='flex';
-    startWatch();
-    startOrientation();
+  if(!gpsOn){
+    // ONにする前に権限を事前確認
+    _checkGpsPermission().then(ok=>{
+      if(!ok) return; // 権限なし→ダイアログ表示済み
+      gpsOn=true;
+      document.getElementById('btn-gps').classList.add('active');
+      document.getElementById('btn-flw').style.display='flex';
+      startWatch();
+      startOrientation();
+      _watchGpsPermission(); // OS側の変化を監視
+      updGps();
+    });
   } else {
-    gpsFlw=false;
-    flwBtn.classList.remove('active'); flwBtn.style.display='none';
-    stopWatch();
-    stopOrientation();
-    if(gpsCI){map.removeLayer(gpsCI);gpsCI=null;}
-    if(gpsCompassMk){map.removeLayer(gpsCompassMk);gpsCompassMk=null;}
-    _applyBearing(0);
+    _forceGpsOff();
   }
+}
+
+// GPS強制OFF（ボタン・UI・監視を全てリセット）
+function _forceGpsOff(){
+  gpsOn=false;
+  gpsFlw=false;
+  const flwBtn=document.getElementById('btn-flw');
+  document.getElementById('btn-gps').classList.remove('active');
+  flwBtn.classList.remove('active'); flwBtn.style.display='none';
+  stopWatch();
+  stopOrientation();
+  if(gpsCI){map.removeLayer(gpsCI);gpsCI=null;}
+  if(gpsCompassMk){map.removeLayer(gpsCompassMk);gpsCompassMk=null;}
+  _applyBearing(0);
+  gpsLL=null;
   updGps();
+}
+
+// GPS権限の事前チェック
+async function _checkGpsPermission(){
+  if(!navigator.geolocation){
+    showAlert('非対応','このブラウザはGPSに対応していません');
+    return false;
+  }
+  if(!navigator.permissions) return true; // APIなし→楽観的に許可
+  try{
+    const result = await navigator.permissions.query({name:'geolocation'});
+    if(result.state==='denied'){
+      _showGpsSettingsDialog();
+      return false;
+    }
+  }catch(e){ /* permissionsAPI未対応ブラウザは無視 */ }
+  return true;
+}
+
+// OS側の位置情報変化を監視
+let _gpsPermWatcher=null;
+function _watchGpsPermission(){
+  if(!navigator.permissions) return;
+  navigator.permissions.query({name:'geolocation'}).then(result=>{
+    _gpsPermWatcher=result;
+    result.onchange=()=>{
+      if(result.state==='denied' && gpsOn){
+        _showGpsForceOffDialog();
+      }
+    };
+  }).catch(()=>{});
+}
+
+// 位置情報設定への誘導ダイアログ
+function _showGpsSettingsDialog(){
+  showAlert(
+    '位置情報が無効です',
+    'スマホの設定アプリ → Chrome（またはブラウザ）→ 位置情報 → 許可\nに変更してから再度タップしてください。'
+  );
+}
+
+// OS側でオフにされた時の強制OFFダイアログ
+function _showGpsForceOffDialog(){
+  document.getElementById('alr-ttl').textContent='位置情報が無効になりました';
+  document.getElementById('alr-msg').textContent='スマホ側で位置情報がオフになったため、GPS機能を停止します。';
+  // OKボタンで強制OFF
+  const okBtn=document.querySelector('#dlg-alr .dbtn.ok');
+  const _orig=okBtn.getAttribute('onclick');
+  okBtn.setAttribute('onclick','closeOv();_forceGpsOff();this.setAttribute("onclick","'+_orig+'")');
+  showDlg('dlg-alr');
 }
 
 // ── 追従トグル ───────────────────────────────
@@ -62,14 +126,18 @@ function toggleFollow(){
 
 // ── GPS位置監視 ──────────────────────────────
 function startWatch(){
-  if(!navigator.geolocation){showAlert('非対応','GPSに対応していません');gpsOn=false;updGps();return;}
+  if(!navigator.geolocation){showAlert('非対応','GPSに対応していません');_forceGpsOff();return;}
   gpsWid=navigator.geolocation.watchPosition(
     onGps,
     (err)=>{
       console.warn('[GPS] error', err.code, err.message);
-      if(err.code===1){
-        showAlert('位置情報の許可が必要です','設定アプリ → Chrome → 位置情報 → 許可 に変更してください');
-        gpsOn=false; updGps();
+      if(err.code===1){ // PERMISSION_DENIED
+        _showGpsSettingsDialog();
+        _forceGpsOff();
+      } else if(err.code===2){ // POSITION_UNAVAILABLE
+        // 一時的なエラーはスルー（再取得を待つ）
+      } else if(err.code===3){ // TIMEOUT
+        // タイムアウトもスルー
       }
     },
     {enableHighAccuracy:true, timeout:15000, maximumAge:0}

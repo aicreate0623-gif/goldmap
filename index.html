@@ -31,29 +31,35 @@
 
 <!-- ━━━ FLOATING CONTROLS (top bar) ━━━ -->
 <div id="float-ctrl">
-  <button class="fc-btn" id="btn-geo"   onclick="toggleGeo()"      title="地質図">
-    <span class="fc-ico">🪨</span><span>地質</span>
-  </button>
-  <div id="geo-row">
-    <label>透過</label>
-    <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
-    <span id="geo-opv">50%</span>
+  <!-- 1段目: ベース地図・ヒートマップ -->
+  <div class="fc-row">
+    <button class="fc-btn" id="btn-std" onclick="setBase('std')" title="地理院地図">
+      <span class="fc-ico">🗾</span><span>地理院</span>
+    </button>
+    <button class="fc-btn base-active active" id="btn-photo" onclick="setBase('photo')" title="航空写真">
+      <span class="fc-ico">📷</span><span>航空</span>
+    </button>
+    <button class="fc-btn" id="btn-topo" onclick="setBase('topo')" title="地形図">
+      <span class="fc-ico">⛰</span><span>地形</span>
+    </button>
+    <button class="fc-btn" id="btn-heat" onclick="toggleHeat()" title="砂金採取ヒートマップ">
+      <span class="fc-ico">🔥</span><span>分布</span>
+    </button>
+    <button class="fc-btn" id="btn-hd" onclick="toggleHeatHD()" title="高解像度ヒートマップ（プレミアム）" style="display:none">
+      <span class="fc-ico">🔒</span><span>HD</span>
+    </button>
   </div>
-  <button class="fc-btn" id="btn-std"   onclick="setBase('std')"  title="地理院地図">
-    <span class="fc-ico">🗾</span><span>地理院</span>
-  </button>
-  <button class="fc-btn base-active active" id="btn-photo" onclick="setBase('photo')" title="航空写真">
-    <span class="fc-ico">📷</span><span>航空</span>
-  </button>
-  <button class="fc-btn" id="btn-topo"  onclick="setBase('topo')"  title="地形図">
-    <span class="fc-ico">⛰</span><span>地形</span>
-  </button>
-  <button class="fc-btn" id="btn-heat" onclick="toggleHeat()" title="砂金採取ヒートマップ">
-    <span class="fc-ico">🔥</span><span>分布</span>
-  </button>
-  <button class="fc-btn" id="btn-hd" onclick="toggleHeatHD()" title="高解像度ヒートマップ（プレミアム）" style="display:none">
-    <span class="fc-ico">🔒</span><span>HD</span>
-  </button>
+  <!-- 2段目: 地質図 -->
+  <div class="fc-row">
+    <button class="fc-btn" id="btn-geo" onclick="toggleGeo()" title="地質図">
+      <span class="fc-ico">🪨</span><span>地質</span>
+    </button>
+    <div id="geo-row">
+      <label>透過</label>
+      <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
+      <span id="geo-opv">50%</span>
+    </div>
+  </div>
 </div>
 
 <!-- ━━━ FLOATING CONTROLS RIGHT (map tools) ━━━ -->

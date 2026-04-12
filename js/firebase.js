@@ -149,14 +149,15 @@ function startPurchaseFlow() {
 // ─────────────────────────────────────────────────────
 // 座標を Firestore に投稿
 // ─────────────────────────────────────────────────────
-async function submitCoord(lat, lng) {
+async function submitCoord(lat, lng, stars) {
   const db = firebase.firestore();
   const ref = await db.collection('coords').add({
     lat, lng,
+    stars: stars || 0,
     uid: window._fbUid || 'anonymous',
     ts:  firebase.firestore.FieldValue.serverTimestamp(),
   });
-  console.log('[firebase.js] submitCoord OK', lat, lng, 'fsId=', ref.id);
+  console.log('[firebase.js] submitCoord OK', lat, lng, 'stars=', stars, 'fsId=', ref.id);
   return ref.id;
 }
 

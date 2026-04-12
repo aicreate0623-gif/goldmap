@@ -60,21 +60,31 @@ html, body {
 #sb-pt      { color: var(--txt-sub); }
 #sb-cache   { margin-left: auto; color: var(--txt-dim); font-size: 9px; }
 
-/* ━━━ FLOATING CONTROLS TOP BAR (左上・横スクロール) ━━━ */
+/* ━━━ FLOATING CONTROLS TOP BAR (左上・2段構成) ━━━ */
 #float-ctrl {
   position: fixed;
   top: calc(var(--sb-h) + 8px);
   left: 10px;
   right: 60px; /* 右コントロール(52px)+余白 */
   z-index: 900;
-  display: flex; flex-direction: row; gap: 5px; align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+/* 各行: 横スクロール可能な1行 */
+.fc-row {
+  display: flex;
+  flex-direction: row;
+  gap: 5px;
+  align-items: center;
   overflow-x: auto;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; /* Firefox */
-  padding-bottom: 2px; /* geo-row展開時の余裕 */
+  scrollbar-width: none;
+  max-width: 100%;
 }
-#float-ctrl::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+.fc-row::-webkit-scrollbar { display: none; }
 
 /* ━━━ FLOATING CONTROLS RIGHT (右縦並び・top はJS動的計算) ━━━ */
 #float-ctrl-right {
@@ -117,13 +127,14 @@ html, body {
 /* GPS追従ボタン（GPS ON時のみ表示）*/
 #btn-flw { display: none; }
 
-/* 地質図透過スライダー行（上部バー内・横並び） */
+/* 地質図透過スライダー行（fc-row内に収まる） */
 #geo-row {
   display: none; align-items: center; gap: 5px;
   background: rgba(13,12,8,0.88); backdrop-filter: blur(6px);
   border: 1px solid var(--border); border-radius: 8px;
   padding: 5px 8px;
-  height: 42px; /* fc-btnと高さを揃える */
+  height: 42px;
+  flex-shrink: 0;
 }
 #geo-row.show { display: flex; }
 #geo-row label { font-size: 9px; color: var(--txt-sub); white-space: nowrap; }
