@@ -596,20 +596,22 @@ function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;d
 // ═══════════════════════════════════════════
 //  バックボタン制御
 //  優先順位:
-//    ① overlay(ダイアログ) open → 閉じる → push（終了確認を維持）
-//    ② 終了確認ダイアログ open  → 閉じる → push（ループ防止のため再push）
-//    ③ シート(pts/cfg/offline)open → 地図に戻す → push
-//    ④ 地図表示中               → 終了確認ダイアログ表示 → push
+//    ① overlay(ダイアログ)open → 閉じる → push
+//    ② 終了確認ダイアログopen  → 閉じる → push（地図状態を再積み）
+//    ③ シートopen              → 地図に戻す → push
+//    ④ 地図表示中              → 終了確認ダイアログ → push
 //
-//  ③→④の2回バックで抜けるバグを修正:
-//    各ステップ後に必ず _pushHistory() して depth を補填。
-//    終了確認を閉じた後も ④ に戻るためもう一度 push。
+//  ポイント: 各分岐の末尾で必ず _pushHistory() を呼び
+//  「次のバック」が必ず popstate を拾える状態を維持する。
 // ═══════════════════════════════════════════
 let _backDepth = 0;
 let _suppressPush = false;
 
 (function initHistory(){
+  // depth:0 を基底として replaceState し、さらに depth:1 を push。
+  // これにより最初の popstate でも appBack フラグが確実に取れる。
   history.replaceState({appBack:true, depth:0}, '');
+  _pushHistory(); // depth:1 を積む（地図表示中の初期状態）
 })();
 
 function _pushHistory(){
@@ -621,35 +623,34 @@ window.addEventListener('popstate', function(e){
   const st = e.state;
   if(!st || !st.appBack) return;
 
-  // ① ダイアログ(overlay)が開いているなら閉じる
+  // ① overlay(ダイアログ)が開いているなら閉じる
   const ov = document.getElementById('overlay');
   if(ov.classList.contains('open')){
     closeOv();
-    _pushHistory(); // 閉じた後も ②③④ の手前に戻る
+    _pushHistory();
     return;
   }
 
   // ② 終了確認ダイアログが開いているなら閉じる
-  //    ※ 閉じた後も「地図表示中」状態なので push して ④ に備える
   const exitOv = document.getElementById('exit-overlay');
   if(exitOv.style.display === 'flex'){
     closeExitDlg();
-    _pushHistory(); // 地図表示中の状態を再スタックに積む
+    _pushHistory(); // 地図表示中状態を再積み → 次バックで④へ
     return;
   }
 
   // ③ シートが開いているなら地図に戻す
   if(curTab !== 'map'){
     _suppressPush = true;
-    switchTab('map');
+    _openTab('map'); // ラッパーを経由せず直接 _openTab を呼ぶ
     _suppressPush = false;
-    _pushHistory(); // 地図表示中の状態をスタックに積む（次のバックで④へ）
+    _pushHistory(); // 地図表示中状態を積む → 次バックで④へ
     return;
   }
 
   // ④ 地図表示中 → 終了確認ダイアログ
   _showExitDlg();
-  _pushHistory(); // 終了確認が開いた状態をスタックに積む（次のバックで②へ）
+  _pushHistory(); // 終了確認open状態を積む → 次バックで②へ
 });
 
 function _showExitDlg(){
@@ -668,8 +669,6 @@ function doExitApp(){
   }
 }
 
-
-
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     closeOv();
@@ -678,7 +677,8 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-// switchTab: 非mapタブへの切り替え時に history を push
+// switchTab ラッパー: 非mapタブへの切替時に history を push
+// ③ の popstate では _openTab を直接呼ぶため二重pushしない
 (function(){
   const _orig = switchTab;
   switchTab = function(tab){

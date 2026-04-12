@@ -34,6 +34,14 @@
   <button class="fc-btn" id="btn-std"   onclick="setBase('std')"  title="地理院地図">
     <span class="fc-ico">🗾</span><span>地理院</span>
   </button>
+  <button class="fc-btn" id="btn-geo"   onclick="toggleGeo()"      title="地質図">
+    <span class="fc-ico">🪨</span><span>地質</span>
+  </button>
+  <div id="geo-row">
+    <label>透過</label>
+    <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
+    <span id="geo-opv">50%</span>
+  </div>
   <button class="fc-btn base-active active" id="btn-photo" onclick="setBase('photo')" title="航空写真">
     <span class="fc-ico">📷</span><span>航空</span>
   </button>
@@ -46,14 +54,6 @@
   <button class="fc-btn" id="btn-hd" onclick="toggleHeatHD()" title="高解像度ヒートマップ（プレミアム）" style="display:none">
     <span class="fc-ico">🔒</span><span>HD</span>
   </button>
-  <button class="fc-btn" id="btn-geo"   onclick="toggleGeo()"      title="地質図">
-    <span class="fc-ico">🪨</span><span>地質</span>
-  </button>
-  <div id="geo-row">
-    <label>透過</label>
-    <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
-    <span id="geo-opv">50%</span>
-  </div>
 </div>
 
 <!-- ━━━ FLOATING CONTROLS RIGHT (map tools) ━━━ -->
@@ -281,18 +281,6 @@
       </div>
     </div>
 
-    <!-- kinno調査記 -->
-    <div class="cfg-section-ttl">📌 kinno調査記</div>
-    <div class="dl-section">
-      <div class="info-box">
-        kinno lab.（金野実）氏による鉱山調査記の位置プロット。<br>
-        組み込み済み（215地点）。地図ボタン「📌調査記」でON/OFF。
-      </div>
-      <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
-        出典: <a href="https://kinno-homepage.sakura.ne.jp/kinno_mineral.html" target="_blank" style="color:#4a90d9">kinno-homepage.sakura.ne.jp</a>
-      </div>
-    </div>
-
     <!-- Wikidata -->
     <div class="cfg-section-ttl">🌐 Wikidata 日本鉱山</div>
     <div class="dl-section">
@@ -311,20 +299,16 @@
       </div>
     </div>
 
-    <div class="cfg-row">
-      <div>
-        <div class="cfg-label">ポイント書出</div>
-        <div class="cfg-sub">GeoJSON形式でエクスポート</div>
+    <!-- kinno調査記 -->
+    <div class="cfg-section-ttl">📌 kinno調査記</div>
+    <div class="dl-section">
+      <div class="info-box">
+        kinno lab.（金野実）氏による鉱山調査記の位置プロット。<br>
+        組み込み済み（215地点）。地図ボタン「📌調査記」でON/OFF。
       </div>
-      <button class="btn sm" onclick="exportPts()">📤 書出</button>
-    </div>
-    <div class="cfg-row">
-      <div>
-        <div class="cfg-label">ポイント読込</div>
-        <div class="cfg-sub">GeoJSONファイルをインポート</div>
+      <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
+        出典: <a href="https://kinno-homepage.sakura.ne.jp/kinno_mineral.html" target="_blank" style="color:#4a90d9">kinno-homepage.sakura.ne.jp</a>
       </div>
-      <button class="btn sm" onclick="document.getElementById('impf2').click()">📥 読込</button>
-      <input type="file" id="impf2" accept=".geojson,.json" style="display:none" onchange="importPts(event)">
     </div>
 
     <!-- ━━━ カテゴリ区切り ━━━ -->
