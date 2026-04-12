@@ -552,18 +552,6 @@ let curTab='map';
 const SHEETS={pts:'pt-sheet', offline:'dl-sheet', cfg:'cfg-sheet'};
 
 function switchTab(tab){
-  // ── ゲートB: オフラインタブを開く時に課金チェック ──────
-  if(tab === 'offline'){
-    isPremiumUser().then(premium => {
-      if(!premium){
-        showPremiumGate('offline');
-      } else {
-        _openTab('offline');
-      }
-    });
-    return;
-  }
-  // ────────────────────────────────────────────────────────
   _openTab(tab);
 }
 
@@ -596,42 +584,43 @@ function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;d
 // ═══════════════════════════════════════════
 //  バックボタン制御
 //  優先順位:
-//    ① overlay(ダイアログ)open → 閉じる → push
-//    ② 終了確認ダイアログopen  → 閉じる → push（地図状態を再積み）
-//    ③ シートopen              → 地図に戻す → push
-//    ④ 地図表示中              → 終了確認ダイアログ → push
+//    ① overlay(ダイアログ)open → 閉じる
+//    ② 終了確認ダイアログopen  → 閉じる
+//    ③ シートopen              → 地図に戻す
+//    ④ 地図表示中              → 終了確認ダイアログ
 //
-//  ポイント: 各分岐の末尾で必ず _pushHistory() を呼び
-//  「次のバック」が必ず popstate を拾える状態を維持する。
+//  設計:
+//    popstate発火の先頭で即座に pushState する。
+//    これにより「次のバック」が必ず新しいentryを消費し
+//    Android連続バックによる二重消費を防ぐ。
 // ═══════════════════════════════════════════
 let _backDepth = 0;
 let _suppressPush = false;
 
 (function initHistory(){
-  // depth:0 を基底として replaceState し、さらに depth:1 を push。
-  // これにより最初の popstate でも appBack フラグが確実に取れる。
   history.replaceState({appBack:true, depth:0}, '');
-  _pushHistory(); // depth:1 を積む（地図表示中の初期状態）
+  _backDepth = 0;
+  // 起動直後にdepth:1を積む（地図表示中の初期エントリ）
+  _backDepth++;
+  history.pushState({appBack:true, depth:_backDepth}, '');
 })();
 
 function _pushHistory(){
-  // setTimeout(0) でマイクロタスク後に push することで
-  // Android の popstate 二重消費（連続バック）を防ぐ
-  setTimeout(()=>{
-    _backDepth++;
-    history.pushState({appBack:true, depth:_backDepth}, '');
-  }, 0);
+  _backDepth++;
+  history.pushState({appBack:true, depth:_backDepth}, '');
 }
 
 window.addEventListener('popstate', function(e){
   const st = e.state;
   if(!st || !st.appBack) return;
 
+  // ★ 先頭で即pushして次のバック用エントリを確保 ★
+  _pushHistory();
+
   // ① overlay(ダイアログ)が開いているなら閉じる
   const ov = document.getElementById('overlay');
   if(ov.classList.contains('open')){
     closeOv();
-    _pushHistory();
     return;
   }
 
@@ -639,22 +628,19 @@ window.addEventListener('popstate', function(e){
   const exitOv = document.getElementById('exit-overlay');
   if(exitOv.style.display === 'flex'){
     closeExitDlg();
-    _pushHistory(); // 地図表示中状態を再積み → 次バックで④へ
     return;
   }
 
   // ③ シートが開いているなら地図に戻す
   if(curTab !== 'map'){
     _suppressPush = true;
-    _openTab('map'); // ラッパーを経由せず直接 _openTab を呼ぶ
+    _openTab('map');
     _suppressPush = false;
-    _pushHistory(); // 地図表示中状態を積む → 次バックで④へ
     return;
   }
 
   // ④ 地図表示中 → 終了確認ダイアログ
   _showExitDlg();
-  _pushHistory(); // 終了確認open状態を積む → 次バックで②へ
 });
 
 function _showExitDlg(){
@@ -681,8 +667,9 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-// switchTab ラッパー: 非mapタブへの切替時に history を push
-// ③ の popstate では _openTab を直接呼ぶため二重pushしない
+// switchTab ラッパー:
+//   ・offline → ゲートB（課金チェック）
+//   ・map以外 → history push
 (function(){
   const _orig = switchTab;
   switchTab = function(tab){
@@ -693,18 +680,14 @@ document.addEventListener('keydown',e=>{
         } else {
           const wasMap = (curTab === 'map');
           _openTab(tab);
-          if(!_suppressPush && wasMap){
-            _pushHistory();
-          }
+          if(!_suppressPush && wasMap) _pushHistory();
         }
       });
       return;
     }
     const wasMap = (curTab === 'map');
     _orig(tab);
-    if(!_suppressPush && wasMap && tab !== 'map'){
-      _pushHistory();
-    }
+    if(!_suppressPush && wasMap && tab !== 'map') _pushHistory();
   };
 })();
 
