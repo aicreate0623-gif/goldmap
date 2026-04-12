@@ -255,169 +255,225 @@ map.on('mousemove',e=>{
 let heatLayer = null;
 let heatOn = false;
 
-// ── ヒートマップ用点群を生成
+// ════════════════════════════════════════════════════════
+//  砂金分布ヒートマップ（Canvas直接描画）
+//  leaflet-heatを廃止し、L.Layer拡張でCanvasに直接描画する。
+//  ズーム・移動ごとに再描画するためどのzoomでも同品質のグラデーションを維持。
+//  tier: 'free' | 'hd' | 'vip' を将来的に独立Canvasで重ね合わせ可能な構造。
+// ════════════════════════════════════════════════════════
+
+// ── データ生成 ──────────────────────────────────────
 function buildHeatPoints() {
   const pts = [];
-
-  // 1) GSJ鉱床データ（Au_Ag のみ・鉱徴地は低weight）
   for (const d of GSJ_MINE_DATA) {
     if (d.mat !== 'Au_Ag') continue;
-    const w = d.trace ? 0.2 : 0.35; // 鉱徴地は薄め
-    pts.push([d.lat, d.lng, w]);
+    pts.push([d.lat, d.lng, d.trace ? 0.2 : 0.35]);
   }
-
-  // 2) 砂金採取実績DB（MINES）
-  for (const m of MINES) {
-    pts.push([m.lat, m.lng, 0.6]);
-  }
-
-  // 3) ユーザー投稿（将来：Firestoreから取得したJSONを追加）
-  // for (const u of USER_REPORTS) { pts.push([u.lat, u.lng, 1.0]); }
-
+  for (const m of MINES) pts.push([m.lat, m.lng, 0.6]);
   return pts;
 }
 
-// ── シンプルスムースノイズ（Perlin風・外部ライブラリ不要）
-function _sNoise(x, y){
-  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-  return (n - Math.floor(n)) * 2 - 1;
-}
-function _smoothNoise(x, y){
-  const ix=Math.floor(x), iy=Math.floor(y), fx=x-ix, fy=y-iy;
-  const ux=fx*fx*(3-2*fx), uy=fy*fy*(3-2*fy);
-  return _sNoise(ix,iy)*(1-ux)*(1-uy) + _sNoise(ix+1,iy)*ux*(1-uy)
-       + _sNoise(ix,iy+1)*(1-ux)*uy   + _sNoise(ix+1,iy+1)*ux*uy;
+// ── スムースノイズ（Perlin風） ────────────────────────
+function _sNoise(x,y){ const n=Math.sin(x*127.1+y*311.7)*43758.5453; return (n-Math.floor(n))*2-1; }
+function _smoothNoise(x,y){
+  const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy;
+  const ux=fx*fx*(3-2*fx),uy=fy*fy*(3-2*fy);
+  return _sNoise(ix,iy)*(1-ux)*(1-uy)+_sNoise(ix+1,iy)*ux*(1-uy)
+        +_sNoise(ix,iy+1)*(1-ux)*uy  +_sNoise(ix+1,iy+1)*ux*uy;
 }
 
-// ── ノイズ付きサブポイント散布（縁をジャギー化）
-function _addNoisyEdge(pts, tier){
-  const noisy = [...pts];
-  const edgeDeg = tier === 'hd' ? 0.006 : 0.035; // hd≒0.7km / free≒3.9km
-  const subCount = 8;
-  pts.forEach(([lat, lng, w]) => {
-    if(w < 0.15) return;
-    for(let i = 0; i < subCount; i++){
-      const angle = (i / subCount) * Math.PI * 2;
-      const nv = _smoothNoise(lat * 20 + i, lng * 20 + i);
-      const r = edgeDeg * (0.5 + 0.5 * Math.abs(nv));
-      noisy.push([
-        lat + Math.sin(angle) * r * (0.7 + 0.3 * _smoothNoise(lat+i, lng)),
-        lng + Math.cos(angle) * r * (0.7 + 0.3 * _smoothNoise(lat, lng+i)),
-        w * 0.3
-      ]);
-    }
-  });
-  return noisy;
-}
+// ── Canvas描画レイヤー ────────────────────────────────
+const GoldHeatLayer = L.Layer.extend({
+  _tier: 'free',
+  _pts:  [],     // [[lat,lng,w], ...]
+  _canvas: null,
 
-// ── 現在のtier管理: 'free' | 'hd'
-let heatTier = 'free';
+  initialize(pts, tier) {
+    this._pts  = pts;
+    this._tier = tier;
+  },
 
-// free: z9まで / hd: z14まで
-const HEAT_FREE_MAX_ZOOM = 9;
-const HEAT_HD_MAX_ZOOM   = 14;
+  onAdd(map) {
+    this._map = map;
+    // paneHeat内にCanvasを追加
+    const pane = map.getPane('paneHeat');
+    this._canvas = document.createElement('canvas');
+    this._canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
+    pane.appendChild(this._canvas);
+    this._resize();
+    map.on('moveend zoomend', this._redraw, this);
+    map.on('resize', this._resize, this);
+    this._redraw();
+    return this;
+  },
 
-// ── ズームに応じたradius
-function heatRadius(tier) {
-  const z = map.getZoom();
-  if (tier === 'hd') {
-    // 約1.5km幅・z14まで: z5=8, z7=14, z9=24, z11=40, z13=66, z14=80
-    return Math.round(8 * Math.pow(1.41, z - 5));
-  }
-  // free: z5=16, z7=32, z9=62
-  return Math.round(16 * Math.pow(1.46, z - 5));
-}
+  onRemove(map) {
+    map.off('moveend zoomend', this._redraw, this);
+    map.off('resize', this._resize, this);
+    if(this._canvas) { this._canvas.remove(); this._canvas = null; }
+  },
 
-// ── ヒートマップ初期化・再描画
+  _resize() {
+    if(!this._canvas) return;
+    const size = this._map.getSize();
+    this._canvas.width  = size.x;
+    this._canvas.height = size.y;
+    this._redraw();
+  },
+
+  _redraw() {
+    if(!this._canvas || !this._map) return;
+    const canvas = this._canvas;
+    const ctx    = canvas.getContext('2d');
+    const size   = this._map.getSize();
+    canvas.width  = size.x;
+    canvas.height = size.y;
+    ctx.clearRect(0, 0, size.x, size.y);
+
+    const tier  = this._tier;
+    const z     = this._map.getZoom();
+
+    // tierごとの楕円半径（px）
+    const baseR = tier === 'hd' ? 55 : 90;
+    // ズームに応じてスケール（z7基準）
+    const scale = Math.pow(1.55, z - 7);
+    const rBase = Math.max(10, Math.round(baseR * scale));
+
+    // グラデーション定義
+    const COLORS_FREE = [
+      [0.00, [0,18,51,0]],
+      [0.30, [13,61,138,0.5]],
+      [0.55, [200,100,0,0.75]],
+      [0.78, [232,168,0,0.85]],
+      [1.00, [255,245,160,0.9]],
+    ];
+    const COLORS_HD = [
+      [0.00, [0,18,51,0]],
+      [0.25, [13,61,138,0.35]],
+      [0.50, [200,100,0,0.55]],
+      [0.75, [232,168,0,0.70]],
+      [1.00, [255,245,160,0.80]],
+    ];
+    const colorStops = tier === 'hd' ? COLORS_HD : COLORS_FREE;
+
+    // 各ポイントを描画
+    this._pts.forEach(([lat, lng, w]) => {
+      const px = this._map.latLngToContainerPoint([lat, lng]);
+
+      // ノイズで楕円軸比をランダム化（0.55〜1.0）
+      const nv1 = _smoothNoise(lat * 15, lng * 15);
+      const nv2 = _smoothNoise(lat * 15 + 100, lng * 15 + 100);
+      const axisX = rBase * (0.75 + 0.25 * Math.abs(nv1));
+      const axisY = rBase * (0.55 + 0.45 * Math.abs(nv2));
+      // ノイズで回転角をランダム化
+      const angle = _smoothNoise(lat * 8, lng * 8) * Math.PI;
+
+      // 楕円の変換行列でradialGradientを描画
+      ctx.save();
+      ctx.translate(px.x, px.y);
+      ctx.rotate(angle);
+      ctx.scale(1, axisY / axisX);
+
+      // 正規分布風の放射グラデーション
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, axisX);
+      colorStops.forEach(([stop, [r,g,b,a]]) => {
+        grad.addColorStop(stop, `rgba(${r},${g},${b},${a * w})`);
+      });
+
+      ctx.globalCompositeOperation = 'screen'; // 重なりで自然に加算合成
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, axisX, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+  },
+
+  // 外部からデータを追加
+  addPoints(newPts) {
+    this._pts = this._pts.concat(newPts);
+    this._redraw();
+  },
+});
+
+// ── tier管理・zoom制限 ────────────────────────────────
+let heatTier   = 'free';
+let heatLayer  = null;
+let heatOn     = false;
+
+const HEAT_ZOOM = { free: 7, hd: 9, vip: 13 }; // これ以上でダイアログ
+
+// ── ヒートマップ初期化・再描画 ────────────────────────
 function initHeatLayer(tier) {
   tier = tier || 'free';
   heatTier = tier;
-  if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+  if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
 
   const basePts = buildHeatPoints();
-  const pts = _addNoisyEdge(basePts, tier);
-  const isFree = (tier === 'free');
-  heatLayer = L.heatLayer(pts, {
-    radius:     heatRadius(tier),
-    blur:       isFree ? 50 : 22,
-    maxZoom:    isFree ? HEAT_FREE_MAX_ZOOM : HEAT_HD_MAX_ZOOM,
-    max:        1.0,
-    minOpacity: isFree ? 0.15 : 0.10,
-    gradient: isFree ? {
-      0.00: '#001233', 0.25: '#0d3d8a',
-      0.50: '#c86400', 0.75: '#e8a800', 1.00: '#fff5a0',
-    } : {
-      // HD: 薄め・グラデーション緩め
-      0.00: '#001233', 0.20: '#0d3d8a',
-      0.45: '#c86400', 0.70: '#e8a800', 1.00: '#fff5a0',
-    },
-    pane: 'paneHeat',
-  }).addTo(map);
+  heatLayer = new GoldHeatLayer(basePts, tier);
+  heatLayer.addTo(map);
 
   const btnHd = document.getElementById('btn-hd');
-  if (btnHd) btnHd.classList.toggle('active', tier === 'hd');
+  if(btnHd) btnHd.classList.toggle('active', tier !== 'free');
 }
 
-// ── ズーム変化時: zoom制限チェック & radius更新
+// ── ズーム変化時のzoom制限チェック ────────────────────
 map.on('zoomend', () => {
-  if(!heatOn || !heatLayer) return;
-  const z = map.getZoom();
-  const maxZ = heatTier === 'hd' ? HEAT_HD_MAX_ZOOM : HEAT_FREE_MAX_ZOOM;
+  if(!heatOn) return;
+  const z    = map.getZoom();
+  const maxZ = HEAT_ZOOM[heatTier] ?? 7;
   if(z > maxZ){
-    map.removeLayer(heatLayer);
-    _showHeatZoomBanner(true);
+    if(heatLayer) map.removeLayer(heatLayer);
+    _showHeatZoomBanner(true, heatTier);
   } else {
-    if(!map.hasLayer(heatLayer)) heatLayer.addTo(map);
+    if(heatLayer && !map.hasLayer(heatLayer)) heatLayer.addTo(map);
     _showHeatZoomBanner(false);
-    heatLayer.setOptions({ radius: heatRadius(heatTier) });
-    heatLayer.redraw();
   }
 });
 
-// HD誘導バナー
-function _showHeatZoomBanner(show){
-  let banner = document.getElementById('heat-zoom-banner');
+// ── HD誘導バナー ──────────────────────────────────────
+function _showHeatZoomBanner(show, tier){
+  let b = document.getElementById('heat-zoom-banner');
   if(show){
-    if(!banner){
-      banner = document.createElement('div');
-      banner.id = 'heat-zoom-banner';
-      banner.innerHTML = '🔒 この拡大率は高解像度版で閲覧できます <button onclick="toggleHeatHD()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">HDを見る</button>';
-      banner.style.cssText = 'position:fixed;bottom:calc(var(--tab-h)+10px);left:50%;transform:translateX(-50%);z-index:1050;background:rgba(0,0,0,0.85);border:1px solid var(--gold);border-radius:20px;padding:7px 14px;font-size:12px;color:var(--txt);white-space:nowrap;pointer-events:auto;display:flex;align-items:center;';
-      document.body.appendChild(banner);
+    const isHd = (tier === 'hd');
+    const msg  = isHd
+      ? '🔒 この拡大率はVIPプランで閲覧できます'
+      : '🔒 この拡大率は高解像度版で閲覧できます';
+    const btn  = isHd
+      ? '' // VIP誘導（将来実装）
+      : '<button onclick="toggleHeatHD()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">HDを見る</button>';
+    if(!b){
+      b = document.createElement('div');
+      b.id = 'heat-zoom-banner';
+      b.style.cssText = 'position:fixed;bottom:calc(var(--tab-h)+10px);left:50%;transform:translateX(-50%);z-index:1050;background:rgba(0,0,0,0.88);border:1px solid var(--gold);border-radius:20px;padding:7px 16px;font-size:12px;color:var(--txt);white-space:nowrap;pointer-events:auto;display:flex;align-items:center;gap:4px;';
+      document.body.appendChild(b);
     }
-    banner.style.display = 'flex';
+    b.innerHTML = msg + btn;
+    b.style.display = 'flex';
   } else {
-    if(banner) banner.style.display = 'none';
+    if(b) b.style.display = 'none';
   }
 }
 
-// ── ON/OFF切替（デフォルトは常にfree tier）
+// ── ON/OFF切替 ────────────────────────────────────────
 function toggleHeat() {
   heatOn = !heatOn;
   document.getElementById('btn-heat').classList.toggle('active', heatOn);
-  // HDボタン: ヒートマップON時のみ表示
   document.getElementById('btn-hd').style.display = heatOn ? 'flex' : 'none';
-  if (heatOn) {
-    heatTier = 'free'; // 必ずfree tierからスタート
+  if(heatOn){
+    heatTier = 'free';
     initHeatLayer('free');
   } else {
-    heatTier = 'free';
-    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
-    // HDボタンのアクティブ解除
-    const btnHd = document.getElementById('btn-hd');
-    if (btnHd) btnHd.classList.remove('active');
+    if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
+    document.getElementById('btn-hd')?.classList.remove('active');
     _showHeatZoomBanner(false);
   }
 }
 
-// ── 外部からデータを追加する口（Firestore連携時に使用）
-// points: [{lat, lng, weight}] の配列
+// ── Firestore連携用（外部からデータ追加）─────────────
 function addHeatPoints(points) {
-  if (!heatLayer) return;
-  const current = heatLayer._latlngs || [];
-  const merged = current.concat(points.map(p => [p.lat, p.lng, p.weight ?? 1.0]));
-  heatLayer.setLatLngs(merged);
-  heatLayer.redraw();
+  if(!heatLayer) return;
+  heatLayer.addPoints(points.map(p => [p.lat, p.lng, p.weight ?? 1.0]));
 }
 
 // ═══════════════════════════════════════════

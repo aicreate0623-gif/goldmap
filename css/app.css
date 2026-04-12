@@ -141,6 +141,12 @@ html, body {
 input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer; }
 #geo-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
 
+/* 長押しリップルエフェクト */
+@keyframes lpRipple {
+  0%   { transform: scale(0.5); opacity: 0.9; }
+  100% { transform: scale(2.5); opacity: 0;   }
+}
+
 /* ━━━ ★ 評価システム ━━━ */
 .star-rating {
   display: flex; align-items: center; gap: 4px;

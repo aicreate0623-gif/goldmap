@@ -58,6 +58,39 @@ function addMk(p){
   const m=L.marker([p.lat,p.lng],{icon:uIco(),zIndexOffset:100,pane:'paneUser'});
   m.on('click',()=>openDet(p.id)); m.addTo(map); p.mk=m;
 }
+
+// ── 地図長押しでポイント追加（1秒） ─────────────────
+(function initLongPress(){
+  let _lpTimer=null, _lpStartLL=null, _lpRipple=null;
+
+  function _clearLp(){
+    clearTimeout(_lpTimer); _lpTimer=null;
+    if(_lpRipple){map.getPane('paneUser').removeChild(_lpRipple);_lpRipple=null;}
+  }
+
+  function _startLp(latlng){
+    if(addMode) return;
+    _lpStartLL = latlng;
+    // リップルエフェクト表示
+    const px = map.latLngToContainerPoint(latlng);
+    _lpRipple = document.createElement('div');
+    _lpRipple.style.cssText=`position:absolute;left:${px.x-20}px;top:${px.y-20}px;width:40px;height:40px;border-radius:50%;border:2px solid rgba(200,170,80,0.8);animation:lpRipple 1s ease-out forwards;pointer-events:none;`;
+    map.getPane('paneUser').appendChild(_lpRipple);
+    _lpTimer = setTimeout(()=>{
+      _clearLp();
+      // 長押し成功 → ピンをその位置に置いてドラッグモードへ
+      addMode=true;
+      tPin=L.marker([latlng.lat,latlng.lng],{icon:uIco(),draggable:true,pane:'paneUser'}).addTo(map);
+      document.getElementById('add-banner').classList.add('show');
+    }, 1000);
+  }
+
+  map.on('mousedown touchstart', e=>{
+    const ll = e.latlng || (e.touches && map.mouseEventToLatLng(e.touches[0]));
+    if(ll) _startLp(ll);
+  });
+  map.on('mouseup mousemove touchend touchcancel', _clearLp);
+})();
 function updPtCnt(){
   document.getElementById('sb-pt').textContent='ポイント: '+pts.length+'件';
   renderPtList();
@@ -143,9 +176,14 @@ async function confirmSave(){
     const ll=tPin.getLatLng(),p={id:nid++,lat:ll.lat,lng:ll.lng,name:n,memo:m,stars:_curStars};
     pts.push(p);addMk(p);cancelAdd();
     if(isContribOn()){
-      submitCoord(ll.lat,ll.lng,_curStars)
-        .then(fsId=>{p.fsId=fsId;savePts();})
-        .catch(e=>console.warn('[points] submitCoord失敗',e));
+      // オフライン判定: navigator.onLine が false の場合は投稿をスキップ
+      if(!navigator.onLine){
+        showAlert('オフライン', 'ポイントはローカルに保存しましたが、ネットワーク未接続のためヒートマップへの投稿はスキップされました。\n次回オンライン時に再度「ヒートマップに協力」をONにすると送信できます。');
+      } else {
+        submitCoord(ll.lat,ll.lng,_curStars)
+          .then(fsId=>{p.fsId=fsId;savePts();})
+          .catch(e=>console.warn('[points] submitCoord失敗',e));
+      }
     }
   }
   savePts();updPtCnt();closeOv();eid=null;

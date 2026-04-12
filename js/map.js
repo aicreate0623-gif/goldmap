@@ -65,19 +65,25 @@ function setBase(k){
   });
 }
 
-// ── ヒートマップ高解像度トグル（ゲートC）────────────
+// ── ヒートマップ高解像度トグル（ゲートC: free→hd / hd→vip）
 async function toggleHeatHD(){
   const [premium, postCount] = await Promise.all([
     isPremiumUser(),
     getUserPostCount(),
   ]);
+
+  if(heatTier === 'hd'){
+    // HD → VIP への切替試行
+    showPremiumGate('heatmap_vip');
+    return;
+  }
+
+  // free → HD
   if(!premium || postCount < 1){
     showPremiumGate('heatmap_hd');
     return;
   }
-  // 現在のtierをトグル
-  const nextTier = (heatTier === 'hd') ? 'free' : 'hd';
-  initHeatLayer(nextTier);
+  initHeatLayer('hd');
 }
 
 // ── 右フロートボタン位置をシームレスバー分下にオフセット ──
