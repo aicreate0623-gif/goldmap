@@ -299,8 +299,8 @@ function heatRadius(tier) {
     // HD: z5=6, z7=10, z9=18, z11=28, z13=44
     return Math.round(6 * Math.pow(1.38, z - 5));
   }
-  // free: z5=12, z7=22, z9=38, z11=60, z13=96（粗め・広域感）
-  return Math.round(12 * Math.pow(1.42, z - 5));
+  // free: z5=14, z7=28, z9=50, z11=80, z13=128（広域・粗め）
+  return Math.round(14 * Math.pow(1.46, z - 5));
 }
 
 // ── ヒートマップ初期化・再描画
@@ -313,10 +313,10 @@ function initHeatLayer(tier) {
   const isFree = (tier === 'free');
   heatLayer = L.heatLayer(pts, {
     radius:     heatRadius(tier),
-    blur:       isFree ? 30 : 15,   // free=ぼんやり / hd=シャープ
+    blur:       isFree ? 50 : 15,   // free=強いぼかし / hd=シャープ
     maxZoom:    13,
     max:        1.0,
-    minOpacity: isFree ? 0.20 : 0.28,
+    minOpacity: isFree ? 0.15 : 0.28,
     gradient: {
       0.00: '#001233',
       0.25: '#0d3d8a',
