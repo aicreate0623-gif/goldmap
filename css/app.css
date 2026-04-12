@@ -60,16 +60,21 @@ html, body {
 #sb-pt      { color: var(--txt-sub); }
 #sb-cache   { margin-left: auto; color: var(--txt-dim); font-size: 9px; }
 
-/* ━━━ FLOATING CONTROLS TOP BAR (左上・横並び) ━━━ */
+/* ━━━ FLOATING CONTROLS TOP BAR (左上・横スクロール) ━━━ */
 #float-ctrl {
   position: fixed;
   top: calc(var(--sb-h) + 8px);
   left: 10px;
+  right: 60px; /* 右コントロール(52px)+余白 */
   z-index: 900;
   display: flex; flex-direction: row; gap: 5px; align-items: flex-start;
-  flex-wrap: wrap;
-  max-width: calc(100vw - 70px); /* 右コントロールとの衝突回避 */
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  padding-bottom: 2px; /* geo-row展開時の余裕 */
 }
+#float-ctrl::-webkit-scrollbar { display: none; } /* Chrome/Safari */
 
 /* ━━━ FLOATING CONTROLS RIGHT (右縦並び・既存位置) ━━━ */
 #float-ctrl-right {
@@ -89,6 +94,7 @@ html, body {
   transition: all .18s cubic-bezier(.4,0,.2,1);
   line-height: 1; user-select: none; letter-spacing: .03em;
   box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  flex-shrink: 0; /* スクロール時に縮まない */
 }
 .fc-btn .fc-ico { font-size: 15px; line-height: 1; }
 .fc-btn:active { transform: scale(0.93); }
