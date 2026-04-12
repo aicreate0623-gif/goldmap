@@ -219,53 +219,74 @@ function buildHeatPoints() {
   return pts;
 }
 
+// ── 現在のtier管理: 'free' | 'hd'
+let heatTier = 'free';
+
 // ── ズームレベルに応じてradiusを動的調整
-function heatRadius() {
+//   tier='free': 大きなblur・広いradius（低解像度）
+//   tier='hd'  : 小さなblur・狭いradius（高解像度）
+function heatRadius(tier) {
   const z = map.getZoom();
-  // z5=8, z7=14, z9=22, z11=35, z13=55
-  return Math.round(8 * Math.pow(1.42, z - 5));
+  if (tier === 'hd') {
+    // HD: z5=6, z7=10, z9=18, z11=28, z13=44
+    return Math.round(6 * Math.pow(1.38, z - 5));
+  }
+  // free: z5=12, z7=22, z9=38, z11=60, z13=96（粗め・広域感）
+  return Math.round(12 * Math.pow(1.42, z - 5));
 }
 
 // ── ヒートマップ初期化・再描画
-function initHeatLayer() {
+function initHeatLayer(tier) {
+  tier = tier || 'free';
+  heatTier = tier;
   if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
 
   const pts = buildHeatPoints();
+  const isFree = (tier === 'free');
   heatLayer = L.heatLayer(pts, {
-    radius:   heatRadius(),
-    blur:     15,
-    maxZoom:  13,
-    max:      1.0,
-    minOpacity: 0.25,
+    radius:     heatRadius(tier),
+    blur:       isFree ? 30 : 15,   // free=ぼんやり / hd=シャープ
+    maxZoom:    13,
+    max:        1.0,
+    minOpacity: isFree ? 0.20 : 0.28,
     gradient: {
-      0.00: '#001233',  // 深夜ブルー（ほぼ無し）
-      0.25: '#0d3d8a',  // 青（低密度）
-      0.50: '#c86400',  // 茶オレンジ（中密度）
-      0.75: '#e8a800',  // ゴールド（高密度）
-      1.00: '#fff5a0',  // 輝く金（最高密度）
+      0.00: '#001233',
+      0.25: '#0d3d8a',
+      0.50: '#c86400',
+      0.75: '#e8a800',
+      1.00: '#fff5a0',
     },
     pane: 'paneHeat',
   }).addTo(map);
+
+  // HDボタンのアクティブ状態を反映
+  const btnHd = document.getElementById('btn-hd');
+  if (btnHd) btnHd.classList.toggle('active', tier === 'hd');
 }
 
 // ── ズーム変化時にradius更新
 map.on('zoomend', () => {
   if (heatOn && heatLayer) {
-    heatLayer.setOptions({ radius: heatRadius() });
+    heatLayer.setOptions({ radius: heatRadius(heatTier) });
     heatLayer.redraw();
   }
 });
 
-// ── ON/OFF切替
+// ── ON/OFF切替（デフォルトは常にfree tier）
 function toggleHeat() {
   heatOn = !heatOn;
   document.getElementById('btn-heat').classList.toggle('active', heatOn);
   // HDボタン: ヒートマップON時のみ表示
   document.getElementById('btn-hd').style.display = heatOn ? 'flex' : 'none';
   if (heatOn) {
-    initHeatLayer();
+    heatTier = 'free'; // 必ずfree tierからスタート
+    initHeatLayer('free');
   } else {
+    heatTier = 'free';
     if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+    // HDボタンのアクティブ解除
+    const btnHd = document.getElementById('btn-hd');
+    if (btnHd) btnHd.classList.remove('active');
   }
 }
 
@@ -574,67 +595,61 @@ function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;d
 
 // ═══════════════════════════════════════════
 //  バックボタン制御
-//  設計方針:
-//    history.pushState でアプリ独自スタックを管理。
-//    将来 PWA / Android WebView の finish() 相当に
-//    差し替えられるよう exitApp() を抽象化。
+//  優先順位:
+//    ① overlay(ダイアログ) open → 閉じる → push（終了確認を維持）
+//    ② 終了確認ダイアログ open  → 閉じる → push（ループ防止のため再push）
+//    ③ シート(pts/cfg/offline)open → 地図に戻す → push
+//    ④ 地図表示中               → 終了確認ダイアログ表示 → push
+//
+//  ③→④の2回バックで抜けるバグを修正:
+//    各ステップ後に必ず _pushHistory() して depth を補填。
+//    終了確認を閉じた後も ④ に戻るためもう一度 push。
 // ═══════════════════════════════════════════
-let _backDepth = 0;     // pushState した回数
-let _suppressPush = false; // popstate内部の switchTab 呼び出し時に push を抑制
+let _backDepth = 0;
+let _suppressPush = false;
 
-// アプリ起動時に基底エントリを push
 (function initHistory(){
-  // ページロード時点では state が null なので push しておく
   history.replaceState({appBack:true, depth:0}, '');
 })();
 
-// タブ / シート が開くたびに push してスタックを積む
 function _pushHistory(){
   _backDepth++;
   history.pushState({appBack:true, depth:_backDepth}, '');
 }
 
-// 元の switchTab を拡張：非mapタブに切り替えるとき history を push
-const _origSwitchTab = switchTab;
-// ※ switchTab は下で再定義するため ここでは記述せず、
-//    後述の popstate ハンドラ内で状態を判断する。
-
 window.addEventListener('popstate', function(e){
   const st = e.state;
-  if(!st || !st.appBack){
-    // 自アプリのスタック外（普通はないが念のため）
-    return;
-  }
+  if(!st || !st.appBack) return;
 
-  // ① ダイアログ（overlay）が開いているなら閉じる
+  // ① ダイアログ(overlay)が開いているなら閉じる
   const ov = document.getElementById('overlay');
   if(ov.classList.contains('open')){
     closeOv();
-    // popstate を消費したので再度 push して depth を維持
-    _pushHistory();
+    _pushHistory(); // 閉じた後も ②③④ の手前に戻る
     return;
   }
 
   // ② 終了確認ダイアログが開いているなら閉じる
+  //    ※ 閉じた後も「地図表示中」状態なので push して ④ に備える
   const exitOv = document.getElementById('exit-overlay');
   if(exitOv.style.display === 'flex'){
     closeExitDlg();
-    _pushHistory();
+    _pushHistory(); // 地図表示中の状態を再スタックに積む
     return;
   }
 
-  // ③ タブが開いているなら地図に戻す
+  // ③ シートが開いているなら地図に戻す
   if(curTab !== 'map'){
     _suppressPush = true;
     switchTab('map');
     _suppressPush = false;
-    _pushHistory();
+    _pushHistory(); // 地図表示中の状態をスタックに積む（次のバックで④へ）
     return;
   }
 
   // ④ 地図表示中 → 終了確認ダイアログ
   _showExitDlg();
-  _pushHistory(); // ダイアログが開いている状態をスタックに積む
+  _pushHistory(); // 終了確認が開いた状態をスタックに積む（次のバックで②へ）
 });
 
 function _showExitDlg(){
@@ -645,11 +660,7 @@ function closeExitDlg(){
 }
 function doExitApp(){
   closeExitDlg();
-  // 抽象化された終了処理
-  // WebView(Android): window.appBridge?.finish() 等に差し替え可能
-  // PWA / ブラウザ: history を最後まで戻してから close
   try {
-    // 積んだ history を一括で巻き戻した上で close を試みる
     history.go(-(_backDepth + 1));
     setTimeout(()=>{ window.close(); }, 100);
   } catch(e){

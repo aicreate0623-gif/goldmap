@@ -50,6 +50,9 @@ async function initMap(){
   initKinnoLayer();
   // Wikidataレイヤー初期化（起動時に自動fetch）
   initWikiLayer();
+  // 右フロートボタン位置をシームレスバー分下にオフセット
+  // レイアウト確定後に計算するため requestAnimationFrame を使う
+  requestAnimationFrame(()=>{ updateRightFloatTop(); });
 }
 
 function setBase(k){
@@ -63,7 +66,6 @@ function setBase(k){
 
 // ── ヒートマップ高解像度トグル（ゲートC）────────────
 async function toggleHeatHD(){
-  // ゲートC条件チェック: isPremium かつ 自投稿1件以上
   const [premium, postCount] = await Promise.all([
     isPremiumUser(),
     getUserPostCount(),
@@ -72,9 +74,20 @@ async function toggleHeatHD(){
     showPremiumGate('heatmap_hd');
     return;
   }
-  // Premium & 投稿あり → HD切り替え実行
-  // Phase2: renderHeatmap('paid') に差し替える
-  showAlert('HD表示', '高解像度ヒートマップに切り替えました。（Phase2実装予定）');
+  // 現在のtierをトグル
+  const nextTier = (heatTier === 'hd') ? 'free' : 'hd';
+  initHeatLayer(nextTier);
+}
+
+// ── 右フロートボタン位置をシームレスバー分下にオフセット ──
+function updateRightFloatTop(){
+  const bar = document.getElementById('float-ctrl');
+  if(!bar) return;
+  const sbH = parseInt(getComputedStyle(document.documentElement)
+                .getPropertyValue('--sb-h')) || 30;
+  const barBottom = bar.getBoundingClientRect().bottom;
+  const top = barBottom + 8;
+  document.getElementById('float-ctrl-right').style.top = top + 'px';
 }
 
 // 地質図
