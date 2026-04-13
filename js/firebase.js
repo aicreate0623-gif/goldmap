@@ -42,18 +42,21 @@ let _devPremium = false; // デフォルト: 無料
 
 function devTogglePremium(){
   _devPremium = !_devPremium;
+  // 左下フロートボタン
   const btn = document.getElementById('dev-premium-btn');
-  if(_devPremium){
-    btn.textContent = 'DEV: PREMIUM';
-    btn.style.background = 'rgba(50,200,100,0.18)';
-    btn.style.borderColor = 'rgba(80,220,120,0.5)';
-    btn.style.color = '#80e8a0';
-  } else {
-    btn.textContent = 'DEV: FREE';
-    btn.style.background = 'rgba(255,50,50,0.18)';
-    btn.style.borderColor = 'rgba(255,80,80,0.5)';
-    btn.style.color = '#ff8888';
-  }
+  // 設定タブ内インラインボタン
+  const btnInline = document.getElementById('dev-premium-inline');
+  const label = _devPremium ? 'PREMIUM ✓' : 'FREE';
+  const bg    = _devPremium ? 'rgba(50,200,100,0.18)' : 'rgba(255,50,50,0.18)';
+  const bc    = _devPremium ? 'rgba(80,220,120,0.5)'  : 'rgba(255,80,80,0.5)';
+  const col   = _devPremium ? '#80e8a0' : '#ff8888';
+  [btn, btnInline].forEach(b => {
+    if(!b) return;
+    b.textContent   = (b === btn ? 'DEV: ' : '') + label;
+    b.style.background   = bg;
+    b.style.borderColor  = bc;
+    b.style.color        = col;
+  });
 }
 
 // ─────────────────────────────────────────────────────

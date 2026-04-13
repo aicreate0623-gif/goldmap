@@ -65,25 +65,32 @@ function setBase(k){
   });
 }
 
-// ── ヒートマップ高解像度トグル（ゲートC: free→hd / hd→vip）
+// ── HDヒートマップ（ゲートC: Premiumかつ投稿1件以上）────
 async function toggleHeatHD(){
-  const [premium, postCount] = await Promise.all([
-    isPremiumUser(),
-    getUserPostCount(),
-  ]);
-
   if(heatTier === 'hd'){
-    // HD → VIP への切替試行
-    showPremiumGate('heatmap_vip');
+    // HDをOFF → freeに戻す
+    initHeatLayer('free');
     return;
   }
-
-  // free → HD
+  const [premium, postCount] = await Promise.all([
+    isPremiumUser(), getUserPostCount(),
+  ]);
   if(!premium || postCount < 1){
     showPremiumGate('heatmap_hd');
     return;
   }
   initHeatLayer('hd');
+}
+
+// ── VIPヒートマップ（ゲートD: VIPプラン）────────────
+async function toggleHeatVIP(){
+  if(heatTier === 'vip'){
+    // VIPをOFF → freeに戻す
+    initHeatLayer('free');
+    return;
+  }
+  // VIPは現状スタブ: 常にダイアログ
+  showPremiumGate('heatmap_vip');
 }
 
 // ── 右フロートボタン位置をシームレスバー分下にオフセット ──

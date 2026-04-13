@@ -141,7 +141,16 @@ html, body {
 input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer; }
 #geo-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
 
-/* 長押しリップルエフェクト */
+/* ━━━ DEV パラメーターパネル ━━━ */
+.dev-param-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 11px; color: var(--txt-sub);
+}
+.dev-param-row label { min-width: 90px; white-space: nowrap; }
+.dev-param-row input[type=range] { flex: 1; accent-color: var(--gold); }
+
+/* ━━━ 長押しリップルエフェクト ━━━ */
 @keyframes lpRipple {
   0%   { transform: scale(0.5); opacity: 0.9; }
   100% { transform: scale(2.5); opacity: 0;   }

@@ -247,88 +247,156 @@ map.on('mousemove',e=>{
 
 // ═══════════════════════════════════════════
 //  砂金分布ヒートマップ
-//  データソース（将来的な重み付け）
-//    weight 0.3 → GSJ_MINE_DATA（Au_Ag鉱床）  鉱床存在確率
-//    weight 0.6 → MINES（砂金採取実績地）
-//    weight 1.0 → ユーザー投稿（実採取報告）  ← Firestore後で追加
-// ═══════════════════════════════════════════
-// ═══════════════════════════════════════════
-//  砂金分布ヒートマップ（leaflet-heat）
+//  データソース:
+//    GSJ_MINE_DATA（Au_Ag鉱床） weight:低
+//    MINES（砂金採取実績地）    weight:中
+//    ユーザー投稿（Firestore）   weight:高 ← Phase2
 // ═══════════════════════════════════════════
 
-// ── データ生成 ──────────────────────────────────────
+// ── グリッド集計 + log正規化 ──────────────────────────
+// gridDeg: 集計グリッドの1辺（度）
+// 密集地でも等高線的なグラデーションが出るよう log(count+1) で正規化
+function _gridAggregate(rawPts, gridDeg) {
+  const grid = {};
+  rawPts.forEach(([lat, lng, w]) => {
+    const key = `${Math.round(lat / gridDeg)}_${Math.round(lng / gridDeg)}`;
+    if(!grid[key]) grid[key] = { lat: Math.round(lat/gridDeg)*gridDeg,
+                                  lng: Math.round(lng/gridDeg)*gridDeg,
+                                  sum: 0, count: 0 };
+    grid[key].sum   += w;
+    grid[key].count += 1;
+  });
+  const cells = Object.values(grid);
+  if(!cells.length) return [];
+  const maxLog = Math.log(Math.max(...cells.map(c => c.count)) + 1);
+  if(maxLog === 0) return [];
+  return cells.map(c => [
+    c.lat, c.lng,
+    Math.log(c.count + 1) / maxLog  // 0〜1 に正規化
+  ]);
+}
+
+// ── 生データ生成 ─────────────────────────────────────
 function buildHeatPoints() {
   const pts = [];
   for (const d of GSJ_MINE_DATA) {
     if (d.mat !== 'Au_Ag') continue;
-    pts.push([d.lat, d.lng, d.trace ? 0.2 : 0.35]);
+    pts.push([d.lat, d.lng, d.trace ? 0.3 : 0.5]);
   }
-  for (const m of MINES) pts.push([m.lat, m.lng, 0.6]);
+  for (const m of MINES) pts.push([m.lat, m.lng, 0.8]);
   return pts;
 }
 
-// ── tier管理・zoom制限 ────────────────────────────────
+// ── DEVパネルから上書きできるパラメーター ────────────
+// devUpdateHeat() で反映
+const _DEV = {
+  radius:     null, // null = 自動計算
+  blur:       null,
+  opacity:    null,
+  zoomLimit:  null,
+};
+
+// ── tier設定 ─────────────────────────────────────────
+// gridDeg: グリッド集計サイズ
+// colorStops: グラデーション停止点
+// zoomMax: これを超えたら上位tierへ誘導
+const TIER_CFG = {
+  free: {
+    gridDeg:  0.1,    // 約11km
+    zoomMax:  7,
+    blur:     55,
+    minOpacity: 0.15,
+    // 青〜橙〜金（広域・参考情報）
+    gradient: {
+      0.00: '#001233',
+      0.20: '#0a2a6e',
+      0.45: '#b85800',
+      0.72: '#e0a000',
+      1.00: '#fff0a0',
+    },
+  },
+  hd: {
+    gridDeg:  0.01,   // 約1.1km
+    zoomMax:  9,
+    blur:     22,
+    minOpacity: 0.12,
+    // 深緑〜緑金〜金白（精度高め）
+    gradient: {
+      0.00: '#001a0a',
+      0.22: '#0a4a1a',
+      0.48: '#6a9a00',
+      0.74: '#d4c800',
+      1.00: '#fffff0',
+    },
+  },
+  vip: {
+    gridDeg:  0.01,   // 将来0.001°に変更
+    zoomMax:  13,
+    blur:     14,
+    minOpacity: 0.10,
+    // 深紅〜橙赤〜白金（最高精度）
+    gradient: {
+      0.00: '#1a0000',
+      0.22: '#6a0a00',
+      0.50: '#c83000',
+      0.76: '#f0a800',
+      1.00: '#fff8e0',
+    },
+  },
+};
+
 let heatTier   = 'free';
 let heatLayer  = null;
 let heatOn     = false;
 
-const HEAT_ZOOM = { free: 7, hd: 9, vip: 13 }; // これ以上でHD/VIPダイアログ
-
-// ── ズームに応じたradius・blur（zoomendごとに再計算）────
-function _heatOpts(tier) {
-  const z = map.getZoom();
-  if (tier === 'hd') {
-    return {
-      radius: Math.round(8 * Math.pow(1.41, z - 5)),
-      blur:   20,
-      minOpacity: 0.10,
-      gradient: { 0.00:'#001233', 0.20:'#0d3d8a', 0.45:'#c86400', 0.70:'#e8a800', 1.00:'#fff5a0' },
-    };
-  }
-  return {
-    radius: Math.round(16 * Math.pow(1.46, z - 5)),
-    blur:   50,
-    minOpacity: 0.15,
-    gradient: { 0.00:'#001233', 0.25:'#0d3d8a', 0.50:'#c86400', 0.75:'#e8a800', 1.00:'#fff5a0' },
-  };
+// ── ズームに応じたradius（地理距離ベース） ────────────
+// z7で約35px相当になるよう基準を設定
+function _heatRadius(tier) {
+  const z    = map.getZoom();
+  const base = tier === 'hd' ? 10 : tier === 'vip' ? 6 : 18;
+  return _DEV.radius ?? Math.round(base * Math.pow(1.45, z - 5));
 }
 
-// ── ヒートマップ初期化 ────────────────────────────────
+// ── ヒートマップ初期化（layer丸ごと作り直し） ────────
 function initHeatLayer(tier) {
   tier = tier || 'free';
   heatTier = tier;
   if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
 
-  const pts  = buildHeatPoints();
-  const opts = _heatOpts(tier);
+  const cfg  = TIER_CFG[tier];
+  const raw  = buildHeatPoints();
+  const pts  = _gridAggregate(raw, cfg.gridDeg);
+  const r    = _heatRadius(tier);
+  const blur = _DEV.blur        ?? cfg.blur;
+  const opac = _DEV.opacity     ?? cfg.minOpacity;
+
   heatLayer = L.heatLayer(pts, {
-    ...opts,
-    maxZoom: 18, // leaflet-heat側の上限は撤廃しzoomendで制御
-    max: 1.0,
-    pane: 'paneHeat',
+    radius:     r,
+    blur:       blur,
+    minOpacity: opac,
+    maxZoom:    18,   // leaflet-heat側の制限なし（こちらで制御）
+    max:        1.0,
+    gradient:   cfg.gradient,
+    pane:       'paneHeat',
   }).addTo(map);
 
-  const btnHd = document.getElementById('btn-hd');
-  if(btnHd) btnHd.classList.toggle('active', tier !== 'free');
+  // ボタンのアクティブ状態更新
+  document.getElementById('btn-hd')?.classList.toggle('active',  tier === 'hd');
+  document.getElementById('btn-vip')?.classList.toggle('active', tier === 'vip');
 }
 
-// ── ズーム変化時: 再描画 + zoom制限チェック ────────────
-// maxZoomをleaflet-heat側で制限すると再描画されなくなるため
-// zoomendで強制redraw & 制限はこちらで管理する
+// ── ズーム変化時: layer作り直し + zoom制限チェック ────
 map.on('zoomend', () => {
-  if(!heatOn || !heatLayer) return;
+  if(!heatOn) return;
   const z    = map.getZoom();
-  const maxZ = HEAT_ZOOM[heatTier] ?? 7;
+  const maxZ = _DEV.zoomLimit ?? TIER_CFG[heatTier].zoomMax;
   if(z > maxZ){
-    if(map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
+    if(heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
     _showHeatZoomBanner(true, heatTier);
   } else {
-    if(!map.hasLayer(heatLayer)) heatLayer.addTo(map);
     _showHeatZoomBanner(false);
-    // ズームに合わせてradius/blurを更新して強制再描画
-    const opts = _heatOpts(heatTier);
-    heatLayer.setOptions({ radius: opts.radius, blur: opts.blur });
-    heatLayer.redraw();
+    // layer作り直しで確実にきれいな再描画
+    initHeatLayer(heatTier);
   }
 });
 
@@ -337,10 +405,11 @@ function _showHeatZoomBanner(show, tier){
   let b = document.getElementById('heat-zoom-banner');
   if(show){
     const isHd  = (tier === 'hd');
-    const msg   = isHd ? '🔒 この拡大率はVIPプランで閲覧できます'
-                       : '🔒 この拡大率は高解像度版で閲覧できます';
-    const btnHtml = isHd ? ''
-      : '<button onclick="toggleHeatHD()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">HDを見る</button>';
+    const msg   = isHd ? '⭐ この拡大率はVIPプランで閲覧できます'
+                       : '🔥 この拡大率は高解像度版で閲覧できます';
+    const btnHtml = isHd
+      ? '<button onclick="toggleHeatVIP()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:linear-gradient(135deg,#c06000,#f0d000);border:none;color:#1a0800;font-weight:700;font-size:11px;cursor:pointer;">VIPを見る</button>'
+      : '<button onclick="toggleHeatHD()"  style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">HDを見る</button>';
     if(!b){
       b = document.createElement('div');
       b.id = 'heat-zoom-banner';
@@ -358,15 +427,23 @@ function _showHeatZoomBanner(show, tier){
 function toggleHeat() {
   heatOn = !heatOn;
   document.getElementById('btn-heat').classList.toggle('active', heatOn);
-  document.getElementById('btn-hd').style.display = heatOn ? 'flex' : 'none';
+  const showSub = heatOn ? 'flex' : 'none';
+  document.getElementById('btn-hd').style.display  = showSub;
+  document.getElementById('btn-vip').style.display = showSub;
   if(heatOn){
     heatTier = 'free';
     initHeatLayer('free');
   } else {
     if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
     document.getElementById('btn-hd')?.classList.remove('active');
+    document.getElementById('btn-vip')?.classList.remove('active');
     _showHeatZoomBanner(false);
   }
+}
+
+// ── DEVパラメーター即時反映 ───────────────────────────
+function devUpdateHeat() {
+  if(heatOn) initHeatLayer(heatTier);
 }
 
 // ── Firestore連携用（外部からデータ追加）─────────────
