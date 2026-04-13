@@ -255,6 +255,14 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .sheet-close:active { transform: scale(0.9); }
 .sheet-body { flex: 1; overflow-y: auto; padding: 18px; }
 
+.pt-tip {
+  font-size: 11px; color: var(--txt-dim);
+  padding: 6px 16px 8px;
+  background: rgba(200,170,80,0.05);
+  border-bottom: 1px solid rgba(200,170,80,0.08);
+}
+.pt-tip b { color: var(--gold); }
+
 /* ━━━ POINT SHEET ━━━ */
 #pt-sheet .sheet-head { padding-bottom: 10px; }
 .pt-actions {
