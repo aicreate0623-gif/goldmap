@@ -64,6 +64,9 @@
 
 <!-- ━━━ FLOATING CONTROLS RIGHT (map tools) ━━━ -->
 <div id="float-ctrl-right">
+  <button class="fc-btn" id="btn-heat-adj" onclick="toggleHeatPanel()" title="ヒートマップ調整" style="display:none">
+    <span class="fc-ico">🎛</span><span>調整</span>
+  </button>
   <button class="fc-btn" id="btn-mine"  onclick="toggleMine()"     title="砂金DB">
     <span class="fc-ico">⛏</span><span>砂金DB</span>
   </button>
@@ -541,8 +544,17 @@
   </div>
 </div>
 
-<!-- ━━━ ヒートマップ調整パネル（地図上フロート・JS動的生成） ━━━ -->
-<div id="heat-ctrl-panel" style="display:none"></div>
+<!-- ━━━ ヒートマップ調整パネル（地図上フロート） ━━━ -->
+<div id="heat-ctrl-panel" style="display:none">
+  <!-- タブヘッダー -->
+  <div id="heat-panel-tabs">
+    <button class="heat-tab-btn" id="heat-tab-free"    onclick="_switchHeatTab('free')">フリー</button>
+    <button class="heat-tab-btn" id="heat-tab-premium" onclick="_switchHeatTab('premium')">プレミアム</button>
+  </div>
+  <!-- タブコンテンツ -->
+  <div id="heat-tab-body-free"    class="heat-tab-body"></div>
+  <div id="heat-tab-body-premium" class="heat-tab-body" style="display:none"></div>
+</div>
 
 <!-- ━━━ 開発用: 課金状態トグルボタン ━━━ -->
 <div style="position:fixed;left:10px;bottom:calc(var(--tab-h) + 8px);z-index:1200;display:flex;gap:6px;">

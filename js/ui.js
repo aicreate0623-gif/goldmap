@@ -302,8 +302,11 @@ const TIER_CFG = {
   },
 };
 
-// ── パネル調整パラメーター（tier別・リセット値共通）────
-const HEAT_PARAMS_RESET = { radius: 50, blur: 40, opacity: 25 };
+// ── パネル調整パラメーター（tier別デフォルト・リセット値）────
+const HEAT_PARAMS_DEFAULT = {
+  free:    { radius: 50, blur: 40, opacity: 25 },
+  premium: { radius: 50, blur: 40, opacity: 50 },
+};
 
 // 調整域制限
 const HEAT_PARAMS_RANGE = {
@@ -313,8 +316,8 @@ const HEAT_PARAMS_RANGE = {
 
 // 現在の調整値（tier別に独立保持）
 const _heatParams = {
-  free:    { ...HEAT_PARAMS_RESET },
-  premium: { ...HEAT_PARAMS_RESET },
+  free:    { ...HEAT_PARAMS_DEFAULT.free },
+  premium: { ...HEAT_PARAMS_DEFAULT.premium },
 };
 
 let heatTier  = null;  // null=全OFF, 'free', 'premium'
@@ -382,16 +385,17 @@ function _showHeatZoomBanner(show, tier){
 // ── フリー版 ON/OFF ───────────────────────────────────
 function toggleHeatFree() {
   if(heatTier === 'free'){
-    // OFFにする
     _heatAllOff();
     return;
   }
-  // プレミアムが出ていれば閉じる
   _closePremiumHeat();
   heatTier = 'free';
   document.getElementById('btn-heat-free').classList.add('active');
-  document.getElementById('heat-ctrl-panel').style.display = 'block';
   _renderHeatPanel('free');
+  _renderHeatPanel('premium');
+  document.getElementById('heat-ctrl-panel').style.display = 'block';
+  _switchHeatTab('free');
+  _showHeatAdjBtn(true);
   initHeatLayer('free');
 }
 
@@ -409,8 +413,11 @@ async function toggleHeatPremium() {
   _closeFreeHeat();
   heatTier = 'premium';
   document.getElementById('btn-heat-premium').classList.add('active');
-  document.getElementById('heat-ctrl-panel').style.display = 'block';
+  _renderHeatPanel('free');
   _renderHeatPanel('premium');
+  document.getElementById('heat-ctrl-panel').style.display = 'block';
+  _switchHeatTab('premium');
+  _showHeatAdjBtn(true);
   initHeatLayer('premium');
 }
 
@@ -421,6 +428,7 @@ function _heatAllOff() {
   document.getElementById('btn-heat-free')?.classList.remove('active');
   document.getElementById('btn-heat-premium')?.classList.remove('active');
   document.getElementById('heat-ctrl-panel').style.display = 'none';
+  _showHeatAdjBtn(false);
   _showHeatZoomBanner(false);
 }
 function _closeFreeHeat() {
@@ -431,31 +439,57 @@ function _closePremiumHeat() {
   if(heatLayer && heatTier === 'premium'){ map.removeLayer(heatLayer); heatLayer = null; }
 }
 
-// ── パネルUI描画 ─────────────────────────────────────
-function _renderHeatPanel(tier) {
-  const panel  = document.getElementById('heat-ctrl-panel');
-  const label  = tier === 'free' ? '【フリー版】' : '【プレミアム版】';
-  const range  = HEAT_PARAMS_RANGE[tier];
-  const params = _heatParams[tier];
-  const color  = tier === 'free' ? 'var(--txt-sub)' : 'var(--gold-lt)';
-
-  panel.innerHTML = `
-    <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:8px;letter-spacing:.04em;">${label}</div>
-    ${_paramRow('radius', 'radius', params.radius, range.radius, tier)}
-    ${_paramRow('blur',   'blur',   params.blur,   range.blur,   tier)}
-    ${_paramRow('opacity','opacity',params.opacity, range.opacity,tier)}
-    <div style="text-align:right;margin-top:8px;">
-      <button class="btn sm" onclick="_resetHeatParams('${tier}')">↩ リセット</button>
-    </div>`;
+// ── 調整ボタン表示制御 ───────────────────────────────
+function _showHeatAdjBtn(show) {
+  const btn = document.getElementById('btn-heat-adj');
+  if(btn) btn.style.display = show ? 'flex' : 'none';
 }
 
-// ── パラメーター行HTML生成 ──────────────────────────
-function _paramRow(key, label, val, range, tier) {
-  return `<div class="heat-param-row">
-    <span class="heat-param-label">${label}</span>
-    <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',-1)">←</button>
-    <span class="heat-param-val" id="hpv-${tier}-${key}">${val}</span>
-    <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',+1)">→</button>
+// ── パネルトグル（調整ボタンタップ）────────────────
+function toggleHeatPanel() {
+  const panel = document.getElementById('heat-ctrl-panel');
+  const btn   = document.getElementById('btn-heat-adj');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  btn.classList.toggle('active', !isOpen);
+}
+
+// ── タブ切替 ─────────────────────────────────────────
+function _switchHeatTab(tier) {
+  ['free','premium'].forEach(t => {
+    document.getElementById(`heat-tab-${t}`)?.classList.toggle('active', t === tier);
+    const body = document.getElementById(`heat-tab-body-${t}`);
+    if(body) body.style.display = t === tier ? 'block' : 'none';
+  });
+}
+
+// ── パネルUI描画（tier別タブコンテンツを生成）────────
+function _renderHeatPanel(tier) {
+  const body   = document.getElementById(`heat-tab-body-${tier}`);
+  if(!body) return;
+  const range  = HEAT_PARAMS_RANGE[tier];
+  const params = _heatParams[tier];
+
+  const LABELS = { radius: '範囲', blur: 'ぼかし', opacity: '濃さ' };
+
+  body.innerHTML = ['radius','blur','opacity'].map(key => {
+    const [mn, mx] = range[key];
+    const val = params[key];
+    return `<div class="heat-param-row">
+      <div class="heat-param-top">
+        <span class="heat-param-label">${LABELS[key]}</span>
+        <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',-1)">←</button>
+        <span class="heat-param-val" id="hpv-${tier}-${key}">${val}</span>
+        <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',+1)">→</button>
+      </div>
+      <input type="range" class="heat-param-slider"
+        min="${mn}" max="${mx}" value="${val}"
+        oninput="_adjHeatSlider('${tier}','${key}',+this.value)"
+        id="hps-${tier}-${key}">
+    </div>`;
+  }).join('') + `
+  <div class="heat-panel-footer">
+    <button class="btn sm" onclick="_resetHeatParams('${tier}')">↩ リセット</button>
   </div>`;
 }
 
@@ -468,12 +502,25 @@ function _adjHeat(tier, key, delta) {
   _heatParams[tier][key] = next;
   const el = document.getElementById(`hpv-${tier}-${key}`);
   if(el) el.textContent = next;
+  const sl = document.getElementById(`hps-${tier}-${key}`);
+  if(sl) sl.value = next;
+  if(heatTier === tier) initHeatLayer(tier);
+}
+
+// ── シークバー入力 ───────────────────────────────────
+function _adjHeatSlider(tier, key, val) {
+  const range  = HEAT_PARAMS_RANGE[tier];
+  const [mn, mx] = range[key];
+  const next   = Math.min(mx, Math.max(mn, parseInt(val)));
+  _heatParams[tier][key] = next;
+  const el = document.getElementById(`hpv-${tier}-${key}`);
+  if(el) el.textContent = next;
   if(heatTier === tier) initHeatLayer(tier);
 }
 
 // ── リセット ─────────────────────────────────────────
 function _resetHeatParams(tier) {
-  _heatParams[tier] = { ...HEAT_PARAMS_RESET };
+  _heatParams[tier] = { ...HEAT_PARAMS_DEFAULT[tier] };
   _renderHeatPanel(tier);
   if(heatTier === tier) initHeatLayer(tier);
 }
