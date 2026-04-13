@@ -61,35 +61,42 @@ function addMk(p){
 
 // ── 地図長押しでポイント追加（1秒） ─────────────────
 (function initLongPress(){
-  let _lpTimer=null, _lpStartLL=null, _lpRipple=null;
+  let _lpTimer=null, _lpRipple=null;
 
   function _clearLp(){
     clearTimeout(_lpTimer); _lpTimer=null;
-    if(_lpRipple){map.getPane('paneUser').removeChild(_lpRipple);_lpRipple=null;}
+    if(_lpRipple){ _lpRipple.remove(); _lpRipple=null; }
   }
 
-  function _startLp(latlng){
+  function _startLp(x, y, latlng){
     if(addMode) return;
-    _lpStartLL = latlng;
-    // リップルエフェクト表示
-    const px = map.latLngToContainerPoint(latlng);
+    // マップのcanvas/tile領域内のみ発動（tabbar等は除外済み）
     _lpRipple = document.createElement('div');
-    _lpRipple.style.cssText=`position:absolute;left:${px.x-20}px;top:${px.y-20}px;width:40px;height:40px;border-radius:50%;border:2px solid rgba(200,170,80,0.8);animation:lpRipple 1s ease-out forwards;pointer-events:none;`;
-    map.getPane('paneUser').appendChild(_lpRipple);
+    _lpRipple.style.cssText=`position:fixed;left:${x-20}px;top:${y-20}px;width:40px;height:40px;border-radius:50%;border:2px solid rgba(200,170,80,0.8);animation:lpRipple 1s ease-out forwards;pointer-events:none;z-index:1001;`;
+    document.body.appendChild(_lpRipple);
     _lpTimer = setTimeout(()=>{
       _clearLp();
-      // 長押し成功 → ピンをその位置に置いてドラッグモードへ
       addMode=true;
       tPin=L.marker([latlng.lat,latlng.lng],{icon:uIco(),draggable:true,pane:'paneUser'}).addTo(map);
       document.getElementById('add-banner').classList.add('show');
     }, 1000);
   }
 
-  map.on('mousedown touchstart', e=>{
-    const ll = e.latlng || (e.touches && map.mouseEventToLatLng(e.touches[0]));
-    if(ll) _startLp(ll);
-  });
-  map.on('mouseup mousemove touchend touchcancel', _clearLp);
+  // LeafletのmapコンテナDOMに直接登録（mapイベントでなくDOM）
+  // passiveでスクロール妨害なし
+  const container = document.getElementById('map');
+  container.addEventListener('touchstart', e=>{
+    if(e.touches.length !== 1) return; // マルチタッチは無視
+    const t = e.touches[0];
+    const ll = map.containerPointToLatLng(
+      map.mouseEventToContainerPoint({clientX: t.clientX, clientY: t.clientY})
+    );
+    _startLp(t.clientX, t.clientY, ll);
+  }, {passive: true});
+
+  container.addEventListener('touchend',    _clearLp, {passive: true});
+  container.addEventListener('touchcancel', _clearLp, {passive: true});
+  container.addEventListener('touchmove',   _clearLp, {passive: true}); // スクロールでキャンセル
 })();
 function updPtCnt(){
   document.getElementById('sb-pt').textContent='ポイント: '+pts.length+'件';

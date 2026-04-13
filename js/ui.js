@@ -252,9 +252,6 @@ map.on('mousemove',e=>{
 //    weight 0.6 → MINES（砂金採取実績地）
 //    weight 1.0 → ユーザー投稿（実採取報告）  ← Firestore後で追加
 // ═══════════════════════════════════════════
-let heatLayer = null;
-let heatOn = false;
-
 // ════════════════════════════════════════════════════════
 //  砂金分布ヒートマップ（Canvas直接描画）
 //  leaflet-heatを廃止し、L.Layer拡張でCanvasに直接描画する。
