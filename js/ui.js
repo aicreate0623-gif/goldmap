@@ -382,7 +382,7 @@ function initHeatLayer(tier) {
 
   // ボタンのアクティブ状態更新
   document.getElementById('btn-hd')?.classList.toggle('active',  tier === 'hd');
-  document.getElementById('btn-vip')?.classList.toggle('active', tier === 'vip');
+  document.getElementById('btn-adj')?.classList.remove('active'); // 調整パネルボタンはtier連動しない
 }
 
 // ── ズーム変化時: layer作り直し + zoom制限チェック ────
@@ -408,7 +408,7 @@ function _showHeatZoomBanner(show, tier){
     const msg   = isHd ? '⭐ この拡大率はVIPプランで閲覧できます'
                        : '🔥 この拡大率は高解像度版で閲覧できます';
     const btnHtml = isHd
-      ? '<button onclick="toggleHeatVIP()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:linear-gradient(135deg,#c06000,#f0d000);border:none;color:#1a0800;font-weight:700;font-size:11px;cursor:pointer;">VIPを見る</button>'
+      ? '<button onclick="toggleHeatAdj()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:linear-gradient(135deg,#c06000,#f0d000);border:none;color:#1a0800;font-weight:700;font-size:11px;cursor:pointer;">調整を開く</button>'
       : '<button onclick="toggleHeatHD()"  style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">HDを見る</button>';
     if(!b){
       b = document.createElement('div');
@@ -429,14 +429,15 @@ function toggleHeat() {
   document.getElementById('btn-heat').classList.toggle('active', heatOn);
   const showSub = heatOn ? 'flex' : 'none';
   document.getElementById('btn-hd').style.display  = showSub;
-  document.getElementById('btn-vip').style.display = showSub;
+  document.getElementById('btn-adj').style.display = showSub;
   if(heatOn){
     heatTier = 'free';
     initHeatLayer('free');
   } else {
     if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
     document.getElementById('btn-hd')?.classList.remove('active');
-    document.getElementById('btn-vip')?.classList.remove('active');
+    document.getElementById('btn-adj')?.classList.remove('active');
+    document.getElementById('heat-ctrl-panel').style.display = 'none';
     _showHeatZoomBanner(false);
   }
 }

@@ -39,12 +39,13 @@ async function initFirebase() {
 
 // ── 開発用: 課金状態オーバーライド ──────────────
 let _devPremium = false; // デフォルト: 無料
+let _devVip     = false; // デフォルト: VIPなし
 
 function devTogglePremium(){
   _devPremium = !_devPremium;
   // 左下フロートボタン
   const btn = document.getElementById('dev-premium-btn');
-  // 設定タブ内インラインボタン
+  // 設定タブ内インラインボタン（heat-ctrl-panel内）
   const btnInline = document.getElementById('dev-premium-inline');
   const label = _devPremium ? 'PREMIUM ✓' : 'FREE';
   const bg    = _devPremium ? 'rgba(50,200,100,0.18)' : 'rgba(255,50,50,0.18)';
@@ -59,12 +60,53 @@ function devTogglePremium(){
   });
 }
 
+function devToggleVip(){
+  _devVip = !_devVip;
+  const btn = document.getElementById('dev-vip-btn');
+  if(!btn) return;
+  if(_devVip){
+    btn.textContent      = 'VIP: ON ✓';
+    btn.style.background = 'rgba(160,80,255,0.22)';
+    btn.style.borderColor= 'rgba(180,100,255,0.6)';
+    btn.style.color      = '#c880ff';
+    // VIP ON時はPremiumボタンも連動して見た目を更新
+    const btnP = document.getElementById('dev-premium-btn');
+    const btnI = document.getElementById('dev-premium-inline');
+    [btnP, btnI].forEach(b => {
+      if(!b) return;
+      b.textContent      = (b === btnP ? 'DEV: ' : '') + 'PREMIUM ✓';
+      b.style.background = 'rgba(50,200,100,0.18)';
+      b.style.borderColor= 'rgba(80,220,120,0.5)';
+      b.style.color      = '#80e8a0';
+    });
+  } else {
+    btn.textContent      = 'VIP: OFF';
+    btn.style.background = 'rgba(255,50,50,0.18)';
+    btn.style.borderColor= 'rgba(255,80,80,0.5)';
+    btn.style.color      = '#ff8888';
+    // VIP OFFにしてもPremiumフラグが独立してONなら見た目はそのまま
+    // Premiumが独立してOFFならPremiumボタンもFREEに戻す
+    if(!_devPremium){
+      const btnP = document.getElementById('dev-premium-btn');
+      const btnI = document.getElementById('dev-premium-inline');
+      [btnP, btnI].forEach(b => {
+        if(!b) return;
+        b.textContent      = (b === btnP ? 'DEV: ' : '') + 'FREE';
+        b.style.background = 'rgba(255,50,50,0.18)';
+        b.style.borderColor= 'rgba(255,80,80,0.5)';
+        b.style.color      = '#ff8888';
+      });
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────
 // 課金ユーザー判定
 //   Phase2: Firestoreの users/{uid}.premium フラグを参照
 //   Phase1: 常に false（スタブ）、dev override あり
 // ─────────────────────────────────────────────────────
 async function isPremiumUser() {
+  if(_devVip)     return true; // VIP ON はPremiumも全解放
   if(_devPremium) return true; // 開発用オーバーライド
   // [Phase2 UNCOMMENT] ↓
   // if (!window._fbUid) return false;
@@ -74,6 +116,26 @@ async function isPremiumUser() {
   //   return doc.exists && doc.data().premium === true;
   // } catch (e) {
   //   console.warn('[firebase.js] isPremiumUser error', e);
+  //   return false;
+  // }
+  return false; // Phase1スタブ
+}
+
+// ─────────────────────────────────────────────────────
+// VIPユーザー判定
+//   Phase2: Firestoreの users/{uid}.vip フラグを参照
+//   Phase1: _devVip のみ
+// ─────────────────────────────────────────────────────
+async function isVipUser() {
+  if(_devVip) return true; // 開発用オーバーライド
+  // [Phase2 UNCOMMENT] ↓
+  // if (!window._fbUid) return false;
+  // try {
+  //   const doc = await firebase.firestore()
+  //     .collection('users').doc(window._fbUid).get();
+  //   return doc.exists && doc.data().vip === true;
+  // } catch (e) {
+  //   console.warn('[firebase.js] isVipUser error', e);
   //   return false;
   // }
   return false; // Phase1スタブ

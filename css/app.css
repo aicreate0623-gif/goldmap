@@ -141,6 +141,22 @@ html, body {
 input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer; }
 #geo-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
 
+/* ━━━ ヒートマップ調整パネル（地図上フロート） ━━━ */
+#heat-ctrl-panel {
+  position: fixed;
+  bottom: calc(var(--tab-h) + 48px); /* DEVボタンの上 */
+  left: 10px;
+  right: 10px;
+  z-index: 1100;
+  background: rgba(10,9,6,0.94);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(200,170,80,0.28);
+  border-radius: var(--radius-md);
+  padding: 10px 14px 12px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(200,170,80,0.08);
+}
+
 /* ━━━ DEV パラメーターパネル ━━━ */
 .dev-param-row {
   display: flex; align-items: center; gap: 8px;

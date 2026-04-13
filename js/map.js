@@ -82,15 +82,23 @@ async function toggleHeatHD(){
   initHeatLayer('hd');
 }
 
-// ── VIPヒートマップ（ゲートD: VIPプラン）────────────
-async function toggleHeatVIP(){
-  if(heatTier === 'vip'){
-    // VIPをOFF → freeに戻す
-    initHeatLayer('free');
+// ── 調整パネル（ゲート: VIPプラン）────────────
+async function toggleHeatAdj(){
+  const panel = document.getElementById('heat-ctrl-panel');
+  const btn   = document.getElementById('btn-adj');
+  // パネルが開いていれば閉じる
+  if(panel.style.display !== 'none'){
+    panel.style.display = 'none';
+    btn.classList.remove('active');
     return;
   }
-  // VIPは現状スタブ: 常にダイアログ
-  showPremiumGate('heatmap_vip');
+  const vip = await isVipUser();
+  if(!vip){
+    showPremiumGate('heatmap_vip');
+    return;
+  }
+  panel.style.display = 'block';
+  btn.classList.add('active');
 }
 
 // ── 右フロートボタン位置をシームレスバー分下にオフセット ──
