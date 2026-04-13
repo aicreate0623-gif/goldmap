@@ -144,7 +144,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 /* ━━━ ヒートマップ調整パネル（地図上フロート） ━━━ */
 #heat-ctrl-panel {
   position: fixed;
-  bottom: calc(var(--tab-h) + 48px); /* DEVボタンの上 */
+  bottom: calc(var(--tab-h) + 48px);
   left: 10px;
   right: 10px;
   z-index: 1100;
@@ -156,6 +156,29 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   padding: 10px 14px 12px;
   box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(200,170,80,0.08);
 }
+.heat-param-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 11px; color: var(--txt-sub);
+}
+.heat-param-label {
+  min-width: 54px; font-size: 11px; color: var(--txt-sub);
+}
+.heat-param-val {
+  min-width: 28px; text-align: center;
+  font-size: 12px; font-weight: 700;
+  color: var(--gold-lt); font-variant-numeric: tabular-nums;
+}
+.heat-adj-btn {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--txt); font-size: 13px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .12s;
+  flex-shrink: 0;
+}
+.heat-adj-btn:active { background: rgba(200,170,80,0.22); }
 
 /* ━━━ DEV パラメーターパネル ━━━ */
 .dev-param-row {

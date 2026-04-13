@@ -254,8 +254,6 @@ map.on('mousemove',e=>{
 // ═══════════════════════════════════════════
 
 // ── グリッド集計 + log正規化 ──────────────────────────
-// gridDeg: 集計グリッドの1辺（度）
-// 密集地でも等高線的なグラデーションが出るよう log(count+1) で正規化
 function _gridAggregate(rawPts, gridDeg) {
   const grid = {};
   rawPts.forEach(([lat, lng, w]) => {
@@ -270,10 +268,7 @@ function _gridAggregate(rawPts, gridDeg) {
   if(!cells.length) return [];
   const maxLog = Math.log(Math.max(...cells.map(c => c.count)) + 1);
   if(maxLog === 0) return [];
-  return cells.map(c => [
-    c.lat, c.lng,
-    Math.log(c.count + 1) / maxLog  // 0〜1 に正規化
-  ]);
+  return cells.map(c => [c.lat, c.lng, Math.log(c.count + 1) / maxLog]);
 }
 
 // ── 生データ生成 ─────────────────────────────────────
@@ -287,129 +282,90 @@ function buildHeatPoints() {
   return pts;
 }
 
-// ── DEVパネルから上書きできるパラメーター ────────────
-// devUpdateHeat() で反映
-const _DEV = {
-  radius:     null, // null = 自動計算
-  blur:       null,
-  opacity:    null,
-  zoomLimit:  null,
-};
-
 // ── tier設定 ─────────────────────────────────────────
-// gridDeg: グリッド集計サイズ
-// colorStops: グラデーション停止点
-// zoomMax: これを超えたら上位tierへ誘導
 const TIER_CFG = {
   free: {
-    gridDeg:  0.1,    // 約11km
-    zoomMax:  7,
-    blur:     55,
-    minOpacity: 0.15,
-    // 青〜橙〜金（広域・参考情報）
+    gridDeg: 0.1,   // 約11km
+    zoomMax: 9,
     gradient: {
-      0.00: '#001233',
-      0.20: '#0a2a6e',
-      0.45: '#b85800',
-      0.72: '#e0a000',
-      1.00: '#fff0a0',
+      0.00: '#001233', 0.20: '#0a2a6e',
+      0.45: '#b85800', 0.72: '#e0a000', 1.00: '#fff0a0',
     },
   },
-  hd: {
-    gridDeg:  0.01,   // 約1.1km
-    zoomMax:  9,
-    blur:     22,
-    minOpacity: 0.12,
-    // 深緑〜緑金〜金白（精度高め）
+  premium: {
+    gridDeg: 0.01,  // 約1.1km
+    zoomMax: 13,
     gradient: {
-      0.00: '#001a0a',
-      0.22: '#0a4a1a',
-      0.48: '#6a9a00',
-      0.74: '#d4c800',
-      1.00: '#fffff0',
-    },
-  },
-  vip: {
-    gridDeg:  0.01,   // 将来0.001°に変更
-    zoomMax:  13,
-    blur:     14,
-    minOpacity: 0.10,
-    // 深紅〜橙赤〜白金（最高精度）
-    gradient: {
-      0.00: '#1a0000',
-      0.22: '#6a0a00',
-      0.50: '#c83000',
-      0.76: '#f0a800',
-      1.00: '#fff8e0',
+      0.00: '#001a0a', 0.22: '#0a4a1a',
+      0.48: '#6a9a00', 0.74: '#d4c800', 1.00: '#fffff0',
     },
   },
 };
 
-let heatTier   = 'free';
-let heatLayer  = null;
-let heatOn     = false;
+// ── パネル調整パラメーター（tier別・リセット値共通）────
+const HEAT_PARAMS_RESET = { radius: 50, blur: 40, opacity: 25 };
 
-// ── ズームに応じたradius（地理距離ベース） ────────────
-// z7で約35px相当になるよう基準を設定
-function _heatRadius(tier) {
-  const z    = map.getZoom();
-  const base = tier === 'hd' ? 10 : tier === 'vip' ? 6 : 18;
-  return _DEV.radius ?? Math.round(base * Math.pow(1.45, z - 5));
-}
+// 調整域制限
+const HEAT_PARAMS_RANGE = {
+  free:    { radius:[30,70],  blur:[30,100], opacity:[0,80] },
+  premium: { radius:[15,70],  blur:[20,100], opacity:[0,80] },
+};
+
+// 現在の調整値（tier別に独立保持）
+const _heatParams = {
+  free:    { ...HEAT_PARAMS_RESET },
+  premium: { ...HEAT_PARAMS_RESET },
+};
+
+let heatTier  = null;  // null=全OFF, 'free', 'premium'
+let heatLayer = null;
 
 // ── ヒートマップ初期化（layer丸ごと作り直し） ────────
 function initHeatLayer(tier) {
-  tier = tier || 'free';
-  heatTier = tier;
   if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
+  if(!tier) return;
 
-  const cfg  = TIER_CFG[tier];
-  const raw  = buildHeatPoints();
-  const pts  = _gridAggregate(raw, cfg.gridDeg);
-  const r    = _heatRadius(tier);
-  const blur = _DEV.blur        ?? cfg.blur;
-  const opac = _DEV.opacity     ?? cfg.minOpacity;
+  heatTier = tier;
+  const cfg    = TIER_CFG[tier];
+  const params = _heatParams[tier];
+  const raw    = buildHeatPoints();
+  const pts    = _gridAggregate(raw, cfg.gridDeg);
 
   heatLayer = L.heatLayer(pts, {
-    radius:     r,
-    blur:       blur,
-    minOpacity: opac,
-    maxZoom:    18,   // leaflet-heat側の制限なし（こちらで制御）
+    radius:     params.radius,
+    blur:       params.blur,
+    minOpacity: params.opacity / 100,
+    maxZoom:    18,
     max:        1.0,
     gradient:   cfg.gradient,
     pane:       'paneHeat',
   }).addTo(map);
-
-  // ボタンのアクティブ状態更新
-  document.getElementById('btn-hd')?.classList.toggle('active',  tier === 'hd');
-  document.getElementById('btn-adj')?.classList.remove('active'); // 調整パネルボタンはtier連動しない
 }
 
-// ── ズーム変化時: layer作り直し + zoom制限チェック ────
+// ── ズーム変化時: zoom制限チェック + layer再描画 ────
 map.on('zoomend', () => {
-  if(!heatOn) return;
+  if(!heatTier) return;
   const z    = map.getZoom();
-  const maxZ = _DEV.zoomLimit ?? TIER_CFG[heatTier].zoomMax;
+  const maxZ = TIER_CFG[heatTier].zoomMax;
   if(z > maxZ){
     if(heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
     _showHeatZoomBanner(true, heatTier);
   } else {
     _showHeatZoomBanner(false);
-    // layer作り直しで確実にきれいな再描画
     initHeatLayer(heatTier);
   }
 });
 
-// ── HD/VIP誘導バナー ──────────────────────────────────
+// ── プレミアム誘導バナー ──────────────────────────────
 function _showHeatZoomBanner(show, tier){
   let b = document.getElementById('heat-zoom-banner');
   if(show){
-    const isHd  = (tier === 'hd');
-    const msg   = isHd ? '⭐ この拡大率はVIPプランで閲覧できます'
-                       : '🔥 この拡大率は高解像度版で閲覧できます';
-    const btnHtml = isHd
-      ? '<button onclick="toggleHeatAdj()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:linear-gradient(135deg,#c06000,#f0d000);border:none;color:#1a0800;font-weight:700;font-size:11px;cursor:pointer;">調整を開く</button>'
-      : '<button onclick="toggleHeatHD()"  style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">HDを見る</button>';
+    const msg = tier === 'free'
+      ? '🔒 この拡大率はプレミアム版で閲覧できます'
+      : '⚠ この拡大率は表示範囲外です';
+    const btnHtml = tier === 'free'
+      ? '<button onclick="toggleHeatPremium()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">プレミアムへ</button>'
+      : '';
     if(!b){
       b = document.createElement('div');
       b.id = 'heat-zoom-banner';
@@ -423,28 +379,103 @@ function _showHeatZoomBanner(show, tier){
   }
 }
 
-// ── ON/OFF切替 ────────────────────────────────────────
-function toggleHeat() {
-  heatOn = !heatOn;
-  document.getElementById('btn-heat').classList.toggle('active', heatOn);
-  const showSub = heatOn ? 'flex' : 'none';
-  document.getElementById('btn-hd').style.display  = showSub;
-  document.getElementById('btn-adj').style.display = showSub;
-  if(heatOn){
-    heatTier = 'free';
-    initHeatLayer('free');
-  } else {
-    if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
-    document.getElementById('btn-hd')?.classList.remove('active');
-    document.getElementById('btn-adj')?.classList.remove('active');
-    document.getElementById('heat-ctrl-panel').style.display = 'none';
-    _showHeatZoomBanner(false);
+// ── フリー版 ON/OFF ───────────────────────────────────
+function toggleHeatFree() {
+  if(heatTier === 'free'){
+    // OFFにする
+    _heatAllOff();
+    return;
   }
+  // プレミアムが出ていれば閉じる
+  _closePremiumHeat();
+  heatTier = 'free';
+  document.getElementById('btn-heat-free').classList.add('active');
+  document.getElementById('heat-ctrl-panel').style.display = 'block';
+  _renderHeatPanel('free');
+  initHeatLayer('free');
 }
 
-// ── DEVパラメーター即時反映 ───────────────────────────
-function devUpdateHeat() {
-  if(heatOn) initHeatLayer(heatTier);
+// ── プレミアム版 ON/OFF ──────────────────────────────
+async function toggleHeatPremium() {
+  if(heatTier === 'premium'){
+    _heatAllOff();
+    return;
+  }
+  const ok = await isPremiumUser();
+  if(!ok){
+    showPremiumGate('heatmap_hd');
+    return;
+  }
+  _closeFreeHeat();
+  heatTier = 'premium';
+  document.getElementById('btn-heat-premium').classList.add('active');
+  document.getElementById('heat-ctrl-panel').style.display = 'block';
+  _renderHeatPanel('premium');
+  initHeatLayer('premium');
+}
+
+// ── 内部: 全OFF ──────────────────────────────────────
+function _heatAllOff() {
+  heatTier = null;
+  if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
+  document.getElementById('btn-heat-free')?.classList.remove('active');
+  document.getElementById('btn-heat-premium')?.classList.remove('active');
+  document.getElementById('heat-ctrl-panel').style.display = 'none';
+  _showHeatZoomBanner(false);
+}
+function _closeFreeHeat() {
+  document.getElementById('btn-heat-free')?.classList.remove('active');
+}
+function _closePremiumHeat() {
+  document.getElementById('btn-heat-premium')?.classList.remove('active');
+  if(heatLayer && heatTier === 'premium'){ map.removeLayer(heatLayer); heatLayer = null; }
+}
+
+// ── パネルUI描画 ─────────────────────────────────────
+function _renderHeatPanel(tier) {
+  const panel  = document.getElementById('heat-ctrl-panel');
+  const label  = tier === 'free' ? '【フリー版】' : '【プレミアム版】';
+  const range  = HEAT_PARAMS_RANGE[tier];
+  const params = _heatParams[tier];
+  const color  = tier === 'free' ? 'var(--txt-sub)' : 'var(--gold-lt)';
+
+  panel.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:8px;letter-spacing:.04em;">${label}</div>
+    ${_paramRow('radius', 'radius', params.radius, range.radius, tier)}
+    ${_paramRow('blur',   'blur',   params.blur,   range.blur,   tier)}
+    ${_paramRow('opacity','opacity',params.opacity, range.opacity,tier)}
+    <div style="text-align:right;margin-top:8px;">
+      <button class="btn sm" onclick="_resetHeatParams('${tier}')">↩ リセット</button>
+    </div>`;
+}
+
+// ── パラメーター行HTML生成 ──────────────────────────
+function _paramRow(key, label, val, range, tier) {
+  return `<div class="heat-param-row">
+    <span class="heat-param-label">${label}</span>
+    <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',-1)">←</button>
+    <span class="heat-param-val" id="hpv-${tier}-${key}">${val}</span>
+    <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',+1)">→</button>
+  </div>`;
+}
+
+// ── ←→ 1刻み調整 ────────────────────────────────────
+function _adjHeat(tier, key, delta) {
+  const range  = HEAT_PARAMS_RANGE[tier];
+  const [mn, mx] = range[key];
+  const cur    = _heatParams[tier][key];
+  const next   = Math.min(mx, Math.max(mn, cur + delta));
+  _heatParams[tier][key] = next;
+  const el = document.getElementById(`hpv-${tier}-${key}`);
+  if(el) el.textContent = next;
+  if(heatTier === tier) initHeatLayer(tier);
+}
+
+// ── リセット ─────────────────────────────────────────
+function _resetHeatParams(tier) {
+  _heatParams[tier] = { ...HEAT_PARAMS_RESET };
+  _renderHeatPanel(tier);
+  if(heatTier === tier) initHeatLayer(tier);
 }
 
 // ── Firestore連携用（外部からデータ追加）─────────────

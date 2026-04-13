@@ -65,41 +65,8 @@ function setBase(k){
   });
 }
 
-// ── HDヒートマップ（ゲートC: Premiumかつ投稿1件以上）────
-async function toggleHeatHD(){
-  if(heatTier === 'hd'){
-    // HDをOFF → freeに戻す
-    initHeatLayer('free');
-    return;
-  }
-  const [premium, postCount] = await Promise.all([
-    isPremiumUser(), getUserPostCount(),
-  ]);
-  if(!premium || postCount < 1){
-    showPremiumGate('heatmap_hd');
-    return;
-  }
-  initHeatLayer('hd');
-}
 
-// ── 調整パネル（ゲート: VIPプラン）────────────
-async function toggleHeatAdj(){
-  const panel = document.getElementById('heat-ctrl-panel');
-  const btn   = document.getElementById('btn-adj');
-  // パネルが開いていれば閉じる
-  if(panel.style.display !== 'none'){
-    panel.style.display = 'none';
-    btn.classList.remove('active');
-    return;
-  }
-  const vip = await isVipUser();
-  if(!vip){
-    showPremiumGate('heatmap_vip');
-    return;
-  }
-  panel.style.display = 'block';
-  btn.classList.add('active');
-}
+
 
 // ── 右フロートボタン位置をシームレスバー分下にオフセット ──
 function updateRightFloatTop(){

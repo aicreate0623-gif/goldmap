@@ -42,14 +42,11 @@
     <button class="fc-btn" id="btn-topo" onclick="setBase('topo')" title="地形図">
       <span class="fc-ico">⛰</span><span>地形</span>
     </button>
-    <button class="fc-btn" id="btn-heat" onclick="toggleHeat()" title="砂金採取ヒートマップ">
+    <button class="fc-btn" id="btn-heat-free" onclick="toggleHeatFree()" title="砂金分布ヒートマップ（フリー版）">
       <span class="fc-ico">🔥</span><span>分布</span>
     </button>
-    <button class="fc-btn" id="btn-hd" onclick="toggleHeatHD()" title="高解像度ヒートマップ（HD）" style="display:none">
-      <span class="fc-ico">🔒</span><span>HD</span>
-    </button>
-    <button class="fc-btn" id="btn-adj" onclick="toggleHeatAdj()" title="ヒートマップ調整" style="display:none">
-      <span class="fc-ico">🎛</span><span>調整</span>
+    <button class="fc-btn" id="btn-heat-premium" onclick="toggleHeatPremium()" title="砂金分布ヒートマップ（プレミアム版）">
+      <span class="fc-ico">🔒</span><span>分布Pro</span>
     </button>
   </div>
   <!-- 2段目: 地質図 -->
@@ -544,73 +541,8 @@
   </div>
 </div>
 
-<!-- ━━━ ヒートマップ調整パネル（地図上フロート） ━━━ -->
-<div id="heat-ctrl-panel" style="display:none">
-  <!-- 課金トグル -->
-  <div class="cfg-row" style="padding:6px 0 4px">
-    <div><div class="cfg-label" style="font-size:11px">課金状態</div></div>
-    <button id="dev-premium-inline" class="btn sm"
-      onclick="devTogglePremium()"
-      style="min-width:90px;">FREE</button>
-  </div>
-  <!-- radius -->
-  <div class="dev-param-row">
-    <label>radius <span id="dev-r-val">自動</span></label>
-    <input type="range" id="dev-r" min="5" max="150" value="40"
-      oninput="
-        const auto = document.getElementById('dev-r-auto').checked;
-        if(!auto){ _DEV.radius=+this.value; document.getElementById('dev-r-val').textContent=this.value+'px'; devUpdateHeat(); }
-      ">
-    <label style="font-size:10px"><input type="checkbox" id="dev-r-auto" checked
-      onchange="if(this.checked){_DEV.radius=null;document.getElementById('dev-r-val').textContent='自動';devUpdateHeat();}"> 自動</label>
-  </div>
-  <!-- blur -->
-  <div class="dev-param-row">
-    <label>blur <span id="dev-b-val">自動</span></label>
-    <input type="range" id="dev-b" min="1" max="100" value="30"
-      oninput="
-        const auto = document.getElementById('dev-b-auto').checked;
-        if(!auto){ _DEV.blur=+this.value; document.getElementById('dev-b-val').textContent=this.value; devUpdateHeat(); }
-      ">
-    <label style="font-size:10px"><input type="checkbox" id="dev-b-auto" checked
-      onchange="if(this.checked){_DEV.blur=null;document.getElementById('dev-b-val').textContent='自動';devUpdateHeat();}"> 自動</label>
-  </div>
-  <!-- opacity -->
-  <div class="dev-param-row">
-    <label>opacity <span id="dev-o-val">自動</span></label>
-    <input type="range" id="dev-o" min="1" max="80" value="15"
-      oninput="
-        const auto = document.getElementById('dev-o-auto').checked;
-        if(!auto){ _DEV.opacity=+this.value/100; document.getElementById('dev-o-val').textContent=(+this.value/100).toFixed(2); devUpdateHeat(); }
-      ">
-    <label style="font-size:10px"><input type="checkbox" id="dev-o-auto" checked
-      onchange="if(this.checked){_DEV.opacity=null;document.getElementById('dev-o-val').textContent='自動';devUpdateHeat();}"> 自動</label>
-  </div>
-  <!-- zoom上限 -->
-  <div class="dev-param-row">
-    <label>zoom上限 <span id="dev-z-val">自動</span></label>
-    <input type="range" id="dev-z" min="5" max="18" value="7"
-      oninput="
-        const auto = document.getElementById('dev-z-auto').checked;
-        if(!auto){ _DEV.zoomLimit=+this.value; document.getElementById('dev-z-val').textContent='z'+this.value; devUpdateHeat(); }
-      ">
-    <label style="font-size:10px"><input type="checkbox" id="dev-z-auto" checked
-      onchange="if(this.checked){_DEV.zoomLimit=null;document.getElementById('dev-z-val').textContent='自動';devUpdateHeat();}"> 自動</label>
-  </div>
-  <div class="btn-row" style="margin-top:8px;">
-    <button class="btn sm blue" onclick="devUpdateHeat()">🔄 再描画</button>
-    <button class="btn sm" onclick="
-      ['r','b','o','z'].forEach(k=>{
-        document.getElementById('dev-'+k+'-auto').checked=true;
-      });
-      _DEV.radius=_DEV.blur=_DEV.opacity=_DEV.zoomLimit=null;
-      ['r','b','o','z'].forEach(k=>{
-        document.getElementById('dev-'+k+'-val').textContent='自動';
-      });
-      devUpdateHeat();
-    ">↩ 全リセット</button>
-  </div>
-</div>
+<!-- ━━━ ヒートマップ調整パネル（地図上フロート・JS動的生成） ━━━ -->
+<div id="heat-ctrl-panel" style="display:none"></div>
 
 <!-- ━━━ 開発用: 課金状態トグルボタン ━━━ -->
 <div style="position:fixed;left:10px;bottom:calc(var(--tab-h) + 8px);z-index:1200;display:flex;gap:6px;">
