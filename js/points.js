@@ -218,7 +218,7 @@ function reqDel(){
   document.getElementById('del-msg').textContent=`「${pts.find(p=>p.id===did)?.name||'このポイント'}」を削除しますか？`;
   showDlg('dlg-del');
 }
-function confirmDel(){
+async function confirmDel(){
   const i=pts.findIndex(p=>p.id===did);
   if(i!==-1){
     const p=pts[i];
@@ -227,6 +227,14 @@ function confirmDel(){
     pts.splice(i,1);
   }
   savePts();updPtCnt();closeOv();
+  // ヒートマップPro利用中かつ投稿0件になったら強制OFF
+  if(heatTier==='premium'){
+    const postCount=await getUserPostCount();
+    if(postCount<1){
+      _heatAllOff();
+      showPremiumGate('heatmap_pro_revoked');
+    }
+  }
 }
 
 // ── エクスポート・インポート ──────────────────

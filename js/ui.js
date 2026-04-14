@@ -408,6 +408,12 @@ async function toggleHeatPremium() {
     showPremiumGate('heatmap_pro');
     return;
   }
+  // ポイント投稿1件以上チェック
+  const postCount = await getUserPostCount();
+  if(postCount < 1){
+    showPremiumGate('heatmap_pro_no_post');
+    return;
+  }
   _closeFreeHeat();
   heatTier = 'premium';
   document.getElementById('btn-heat-premium').classList.add('active');
