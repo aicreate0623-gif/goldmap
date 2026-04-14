@@ -47,7 +47,6 @@ def coord_to_grid(lat, lng, grid_size):
 
 
 def fetch_coords_from_firestore():
-    # [PHASE2 UNCOMMENT] ↓
     import firebase_admin
     from firebase_admin import credentials, firestore
 

@@ -1,8 +1,16 @@
 'use strict';
 initMap();
 
-// ── Firebase初期化（Phase2: コメントアウト解除で有効化）──
-   initFirebase().then(() => fetchHeatPoints());
+// ── Firebase初期化 + heatmap.json反映 ──────────────────
+(async () => {
+  try {
+    await initFirebase();
+    await fetchHeatPoints();
+  } catch (e) {
+    // 認証失敗・オフライン時もマップ本体には影響しない
+    console.warn('[app.js] Firebase init / fetchHeatPoints 失敗', e);
+  }
+})();
 
 // ═══════════════════════════════════════════
 //  地質図凡例マトリックス生成
