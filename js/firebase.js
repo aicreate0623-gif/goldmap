@@ -190,27 +190,14 @@ function showPremiumGate(type) {
     heatmap_pro: {
       icon:  '',
       title: '✨ ヒートマップPro（月額480円）',
-      body:  `<div class="gate-divider"></div>
-<div class="gate-catchcopy">「この町のどこか」から「この川のどこか」へ</div>
-<div class="gate-divider"></div>
+      body:  `<div class="gate-catchcopy">「この町のどこか」から「この川のどこか」へ</div>
 <div class="gate-section">
-  <div class="gate-section-ttl">🗺 精度の差</div>
-  フリー版の約10倍の解像度で表示。
+  🗺 フリー版の<b>約10倍の解像度</b>で表示。場所選定の精度を高めます。<br>
+  🔥 ユーザー投稿を匿名集計・毎日3時更新。位置はランダムにずらして使用します。
 </div>
-<div class="gate-section">
-  <div class="gate-section-ttl">🔍 使い方</div>
-  新たな場所選定の判断精度を高めます。
-</div>
-<div class="gate-section">
-  <div class="gate-section-ttl">🔥 データについて</div>
-  ユーザー投稿データを匿名で丸めて集計。ランダムにずらして使用します。毎日午前3時に更新され、より充実したヒートマップに進化を続けます。
-</div>
-<div class="gate-divider"></div>
 <div class="gate-note">
-  <span class="gate-note-alert">※ ご利用いただくにはポイント投稿を一つ以上していただく必要がございます。</span><br>
-  ※ 採取報告は約1km²単位に丸めて匿名集計しています。<br>
-  ※ 見つかることを保証するものではありません。<br>
-  ※ 解約はいつでも可能です。
+  <span class="gate-note-alert">※ ポイント投稿が1件以上必要です。</span><br>
+  ※ 採取を保証するものではありません。解約はいつでも可能です。
 </div>`,
     },
   };
