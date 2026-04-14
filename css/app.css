@@ -141,10 +141,10 @@ html, body {
 input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer; }
 #geo-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
 
-/* ━━━ ヒートマップ調整パネル（地図上フロート・タブ付き） ━━━ */
+/* ━━━ ヒートマップ調整パネル（地図上フロート） ━━━ */
 #heat-ctrl-panel {
   position: fixed;
-  bottom: calc(var(--tab-h) + 52px);
+  top: calc(var(--sb-h) + 56px);
   left: 10px;
   right: 10px;
   z-index: 1100;
@@ -156,70 +156,76 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(200,170,80,0.08);
   overflow: hidden;
 }
-/* タブヘッダー */
-#heat-panel-tabs {
-  display: flex;
-  border-bottom: 1px solid rgba(200,170,80,0.18);
+/* パネルヘッダー（タイトル＋✕） */
+#heat-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 10px 6px;
+  border-bottom: 1px solid rgba(200,170,80,0.15);
+  background: rgba(200,170,80,0.07);
 }
-.heat-tab-btn {
-  flex: 1; padding: 8px 0;
-  background: transparent;
-  border: none; border-right: 1px solid rgba(200,170,80,0.12);
-  color: var(--txt-dim); font-size: 11px; font-weight: 700;
-  cursor: pointer; letter-spacing: .05em;
-  transition: background .15s, color .15s;
+#heat-panel-title {
+  font-size: 10px; font-weight: 700;
+  color: var(--gold-lt); letter-spacing: .06em;
 }
-.heat-tab-btn:last-child { border-right: none; }
-.heat-tab-btn.active {
-  background: rgba(200,170,80,0.1);
-  color: var(--gold-lt);
-}
-/* タブコンテンツ */
-.heat-tab-body {
-  padding: 10px 14px 12px;
-}
-/* パラメーター行: 2行構成
-   1行目: ラベル ← 数値 →
-   2行目: シークバー */
-.heat-param-row {
-  padding: 6px 0 8px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-.heat-param-row:last-of-type { border-bottom: none; }
-.heat-param-top {
-  display: flex; align-items: center; gap: 6px;
-  margin-bottom: 5px;
-}
-.heat-param-label {
-  flex: 1; font-size: 11px; color: var(--txt-sub);
-}
-.heat-param-val {
-  min-width: 28px; text-align: center;
-  font-size: 12px; font-weight: 700;
-  color: var(--gold-lt); font-variant-numeric: tabular-nums;
-}
-.heat-adj-btn {
-  width: 26px; height: 26px; border-radius: 6px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: var(--txt); font-size: 13px; font-weight: 700;
+#heat-panel-close {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06);
+  color: var(--txt-sub); font-size: 11px;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: background .12s;
-  flex-shrink: 0;
+}
+#heat-panel-close:active { background: rgba(255,255,255,0.18); }
+/* パネルボディ */
+#heat-panel-body { padding: 8px 12px 4px; }
+/* パラメーター行: 1行 ラベル ← 数値 → スライダー */
+.heat-param-row {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 11px;
+}
+.heat-param-row:last-child { border-bottom: none; }
+.heat-param-label {
+  width: 36px; flex-shrink: 0;
+  font-size: 10px; color: var(--txt-sub);
+}
+.heat-adj-btn {
+  width: 24px; height: 24px; border-radius: 5px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--txt); font-size: 12px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .12s; flex-shrink: 0;
 }
 .heat-adj-btn:active { background: rgba(200,170,80,0.22); }
-/* シークバー行 */
+.heat-param-val {
+  width: 24px; text-align: center; flex-shrink: 0;
+  font-size: 11px; font-weight: 700;
+  color: var(--gold-lt); font-variant-numeric: tabular-nums;
+}
 .heat-param-slider {
-  width: 100%;
-  accent-color: var(--gold);
-  cursor: pointer;
-  height: 4px;
+  flex: 1; accent-color: var(--gold);
+  cursor: pointer; height: 4px; min-width: 0;
 }
-/* パネル下部リセット行 */
+/* フッター（記憶・再現・リセット） */
 .heat-panel-footer {
-  display: flex; justify-content: flex-end;
-  padding: 2px 14px 10px;
+  display: flex; gap: 5px; justify-content: flex-end;
+  padding: 5px 12px 8px;
+  border-top: 1px solid rgba(255,255,255,0.05);
 }
+.heat-mem-btn {
+  padding: 4px 9px; border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: var(--txt-sub); font-size: 10px; font-weight: 600;
+  cursor: pointer; transition: all .14s; white-space: nowrap;
+}
+.heat-mem-btn:active { transform: scale(0.94); }
+.heat-mem-btn.save  { border-color: rgba(200,170,80,0.4); color: var(--gold-lt); }
+.heat-mem-btn.load  { border-color: rgba(74,142,232,0.4); color: #78b0f0; }
+.heat-mem-btn.load:disabled { opacity: .3; cursor: default; pointer-events: none; }
+.heat-mem-btn.reset { border-color: rgba(255,255,255,0.1); }
 
 /* ━━━ DEV パラメーターパネル ━━━ */
 .dev-param-row {

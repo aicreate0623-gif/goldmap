@@ -48,6 +48,9 @@
     <button class="fc-btn" id="btn-heat-premium" onclick="toggleHeatPremium()" title="砂金分布ヒートマップ（プレミアム版）">
       <span class="fc-ico">🔒</span><span>分布Pro</span>
     </button>
+    <button class="fc-btn" id="btn-heat-adj" onclick="toggleHeatPanel()" title="ヒートマップ調整" style="display:none">
+      <span class="fc-ico">🎛</span><span>調整</span>
+    </button>
   </div>
   <!-- 2段目: 地質図 -->
   <div class="fc-row">
@@ -64,9 +67,6 @@
 
 <!-- ━━━ FLOATING CONTROLS RIGHT (map tools) ━━━ -->
 <div id="float-ctrl-right">
-  <button class="fc-btn" id="btn-heat-adj" onclick="toggleHeatPanel()" title="ヒートマップ調整" style="display:none">
-    <span class="fc-ico">🎛</span><span>調整</span>
-  </button>
   <button class="fc-btn" id="btn-mine"  onclick="toggleMine()"     title="砂金DB">
     <span class="fc-ico">⛏</span><span>砂金DB</span>
   </button>
@@ -546,14 +546,12 @@
 
 <!-- ━━━ ヒートマップ調整パネル（地図上フロート） ━━━ -->
 <div id="heat-ctrl-panel" style="display:none">
-  <!-- タブヘッダー -->
-  <div id="heat-panel-tabs">
-    <button class="heat-tab-btn" id="heat-tab-free"    onclick="_switchHeatTab('free')">フリー</button>
-    <button class="heat-tab-btn" id="heat-tab-premium" onclick="_switchHeatTab('premium')">プレミアム</button>
+  <div id="heat-panel-header">
+    <span id="heat-panel-title">ヒートマップ調整</span>
+    <button id="heat-panel-close" onclick="toggleHeatPanel()">✕</button>
   </div>
-  <!-- タブコンテンツ -->
-  <div id="heat-tab-body-free"    class="heat-tab-body"></div>
-  <div id="heat-tab-body-premium" class="heat-tab-body" style="display:none"></div>
+  <div id="heat-panel-body"></div>
+  <div class="heat-panel-footer" id="heat-panel-footer"></div>
 </div>
 
 <!-- ━━━ 開発用: 課金状態トグルボタン ━━━ -->

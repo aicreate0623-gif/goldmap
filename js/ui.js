@@ -392,9 +392,7 @@ function toggleHeatFree() {
   heatTier = 'free';
   document.getElementById('btn-heat-free').classList.add('active');
   _renderHeatPanel('free');
-  _renderHeatPanel('premium');
   document.getElementById('heat-ctrl-panel').style.display = 'block';
-  _switchHeatTab('free');
   _showHeatAdjBtn(true);
   initHeatLayer('free');
 }
@@ -413,10 +411,8 @@ async function toggleHeatPremium() {
   _closeFreeHeat();
   heatTier = 'premium';
   document.getElementById('btn-heat-premium').classList.add('active');
-  _renderHeatPanel('free');
   _renderHeatPanel('premium');
   document.getElementById('heat-ctrl-panel').style.display = 'block';
-  _switchHeatTab('premium');
   _showHeatAdjBtn(true);
   initHeatLayer('premium');
 }
@@ -443,62 +439,60 @@ function _closePremiumHeat() {
 function _showHeatAdjBtn(show) {
   const btn = document.getElementById('btn-heat-adj');
   if(btn) btn.style.display = show ? 'flex' : 'none';
+  if(!show) document.getElementById('btn-heat-adj')?.classList.remove('active');
 }
 
-// ── パネルトグル（調整ボタンタップ）────────────────
+// ── パネルトグル（調整ボタン・✕ボタン共用）──────────
 function toggleHeatPanel() {
   const panel = document.getElementById('heat-ctrl-panel');
   const btn   = document.getElementById('btn-heat-adj');
   const isOpen = panel.style.display !== 'none';
   panel.style.display = isOpen ? 'none' : 'block';
-  btn.classList.toggle('active', !isOpen);
+  btn?.classList.toggle('active', !isOpen);
 }
 
-// ── タブ切替 ─────────────────────────────────────────
-function _switchHeatTab(tier) {
-  ['free','premium'].forEach(t => {
-    document.getElementById(`heat-tab-${t}`)?.classList.toggle('active', t === tier);
-    const body = document.getElementById(`heat-tab-body-${t}`);
-    if(body) body.style.display = t === tier ? 'block' : 'none';
-  });
-}
-
-// ── パネルUI描画（tier別タブコンテンツを生成）────────
+// ── パネルUI描画（ONのtierだけ呼ぶ）────────────────
 function _renderHeatPanel(tier) {
-  const body   = document.getElementById(`heat-tab-body-${tier}`);
-  if(!body) return;
+  const LABELS = { radius: '範囲', blur: 'ぼかし', opacity: '濃さ' };
   const range  = HEAT_PARAMS_RANGE[tier];
   const params = _heatParams[tier];
 
-  const LABELS = { radius: '範囲', blur: 'ぼかし', opacity: '濃さ' };
+  // タイトル更新
+  const titleEl = document.getElementById('heat-panel-title');
+  if(titleEl) titleEl.textContent =
+    tier === 'free' ? '🔥 調整（フリー）' : '✨ 調整（プレミアム）';
 
-  body.innerHTML = ['radius','blur','opacity'].map(key => {
+  // ボディ: 各パラメーター1行
+  const body = document.getElementById('heat-panel-body');
+  if(body) body.innerHTML = ['radius','blur','opacity'].map(key => {
     const [mn, mx] = range[key];
     const val = params[key];
     return `<div class="heat-param-row">
-      <div class="heat-param-top">
-        <span class="heat-param-label">${LABELS[key]}</span>
-        <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',-1)">←</button>
-        <span class="heat-param-val" id="hpv-${tier}-${key}">${val}</span>
-        <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',+1)">→</button>
-      </div>
+      <span class="heat-param-label">${LABELS[key]}</span>
+      <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',-1)">←</button>
+      <span class="heat-param-val" id="hpv-${tier}-${key}">${val}</span>
+      <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',+1)">→</button>
       <input type="range" class="heat-param-slider"
         min="${mn}" max="${mx}" value="${val}"
         oninput="_adjHeatSlider('${tier}','${key}',+this.value)"
         id="hps-${tier}-${key}">
     </div>`;
-  }).join('') + `
-  <div class="heat-panel-footer">
-    <button class="btn sm" onclick="_resetHeatParams('${tier}')">↩ リセット</button>
-  </div>`;
+  }).join('');
+
+  // フッター: 💾記憶 📂再現 ↩リセット
+  const hasSaved = !!localStorage.getItem(`gm_heat_saved_${tier}`);
+  const footer = document.getElementById('heat-panel-footer');
+  if(footer) footer.innerHTML = `
+    <button class="heat-mem-btn save"  onclick="_saveHeatParams('${tier}')">💾 記憶</button>
+    <button class="heat-mem-btn load"  onclick="_loadHeatParams('${tier}')"
+      id="hml-${tier}" ${hasSaved ? '' : 'disabled'}>📂 再現</button>
+    <button class="heat-mem-btn reset" onclick="_resetHeatParams('${tier}')">↩ リセット</button>`;
 }
 
 // ── ←→ 1刻み調整 ────────────────────────────────────
 function _adjHeat(tier, key, delta) {
-  const range  = HEAT_PARAMS_RANGE[tier];
-  const [mn, mx] = range[key];
-  const cur    = _heatParams[tier][key];
-  const next   = Math.min(mx, Math.max(mn, cur + delta));
+  const [mn, mx] = HEAT_PARAMS_RANGE[tier][key];
+  const next = Math.min(mx, Math.max(mn, _heatParams[tier][key] + delta));
   _heatParams[tier][key] = next;
   const el = document.getElementById(`hpv-${tier}-${key}`);
   if(el) el.textContent = next;
@@ -509,16 +503,39 @@ function _adjHeat(tier, key, delta) {
 
 // ── シークバー入力 ───────────────────────────────────
 function _adjHeatSlider(tier, key, val) {
-  const range  = HEAT_PARAMS_RANGE[tier];
-  const [mn, mx] = range[key];
-  const next   = Math.min(mx, Math.max(mn, parseInt(val)));
+  const [mn, mx] = HEAT_PARAMS_RANGE[tier][key];
+  const next = Math.min(mx, Math.max(mn, parseInt(val)));
   _heatParams[tier][key] = next;
   const el = document.getElementById(`hpv-${tier}-${key}`);
   if(el) el.textContent = next;
   if(heatTier === tier) initHeatLayer(tier);
 }
 
-// ── リセット ─────────────────────────────────────────
+// ── 💾 記憶（localStorage保存）──────────────────────
+function _saveHeatParams(tier) {
+  try {
+    localStorage.setItem(`gm_heat_saved_${tier}`, JSON.stringify(_heatParams[tier]));
+    // 再現ボタンを有効化
+    const loadBtn = document.getElementById(`hml-${tier}`);
+    if(loadBtn) loadBtn.disabled = false;
+    // 保存フィードバック（ボタンを一瞬ゴールドに）
+    const saveBtn = document.querySelector('.heat-mem-btn.save');
+    if(saveBtn){ saveBtn.style.color='var(--gold)'; setTimeout(()=>saveBtn.style.color='',600); }
+  } catch(e) { console.warn('[heat] save failed', e); }
+}
+
+// ── 📂 再現（localStorage読込）──────────────────────
+function _loadHeatParams(tier) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(`gm_heat_saved_${tier}`));
+    if(!saved) return;
+    _heatParams[tier] = { ..._heatParams[tier], ...saved };
+    _renderHeatPanel(tier);
+    if(heatTier === tier) initHeatLayer(tier);
+  } catch(e) { console.warn('[heat] load failed', e); }
+}
+
+// ── ↩ リセット（デフォルト値に戻す）────────────────
 function _resetHeatParams(tier) {
   _heatParams[tier] = { ...HEAT_PARAMS_DEFAULT[tier] };
   _renderHeatPanel(tier);
