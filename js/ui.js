@@ -405,7 +405,7 @@ async function toggleHeatPremium() {
   }
   const ok = await isPremiumUser();
   if(!ok){
-    showPremiumGate('heatmap_hd');
+    showPremiumGate('heatmap_pro');
     return;
   }
   _closeFreeHeat();

@@ -171,7 +171,7 @@ async function getUserPostCount() {
 
 // ─────────────────────────────────────────────────────
 // 課金ゲート表示
-//   type: 'point_limit' | 'offline' | 'heatmap_hd'
+//   type: 'point_limit' | 'offline' | 'heatmap_pro'
 //   → 各typeで文言を差し替えてモーダル表示
 //   → Phase2でCTAのStripeリンクを差し込むだけで完結する構造
 // ─────────────────────────────────────────────────────
@@ -187,22 +187,42 @@ function showPremiumGate(type) {
       title: 'オフライン機能はプレミアム',
       body:  'タイルのダウンロード・オフライン利用はプレミアムプランの機能です。\nアップグレードすると電波のない山中でも地図を使えます。',
     },
-    heatmap_hd: {
-      icon:  '🔥',
-      title: '高解像度ヒートマップ（HD）',
-      body:  '📍 フリー版との違い:\n・約10km単位 → 約1.5km単位の精度に向上\n・zoom9以上に拡大して集落レベルで確認可能\n・採取報告データをより細かく反映\n\nプレミアムプラン + 自分のポイント投稿1件以上で利用できます。',
-    },
-    heatmap_vip: {
-      icon:  '⭐',
-      title: '超高解像度ヒートマップ（VIP）',
-      body:  '🗺 HDとの違い:\n・約1.5km → 約100m単位の超高精度\n・zoom13以上に拡大して川筋・淵レベルで確認可能\n・VIPプラン限定の詳細採取データを反映\n\nVIPプランは近日公開予定です。',
+    heatmap_pro: {
+      icon:  '✨',
+      title: 'プレミアムヒートマップ',
+      body:  `<div class="gate-price">月額 <b>480円</b></div>
+<div class="gate-compare">
+  <div class="gate-compare-row">
+    <span class="gate-tier free">フリー版</span>この町のどこかで採れる
+  </div>
+  <div class="gate-compare-row">
+    <span class="gate-tier pro">プレミアム</span>この川のどこかで採れる
+  </div>
+</div>
+<div class="gate-section">
+  <div class="gate-section-ttl">🗺 精度の差</div>
+  フリー版の約10倍の解像度で表示。より細かい粒度で分布を把握できます。
+</div>
+<div class="gate-section">
+  <div class="gate-section-ttl">📍 使い方</div>
+  新規で攻める川を選ぶ際、判断材料の精度をより高めましょう。
+</div>
+<div class="gate-section">
+  <div class="gate-section-ttl">🔥 データについて</div>
+  ユーザーの採取報告を匿名で丸めて集計。ランダムに少しずらして使用します。毎日午前3時に更新されます。データが集まるほど、より充実したヒートマップが出来上がります。
+</div>
+<div class="gate-note">
+  ※ 見つかることを保証するものではありません。<br>
+  ※ 採取報告は約1km単位に丸めて匿名集計しています。<br>
+  ※ 解約はいつでも可能です。
+</div>`,
     },
   };
 
   const c = GATE_CONTENT[type] || GATE_CONTENT['point_limit'];
   document.getElementById('premium-gate-icon').textContent  = c.icon;
   document.getElementById('premium-gate-title').textContent = c.title;
-  document.getElementById('premium-gate-body').textContent  = c.body;
+  document.getElementById('premium-gate-body').innerHTML    = c.body;
   showDlg('dlg-premium-gate');
 }
 
