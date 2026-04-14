@@ -858,8 +858,13 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 
 /* ━━━ プレミアムゲートダイアログ ━━━ */
+#dlg-premium-gate {
+  width: min(300px, 88vw);
+  padding: 16px 18px;
+}
+#dlg-premium-gate .dlg-btns { margin-top: 12px; }
 #premium-gate-title {
-  font-size: 16px; font-weight: 700;
+  font-size: 13px; font-weight: 700;
   color: var(--gold); text-align: center;
   margin: 0 0 4px; letter-spacing: .02em;
 }
@@ -869,17 +874,19 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 .gate-catchcopy {
   text-align: center; font-size: 13px; font-weight: 700;
-  color: var(--txt); padding: 6px 0;
-  letter-spacing: .02em;
+  color: var(--txt); padding: 6px 0; letter-spacing: .02em;
 }
 .gate-section {
-  font-size: 12px; color: var(--txt-sub);
+  font-size: 11px; color: var(--txt-sub);
   line-height: 1.7; margin-bottom: 8px;
 }
 .gate-section-ttl {
-  font-size: 12px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
   color: var(--txt); margin-bottom: 1px;
 }
 .gate-note {
   font-size: 10px; color: var(--txt-dim); line-height: 1.8;
+}
+.gate-note-alert {
+  color: #ff6b6b; font-weight: 700;
 }

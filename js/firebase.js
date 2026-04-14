@@ -207,8 +207,9 @@ function showPremiumGate(type) {
 </div>
 <div class="gate-divider"></div>
 <div class="gate-note">
+  <span class="gate-note-alert">※ ご利用いただくにはポイント投稿を一つ以上していただく必要がございます。</span><br>
+  ※ 採取報告は約1km²単位に丸めて匿名集計しています。<br>
   ※ 見つかることを保証するものではありません。<br>
-  ※ 採取報告は約1km単位に丸めて匿名集計しています。<br>
   ※ 解約はいつでも可能です。
 </div>`,
     },
