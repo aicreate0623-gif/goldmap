@@ -188,29 +188,24 @@ function showPremiumGate(type) {
       body:  'タイルのダウンロード・オフライン利用はプレミアムプランの機能です。\nアップグレードすると電波のない山中でも地図を使えます。',
     },
     heatmap_pro: {
-      icon:  '✨',
-      title: 'プレミアムヒートマップ',
-      body:  `<div class="gate-price">月額 <b>480円</b></div>
-<div class="gate-compare">
-  <div class="gate-compare-row">
-    <span class="gate-tier free">フリー版</span>この町のどこかで採れる
-  </div>
-  <div class="gate-compare-row">
-    <span class="gate-tier pro">プレミアム</span>この川のどこかで採れる
-  </div>
-</div>
+      icon:  '',
+      title: '✨ ヒートマップPro（月額480円）',
+      body:  `<div class="gate-divider"></div>
+<div class="gate-catchcopy">「この町のどこか」から「この川のどこか」へ</div>
+<div class="gate-divider"></div>
 <div class="gate-section">
   <div class="gate-section-ttl">🗺 精度の差</div>
-  フリー版の約10倍の解像度で表示。より細かい粒度で分布を把握できます。
+  フリー版の約10倍の解像度で表示。
 </div>
 <div class="gate-section">
-  <div class="gate-section-ttl">📍 使い方</div>
-  新規で攻める川を選ぶ際、判断材料の精度をより高めましょう。
+  <div class="gate-section-ttl">🔍 使い方</div>
+  新たな場所選定の判断精度を高めます。
 </div>
 <div class="gate-section">
   <div class="gate-section-ttl">🔥 データについて</div>
-  ユーザーの採取報告を匿名で丸めて集計。ランダムに少しずらして使用します。毎日午前3時に更新されます。データが集まるほど、より充実したヒートマップが出来上がります。
+  ユーザー投稿データを匿名で丸めて集計。ランダムにずらして使用します。毎日午前3時に更新され、より充実したヒートマップに進化を続けます。
 </div>
+<div class="gate-divider"></div>
 <div class="gate-note">
   ※ 見つかることを保証するものではありません。<br>
   ※ 採取報告は約1km単位に丸めて匿名集計しています。<br>
@@ -220,7 +215,9 @@ function showPremiumGate(type) {
   };
 
   const c = GATE_CONTENT[type] || GATE_CONTENT['point_limit'];
-  document.getElementById('premium-gate-icon').textContent  = c.icon;
+  const iconEl = document.getElementById('premium-gate-icon');
+  iconEl.textContent  = c.icon;
+  iconEl.style.display = c.icon ? '' : 'none';
   document.getElementById('premium-gate-title').textContent = c.title;
   document.getElementById('premium-gate-body').innerHTML    = c.body;
   showDlg('dlg-premium-gate');

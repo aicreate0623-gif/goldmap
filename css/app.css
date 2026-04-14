@@ -858,42 +858,28 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 
 /* ━━━ プレミアムゲートダイアログ ━━━ */
-.gate-price {
-  text-align: center; font-size: 17px; font-weight: 700;
-  color: var(--gold); margin-bottom: 12px; letter-spacing: .03em;
+#premium-gate-title {
+  font-size: 16px; font-weight: 700;
+  color: var(--gold); text-align: center;
+  margin: 0 0 4px; letter-spacing: .02em;
 }
-.gate-price b { font-size: 22px; }
-.gate-compare {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,220,80,0.15);
-  border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;
+.gate-divider {
+  border: none; border-top: 1px solid rgba(255,220,80,0.18);
+  margin: 10px 0;
 }
-.gate-compare-row {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 12px; color: var(--txt); padding: 3px 0;
-}
-.gate-tier {
-  display: inline-block; font-size: 10px; font-weight: 700;
-  padding: 2px 7px; border-radius: 10px;
-  white-space: nowrap; flex-shrink: 0;
-}
-.gate-tier.free {
-  background: rgba(100,100,120,0.35); color: rgba(200,200,220,0.8);
-}
-.gate-tier.pro {
-  background: rgba(200,160,0,0.25); color: var(--gold);
-  border: 1px solid rgba(200,160,0,0.4);
+.gate-catchcopy {
+  text-align: center; font-size: 13px; font-weight: 700;
+  color: var(--txt); padding: 6px 0;
+  letter-spacing: .02em;
 }
 .gate-section {
   font-size: 12px; color: var(--txt-sub);
-  line-height: 1.7; margin-bottom: 10px;
+  line-height: 1.7; margin-bottom: 8px;
 }
 .gate-section-ttl {
   font-size: 12px; font-weight: 700;
-  color: var(--txt); margin-bottom: 2px;
+  color: var(--txt); margin-bottom: 1px;
 }
 .gate-note {
   font-size: 10px; color: var(--txt-dim); line-height: 1.8;
-  border-top: 1px solid rgba(255,255,255,0.07);
-  padding-top: 8px; margin-top: 4px;
 }
