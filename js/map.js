@@ -24,6 +24,9 @@ async function initMap(){
   map.getPane('paneMine').style.zIndex = 620;
   map.createPane('paneUser'); // ユーザーピン（最上位）
   map.getPane('paneUser').style.zIndex = 630;
+  // ポップアップを全カスタムpaneより確実に上に
+  map.getPane('popupPane').style.zIndex  = 800;
+  map.getPane('shadowPane').style.zIndex = 790;
 
   const mk=key=>{
     const CLS=makeCachedLayer(key);
