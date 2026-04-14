@@ -239,8 +239,9 @@ async function submitCoord(lat, lng, stars) {
   const ref = await db.collection('coords').add({
     lat, lng,
     stars: stars || 0,
-    uid: window._fbUid || 'anonymous',
-    ts:  firebase.firestore.FieldValue.serverTimestamp(),
+    uid:  window._fbUid || 'anonymous',
+    date: new Date().toISOString().slice(0, 10), // "YYYY-MM-DD" 将来の鮮度フィルタ用
+    ts:   firebase.firestore.FieldValue.serverTimestamp(),
   });
   console.log('[firebase.js] submitCoord OK', lat, lng, 'stars=', stars, 'fsId=', ref.id);
   return ref.id;
@@ -257,16 +258,44 @@ async function deleteCoord(fsId) {
 }
 
 // ─────────────────────────────────────────────────────
-// Firestoreから投稿座標を取得してヒートマップに追加
+// heatmap.json を fetch してヒートマップに反映
+//   Pro版  → paid（クラスタ条件済みデータ）
+//   free版 → free（全件グリッドデータ）
+//   GitHub Actions が毎日 03:00 JST に生成・コミットしたものを参照
 // ─────────────────────────────────────────────────────
 async function fetchHeatPoints() {
   const premium = await isPremiumUser();
-  if (!premium) return;
+  // Pro版・free版ともにポイント投稿0件なら反映しない
+  const postCount = await getUserPostCount();
+  if (postCount < 1) return;
 
-  const db = firebase.firestore();
-  const snap = await db.collection('coords').get();
-  const points = snap.docs.map(d => ({
-    lat: d.data().lat, lng: d.data().lng, weight: 1.0
+  let json;
+  try {
+    const res = await fetch('./data/heatmap.json?_=' + Date.now());
+    if (!res.ok) {
+      console.warn('[firebase.js] heatmap.json fetch失敗', res.status);
+      return;
+    }
+    json = await res.json();
+  } catch (e) {
+    console.warn('[firebase.js] heatmap.json fetch error', e);
+    return;
+  }
+
+  // Pro版はpaid、無料版はfreeのGeoJSONを使用
+  const tier = premium ? 'paid' : 'free';
+  const fc   = json[tier];
+  if (!fc || !Array.isArray(fc.features) || fc.features.length === 0) {
+    console.log('[firebase.js] heatmap.json: データなし tier=', tier);
+    return;
+  }
+
+  const points = fc.features.map(f => ({
+    lat:    f.geometry.coordinates[1],
+    lng:    f.geometry.coordinates[0],
+    weight: f.properties.weight ?? 1.0,
   }));
   addHeatPoints(points);
+  console.log('[firebase.js] fetchHeatPoints OK tier=', tier, 'points=', points.length,
+              'generated_at=', json.generated_at);
 }
