@@ -43,9 +43,7 @@ let _devVip     = false; // デフォルト: VIPなし
 
 function devTogglePremium(){
   _devPremium = !_devPremium;
-  // 左下フロートボタン
-  const btn = document.getElementById('dev-premium-btn');
-  // 設定タブ内インラインボタン（heat-ctrl-panel内）
+  const btn       = document.getElementById('dev-premium-btn');
   const btnInline = document.getElementById('dev-premium-inline');
   const label = _devPremium ? 'PREMIUM ✓' : 'FREE';
   const bg    = _devPremium ? 'rgba(50,200,100,0.18)' : 'rgba(255,50,50,0.18)';
@@ -53,7 +51,7 @@ function devTogglePremium(){
   const col   = _devPremium ? '#80e8a0' : '#ff8888';
   [btn, btnInline].forEach(b => {
     if(!b) return;
-    b.textContent   = (b === btn ? 'DEV: ' : '') + label;
+    b.textContent        = (b === btn ? 'DEV: ' : '') + label;
     b.style.background   = bg;
     b.style.borderColor  = bc;
     b.style.color        = col;
@@ -69,7 +67,6 @@ function devToggleVip(){
     btn.style.background = 'rgba(160,80,255,0.22)';
     btn.style.borderColor= 'rgba(180,100,255,0.6)';
     btn.style.color      = '#c880ff';
-    // VIP ON時はPremiumボタンも連動して見た目を更新
     const btnP = document.getElementById('dev-premium-btn');
     const btnI = document.getElementById('dev-premium-inline');
     [btnP, btnI].forEach(b => {
@@ -84,8 +81,6 @@ function devToggleVip(){
     btn.style.background = 'rgba(255,50,50,0.18)';
     btn.style.borderColor= 'rgba(255,80,80,0.5)';
     btn.style.color      = '#ff8888';
-    // VIP OFFにしてもPremiumフラグが独立してONなら見た目はそのまま
-    // Premiumが独立してOFFならPremiumボタンもFREEに戻す
     if(!_devPremium){
       const btnP = document.getElementById('dev-premium-btn');
       const btnI = document.getElementById('dev-premium-inline');
@@ -102,68 +97,71 @@ function devToggleVip(){
 
 // ─────────────────────────────────────────────────────
 // 課金ユーザー判定
-//   Phase2: Firestoreの users/{uid}.premium フラグを参照
-//   Phase1: 常に false（スタブ）、dev override あり
+//   Firestoreの users/{uid}.premium フラグを参照
 // ─────────────────────────────────────────────────────
 async function isPremiumUser() {
-  if(_devVip)     return true; // VIP ON はPremiumも全解放
-  if(_devPremium) return true; // 開発用オーバーライド
-  // [Phase2 UNCOMMENT] ↓
-  // if (!window._fbUid) return false;
-  // try {
-  //   const doc = await firebase.firestore()
-  //     .collection('users').doc(window._fbUid).get();
-  //   return doc.exists && doc.data().premium === true;
-  // } catch (e) {
-  //   console.warn('[firebase.js] isPremiumUser error', e);
-  //   return false;
-  // }
-  return false; // Phase1スタブ
+  if(_devVip)     return true;
+  if(_devPremium) return true;
+  if (!window._fbUid) return false;
+  try {
+    const doc = await firebase.firestore()
+      .collection('users').doc(window._fbUid).get();
+    return doc.exists && doc.data().premium === true;
+  } catch (e) {
+    console.warn('[firebase.js] isPremiumUser error', e);
+    return false;
+  }
 }
 
 // ─────────────────────────────────────────────────────
 // VIPユーザー判定
-//   Phase2: Firestoreの users/{uid}.vip フラグを参照
-//   Phase1: _devVip のみ
+//   Firestoreの users/{uid}.vip フラグを参照
 // ─────────────────────────────────────────────────────
 async function isVipUser() {
-  if(_devVip) return true; // 開発用オーバーライド
-  // [Phase2 UNCOMMENT] ↓
-  // if (!window._fbUid) return false;
-  // try {
-  //   const doc = await firebase.firestore()
-  //     .collection('users').doc(window._fbUid).get();
-  //   return doc.exists && doc.data().vip === true;
-  // } catch (e) {
-  //   console.warn('[firebase.js] isVipUser error', e);
-  //   return false;
-  // }
-  return false; // Phase1スタブ
+  if(_devVip) return true;
+  if (!window._fbUid) return false;
+  try {
+    const doc = await firebase.firestore()
+      .collection('users').doc(window._fbUid).get();
+    return doc.exists && doc.data().vip === true;
+  } catch (e) {
+    console.warn('[firebase.js] isVipUser error', e);
+    return false;
+  }
 }
 
 // ─────────────────────────────────────────────────────
 // 自分の投稿件数を取得
-//   Phase2: Firestoreの coords を uid で絞り込み
-//   Phase1: localStorage の gm_pts の fsId 付き件数で代替
+//
+//   【移行フォールバック戦略 (Option B)】
+//   Firestoreの実件数が0でも、localStorageにポイントが
+//   存在すれば1以上を返す。Phase1時代に contrib ON で
+//   使っていたユーザーがヒートマップを閲覧できなくなる
+//   問題を防ぐ。Firestoreへの実投稿が進めば自然に
+//   Firestore件数が優先される。
 // ─────────────────────────────────────────────────────
 async function getUserPostCount() {
-  // [Phase2 UNCOMMENT] ↓
-  // if (!window._fbUid) return 0;
-  // try {
-  //   const snap = await firebase.firestore()
-  //     .collection('coords')
-  //     .where('uid', '==', window._fbUid)
-  //     .get();
-  //   return snap.size;
-  // } catch (e) {
-  //   console.warn('[firebase.js] getUserPostCount error', e);
-  //   return 0;
-  // }
+  if (!window._fbUid) return _localPostCountFallback();
+  try {
+    const snap = await firebase.firestore()
+      .collection('coords')
+      .where('uid', '==', window._fbUid)
+      .get();
+    // Firestore 0件かつ localStorage にポイントがあれば
+    // 移行期間中の互換性としてローカル件数を返す
+    if (snap.size === 0) return _localPostCountFallback();
+    return snap.size;
+  } catch (e) {
+    console.warn('[firebase.js] getUserPostCount error', e);
+    return _localPostCountFallback();
+  }
+}
 
-  // Phase1スタブ: fsId 付きポイントを送信済みとして件数を返す
+// localStorage のポイント件数（fsId 問わず全件）
+function _localPostCountFallback() {
   try {
     const saved = JSON.parse(localStorage.getItem('gm_pts') || '[]');
-    return saved.filter(p => !!p.fsId).length;
+    return saved.length;
   } catch (e) {
     return 0;
   }
@@ -172,8 +170,6 @@ async function getUserPostCount() {
 // ─────────────────────────────────────────────────────
 // 課金ゲート表示
 //   type: 'point_limit' | 'offline' | 'heatmap_pro'
-//   → 各typeで文言を差し替えてモーダル表示
-//   → Phase2でCTAのStripeリンクを差し込むだけで完結する構造
 // ─────────────────────────────────────────────────────
 function showPremiumGate(type) {
   const GATE_CONTENT = {
@@ -214,7 +210,7 @@ function showPremiumGate(type) {
 
   const c = GATE_CONTENT[type] || GATE_CONTENT['point_limit'];
   const iconEl = document.getElementById('premium-gate-icon');
-  iconEl.textContent  = c.icon;
+  iconEl.textContent   = c.icon;
   iconEl.style.display = c.icon ? '' : 'none';
   document.getElementById('premium-gate-title').textContent = c.title;
   document.getElementById('premium-gate-body').innerHTML    = c.body;
@@ -226,7 +222,7 @@ function showPremiumGate(type) {
 // ─────────────────────────────────────────────────────
 function startPurchaseFlow() {
   closeOv();
-  // [Phase2 UNCOMMENT] ↓
+  // [Phase3 UNCOMMENT] ↓ Stripe決済URL確定後に有効化
   // window.location.href = 'https://buy.stripe.com/xxxx';
   showAlert('準備中', 'サブスクリプション機能は近日公開予定です。');
 }
@@ -235,12 +231,12 @@ function startPurchaseFlow() {
 // 座標を Firestore に投稿
 // ─────────────────────────────────────────────────────
 async function submitCoord(lat, lng, stars) {
-  const db = firebase.firestore();
+  const db  = firebase.firestore();
   const ref = await db.collection('coords').add({
     lat, lng,
     stars: stars || 0,
     uid:  window._fbUid || 'anonymous',
-    date: new Date().toISOString().slice(0, 10), // "YYYY-MM-DD" 将来の鮮度フィルタ用
+    date: new Date().toISOString().slice(0, 10),
     ts:   firebase.firestore.FieldValue.serverTimestamp(),
   });
   console.log('[firebase.js] submitCoord OK', lat, lng, 'stars=', stars, 'fsId=', ref.id);
@@ -261,11 +257,9 @@ async function deleteCoord(fsId) {
 // heatmap.json を fetch してヒートマップに反映
 //   Pro版  → paid（クラスタ条件済みデータ）
 //   free版 → free（全件グリッドデータ）
-//   GitHub Actions が毎日 03:00 JST に生成・コミットしたものを参照
 // ─────────────────────────────────────────────────────
 async function fetchHeatPoints() {
-  const premium = await isPremiumUser();
-  // Pro版・free版ともにポイント投稿0件なら反映しない
+  const premium   = await isPremiumUser();
   const postCount = await getUserPostCount();
   if (postCount < 1) return;
 
@@ -282,7 +276,6 @@ async function fetchHeatPoints() {
     return;
   }
 
-  // Pro版はpaid、無料版はfreeのGeoJSONを使用
   const tier = premium ? 'paid' : 'free';
   const fc   = json[tier];
   if (!fc || !Array.isArray(fc.features) || fc.features.length === 0) {

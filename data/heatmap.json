@@ -1,6 +1,17 @@
 {
-  "type": "FeatureCollection",
-  "generated_at": "",
-  "_comment": "このファイルはGitHub Actionsが自動生成します。手動編集不要。",
-  "features": []
+  "generated_at": "1970-01-01T00:00:00Z",
+  "total_submissions": 0,
+  "grid_size_free": 0.1,
+  "grid_size_paid": 0.01,
+  "cluster_neighbor_radius": 4,
+  "cluster_min_neighbor_cells": 2,
+  "cluster_min_avg_stars": 1.0,
+  "free": {
+    "type": "FeatureCollection",
+    "features": []
+  },
+  "paid": {
+    "type": "FeatureCollection",
+    "features": []
+  }
 }
