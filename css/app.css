@@ -910,3 +910,253 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .gate-note-alert {
   color: #ff6b6b; font-weight: 700;
 }
+/* ═══════════════════════════════════════════
+   COMMUNITY TAB  コミュニティ
+═══════════════════════════════════════════ */
+
+/* 金相場行 */
+.comm-gold-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 6px;
+}
+.comm-gold-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.comm-gold-hint {
+  font-size: 10px;
+  color: var(--txt-dim);
+  line-height: 1.4;
+}
+
+/* プレミアムバナー */
+.comm-premium-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(180,130,30,0.18), rgba(100,70,10,0.25));
+  border: 1px solid rgba(200,160,40,0.4);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 6px 0 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.comm-premium-banner:active { background: rgba(180,130,30,0.28); }
+.comm-premium-icon { font-size: 22px; flex-shrink: 0; }
+.comm-premium-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.comm-premium-text b { font-size: 13px; color: var(--gold); }
+.comm-premium-text span { font-size: 10px; color: var(--txt-sub); }
+.comm-premium-arrow { font-size: 20px; color: var(--gold); opacity: 0.7; }
+
+/* 掲示板ルール */
+.comm-rule-box {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.comm-rule-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--txt-sub);
+  cursor: pointer;
+  background: rgba(255,255,255,0.03);
+}
+.comm-rule-head:active { background: rgba(255,255,255,0.07); }
+.comm-rule-list {
+  margin: 0;
+  padding: 8px 12px 10px 28px;
+  font-size: 11px;
+  color: var(--txt-sub);
+  line-height: 2;
+}
+.comm-rule-list li b { color: var(--txt); }
+
+/* スコープタブ */
+.comm-scope-tabs {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 8px;
+}
+.comm-scope-btn {
+  flex: 1;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255,255,255,0.04);
+  border: none;
+  color: var(--txt-sub);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.comm-scope-btn.active {
+  background: var(--gold);
+  color: #1a1000;
+}
+
+/* 地方セレクタ */
+.comm-sel-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.comm-select {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: var(--txt);
+  font-size: 12px;
+  padding: 6px 8px;
+}
+.comm-select:focus { outline: none; border-color: var(--gold); }
+
+/* 投稿フォーム */
+.comm-form {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.comm-input {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: var(--txt);
+  font-size: 12px;
+  padding: 7px 10px;
+}
+.comm-input:focus { outline: none; border-color: var(--gold); }
+.comm-input::placeholder { color: var(--txt-dim); }
+.comm-tag-select { font-size: 11px; }
+.comm-textarea {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: var(--txt);
+  font-size: 12px;
+  padding: 8px 10px;
+  min-height: 72px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.6;
+}
+.comm-textarea:focus { outline: none; border-color: var(--gold); }
+.comm-textarea::placeholder { color: var(--txt-dim); }
+.comm-form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.comm-char-count {
+  font-size: 11px;
+  color: var(--txt-sub);
+}
+.comm-submit-btn { min-width: 80px; }
+
+/* 投稿一覧 */
+.comm-post-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 16px;
+}
+.comm-empty {
+  text-align: center;
+  font-size: 12px;
+  color: var(--txt-dim);
+  padding: 24px 0;
+}
+.comm-post {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.comm-post-hidden {
+  text-align: center;
+  font-size: 11px;
+  color: var(--txt-dim);
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.02);
+}
+.comm-post-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+.comm-nick {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.comm-tag {
+  font-size: 10px;
+  background: rgba(180,130,30,0.2);
+  border: 1px solid rgba(180,130,30,0.35);
+  border-radius: 10px;
+  padding: 1px 7px;
+  color: var(--txt-sub);
+}
+.comm-time {
+  font-size: 10px;
+  color: var(--txt-dim);
+  margin-left: auto;
+}
+.comm-post-body {
+  font-size: 13px;
+  color: var(--txt);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 8px;
+}
+.comm-post-footer {
+  display: flex;
+  gap: 8px;
+}
+.comm-react-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: var(--txt-sub);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.comm-react-btn.like.active {
+  background: rgba(80,160,255,0.2);
+  border-color: rgba(80,160,255,0.4);
+  color: #80c8ff;
+}
+.comm-react-btn.bad.active {
+  background: rgba(255,80,80,0.15);
+  border-color: rgba(255,80,80,0.3);
+  color: #ff8888;
+}
+.comm-react-btn:active { opacity: 0.7; }

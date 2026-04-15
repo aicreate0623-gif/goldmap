@@ -812,7 +812,7 @@ async function clearCache(){
 //  タブ切替
 // ═══════════════════════════════════════════
 let curTab='map';
-const SHEETS={pts:'pt-sheet', offline:'dl-sheet', cfg:'cfg-sheet'};
+const SHEETS={pts:'pt-sheet', offline:'dl-sheet', cfg:'cfg-sheet', community:'comm-sheet'};
 
 function switchTab(tab){
   _openTab(tab);
@@ -825,7 +825,7 @@ function _openTab(tab){
   }
   curTab=tab;
   // タブボタンのアクティブ状態
-  ['map','pts','offline','cfg'].forEach(t=>{
+  ['map','pts','offline','cfg','community'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('active',t===tab);
   });
   // シートを開く
@@ -947,6 +947,11 @@ document.addEventListener('keydown',e=>{
     }
     const wasMap = (curTab === 'map');
     _orig(tab);
+    // コミュニティタブ初期化（初回のみ）
+    if(tab === 'community'){
+      if(typeof initCommunity === 'function') initCommunity();
+      if(typeof _buildTagSelector === 'function') _buildTagSelector();
+    }
     // 地図→シートへの切替時のみpush（シート表示状態を③用に積む）
     if(!_suppressPush && wasMap && tab !== 'map') _pushHistory();
   };
