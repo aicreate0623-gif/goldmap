@@ -271,6 +271,10 @@ function _gridAggregate(rawPts, gridDeg) {
   return cells.map(c => [c.lat, c.lng, Math.log(c.count + 1) / maxLog]);
 }
 
+// ── Firebaseから取得したヒートポイントの蓄積バッファ ──
+// initHeatLayer()が呼ばれるたびに再合成される
+let _firebaseHeatPts = [];  // [{lat, lng, weight}]
+
 // ── 生データ生成 ─────────────────────────────────────
 function buildHeatPoints() {
   const pts = [];
@@ -279,6 +283,8 @@ function buildHeatPoints() {
     pts.push([d.lat, d.lng, d.trace ? 0.3 : 0.5]);
   }
   for (const m of MINES) pts.push([m.lat, m.lng, 0.8]);
+  // Firebaseデータを合成（weight値をそのまま使用）
+  for (const p of _firebaseHeatPts) pts.push([p.lat, p.lng, p.weight ?? 1.0]);
   return pts;
 }
 
@@ -549,12 +555,12 @@ function _resetHeatParams(tier) {
 }
 
 // ── Firestore連携用（外部からデータ追加）─────────────
+// バッファに蓄積し、heatLayerが存在すれば即時再描画する。
+// initHeatLayer()はbuildHeatPoints()経由でバッファを合成するため、
+// ボタンON/OFFやパラメーター調整後もデータが消えない。
 function addHeatPoints(points) {
-  if(!heatLayer) return;
-  const current = heatLayer._latlngs || [];
-  const merged  = current.concat(points.map(p => [p.lat, p.lng, p.weight ?? 1.0]));
-  heatLayer.setLatLngs(merged);
-  heatLayer.redraw();
+  _firebaseHeatPts = _firebaseHeatPts.concat(points);
+  if(heatTier) initHeatLayer(heatTier);
 }
 
 // ═══════════════════════════════════════════
