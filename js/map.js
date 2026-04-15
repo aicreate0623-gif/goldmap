@@ -24,9 +24,10 @@ async function initMap(){
   map.getPane('paneMine').style.zIndex = 620;
   map.createPane('paneUser'); // ユーザーピン（最上位）
   map.getPane('paneUser').style.zIndex = 630;
-  // ポップアップを全カスタムpaneより確実に上に
-  map.getPane('popupPane').style.zIndex  = 800;
-  map.getPane('shadowPane').style.zIndex = 790;
+  // ポップアップ・ツールチップを全カスタムpane(最大630)より確実に上に
+  map.getPane('tooltipPane').style.zIndex = 850;
+  map.getPane('shadowPane').style.zIndex  = 890;
+  map.getPane('popupPane').style.zIndex   = 900;
 
   const mk=key=>{
     const CLS=makeCachedLayer(key);
@@ -98,4 +99,3 @@ function toggleGeo(){
   }
 }
 function setGeoOp(v){document.getElementById('geo-opv').textContent=v+'%'; if(geoL)geoL.setOpacity(v/100);}
-
