@@ -1,0 +1,51 @@
+name: Generate Bears JSON
+
+on:
+  schedule:
+    # UTC 21:00 = JST 06:00 毎日実行
+    - cron: "0 21 * * *"
+  workflow_dispatch: # 手動実行も可能
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Run gen_bears.py
+        run: python scripts/gen_bears.py
+
+      - name: Check output
+        run: |
+          echo "=== bears.json 先頭確認 ==="
+          head -50 data/bears.json || echo "ファイルが見つかりません"
+          echo "=== レコード数 ==="
+          python -c "import json; d=json.load(open('data/bears.json')); print(f'{len(d)} records')"
+
+      - name: Commit and push bears.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/bears.json
+          # 差分がある場合のみコミット
+          if git diff --cached --quiet; then
+            echo "変更なし - コミットをスキップ"
+          else
+            git commit -m "chore: update bears.json [skip ci]"
+            git push
+          fi

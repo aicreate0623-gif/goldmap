@@ -29,10 +29,7 @@ initMap();
   ];
 
   // [岩石種コード, 堆積岩色, 付加体色, 火成岩色, 変成岩色]
-  // 色は産総研シームレス地質図V2公式タイルの色体系に準拠
-  // null = その時代×岩石の組み合わせが存在しない
   const COLORS = {
-    //         堆積岩        付加体        火成岩        変成岩
     'Q':  ['#f5e678',    null,         '#f0a0c8',    null       ],
     'N':  ['#f5d830',    '#d4c87a',    '#78c878',    '#d8a0c8'  ],
     'Pg': ['#f0c050',    '#c8b860',    '#50b878',    '#c890b8'  ],
@@ -41,7 +38,6 @@ initMap();
     'Pz': ['#b89060',    '#a08030',    '#387898',    '#784878'  ],
   };
 
-  // 砂金関連フラグ: [堆積岩, 付加体, 火成岩, 変成岩]
   const GOLD_FLAG = {
     'Q':  [true,  false, false, false],
     'N':  [false, false, true,  false],
@@ -51,7 +47,6 @@ initMap();
     'Pz': [false, false, false, true ],
   };
 
-  // 岩石種の説明
   const ROCK_DESC = [
     '砂・泥・礫などが固まった岩石\n河川・海底堆積物',
     '海洋プレートが沈み込む際に\n形成された複合岩体',
@@ -67,7 +62,6 @@ initMap();
     const flags = GOLD_FLAG[code];
     const tr = document.createElement('tr');
 
-    // 時代セル
     const tdAge = document.createElement('td');
     tdAge.style.cssText = `
       padding:6px 5px;
@@ -79,7 +73,6 @@ initMap();
     tdAge.innerHTML = `<div>${label}</div><div style="font-size:8px;color:var(--txt-dim);font-weight:400;margin-top:1px;">${code}</div>`;
     tr.appendChild(tdAge);
 
-    // 岩石種セル × 4
     cols.forEach((color, i)=>{
       const td = document.createElement('td');
       td.style.cssText = `
@@ -110,7 +103,6 @@ initMap();
     tbody.appendChild(tr);
   });
 
-  // その他（火山岩・人工改変地）補足行
   const trOther = document.createElement('tr');
   const extraItems = [
     {color:'#e85858', label:'活火山・\n火山岩'},
@@ -136,3 +128,11 @@ initMap();
   trOther.appendChild(tdOtherVal);
   tbody.appendChild(trOther);
 })();
+
+// ── クマ出没レイヤーの初期化（追記箇所） ──────────────────
+initBearLayer().then(() => {
+  // 設定セクションが存在すればUIを初期化
+  if (document.getElementById("bear-settings-section")) {
+    initBearToggle();
+  }
+});

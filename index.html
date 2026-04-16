@@ -5,18 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>砂金探索マップ</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/bear_styles.css">
 </head>
 <body>
 
-<!-- ━━━ STATUS BAR ━━━ -->
 <div id="statusbar">
   <div class="sb-dot" id="gps-dot"></div>
   <span id="sb-gps-lbl">GPS オフ</span>
@@ -26,12 +25,9 @@
   <span id="sb-cache">キャッシュ: —</span>
 </div>
 
-<!-- ━━━ MAP ━━━ -->
 <div id="map"></div>
 
-<!-- ━━━ FLOATING CONTROLS (top bar) ━━━ -->
 <div id="float-ctrl">
-  <!-- 1段目: ベース地図・ヒートマップ -->
   <div class="fc-row">
     <button class="fc-btn" id="btn-std" onclick="setBase('std')" title="地理院地図">
       <span class="fc-ico">🗾</span><span>地理院</span>
@@ -52,7 +48,6 @@
       <span class="fc-ico">🎛</span><span>調整</span>
     </button>
   </div>
-  <!-- 2段目: 地質図 -->
   <div class="fc-row">
     <button class="fc-btn" id="btn-geo" onclick="toggleGeo()" title="地質図">
       <span class="fc-ico">🪨</span><span>地質</span>
@@ -65,7 +60,6 @@
   </div>
 </div>
 
-<!-- ━━━ FLOATING CONTROLS RIGHT (map tools) ━━━ -->
 <div id="float-ctrl-right">
   <button class="fc-btn" id="btn-mine"  onclick="toggleMine()"     title="砂金DB">
     <span class="fc-ico">⛏</span><span>砂金DB</span>
@@ -92,7 +86,6 @@
 
 
 
-<!-- ━━━ ピン追加バナー ━━━ -->
 <div id="add-banner">
   ピンをドラッグして位置決め
   <button class="btn sm accent" onclick="openAddDlg()">入力へ</button>
@@ -100,7 +93,6 @@
 </div>
 <div id="rect-banner">ドラッグして範囲を選択　ESC でキャンセル</div>
 
-<!-- ━━━ TAB BAR ━━━ -->
 <div id="tabbar">
   <button class="tab-btn active" id="tab-map"     onclick="switchTab('map')">
     <span class="t-ico">🗺</span>地図
@@ -119,14 +111,12 @@
   </button>
 </div>
 
-<!-- ━━━ POINT SHEET ━━━ -->
 <div class="sheet" id="pt-sheet">
   <div class="sheet-head">
     <h2>📍 ポイント一覧</h2>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
 
-  <!-- ヒートマップ協力トグル -->
   <div class="contrib-bar">
     <div class="contrib-bar-left">
       <span class="contrib-icon">🗺️</span>
@@ -156,7 +146,6 @@
   </div>
 </div>
 
-<!-- ━━━ OFFLINE SHEET ━━━ -->
 <div class="sheet" id="dl-sheet">
   <div class="sheet-head">
     <h2>⬇ オフライン管理</h2>
@@ -164,7 +153,6 @@
   </div>
   <div class="sheet-body">
 
-    <!-- レジュームバナー -->
     <div id="resume-banner">
       <strong>⏸ 前回の続きがあります</strong><br>
       <span id="resume-desc"></span>
@@ -174,7 +162,6 @@
       </div>
     </div>
 
-    <!-- レイヤー選択 -->
     <div class="dl-section">
       <div class="sec-ttl">ダウンロードするレイヤー</div>
       <div class="ck-row"><input type="checkbox" id="ck-std" checked><label for="ck-std">地理院地図</label></div>
@@ -182,7 +169,6 @@
       <div class="ck-row"><input type="checkbox" id="ck-topo"><label for="ck-topo">地形図 (OpenTopoMap)</label></div>
     </div>
 
-    <!-- ベースタイル -->
     <div class="dl-section">
       <div class="sec-ttl">① ベースタイル（全日本 Z5〜Z10）</div>
       <div class="sl2-row">
@@ -200,7 +186,6 @@
       </div>
     </div>
 
-    <!-- 詳細タイル -->
     <div class="dl-section">
       <div class="sec-ttl">② 詳細タイル（指定範囲）</div>
       <div class="btn-row" style="margin-bottom:10px">
@@ -229,18 +214,18 @@
       </div>
     </div>
 
-    <!-- 鉱床データ・kinno・Wikidata・進捗は設定タブに移動 -->
-
-  </div>
+    </div>
 </div>
 
-<!-- ━━━ SETTINGS SHEET ━━━ -->
 <div class="sheet" id="cfg-sheet">
   <div class="sheet-head">
     <h2>⚙ 設定</h2>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
+    <div class="settings-section" id="bear-settings-section">
+      </div>
+
     <div class="cfg-row">
       <div>
         <div class="cfg-label">キャッシュ容量</div>
@@ -256,7 +241,6 @@
       <button class="btn sm red" onclick="clearCache()">全削除</button>
     </div>
 
-    <!-- ダウンロード進捗 -->
     <div class="cfg-section-ttl">⬇ ダウンロード進捗</div>
     <div class="dl-section" id="prog-section">
       <div class="stat-grid">
@@ -269,7 +253,6 @@
       <div class="dl-log" id="dl-log"></div>
     </div>
 
-    <!-- 鉱床・鉱徴地データ -->
     <div class="cfg-section-ttl">🔶 鉱床・鉱徴地データ</div>
     <div class="dl-section">
       <div class="info-box">
@@ -299,7 +282,6 @@
       </div>
     </div>
 
-    <!-- Wikidata -->
     <div class="cfg-section-ttl">🌐 Wikidata 日本鉱山</div>
     <div class="dl-section">
       <div class="info-box">
@@ -317,7 +299,6 @@
       </div>
     </div>
 
-    <!-- kinno調査記 -->
     <div class="cfg-section-ttl">📌 kinno調査記</div>
     <div class="dl-section">
       <div class="info-box">
@@ -332,7 +313,6 @@
       </div>
     </div>
 
-    <!-- ━━━ カテゴリ区切り ━━━ -->
     <div style="
       margin: 20px -18px 0;
       padding: 10px 18px 0;
@@ -348,7 +328,6 @@
         <span style="font-size:9px; color:var(--txt-dim); white-space:nowrap;">産総研 V2</span>
       </div>
 
-      <!-- 見方の説明 -->
       <div style="font-size:11px;color:var(--txt-sub);background:rgba(255,255,255,0.04);
                   border-radius:6px;padding:8px 11px;margin-bottom:12px;line-height:1.8;
                   border:1px solid rgba(255,255,255,0.07);">
@@ -357,14 +336,12 @@
         <b style="color:var(--gold);">★</b> = 砂金採取と関連性が高い地質
       </div>
 
-      <!-- 凡例マトリックス表 -->
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
         <table id="geo-legend-table" style="
           border-collapse:collapse;
           width:100%;min-width:300px;
           font-size:10px;
         ">
-          <!-- ヘッダー行 -->
           <thead>
             <tr>
               <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
@@ -381,12 +358,10 @@
             </tr>
           </thead>
           <tbody id="geo-legend-body">
-            <!-- JS で挿入 -->
-          </tbody>
+            </tbody>
         </table>
       </div>
 
-      <!-- 特記（砂金関連） -->
       <div style="margin-top:10px;font-size:11px;color:var(--txt-sub);
                   background:rgba(200,170,80,0.07);border:1px solid rgba(200,170,80,0.16);
                   border-radius:6px;padding:8px 11px;line-height:1.8;">
@@ -397,7 +372,6 @@
         <span style="color:rgba(255,220,100,0.85);">第四紀・堆積岩（黄系）</span>：砂金が集積しやすい河川堆積物
       </div>
 
-      <!-- 線記号の説明 -->
       <div style="margin-top:10px;font-size:11px;color:var(--txt-sub);
                   background:rgba(255,255,255,0.03);border-radius:6px;padding:8px 11px;line-height:1.9;
                   border:1px solid rgba(255,255,255,0.06);">
@@ -407,18 +381,14 @@
         <span style="display:inline-block;width:28px;height:2px;background:#a06030;vertical-align:middle;margin-right:4px;border-top:2px dotted #c08040;"></span>地質境界
       </div>
 
-      <!-- 出典 -->
       <div style="margin-top:8px;margin-bottom:4px;font-size:10px;color:var(--txt-dim);line-height:1.7;padding:0 2px;">
         出典: 産業技術総合研究所 地質調査総合センター<br>
         「20万分の1日本シームレス地質図 V2」　© AIST All Rights Reserved.
       </div>
     </div>
-    <!-- /地質図凡例 -->
-
-  </div>
+    </div>
 </div>
 
-<!-- ━━━ COMMUNITY SHEET ━━━ -->
 <div class="sheet" id="comm-sheet">
   <div class="sheet-head">
     <h2>💬 コミュニティ</h2>
@@ -426,13 +396,11 @@
   </div>
   <div class="sheet-body">
 
-    <!-- 金相場ボタン -->
     <div class="comm-gold-row" id="comm-gold-row">
       <button class="btn accent comm-gold-btn" id="comm-gold-btn" onclick="commShowGoldPrice()">💰 金相場</button>
       <span class="comm-gold-hint">前日LBMA終値ベース・円/g換算</span>
     </div>
 
-    <!-- プレミアムアピール -->
     <div class="comm-premium-banner" onclick="commShowPremium()">
       <span class="comm-premium-icon">✨</span>
       <div class="comm-premium-text">
@@ -442,7 +410,6 @@
       <span class="comm-premium-arrow">›</span>
     </div>
 
-    <!-- 掲示板ルール -->
     <div class="comm-rule-box">
       <div class="comm-rule-head" onclick="commToggleRule()">
         <span>📋 掲示板ルール</span>
@@ -461,13 +428,11 @@
       </div>
     </div>
 
-    <!-- スコープタブ -->
     <div class="comm-scope-tabs">
       <button class="comm-scope-btn active" id="comm-tab-national" onclick="commSwitchScope('national')">🌏 全国</button>
       <button class="comm-scope-btn"        id="comm-tab-regional" onclick="commSwitchScope('regional')">📍 地方</button>
     </div>
 
-    <!-- 地方・都道府県セレクタ（地方版のみ表示） -->
     <div id="comm-regional-selector" style="display:none">
       <div class="comm-sel-row">
         <select id="comm-region-sel" onchange="commOnRegionChange(this.value)" class="comm-select">
@@ -477,7 +442,6 @@
       </div>
     </div>
 
-    <!-- 投稿フォーム -->
     <div class="comm-form">
       <input type="text" id="comm-nick-input" class="comm-input" placeholder="ニックネーム（空欄で匿名さん）" maxlength="20">
       <select id="comm-tag-sel" class="comm-select comm-tag-select">
@@ -493,7 +457,6 @@
       </div>
     </div>
 
-    <!-- 投稿一覧 -->
     <div id="comm-post-list" class="comm-post-list">
       <div class="comm-empty">読み込み中…</div>
     </div>
@@ -501,7 +464,6 @@
   </div>
 </div>
 
-<!-- ━━━ 鉱種凡例モーダル ━━━ -->
 <div id="mine-legend-overlay" onclick="if(event.target===this)closeMineLegend()">
   <div id="mine-legend-box">
     <div id="mine-legend-head">
@@ -518,7 +480,6 @@
   </div>
 </div>
 
-<!-- ━━━ DIALOGS ━━━ -->
 <div id="overlay">
   <div class="dialog" id="dlg-edit" style="display:none">
     <h3 id="dlg-edit-ttl">ポイントを追加</h3>
@@ -572,7 +533,6 @@
       <button class="dbtn del" onclick="doImport('over')">上書き</button>
     </div>
   </div>
-  <!-- 協力同意ダイアログ -->
   <div class="dialog" id="dlg-contrib-on" style="display:none">
     <h3>🗺️ ヒートマップへのご協力</h3>
     <p class="dlg-msg" style="text-align:left;font-size:12px;line-height:1.7;">
@@ -593,7 +553,6 @@
     </div>
   </div>
 
-  <!-- 協力停止確認ダイアログ -->
   <div class="dialog" id="dlg-contrib-off" style="display:none">
     <h3>協力を停止しますか？</h3>
     <p class="dlg-msg">以降のポイント保存時に位置情報を送信しません。<br>既に送信済みのデータは引き続きヒートマップに使用されます。なお、ポイント自体を削除した場合はサーバーのデータも同時に削除されます。</p>
@@ -611,7 +570,6 @@
     </div>
   </div>
 
-  <!-- GPS信号途絶ダイアログ -->
   <div class="dialog" id="dlg-gps-lost" style="display:none">
     <h3>📍 GPS信号が途絶えました</h3>
     <p class="dlg-msg">スマホのGPS機能がオフになっているか、電波が届いていません。<br><br>GPSを継続するには設定からGPS（位置情報）をオンにしてください。</p>
@@ -621,7 +579,6 @@
     </div>
   </div>
 
-  <!-- 課金ゲートダイアログ（type別に文言を差し替えて共用） -->
   <div class="dialog" id="dlg-premium-gate" style="display:none">
     <div class="premium-gate-icon" id="premium-gate-icon">🔒</div>
     <h3 id="premium-gate-title">プレミアム機能</h3>
@@ -633,7 +590,6 @@
   </div>
 </div>
 
-<!-- ━━━ ヒートマップ調整パネル（地図上フロート） ━━━ -->
 <div id="heat-ctrl-panel" style="display:none">
   <div id="heat-panel-header">
     <span id="heat-panel-title">ヒートマップ調整</span>
@@ -643,7 +599,6 @@
   <div class="heat-panel-footer" id="heat-panel-footer"></div>
 </div>
 
-<!-- ━━━ 開発用: 課金状態トグルボタン ━━━ -->
 <div style="position:fixed;left:10px;bottom:calc(var(--tab-h) + 8px);z-index:1200;display:flex;gap:6px;">
   <button id="dev-premium-btn" onclick="devTogglePremium()"
     style="padding:5px 10px;font-size:10px;font-weight:700;border-radius:6px;
@@ -653,7 +608,6 @@
   </button>
 </div>
 
-<!-- ━━━ アプリ終了確認オーバーレイ（地図表示中バック時） ━━━ -->
 <div id="exit-overlay" style="
   display:none; position:fixed; inset:0; z-index:9000;
   background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);
@@ -673,8 +627,10 @@
   <script src="js/cache.js"></script>
   <script src="js/data.js"></script>
   <script src="js/map.js"></script>
+  <script src="js/bear_layer_map.js"></script> 
   <script src="js/points.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/bear_toggle_ui.js"></script>
   <script src="js/firebase.js"></script>
   <script src="js/community.js"></script>
   <script src="js/app.js"></script>
