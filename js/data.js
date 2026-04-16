@@ -92,8 +92,8 @@ const MINES=[
   {lat:32.217,lng:130.767,name:'人吉市（球磨川支流）',note:'熊本県人吉市。球磨川支流での砂金採取情報あり。既存「五木村」エントリーとのエリア重複確認要。【座標要検証：概略値】'},
 ];
 const mineLayer=L.layerGroup({pane:'paneMine'}); let mineV=false;
-const mIco=()=>L.divIcon({html:'<div class="mpin"></div>',className:'',iconSize:[14,18],iconAnchor:[7,18],popupAnchor:[0,-18]});
-const mIcoAlert=()=>L.divIcon({html:'<div class="mpin mpin-alert"></div>',className:'',iconSize:[14,18],iconAnchor:[7,18],popupAnchor:[0,-18]});
+const mIco=()=>L.divIcon({html:'<div class="mpin"></div>',className:'',iconSize:[14,28],iconAnchor:[7,28],popupAnchor:[0,-28]});
+const mIcoAlert=()=>L.divIcon({html:'<div class="mpin mpin-alert"></div>',className:'',iconSize:[14,28],iconAnchor:[7,28],popupAnchor:[0,-28]});
 
 // 水位ボタン状態
 let waterV=false;
@@ -262,7 +262,7 @@ function makeWikiMarker(d){
     </div>`;
 
   return L.marker([d.lat, d.lng], {
-    icon: L.divIcon({ html, className:'', iconSize:[sz+4,sz+4], iconAnchor:[(sz+4)/2,(sz+4)/2], popupAnchor:[0,-(sz+4)/2] }),
+    icon: L.divIcon({ html, className:'', iconSize:[sz+4,sz+4], iconAnchor:[(sz+4)/2,(sz+4)/2], popupAnchor:[0,-((sz+4)/2+8)] }),
     pane: 'paneWiki'
   }).bindPopup(popup, {maxWidth: 270});
 }
@@ -586,7 +586,7 @@ function kinnoIcon(){
     className: '',
     iconSize: [16, 16],
     iconAnchor: [8, 8],
-    popupAnchor: [0, -8]
+    popupAnchor: [0, -14]
   });
 }
 
@@ -1380,7 +1380,7 @@ function makeMineMarker(d){
       </div>
     </div>`;
   return L.marker([d.lat,d.lng],{
-    icon:L.divIcon({html,className:'',iconSize:[sz+4,sz+4],iconAnchor:[(sz+4)/2,(sz+4)/2],popupAnchor:[0,-(sz+4)/2]}),
+    icon:L.divIcon({html,className:'',iconSize:[sz+4,sz+4],iconAnchor:[(sz+4)/2,(sz+4)/2],popupAnchor:[0,-((sz+4)/2+8)]}),
     pane:'paneGsj',
     zIndexOffset:d.trace?0:10
   }).bindPopup(popup, {maxWidth:260});
