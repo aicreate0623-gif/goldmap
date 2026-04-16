@@ -1,5 +1,5 @@
 'use strict';
-const map=L.map('map',{center:[36.5,137.5],zoom:7,zoomControl:true,rotate:true,bearing:0});
+const map=L.map('map',{center:[36.5,137.5],zoom:7,zoomControl:true});
 map.zoomControl.setPosition('bottomright');
 let TILES={}, curBase='photo'; // デフォルト: 航空写真
 
