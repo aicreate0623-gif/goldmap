@@ -93,13 +93,65 @@ const MINES=[
 ];
 const mineLayer=L.layerGroup({pane:'paneMine'}); let mineV=false;
 const mIco=()=>L.divIcon({html:'<div class="mpin"></div>',className:'',iconSize:[14,18],iconAnchor:[7,18]});
-MINES.forEach(m=>L.marker([m.lat,m.lng],{icon:mIco(),pane:'paneMine'}).bindPopup(
-  `<b style="color:#c06030">${m.name}</b><br><small>${m.note}</small>`).addTo(mineLayer));
+const mIcoAlert=()=>L.divIcon({html:'<div class="mpin mpin-alert"></div>',className:'',iconSize:[14,18],iconAnchor:[7,18]});
+
+// 水位ボタン状態
+let waterV=false;
+// 警戒中河川名セット（map.jsのfetchFloodAlerts()が更新する）
+window.floodAlertNames=new Set();
+
+function _minePopup(m,withWater){
+  const link=withWater
+    ?`<br><a href="https://k.river.go.jp/?lat=${m.lat}&lng=${m.lng}&zm=12" target="_blank" rel="noopener" style="font-size:11px;color:#4af">💧 現在の水位を確認</a>`
+    :'';
+  return `<b style="color:#c06030">${m.name}</b><br><small>${m.note}</small>${link}`;
+}
+
+function _isAlert(m){
+  if(!window.floodAlertNames.size) return false;
+  // マーカー名・noteに警戒河川名が含まれるか判定
+  return [...window.floodAlertNames].some(n=>m.name.includes(n)||m.note.includes(n));
+}
+
+// マーカー生成（水位ON/OFFで切替）
+const _mineMarkers=[];
+MINES.forEach(m=>{
+  const alert=_isAlert(m);
+  const marker=L.marker([m.lat,m.lng],{
+    icon: alert ? mIcoAlert() : mIco(),
+    pane:'paneMine'
+  }).bindPopup(_minePopup(m, waterV||alert));
+  marker._mineData=m;
+  _mineMarkers.push(marker);
+  marker.addTo(mineLayer);
+});
+
+// 水位モード切替時にマーカーを再描画
+function refreshMineMarkers(){
+  _mineMarkers.forEach(marker=>{
+    const m=marker._mineData;
+    const alert=_isAlert(m);
+    marker.setIcon(alert ? mIcoAlert() : mIco());
+    marker.setPopupContent(_minePopup(m, waterV||alert));
+  });
+}
+
 function toggleMine(){
   mineV=!mineV;
   document.getElementById('btn-mine').classList.toggle('active',mineV);
   if(mineV) mineLayer.addTo(map);
   else map.removeLayer(mineLayer);
+}
+
+function toggleWaterLevel(){
+  waterV=!waterV;
+  document.getElementById('btn-water').classList.toggle('active',waterV);
+  if(waterV){
+    // 水位ONで砂金DBも表示
+    if(!mineV){ mineV=true; mineLayer.addTo(map); document.getElementById('btn-mine').classList.add('active'); }
+    fetchFloodAlerts();
+  }
+  refreshMineMarkers();
 }
 
 // ═══════════════════════════════════════════

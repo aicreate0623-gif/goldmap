@@ -736,6 +736,24 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   border: 2px solid #904018;
 }
 
+/* 洪水警戒中マーカー（赤） */
+.mpin-alert {
+  border-top-color: #e02020;
+}
+.mpin-alert::before {
+  background: #ff4040;
+  border-color: #c00000;
+  box-shadow: 0 0 6px rgba(255,40,40,0.8);
+}
+
+/* 水位ボタンON時: 青グロー */
+#btn-water.active {
+  background: rgba(30,120,200,0.22);
+  border-color: rgba(80,180,255,0.6);
+  color: #7df;
+  box-shadow: 0 0 12px rgba(80,180,255,0.3), 0 2px 12px rgba(0,0,0,0.4);
+}
+
 /* ━━━ ヒートマップ協力トグル ━━━ */
 .contrib-bar {
   display: flex;
