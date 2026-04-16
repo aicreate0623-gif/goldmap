@@ -65,6 +65,7 @@ function initCommunity(){
   _renderPosts();
   _loadNickname();
   _updateCharCount();
+  _initGoldDisplay();
 }
 
 // ── スコープタブ切替 ─────────────────────────
@@ -308,34 +309,37 @@ async function commShowGoldPrice(){
   btn.textContent = '取得中…';
 
   try {
-    // キャッシュ確認（24h）
-    const cached = JSON.parse(localStorage.getItem(SK_GOLD)||'null');
-    if(cached && (Date.now()-cached.ts) < GOLD_CACHE_MS){
-      _showGoldDialog(cached);
-      btn.disabled=false; btn.textContent='💰 金相場';
-      return;
-    }
-
-    // 金価格(USD/oz) 取得
-    const goldRes = await fetch('https://freegoldapi.com/data/latest.json');
+    // 金価格(USD/oz) 取得 - gold-api.com: 無料・APIキー不要・CORS対応
+    const goldRes = await fetch('https://api.gold-api.com/price/XAU');
+    if(!goldRes.ok) throw new Error('gold-api ' + goldRes.status);
     const goldJson = await goldRes.json();
-    // latest.jsonは配列 [{date,price,source}] の最終要素がUSD/oz
-    const arr = Array.isArray(goldJson) ? goldJson : [];
-    const latest = arr[arr.length-1];
-    const priceUsdOz = parseFloat(latest.price);
-    const goldDate = latest.date;
+    // レスポンス: { price: 4799.9, symbol: "XAU", ... }
+    const priceUsdOz = parseFloat(goldJson.price);
+    if(!priceUsdOz || isNaN(priceUsdOz)) throw new Error('invalid price');
 
-    // 為替レート(USD→JPY) 取得
+    // 為替レート(USD→JPY) 取得 - frankfurter.app: 無料・CORS対応
     const fxRes = await fetch('https://api.frankfurter.app/latest?from=USD&to=JPY');
+    if(!fxRes.ok) throw new Error('frankfurter ' + fxRes.status);
     const fxJson = await fxRes.json();
     const rateJpy = fxJson.rates.JPY;
 
     // 1g換算: 1troy oz = 31.1035g
     const priceJpyG = Math.round(priceUsdOz / 31.1035 * rateJpy);
 
-    const cacheData = { price_usd: priceUsdOz, rate_jpy: rateJpy, price_jpy_g: priceJpyG, date: goldDate, ts: Date.now() };
+    // 基準日（今日の日付）
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}/${today.getMonth()+1}/${today.getDate()}`;
+
+    const cacheData = {
+      price_usd: priceUsdOz,
+      rate_jpy: rateJpy,
+      price_jpy_g: priceJpyG,
+      date: dateStr,
+      ts: Date.now()
+    };
+    // ボタン押すたび上書き保存
     localStorage.setItem(SK_GOLD, JSON.stringify(cacheData));
-    _showGoldDialog(cacheData);
+    _renderGoldDisplay(cacheData);
 
   } catch(e) {
     _commToast('相場の取得に失敗しました。通信を確認してください。');
@@ -345,14 +349,30 @@ async function commShowGoldPrice(){
   btn.disabled=false; btn.textContent='💰 金相場';
 }
 
-function _showGoldDialog(d){
-  const body = `前日金相場（参考値）\n\n` +
-    `　1g あたり　約 ¥${d.price_jpy_g.toLocaleString()}\n\n` +
-    `USD/oz: $${Math.round(d.price_usd).toLocaleString()}\n` +
-    `USD/JPY: ${d.rate_jpy.toFixed(2)}\n` +
-    `基準日: ${d.date}\n\n` +
-    `※ LBMA前日終値ベース。実際の買取価格は業者により異なります。`;
-  showAlert('💰 金相場', body);
+// 金相場をボタン下にインライン表示（記憶済みがあれば起動時にも表示）
+function _renderGoldDisplay(d){
+  let el = document.getElementById('comm-gold-display');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'comm-gold-display';
+    el.className = 'comm-gold-display';
+    // gold-rowの直後に挿入
+    const row = document.getElementById('comm-gold-row');
+    if(row) row.insertAdjacentElement('afterend', el);
+  }
+  el.innerHTML =
+    `<span class="comm-gold-price">¥${d.price_jpy_g.toLocaleString()}<small>/g</small></span>` +
+    `<span class="comm-gold-date">${d.date} 取得　USD/oz $${Math.round(d.price_usd).toLocaleString()}　` +
+    `USD/JPY ${d.rate_jpy.toFixed(1)}</span>` +
+    `<span class="comm-gold-note">※参考値。実際の買取価格は業者により異なります</span>`;
+}
+
+// 起動時に記憶済み金相場を表示
+function _initGoldDisplay(){
+  try {
+    const cached = JSON.parse(localStorage.getItem(SK_GOLD)||'null');
+    if(cached) _renderGoldDisplay(cached);
+  } catch(e){}
 }
 
 // ── ルール折りたたみ ─────────────────────────

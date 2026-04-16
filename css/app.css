@@ -1161,3 +1161,35 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: #ff8888;
 }
 .comm-react-btn:active { opacity: 0.7; }
+
+/* 金相場インライン表示 */
+.comm-gold-display {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: rgba(180,130,30,0.1);
+  border: 1px solid rgba(180,130,30,0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+.comm-gold-price {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1.2;
+}
+.comm-gold-price small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--txt-sub);
+  margin-left: 2px;
+}
+.comm-gold-date {
+  font-size: 11px;
+  color: var(--txt-sub);
+}
+.comm-gold-note {
+  font-size: 10px;
+  color: var(--txt-dim);
+}
