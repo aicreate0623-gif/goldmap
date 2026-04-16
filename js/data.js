@@ -92,25 +92,29 @@ const MINES=[
   {lat:32.217,lng:130.767,name:'人吉市（球磨川支流）',note:'熊本県人吉市。球磨川支流での砂金採取情報あり。既存「五木村」エントリーとのエリア重複確認要。【座標要検証：概略値】'},
 ];
 const mineLayer=L.layerGroup({pane:'paneMine'}); let mineV=false;
-const mIco=()=>L.divIcon({html:'<div class="mpin"></div>',className:'',iconSize:[14,18],iconAnchor:[7,18]});
-const mIcoAlert=()=>L.divIcon({html:'<div class="mpin mpin-alert"></div>',className:'',iconSize:[14,18],iconAnchor:[7,18]});
+const mIco=()=>L.divIcon({html:'<div class="mpin"></div>',className:'',iconSize:[14,18],iconAnchor:[7,18],popupAnchor:[0,-18]});
+const mIcoAlert=()=>L.divIcon({html:'<div class="mpin mpin-alert"></div>',className:'',iconSize:[14,18],iconAnchor:[7,18],popupAnchor:[0,-18]});
 
 // 水位ボタン状態
 let waterV=false;
 // 警戒中河川名セット（map.jsのfetchFloodAlerts()が更新する）
 window.floodAlertNames=new Set();
 
-function _minePopup(m,withWater){
-  const link=withWater
-    ?`<br><a href="https://k.river.go.jp/?lat=${m.lat}&lng=${m.lng}&zm=12" target="_blank" rel="noopener" style="font-size:11px;color:#4af">💧 現在の水位を確認</a>`
-    :'';
-  return `<b style="color:#c06030">${m.name}</b><br><small>${m.note}</small>${link}`;
-}
-
 function _isAlert(m){
   if(!window.floodAlertNames.size) return false;
   // マーカー名・noteに警戒河川名が含まれるか判定
   return [...window.floodAlertNames].some(n=>m.name.includes(n)||m.note.includes(n));
+}
+
+function _minePopup(m,withWater){
+  const alert=_isAlert(m);
+  const alertNote=alert
+    ?`<br><span style="color:#e08020;font-size:11px">⚠️ 周辺河川で洪水警戒情報あり</span><br><small style="color:#888;font-size:10px">※気象庁情報との自動照合のため実際の状況は川の防災情報でご確認ください</small>`
+    :'';
+  const link=withWater||alert
+    ?`<br><a href="https://k.river.go.jp/?lat=${m.lat}&lng=${m.lng}&zm=12" target="_blank" rel="noopener" style="font-size:11px;color:#4af">💧 現在の水位を確認</a>`
+    :'';
+  return `<b style="color:#c06030">${m.name}</b><br><small>${m.note}</small>${alertNote}${link}`;
 }
 
 // マーカー生成（水位ON/OFFで切替）
@@ -258,7 +262,7 @@ function makeWikiMarker(d){
     </div>`;
 
   return L.marker([d.lat, d.lng], {
-    icon: L.divIcon({ html, className:'', iconSize:[sz+4,sz+4], iconAnchor:[(sz+4)/2,(sz+4)/2] }),
+    icon: L.divIcon({ html, className:'', iconSize:[sz+4,sz+4], iconAnchor:[(sz+4)/2,(sz+4)/2], popupAnchor:[0,-(sz+4)/2] }),
     pane: 'paneWiki'
   }).bindPopup(popup, {maxWidth: 270});
 }
@@ -581,7 +585,8 @@ function kinnoIcon(){
     html: '<div style="font-size:14px;line-height:1;color:#f0c000;text-shadow:0 1px 3px rgba(0,0,0,.7),-1px 0 2px rgba(0,0,0,.5),1px 0 2px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;">★</div>',
     className: '',
     iconSize: [16, 16],
-    iconAnchor: [8, 8]
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -8]
   });
 }
 
@@ -1375,7 +1380,7 @@ function makeMineMarker(d){
       </div>
     </div>`;
   return L.marker([d.lat,d.lng],{
-    icon:L.divIcon({html,className:'',iconSize:[sz+4,sz+4],iconAnchor:[(sz+4)/2,(sz+4)/2]}),
+    icon:L.divIcon({html,className:'',iconSize:[sz+4,sz+4],iconAnchor:[(sz+4)/2,(sz+4)/2],popupAnchor:[0,-(sz+4)/2]}),
     pane:'paneGsj',
     zIndexOffset:d.trace?0:10
   }).bindPopup(popup, {maxWidth:260});
