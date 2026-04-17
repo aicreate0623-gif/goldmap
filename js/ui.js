@@ -316,8 +316,8 @@ const HEAT_PARAMS_DEFAULT = {
 
 // 調整域制限
 const HEAT_PARAMS_RANGE = {
-  free:    { radius:[30,70],  blur:[30,100], opacity:[0,80] },
-  premium: { radius:[15,70],  blur:[20,100], opacity:[0,80] },
+  free:    { radius:[30,70],  blur:[30,80], opacity:[0,80] },
+  premium: { radius:[15,70],  blur:[20,80], opacity:[0,80] },
 };
 
 // 現在の調整値（tier別に独立保持）
@@ -397,6 +397,7 @@ function toggleHeatFree() {
   _closePremiumHeat();
   heatTier = 'free';
   document.getElementById('btn-heat-free').classList.add('active');
+  _applyHeatParamsSaved('free');
   _renderHeatPanel('free');
   document.getElementById('heat-ctrl-panel').style.display = 'block';
   _showHeatAdjBtn(true);
@@ -423,6 +424,7 @@ async function toggleHeatPremium() {
   _closeFreeHeat();
   heatTier = 'premium';
   document.getElementById('btn-heat-premium').classList.add('active');
+  _applyHeatParamsSaved('premium');
   _renderHeatPanel('premium');
   document.getElementById('heat-ctrl-panel').style.display = 'block';
   _showHeatAdjBtn(true);
@@ -534,6 +536,15 @@ function _saveHeatParams(tier) {
     const saveBtn = document.querySelector('.heat-mem-btn.save');
     if(saveBtn){ saveBtn.style.color='var(--gold)'; setTimeout(()=>saveBtn.style.color='',600); }
   } catch(e) { console.warn('[heat] save failed', e); }
+}
+
+// ── パネルON時: 保存値があれば_heatParamsに反映（再描画なし）────
+function _applyHeatParamsSaved(tier) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(`gm_heat_saved_${tier}`));
+    if(!saved) return;
+    _heatParams[tier] = { ..._heatParams[tier], ...saved };
+  } catch(e) { console.warn('[heat] applyHeatParamsSaved failed', e); }
 }
 
 // ── 📂 再現（localStorage読込）──────────────────────
