@@ -153,7 +153,11 @@ function toggleWaterLevel(){
   if(waterV){
     // 水位ONで砂金DBも表示
     if(!mineV){ mineV=true; mineLayer.addTo(map); document.getElementById('btn-mine').classList.add('active'); }
-    fetchFloodAlerts();
+    fetchFloodAlerts().then(()=>{
+      if(typeof buildFloodHeatmap === 'function') buildFloodHeatmap();
+    });
+  } else {
+    if(typeof clearFloodHeatmap === 'function') clearFloodHeatmap();
   }
   refreshMineMarkers();
 }
