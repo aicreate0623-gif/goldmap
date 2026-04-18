@@ -114,11 +114,12 @@ html, body {
 
 /* ── 地図タイルグループ（地理院・航空・地形・地質）: ゴールド ── */
 .fc-grp-map {
-  border-color: rgba(200,170,80,0.25);
+  background: rgba(18,15,8,0.92);
+  border-color: rgba(200,170,80,0.28);
   color: rgba(200,170,80,0.65);
 }
 .fc-grp-map.base-active {
-  background: rgba(200,170,80,0.18);
+  background: rgba(200,170,80,0.20);
   border-color: rgba(200,170,80,0.6);
   color: var(--gold-lt);
   box-shadow: 0 0 14px rgba(200,170,80,0.22), 0 2px 12px rgba(0,0,0,0.4);
@@ -126,11 +127,12 @@ html, body {
 
 /* ── ヒートマップグループ（分布・分布Pro・調整）: オレンジ ── */
 .fc-grp-heat {
-  border-color: rgba(230,120,30,0.25);
+  background: rgba(18,10,4,0.92);
+  border-color: rgba(230,120,30,0.28);
   color: rgba(230,130,50,0.65);
 }
 .fc-grp-heat.active {
-  background: rgba(230,110,20,0.22);
+  background: rgba(100,48,8,0.88);
   border-color: rgba(255,150,60,0.65);
   color: #ffaa55;
   box-shadow: 0 0 14px rgba(230,120,30,0.28), 0 2px 12px rgba(0,0,0,0.4);
@@ -138,11 +140,12 @@ html, body {
 
 /* ── 安全情報グループ（熊情報・水位）: ティール ── */
 .fc-grp-safety {
-  border-color: rgba(30,180,160,0.25);
-  color: rgba(40,190,170,0.60);
+  background: rgba(4,18,16,0.92);
+  border-color: rgba(30,180,160,0.28);
+  color: rgba(40,190,170,0.65);
 }
 .fc-grp-safety.active {
-  background: rgba(20,160,145,0.22);
+  background: rgba(8,80,72,0.88);
   border-color: rgba(50,210,190,0.65);
   color: #50e8d8;
   box-shadow: 0 0 14px rgba(30,190,170,0.28), 0 2px 12px rgba(0,0,0,0.4);
@@ -150,11 +153,12 @@ html, body {
 
 /* ── 探索DBグループ（スポット・鉱床・Wiki・調査記）: アンバー ── */
 .fc-grp-db {
-  border-color: rgba(180,120,20,0.28);
+  background: rgba(16,12,4,0.92);
+  border-color: rgba(180,120,20,0.30);
   color: rgba(190,135,40,0.65);
 }
 .fc-grp-db.active {
-  background: rgba(170,110,15,0.22);
+  background: rgba(80,52,8,0.88);
   border-color: rgba(220,160,50,0.65);
   color: #e8c060;
   box-shadow: 0 0 14px rgba(190,140,30,0.28), 0 2px 12px rgba(0,0,0,0.4);
@@ -162,11 +166,12 @@ html, body {
 
 /* ── GPSグループ（GPS・追従）: ブルー ── */
 .fc-grp-gps {
-  border-color: rgba(60,130,230,0.28);
+  background: rgba(4,10,20,0.92);
+  border-color: rgba(60,130,230,0.30);
   color: rgba(80,150,240,0.65);
 }
 .fc-grp-gps.active {
-  background: rgba(40,110,210,0.22);
+  background: rgba(16,52,110,0.88);
   border-color: rgba(90,160,255,0.65);
   color: #78b8ff;
   box-shadow: 0 0 14px rgba(60,140,240,0.28), 0 2px 12px rgba(0,0,0,0.4);
