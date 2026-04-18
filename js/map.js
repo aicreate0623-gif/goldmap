@@ -105,38 +105,65 @@ const JMA_FLOOD_INDEX = 'https://www.data.jma.go.jp/developer/xml/feed/extra.xml
 
 async function fetchFloodAlerts(){
   try {
-    // CORSプロキシ経由で気象庁フィードを取得
-    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(JMA_FLOOD_INDEX);
-    const res = await fetch(proxyUrl, {signal: AbortSignal.timeout(8000)});
-    if(!res.ok) throw new Error('fetch failed');
-    const text = await res.text();
+    const proxy = 'https://corsproxy.io/?';
     const parser = new DOMParser();
-    const feed = parser.parseFromString(text, 'application/xml');
+
+    // ── フィードから河川名を直接抽出するヘルパー ──
+    // 「○○川氾濫注意情報」「○○川洪水警報」などのタイトルから河川名を取り出す
+    function _extractRiverFromTitle(title){
+      // 「指定河川洪水予報」タイトル例: "小貝川洪水警報" "神通川氾濫注意情報"
+      const m = title.match(/^(.+?)(洪水|氾濫)/);
+      return m ? m[1].trim() : null;
+    }
+
+    // ── ① extra.xml（高頻度随時）を取得 ──
+    const res = await fetch(proxy + encodeURIComponent(JMA_FLOOD_INDEX),
+      {signal: AbortSignal.timeout(8000)});
+    if(!res.ok) throw new Error('fetch failed');
+    const feed = parser.parseFromString(await res.text(), 'application/xml');
     const entries = [...feed.querySelectorAll('entry')];
 
-    // 洪水予報・氾濫警戒情報のエントリを絞り込み
+    // ── ② 洪水・氾濫関連エントリを絞り込み ──
+    // 優先: 「指定河川洪水予報」タイトル / フォールバック: 洪水|氾濫を含むもの
     const floodEntries = entries.filter(e=>{
-      const title = e.querySelector('title')?.textContent || '';
-      return /洪水|氾濫/.test(title);
+      const t = e.querySelector('title')?.textContent || '';
+      return /指定河川洪水予報|洪水|氾濫/.test(t);
     });
 
-    if(!floodEntries.length){ _showWaterStatus('⚠️ 現在、洪水・氾濫情報はありません'); return; }
+    if(!floodEntries.length){
+      _showWaterStatus('⚠️ 現在、洪水・氾濫情報はありません');
+      return;
+    }
 
-    // 各エントリのXMLを取得して河川名を抽出
     const names = new Set();
-    await Promise.allSettled(floodEntries.slice(0,10).map(async e=>{
+
+    // ── ③ フィードのtitleから直接河川名を抽出（高速・追加リクエスト不要） ──
+    floodEntries.forEach(e=>{
+      const title = e.querySelector('title')?.textContent || '';
+      const river = _extractRiverFromTitle(title);
+      if(river) names.add(river);
+    });
+
+    // ── ④ 個別XMLも取得して精度補完（フォールバック） ──
+    await Promise.allSettled(floodEntries.slice(0,8).map(async e=>{
       const link = e.querySelector('link')?.getAttribute('href');
       if(!link) return;
-      const xmlRes = await fetch('https://corsproxy.io/?' + encodeURIComponent(link),
-        {signal: AbortSignal.timeout(6000)});
-      if(!xmlRes.ok) return;
-      const xmlText = await xmlRes.text();
-      const doc = parser.parseFromString(xmlText, 'application/xml');
-      // 河川名はRiverName要素またはObjectName要素
-      doc.querySelectorAll('RiverName, ObjectName, Name').forEach(el=>{
-        const t = el.textContent.trim();
-        if(t) names.add(t);
-      });
+      try {
+        const xmlRes = await fetch(proxy + encodeURIComponent(link),
+          {signal: AbortSignal.timeout(6000)});
+        if(!xmlRes.ok) return;
+        const doc = parser.parseFromString(await xmlRes.text(), 'application/xml');
+        // RiverName > ObjectName > Titleの順で河川名を取得
+        doc.querySelectorAll('RiverName, ObjectName').forEach(el=>{
+          const t = el.textContent.trim();
+          if(t && t.length <= 20) names.add(t);
+        });
+        // TitleタグのテキストからもMAJOR_RIVERSと照合できる名前を抽出
+        doc.querySelectorAll('Title').forEach(el=>{
+          const river = _extractRiverFromTitle(el.textContent.trim());
+          if(river) names.add(river);
+        });
+      } catch(e){ /* 個別取得失敗は無視 */ }
     }));
 
     window.floodAlertNames = names;
@@ -146,6 +173,7 @@ async function fetchFloodAlerts(){
       ? `🚨 洪水警戒中: ${[...names].slice(0,3).join('・')}${names.size>3?'…':''}`
       : '⚠️ 洪水情報取得済み（河川名抽出なし）';
     _showWaterStatus(label);
+    console.log('[floodAlerts] 取得河川名:', [...names]);
   } catch(err){
     console.warn('fetchFloodAlerts:', err);
     _showWaterStatus('⚠️ 水位情報の取得に失敗しました');
