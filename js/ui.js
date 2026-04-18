@@ -866,8 +866,10 @@ function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;d
 let _exitDlgOpen = false;
 
 (function initHistory(){
-  // ベースエントリのみ（タブを開く時にpushを積む）
+  // [0]ベース [1]アプリ の2エントリを積む
+  // バックで[1]→[0]になった時にpopstateを受け取り処理後に[1]を再生成
   history.replaceState({appBack:true}, '');
+  history.pushState({appBack:true}, '');
 })();
 
 function _pushHistory(){
