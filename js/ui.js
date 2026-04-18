@@ -907,7 +907,7 @@ window.addEventListener('popstate', function(e){
   // ③ シートが開いているなら地図に戻す
   if(curTab !== 'map'){
     _suppressPush = true;
-    _openTab('map');
+    switchTab('map');
     _suppressPush = false;
     _pushHistory();
     return;
