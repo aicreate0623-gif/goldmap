@@ -869,10 +869,15 @@ function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;d
 // ═══════════════════════════════════════════
 let _backDepth = 0;
 let _suppressPush = false;
+let _exitDlgOpen = false;
 
 (function initHistory(){
+  // アプリ用エントリを2つ積む
+  // depth:0 = ベース（終了確認後に戻る先）
+  // depth:1 = 地図表示中の通常状態
   history.replaceState({appBack:true, depth:0}, '');
-  _backDepth = 0;
+  history.pushState({appBack:true, depth:1}, '');
+  _backDepth = 1;
 })();
 
 function _pushHistory(){
@@ -882,21 +887,20 @@ function _pushHistory(){
 
 window.addEventListener('popstate', function(e){
   const st = e.state;
-  if(!st || !st.appBack) return;
 
   // ① overlay(ダイアログ)が開いているなら閉じる
   const ov = document.getElementById('overlay');
-  if(ov.classList.contains('open')){
+  if(ov && ov.classList.contains('open')){
     closeOv();
-    _pushHistory(); // ダイアログを閉じた後も次バックに備える
+    _pushHistory();
     return;
   }
 
   // ② 終了確認ダイアログが開いているなら閉じる
-  const exitOv = document.getElementById('exit-overlay');
-  if(exitOv.style.display === 'flex'){
-    closeExitDlg();
-    // pushしない → 次のバックはOS標準動作（アプリ終了）に委ねる
+  if(_exitDlgOpen){
+    _closeExitDlgOnly();
+    // pushしない → 次のバックはdepth:0に戻り④で再表示 or OS終了
+    _pushHistory(); // depth:1相当を再度積んで地図状態に
     return;
   }
 
@@ -905,29 +909,36 @@ window.addEventListener('popstate', function(e){
     _suppressPush = true;
     _openTab('map');
     _suppressPush = false;
-    _pushHistory(); // 地図に戻った後、④に備える
+    _pushHistory();
     return;
   }
 
-  // ④ 地図表示中 → 終了確認ダイアログ
+  // ④ 地図表示中 → 終了確認ダイアログ表示
+  // appBackでないstateの場合も地図表示中なら終了ダイアログを出す
   _showExitDlg();
-  _pushHistory(); // 終了確認を表示した後、②に備える
+  _pushHistory();
 });
 
 function _showExitDlg(){
+  _exitDlgOpen = true;
   document.getElementById('exit-overlay').style.display = 'flex';
 }
-function closeExitDlg(){
+function _closeExitDlgOnly(){
+  _exitDlgOpen = false;
   document.getElementById('exit-overlay').style.display = 'none';
 }
+function closeExitDlg(){
+  _closeExitDlgOnly();
+}
 function doExitApp(){
-  closeExitDlg();
-  try {
-    history.go(-(_backDepth + 1));
-    setTimeout(()=>{ window.close(); }, 100);
-  } catch(e){
-    window.close();
-  }
+  _closeExitDlgOnly();
+  // PWA/ブラウザどちらでも動く終了処理
+  try { history.go(-(_backDepth + 2)); } catch(e){}
+  setTimeout(()=>{
+    try { window.close(); } catch(e){}
+    // window.closeが効かない場合はabout:blankへ
+    try { location.replace('about:blank'); } catch(e){}
+  }, 150);
 }
 
 document.addEventListener('keydown',e=>{

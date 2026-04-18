@@ -98,19 +98,30 @@ function devToggleVip(){
 // ─────────────────────────────────────────────────────
 // 課金ユーザー判定
 //   Firestoreの users/{uid}.premium フラグを参照
+//   取得成功時はlocalStorageにキャッシュ（起動時に即時反映）
 // ─────────────────────────────────────────────────────
+const _SK_PREMIUM = 'gm_premium_cache';
+
 async function isPremiumUser() {
   if(_devVip)     return true;
   if(_devPremium) return true;
-  if (!window._fbUid) return false;
+  if (!window._fbUid) return _getCachedPremium();
   try {
     const doc = await firebase.firestore()
       .collection('users').doc(window._fbUid).get();
-    return doc.exists && doc.data().premium === true;
+    const premium = doc.exists && doc.data().premium === true;
+    // 取得成功時はキャッシュ更新
+    localStorage.setItem(_SK_PREMIUM, premium ? '1' : '0');
+    return premium;
   } catch (e) {
     console.warn('[firebase.js] isPremiumUser error', e);
-    return false;
+    // Firestore失敗時はキャッシュを使う（フラグ維持）
+    return _getCachedPremium();
   }
+}
+
+function _getCachedPremium(){
+  return localStorage.getItem(_SK_PREMIUM) === '1';
 }
 
 // ─────────────────────────────────────────────────────
