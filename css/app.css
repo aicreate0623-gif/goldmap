@@ -1,1374 +1,965 @@
-:root {
-  --gold:      #c8aa50;
-  --gold-lt:   #f0d870;
-  --gold-dk:   #806838;
-  --gold-bg:   rgba(200,170,80,0.13);
-  --gold-glow: rgba(200,170,80,0.25);
-  --bg:        #080807;
-  --bg2:       #0e0d0a;
-  --bg3:       #161410;
-  --glass:     rgba(14,13,10,0.82);
-  --glass-lt:  rgba(28,26,18,0.75);
-  --border:    rgba(255,255,255,0.12);
-  --border-gold: rgba(200,170,80,0.3);
-  --red:       #ff5a47;
-  --blue:      #4a8ee8;
-  --tab-h:     60px;
-  --sb-h:      30px;
-  --txt:       #f4f0e8;
-  --txt-sub:   rgba(244,240,232,0.52);
-  --txt-dim:   rgba(244,240,232,0.28);
-  --radius-lg: 14px;
-  --radius-md: 10px;
-  --radius-sm: 7px;
-  --shadow-gold: 0 0 20px rgba(200,170,80,0.15), 0 4px 24px rgba(0,0,0,0.6);
-}
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body {
-  height: 100%; overflow: hidden;
-  font-family: 'Hiragino Sans', 'Noto Sans JP', -apple-system, sans-serif;
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
+'use strict';
+//  GPS + 方位コンパス
+// ═══════════════════════════════════════════
+let gpsOn=false, gpsFlw=false;
+let gpsWid=null, gpsLL=null, gpsCI=null;
+let gpsHeading=null, gpsCompassMk=null;
+let _orientHandler=null;
+let _bearingTimer=null;
+
+// ── ローパスフィルター（10フレーム平均）──────────
+const _headingBuf=[];
+const _HEADING_BUF_SIZE=10;
+function _smoothHeading(raw){
+  _headingBuf.push(raw);
+  if(_headingBuf.length>_HEADING_BUF_SIZE) _headingBuf.shift();
+  // 角度の平均（0/360の折り返しを考慮）
+  let sinSum=0, cosSum=0;
+  _headingBuf.forEach(h=>{ sinSum+=Math.sin(h*Math.PI/180); cosSum+=Math.cos(h*Math.PI/180); });
+  return (Math.atan2(sinSum/_headingBuf.length, cosSum/_headingBuf.length)*180/Math.PI+360)%360;
 }
 
-/* ━━━ MAP ━━━ */
-#map {
-  position: fixed;
-  top: var(--sb-h);
-  left: 0; right: 0;
-  bottom: var(--tab-h);
-  z-index: 1;
+// ── ベアリング設定（_resetView削除・invalidateSizeのみ）──
+function _applyBearing(deg){
+  if(!map.setBearing) return;
+  map.setBearing(deg);
+  clearTimeout(_bearingTimer);
+  _bearingTimer=setTimeout(()=>{
+    map.invalidateSize({pan:false});
+  }, 150);
 }
 
-/* ━━━ STATUS BAR (top) ━━━ */
-#statusbar {
-  position: fixed; top: 0; left: 0; right: 0;
-  height: var(--sb-h); z-index: 1100;
-  background: var(--glass);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(200,170,80,0.18);
-  display: flex; align-items: center; gap: 10px;
-  padding: 0 12px; font-size: 10px; color: var(--txt-sub);
-  white-space: nowrap; overflow: hidden;
-  letter-spacing: 0.02em;
-}
-.sb-dot { width: 6px; height: 6px; border-radius: 50%; background: #2a2820; flex-shrink: 0; transition: background .3s; }
-.sb-dot.on { background: #40e878; box-shadow: 0 0 6px #40e878, 0 0 12px rgba(64,232,120,0.4); }
-#sb-gps-lbl { color: var(--txt-sub); }
-#sb-coord   { color: rgba(200,170,80,0.7); font-variant-numeric: tabular-nums; }
-#sb-pt      { color: var(--txt-sub); }
-#sb-cache   { margin-left: auto; color: var(--txt-dim); font-size: 9px; }
-
-/* ━━━ FLOATING CONTROLS TOP BAR (左上・2段構成) ━━━ */
-#float-ctrl {
-  position: fixed;
-  top: calc(var(--sb-h) + 8px);
-  left: 10px;
-  right: 60px; /* 右コントロール(52px)+余白 */
-  z-index: 900;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  align-items: flex-start;
-}
-/* 各行: 横スクロール可能な1行 */
-.fc-row {
-  display: flex;
-  flex-direction: row;
-  gap: 5px;
-  align-items: center;
-  overflow-x: auto;
-  overflow-y: visible;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  max-width: 100%;
-}
-.fc-row::-webkit-scrollbar { display: none; }
-
-/* ━━━ FLOATING CONTROLS RIGHT (右縦並び・top はJS動的計算) ━━━ */
-#float-ctrl-right {
-  position: fixed; right: 10px;
-  top: calc(var(--sb-h) + 60px); /* JS未実行時のフォールバック */
-  z-index: 900;
-  display: flex; flex-direction: column; gap: 5px; align-items: flex-end;
-}
-.fc-btn {
-  width: 42px; height: 42px; border-radius: var(--radius-sm);
-  background: var(--glass);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--txt-dim); font-size: 9.5px; font-weight: 700;
-  cursor: pointer; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 1px;
-  transition: all .18s cubic-bezier(.4,0,.2,1);
-  line-height: 1; user-select: none; letter-spacing: .03em;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-  flex-shrink: 0; /* スクロール時に縮まない */
-}
-.fc-btn .fc-ico { font-size: 15px; line-height: 1; }
-.fc-btn:active { transform: scale(0.93); }
-/* ON状態: 緑グロー */
-.fc-btn.active {
-  background: rgba(40,160,80,0.22);
-  border-color: rgba(64,220,120,0.6);
-  color: #60e890;
-  box-shadow: 0 0 12px rgba(64,220,120,0.2), 0 2px 12px rgba(0,0,0,0.4);
-}
-/* ベース地図選択中（切替ボタン）: ゴールド */
-.fc-btn.base-active {
-  background: rgba(200,170,80,0.18);
-  border-color: rgba(200,170,80,0.55);
-  color: var(--gold-lt);
-  box-shadow: 0 0 12px rgba(200,170,80,0.18), 0 2px 12px rgba(0,0,0,0.4);
+// ── GPSトグル ────────────────────────────────
+function toggleGps(){
+  if(!gpsOn){
+    // ONにする前に権限を事前確認
+    _checkGpsPermission().then(ok=>{
+      if(!ok) return; // 権限なし→ダイアログ表示済み
+      gpsOn=true;
+      document.getElementById('btn-gps').classList.add('active');
+      document.getElementById('btn-flw').style.display='flex';
+      startWatch();
+      startOrientation();
+      updGps();
+    });
+  } else {
+    _forceGpsOff();
+  }
 }
 
-/* GPS追従ボタン（GPS ON時のみ表示）*/
-#btn-flw { display: none; }
-
-/* 地質図透過スライダー行（fc-row内に収まる） */
-#geo-row {
-  display: none; align-items: center; gap: 5px;
-  background: rgba(13,12,8,0.88); backdrop-filter: blur(6px);
-  border: 1px solid var(--border); border-radius: 8px;
-  padding: 5px 8px;
-  height: 42px;
-  flex-shrink: 0;
-}
-#geo-row.show { display: flex; }
-#geo-row label { font-size: 9px; color: var(--txt-sub); white-space: nowrap; }
-input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer; }
-#geo-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
-
-/* ━━━ ヒートマップ調整パネル（地図上フロート） ━━━ */
-#heat-ctrl-panel {
-  position: fixed;
-  bottom: calc(var(--tab-h) + 8px);
-  left: 10px;
-  right: 10px;
-  z-index: 1100;
-  background: rgba(10,9,6,0.95);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(200,170,80,0.28);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(200,170,80,0.08);
-  overflow: hidden;
-}
-/* パネルヘッダー（タイトル＋✕） */
-#heat-panel-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 7px 10px 6px;
-  border-bottom: 1px solid rgba(200,170,80,0.15);
-  background: rgba(200,170,80,0.07);
-}
-#heat-panel-title {
-  font-size: 10px; font-weight: 700;
-  color: var(--gold-lt); letter-spacing: .06em;
-}
-#heat-panel-close {
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.06);
-  color: var(--txt-sub); font-size: 11px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: background .12s;
-}
-#heat-panel-close:active { background: rgba(255,255,255,0.18); }
-/* パネルボディ */
-#heat-panel-body { padding: 8px 12px 4px; }
-/* パラメーター行: 1行 ラベル ← 数値 → スライダー */
-.heat-param-row {
-  display: flex; align-items: center; gap: 5px;
-  padding: 5px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  font-size: 11px;
-}
-.heat-param-row:last-child { border-bottom: none; }
-.heat-param-label {
-  width: 36px; flex-shrink: 0;
-  font-size: 10px; color: var(--txt-sub);
-}
-.heat-adj-btn {
-  width: 24px; height: 24px; border-radius: 5px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: var(--txt); font-size: 12px; font-weight: 700;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: background .12s; flex-shrink: 0;
-}
-.heat-adj-btn:active { background: rgba(200,170,80,0.22); }
-.heat-param-val {
-  width: 24px; text-align: center; flex-shrink: 0;
-  font-size: 11px; font-weight: 700;
-  color: var(--gold-lt); font-variant-numeric: tabular-nums;
-}
-.heat-param-slider {
-  flex: 1; accent-color: var(--gold);
-  cursor: pointer; height: 4px; min-width: 0;
-}
-/* フッター（記憶・再現・リセット） */
-.heat-panel-footer {
-  display: flex; gap: 5px; justify-content: flex-end;
-  padding: 5px 12px 8px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-}
-.heat-mem-btn {
-  padding: 4px 9px; border-radius: 5px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.05);
-  color: var(--txt-sub); font-size: 10px; font-weight: 600;
-  cursor: pointer; transition: all .14s; white-space: nowrap;
-}
-.heat-mem-btn:active { transform: scale(0.94); }
-.heat-mem-btn.save  { border-color: rgba(200,170,80,0.4); color: var(--gold-lt); }
-.heat-mem-btn.load  { border-color: rgba(74,142,232,0.4); color: #78b0f0; }
-.heat-mem-btn.load:disabled { opacity: .3; cursor: default; pointer-events: none; }
-.heat-mem-btn.reset { border-color: rgba(255,255,255,0.1); }
-
-/* ━━━ DEV パラメーターパネル ━━━ */
-.dev-param-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
-  font-size: 11px; color: var(--txt-sub);
-}
-.dev-param-row label { min-width: 90px; white-space: nowrap; }
-.dev-param-row input[type=range] { flex: 1; accent-color: var(--gold); }
-
-/* ━━━ 長押しリップルエフェクト ━━━ */
-@keyframes lpRipple {
-  0%   { transform: scale(0.5); opacity: 0.9; }
-  100% { transform: scale(2.5); opacity: 0;   }
+// GPS強制OFF（ボタン・UI・監視を全てリセット）
+function _forceGpsOff(){
+  gpsOn=false;
+  gpsFlw=false;
+  const flwBtn=document.getElementById('btn-flw');
+  document.getElementById('btn-gps').classList.remove('active');
+  flwBtn.classList.remove('active'); flwBtn.style.display='none';
+  stopWatch();
+  stopOrientation();
+  if(gpsCI){map.removeLayer(gpsCI);gpsCI=null;}
+  if(gpsCompassMk){map.removeLayer(gpsCompassMk);gpsCompassMk=null;}
+  _applyBearing(0);
+  gpsLL=null;
+  updGps();
 }
 
-/* ━━━ ★ 評価システム ━━━ */
-.star-rating {
-  display: flex; align-items: center; gap: 4px;
-  margin: 4px 0 10px;
-}
-.star-btn {
-  font-size: 22px; line-height: 1;
-  background: none; border: none; cursor: pointer;
-  color: rgba(200,170,80,0.25);
-  transition: color .15s, transform .12s;
-  padding: 2px; user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.star-btn.active { color: var(--gold-lt); }
-.star-btn:active { transform: scale(1.25); }
-.star-label {
-  font-size: 11px; color: var(--txt-sub); margin-left: 4px;
+// GPS権限の事前チェック
+async function _checkGpsPermission(){
+  if(!navigator.geolocation){
+    showAlert('非対応','このブラウザはGPSに対応していません');
+    return false;
+  }
+  if(!navigator.permissions) return true;
+  try{
+    const result = await navigator.permissions.query({name:'geolocation'});
+    if(result.state==='denied'){
+      _showGpsSettingsDialog();
+      return false;
+    }
+  }catch(e){}
+  return true;
 }
 
-/* ━━━ 課金ゲートダイアログ ━━━ */
-.premium-gate-icon {
-  font-size: 32px; text-align: center; margin-bottom: 8px;
-}
-#dlg-premium-gate h3 {
-  text-align: center;
-}
-#dlg-premium-gate .dlg-msg {
-  white-space: pre-line; /* \n で改行 */
-}
-.premium-cta {
-  background: linear-gradient(135deg, var(--gold-dk) 0%, var(--gold) 100%) !important;
-  color: #1a1400 !important;
-  font-weight: 700 !important;
-  border-color: var(--gold-lt) !important;
+// 位置情報設定への誘導ダイアログ
+function _showGpsSettingsDialog(){
+  showAlert(
+    '位置情報が無効です',
+    'スマホの設定アプリ → Chrome（またはブラウザ）→ 位置情報 → 許可\nに変更してから再度タップしてください。'
+  );
 }
 
-/* ━━━ TAB BAR ━━━ */
-#tabbar {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  height: var(--tab-h); z-index: 1100;
-  background: var(--glass);
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border-top: 1px solid rgba(200,170,80,0.15);
-  display: grid; grid-template-columns: repeat(5, 1fr);
-  padding-bottom: env(safe-area-inset-bottom, 0);
+// GPS信号途絶ダイアログ（待機 or 強制OFF）
+let _gpsLostDialogShown = false;
+function _showGpsLostDialog(){
+  if(_gpsLostDialogShown) return; // 重複表示防止
+  _gpsLostDialogShown = true;
+  showDlg('dlg-gps-lost');
 }
-.tab-btn {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  flex: 1;
-  gap: 3px; cursor: pointer; border: none; background: transparent;
-  color: var(--txt-dim); font-size: 9px; font-weight: 600;
-  transition: all .18s cubic-bezier(.4,0,.2,1);
-  padding: 6px 0 4px; letter-spacing: .05em;
-  user-select: none; -webkit-tap-highlight-color: transparent;
-  position: relative;
-}
-.tab-btn .t-ico { font-size: 20px; line-height: 1; transition: transform .18s; }
-.tab-btn.active { color: var(--gold-lt); }
-.tab-btn.active .t-ico {
-  filter: drop-shadow(0 0 6px rgba(200,170,80,0.7));
-  transform: translateY(-1px);
-}
-.tab-btn.active::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 50%; transform: translateX(-50%);
-  width: 32px; height: 2px;
-  background: linear-gradient(90deg, transparent, var(--gold), transparent);
-  border-radius: 0 0 2px 2px;
-}
-.tab-btn:active .t-ico { transform: scale(0.88); }
-
-/* ━━━ FULL-SCREEN SHEET ━━━ */
-.sheet {
-  position: fixed; inset: 0; z-index: 2000;
-  background: var(--bg2);
-  display: flex; flex-direction: column;
-  transform: translateY(100%);
-  transition: transform .32s cubic-bezier(.22,1,.36,1);
-}
-.sheet.open { transform: translateY(0); }
-
-.sheet-head {
-  flex-shrink: 0;
-  display: flex; align-items: center; gap: 12px;
-  padding: 16px 18px 14px;
-  border-bottom: 1px solid rgba(200,170,80,0.15);
-  background: linear-gradient(180deg, rgba(20,18,12,0.95) 0%, rgba(14,13,10,0.8) 100%);
-  backdrop-filter: blur(12px);
-}
-.sheet-head h2 {
-  font-size: 16px; color: var(--txt); font-weight: 700; flex: 1;
-  background: linear-gradient(135deg, var(--txt) 0%, var(--gold-lt) 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.sheet-close {
-  width: 34px; height: 34px; border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-  color: var(--txt-sub); font-size: 14px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all .15s;
-}
-.sheet-close:hover { background: rgba(255,255,255,0.14); color: var(--txt); border-color: rgba(255,255,255,0.3); }
-.sheet-close:active { transform: scale(0.9); }
-.sheet-body { flex: 1; overflow-y: auto; padding: 18px; }
-
-.pt-tip {
-  font-size: 11px; color: var(--txt-dim);
-  padding: 6px 16px 8px;
-  background: rgba(200,170,80,0.05);
-  border-bottom: 1px solid rgba(200,170,80,0.08);
-}
-.pt-tip b { color: var(--gold); }
-
-/* ━━━ POINT SHEET ━━━ */
-#pt-sheet .sheet-head { padding-bottom: 10px; }
-.pt-actions {
-  display: flex; gap: 8px; padding: 10px 16px;
-  border-bottom: 1px solid rgba(200,170,80,0.1);
-  background: rgba(8,8,6,0.5);
-  flex-shrink: 0;
-}
-.pt-list { flex: 1; overflow-y: auto; }
-.pt-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 13px 18px; border-bottom: 1px solid rgba(200,170,80,0.06);
-  cursor: pointer; transition: background .15s, border-color .15s;
-  position: relative;
-}
-.pt-row::before {
-  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-  width: 2px; background: transparent; transition: background .15s;
-}
-.pt-row:hover, .pt-row:active { background: rgba(200,170,80,0.07); }
-.pt-row:hover::before, .pt-row:active::before { background: var(--gold); }
-.pt-row-ico { font-size: 20px; flex-shrink: 0; }
-.pt-row-body { flex: 1; min-width: 0; }
-.pt-row-name { font-size: 13px; color: var(--txt); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pt-row-coord { font-size: 10px; color: var(--txt-dim); margin-top: 2px; font-variant-numeric: tabular-nums; }
-.pt-row-memo { font-size: 10px; color: var(--txt-sub); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pt-empty { text-align: center; padding: 60px 20px; color: var(--txt-dim); font-size: 13px; line-height: 2.2; }
-
-/* ━━━ OFFLINE SHEET ━━━ */
-#dl-sheet .sheet-body { padding: 0; }
-.dl-section {
-  padding: 16px 18px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-.sec-ttl {
-  font-size: 10px; color: var(--gold); text-transform: uppercase;
-  letter-spacing: .1em; margin-bottom: 12px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(200,170,80,0.2);
-  font-weight: 700;
+function _onGpsLostDialogClose(){
+  _gpsLostDialogShown = false;
 }
 
-/* レジュームバナー */
-#resume-banner {
-  display: none;
-  margin: 14px 16px 0;
-  background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 8px; padding: 10px 14px;
-  font-size: 12px; color: var(--txt-sub); line-height: 1.6;
-}
-#resume-banner.show { display: block; }
-#resume-banner strong { color: var(--txt); }
-.resume-btns { display: flex; gap: 7px; margin-top: 8px; }
-
-.ck-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.ck-row label { font-size: 12px; color: var(--txt); flex: 1; }
-.ck-row input[type=checkbox] { accent-color: var(--gold); width: 15px; height: 15px; cursor: pointer; }
-
-.sl2-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-.sl2-row label { font-size: 11px; color: var(--txt-sub); width: 58px; flex-shrink: 0; }
-.sl2-row select {
-  flex: 1; background: rgba(0,0,0,0.5); border: 1px solid var(--border);
-  border-radius: 5px; color: var(--txt); font-size: 12px; padding: 5px 7px; cursor: pointer;
+// ── 追従トグル ───────────────────────────────
+function toggleFollow(){
+  if(!gpsOn) return;
+  gpsFlw=!gpsFlw;
+  document.getElementById('btn-flw').classList.toggle('active',gpsFlw);
+  if(gpsFlw&&gpsLL) map.setView(gpsLL);
 }
 
-.info-box {
-  font-size: 11px; color: var(--txt-sub); background: rgba(255,255,255,0.05);
-  border-radius: 6px; padding: 8px 11px; margin-bottom: 10px; line-height: 1.8;
-}
-.info-box b { color: var(--txt); }
+// ── 回転トグル ───────────────────────────────
 
-/* プログレス（設定タブ内に移動・DL中は常時表示） */
-#prog-section { display: none; }
-#prog-section.show { display: block; }
-.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
-.stat-card { background: rgba(200,170,30,0.07); border-radius: 6px; padding: 7px 10px; }
-.stat-val { font-size: 16px; font-weight: 700; color: var(--txt); }
-.stat-lbl { font-size: 10px; color: var(--txt-dim); margin-top: 1px; }
-.prog-bar-bg { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.06); margin: 4px 0 8px; overflow: hidden; }
-.prog-bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg,#a06010,#e8c040); transition: width .2s; }
-.dl-log { font-size: 10px; color: var(--txt-dim); max-height: 70px; overflow-y: auto; line-height: 1.8; }
-
-.btn-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
-
-/* ━━━ SETTINGS SHEET ━━━ */
-/* 設定タブ内セクション見出し */
-.cfg-section-ttl {
-  font-size: 10px; color: var(--gold); font-weight: 700;
-  letter-spacing: .1em; text-transform: uppercase;
-  padding: 14px 0 6px;
-  border-bottom: 1px solid rgba(200,170,80,0.2);
-  margin-bottom: 4px;
+// ── GPS位置監視 ──────────────────────────────
+function startWatch(){
+  if(!navigator.geolocation){showAlert('非対応','GPSに対応していません');_forceGpsOff();return;}
+  gpsWid=navigator.geolocation.watchPosition(
+    onGps,
+    (err)=>{
+      if(!gpsOn) return;
+      console.warn('[GPS] error', err.code, err.message);
+      if(err.code===1){ // PERMISSION_DENIED
+        _showGpsSettingsDialog();
+        _forceGpsOff();
+      } else if(err.code===2){ // POSITION_UNAVAILABLE: GPS信号途絶
+        _showGpsLostDialog();
+      }
+      // TIMEOUT(3)はスルー
+    },
+    {enableHighAccuracy:true, timeout:15000, maximumAge:0}
+  );
 }
-.cfg-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 13px 0; border-bottom: 1px solid rgba(200,170,80,0.07);
+function stopWatch(){
+  if(gpsWid!==null){navigator.geolocation.clearWatch(gpsWid);gpsWid=null;}
 }
-.cfg-row:last-child { border-bottom: none; }
-.cfg-label { flex: 1; font-size: 13px; color: var(--txt); }
-.cfg-sub { font-size: 10px; color: var(--txt-dim); margin-top: 2px; }
-.cfg-val { font-size: 12px; color: var(--txt-sub); }
-
-/* ━━━ BUTTONS (shared) ━━━ */
-.btn {
-  padding: 7px 14px; border-radius: var(--radius-sm);
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-  color: var(--txt-sub);
-  font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
-  transition: all .16s cubic-bezier(.4,0,.2,1);
-  letter-spacing: .04em; line-height: 1.3; user-select: none;
-  backdrop-filter: blur(8px);
-}
-.btn:hover  { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3); color: var(--txt); }
-.btn:active { transform: scale(0.95); }
-.btn.active { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.5); color: var(--txt); }
-.btn.accent {
-  background: linear-gradient(135deg, rgba(200,150,30,0.35), rgba(200,170,80,0.2));
-  border-color: rgba(200,170,80,0.55); color: var(--txt);
-  box-shadow: 0 0 12px rgba(200,170,80,0.15);
-}
-.btn.accent:hover { box-shadow: 0 0 18px rgba(200,170,80,0.28); }
-.btn.red    { border-color: rgba(255,90,71,0.45); color: #ff8070; }
-.btn.red:hover { background: rgba(255,90,71,0.15); color: var(--txt); }
-.btn.blue   { border-color: rgba(74,142,232,0.45); color: #78b0f0; }
-.btn.blue:hover { background: rgba(74,142,232,0.15); color: var(--txt); }
-.btn.sm     { padding: 5px 10px; font-size: 11px; }
-.btn:disabled { opacity: .3; cursor: default; pointer-events: none; }
-
-/* ━━━ DIALOG / OVERLAY ━━━ */
-#overlay {
-  display: none; position: fixed; inset: 0; z-index: 3000;
-  background: rgba(0,0,0,0.72);
-  backdrop-filter: blur(4px);
-  align-items: center; justify-content: center;
-}
-#overlay.open { display: flex; }
-.dialog {
-  background: linear-gradient(160deg, #141210 0%, #0e0d0a 100%);
-  border: 1px solid rgba(200,170,80,0.2);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
-  width: min(370px,94vw);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 12px 48px rgba(0,0,0,0.85), 0 0 40px rgba(200,170,80,0.06);
-}
-.dialog h3 { color: var(--txt); font-size: 15px; margin-bottom: 14px; font-weight: 700; letter-spacing: .02em; }
-.dialog label { display: block; font-size: 11px; color: var(--txt-sub); margin-bottom: 5px; margin-top: 12px; letter-spacing: .04em; }
-.dialog input, .dialog textarea {
-  width: 100%;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: var(--radius-sm); color: var(--txt);
-  padding: 9px 12px; font-size: 13px;
-  font-family: inherit; outline: none;
-  transition: border-color .15s, background .15s;
-}
-.dialog textarea { resize: vertical; min-height: 68px; }
-.dialog input:focus, .dialog textarea:focus {
-  border-color: rgba(200,170,80,0.5);
-  background: rgba(200,170,80,0.05);
-}
-.dlg-msg { font-size: 13px; color: var(--txt-sub); margin-bottom: 12px; line-height: 1.7; white-space: pre-wrap; }
-.dlg-btns { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; flex-wrap: wrap; }
-.dbtn {
-  padding: 8px 18px; border-radius: var(--radius-sm);
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.05);
-  color: var(--txt-sub); font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: all .15s; letter-spacing: .03em;
-}
-.dbtn:hover  { background: rgba(255,255,255,0.1); color: var(--txt); border-color: rgba(255,255,255,0.3); }
-.dbtn:active { transform: scale(0.96); }
-.dbtn.ok {
-  background: linear-gradient(135deg, rgba(200,150,30,0.35), rgba(200,170,80,0.2));
-  border-color: rgba(200,170,80,0.5); color: var(--txt);
-}
-.dbtn.ok:hover { background: rgba(200,170,80,0.3); box-shadow: 0 0 12px rgba(200,170,80,0.2); }
-.dbtn.del    { border-color: rgba(255,90,71,0.4); color: #ff8070; }
-.dbtn.del:hover { background: rgba(255,90,71,0.12); color: var(--txt); }
-
-/* ピン追加バナー */
-#add-banner {
-  display: none; position: fixed; top: calc(var(--sb-h) + 8px); left: 50%;
-  transform: translateX(-50%); z-index: 1050;
-  background: rgba(0,0,0,0.85); border: 1px solid #00ffff;
-  border-radius: 20px; padding: 6px 14px;
-  font-size: 12px; color: var(--txt); white-space: nowrap;
-  display: none; align-items: center; gap: 8px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.6);
-}
-#add-banner.show { display: flex; }
-
-/* 矩形選択バナー */
-#rect-banner {
-  display: none; position: fixed; top: calc(var(--sb-h) + 8px); left: 50%;
-  transform: translateX(-50%); z-index: 1050; pointer-events: none;
-  background: rgba(0,0,0,0.85); border: 1px solid #00ffff;
-  border-radius: 20px; padding: 6px 16px;
-  font-size: 12px; color: var(--txt);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+function onGps(pos){
+  if(!gpsOn) return;
+  // 信号回復: 途絶ダイアログが出ていれば閉じる
+  if(_gpsLostDialogShown){
+    closeOv();
+    _gpsLostDialogShown = false;
+  }
+  const{latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
+  gpsLL=L.latLng(lat,lng);
+  if(!gpsCI) gpsCI=L.circle([lat,lng],{radius:acc,color:'#3080e8',fillColor:'#3080e8',fillOpacity:.1,weight:1,pane:'paneUser'}).addTo(map);
+  else{gpsCI.setLatLng([lat,lng]);gpsCI.setRadius(acc);}
+  if(gpsFlw) map.setView([lat,lng]);
+  updateCompassMarker(lat,lng,gpsHeading);
+  document.getElementById('sb-coord').textContent=lat.toFixed(5)+', '+lng.toFixed(5)+' ±'+Math.round(acc)+'m';
+  updGps();
 }
 
-/* ━━━ 鉱床レイヤー凡例モーダル ━━━ */
-#mine-legend-overlay {
-  display: none; position: fixed; inset: 0; z-index: 4000;
-  background: rgba(0,0,0,0.72); align-items: center; justify-content: center;
+// ── 方位センサー ─────────────────────────────
+function startOrientation(){
+  if(!window.DeviceOrientationEvent) return;
+  if(typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission()
+      .then(r=>{ if(r==='granted') _addOrientListener(); })
+      .catch(()=>{});
+  } else {
+    _addOrientListener();
+  }
 }
-#mine-legend-overlay.open { display: flex; }
-#mine-legend-box {
-  background: #0f0e0a; border: 1px solid var(--border);
-  border-radius: 12px; width: min(340px, 94vw);
-  max-height: 82vh; display: flex; flex-direction: column;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.85);
-  overflow: hidden;
+function _addOrientListener(){
+  _orientHandler=e=>{
+    if(!gpsOn) return; // GPS OFF後の遅延イベントを無視
+    let raw=null;
+    if(e.webkitCompassHeading!=null){
+      raw=e.webkitCompassHeading;           // iOS: 真北基準・高精度
+    } else if(e.alpha!=null){
+      // Android: 画面回転補正を加えて真北基準に変換
+      let screenAngle=0;
+      if(screen.orientation && screen.orientation.angle!=null){
+        screenAngle=screen.orientation.angle;
+      } else if(window.orientation!=null){
+        screenAngle=window.orientation;
+      }
+      raw=((360-e.alpha)+screenAngle)%360;
+    }
+    if(raw===null) return;
+    const heading=_smoothHeading(raw);      // ローパスフィルター通過
+    gpsHeading=heading;
+    if(gpsLL) updateCompassMarker(gpsLL.lat,gpsLL.lng,heading);
+  };
+  // Android: deviceorientationabsolute（真北基準）を優先
+  const evtName=('ondeviceorientationabsolute' in window)
+    ? 'deviceorientationabsolute'
+    : 'deviceorientation';
+  window.addEventListener(evtName,_orientHandler,true);
+  // stopOrientationで使うためにイベント名を保持
+  _orientHandler._evtName=evtName;
 }
-#mine-legend-head {
-  display: flex; align-items: center; padding: 12px 16px;
-  border-bottom: 1px solid var(--border); flex-shrink: 0;
-  background: rgba(200,170,80,0.1);
-}
-#mine-legend-head h3 { flex:1; font-size:14px; color:var(--txt); font-weight:700; }
-#mine-legend-body {
-  overflow-y: auto; padding: 12px 14px; flex:1;
-}
-#mine-legend-body img { width:100%; border-radius:6px; display:block; }
-
-/* btn-mine-legend非表示（パネルに移動済み） */
-#btn-mine-legend { display:none !important; }
-
-/* 鉱床マーカー */
-.mine-dot {
-  border-radius: 50%;
-  border: 1.5px solid rgba(0,0,0,0.45);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
-}
-.mine-sq {
-  border: 1.5px solid rgba(0,0,0,0.45);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
-}
-.mine-x {
-  font-weight: 900; line-height:1;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
-  display:flex; align-items:center; justify-content:center;
-}
-
-/* ━━━ 地質図凡例セクション 差別化 ━━━ */
-.geo-legend-section {
-  margin-top: 24px;
-  position: relative;
-}
-.geo-section-divider {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 16px;
-}
-.geo-section-divider::before,
-.geo-section-divider::after {
-  content: ''; flex: 1; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(200,170,80,0.4), transparent);
-}
-.geo-section-divider-label {
-  font-size: 10px; color: var(--gold); font-weight: 700;
-  letter-spacing: .12em; text-transform: uppercase;
-  white-space: nowrap;
-  text-shadow: 0 0 12px rgba(200,170,80,0.5);
-}
-.geo-card {
-  background: linear-gradient(135deg, rgba(20,18,10,0.9) 0%, rgba(12,11,7,0.95) 100%);
-  border: 1px solid rgba(200,170,80,0.18);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(200,170,80,0.1);
-}
-.geo-card-header {
-  padding: 12px 14px 10px;
-  background: rgba(200,170,80,0.07);
-  border-bottom: 1px solid rgba(200,170,80,0.12);
-  display: flex; align-items: center; gap: 8px;
-}
-.geo-card-header-icon { font-size: 16px; }
-.geo-card-header-text { font-size: 11px; color: var(--gold-lt); font-weight: 700; letter-spacing: .04em; flex: 1; }
-.geo-card-header-sub { font-size: 9px; color: var(--txt-dim); }
-.geo-card-body { padding: 12px 14px; }
-
-/* 設定シートの通常セクションとの区別 */
-.cfg-geo-spacer {
-  height: 20px;
-  background: linear-gradient(180deg, transparent, rgba(200,170,80,0.04), transparent);
-  margin: 4px -18px;
-  border-top: 1px solid rgba(200,170,80,0.08);
-  border-bottom: 1px solid rgba(200,170,80,0.08);
+function stopOrientation(){
+  if(_orientHandler){
+    const evtName=_orientHandler._evtName||'deviceorientation';
+    window.removeEventListener(evtName,_orientHandler,true);
+    _orientHandler=null;
+  }
+  gpsHeading=null;
+  _headingBuf.length=0; // バッファもリセット
 }
 
-/* スクロールバーカスタム */
-.sheet-body::-webkit-scrollbar,
-.pt-list::-webkit-scrollbar { width: 3px; }
-.sheet-body::-webkit-scrollbar-track,
-.pt-list::-webkit-scrollbar-track { background: transparent; }
-.sheet-body::-webkit-scrollbar-thumb,
-.pt-list::-webkit-scrollbar-thumb {
-  background: rgba(200,170,80,0.3); border-radius: 2px;
+// ── サーチライト扇形マーカー（グラデーション）────
+function updateCompassMarker(lat,lng,heading){
+  const rot = heading != null ? heading : 0;
+  const gid = 'sg_' + Date.now(); // IDの重複を防ぐ
+  const html = `<div style="width:140px;height:140px;position:relative;transform:rotate(${rot}deg);transform-origin:70px 70px;">
+    <svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="${gid}" cx="50%" cy="57%" r="50%">
+          <stop offset="0%"   stop-color="rgba(80,180,255,0.75)"/>
+          <stop offset="50%"  stop-color="rgba(80,180,255,0.40)"/>
+          <stop offset="100%" stop-color="rgba(80,180,255,0.00)"/>
+        </radialGradient>
+      </defs>
+      <!-- 扇形サーチライト（上向き・90°） -->
+      <path d="M70,70 L24,24 A65,65 0 0,1 116,24 Z"
+            fill="url(#${gid})"
+            stroke="none"/>
+      <!-- 中心ドット -->
+      <circle cx="70" cy="70" r="9" fill="#3080e8" stroke="#fff" stroke-width="2.5"/>
+      <circle cx="70" cy="70" r="3.5" fill="#fff"/>
+    </svg>
+  </div>`;
+  const ico = L.divIcon({html, className:'', iconSize:[140,140], iconAnchor:[70,70]});
+  if(!gpsCompassMk){
+    gpsCompassMk = L.marker([lat,lng],{icon:ico,zIndexOffset:200,pane:'paneUser',interactive:false}).addTo(map);
+  } else {
+    gpsCompassMk.setLatLng([lat,lng]);
+    gpsCompassMk.setIcon(ico);
+  }
 }
 
-/* アプリ終了確認ダイアログ */
-#dlg-exit {
-  background: linear-gradient(160deg, #141210 0%, #0e0d0a 100%);
-  border: 1px solid rgba(200,170,80,0.25);
-  border-radius: var(--radius-lg);
-  padding: 24px 24px 20px;
-  width: min(340px,90vw);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 16px 56px rgba(0,0,0,0.9), 0 0 48px rgba(200,170,80,0.08);
-  text-align: center;
-}
-#dlg-exit .exit-icon { font-size: 36px; margin-bottom: 12px; opacity: .85; }
-#dlg-exit h3 { color: var(--txt); font-size: 15px; margin-bottom: 8px; font-weight: 700; }
-#dlg-exit p { color: var(--txt-sub); font-size: 12px; line-height: 1.7; margin-bottom: 20px; }
-#dlg-exit .dlg-btns { justify-content: center; }
-
-.leaflet-control-zoom a {
-  width: 42px !important; height: 42px !important;
-  line-height: 42px !important; font-size: 18px !important;
-  background: rgba(13,12,8,0.92) !important;
-  color: var(--txt-sub) !important;
-  border-color: rgba(255,255,255,0.1) !important;
-  border-radius: var(--radius-sm) !important;
-  display: flex !important; align-items: center !important; justify-content: center !important;
-}
-.leaflet-control-zoom a:hover { background: rgba(255,255,255,0.12) !important; color: var(--txt) !important; }
-.leaflet-control-zoom {
-  border: none !important;
-  display: flex !important; flex-direction: column !important; gap: 5px !important;
-  box-shadow: none !important;
-}
-.leaflet-control-zoom-in,
-.leaflet-control-zoom-out { border-radius: var(--radius-sm) !important; border: 1px solid rgba(255,255,255,0.1) !important; box-shadow: 0 2px 12px rgba(0,0,0,0.4) !important; }
-.leaflet-popup-content-wrapper { background: #fff; border: 1px solid #ccc; color: #333; border-radius: 6px; padding: 0; overflow: hidden; }
-.leaflet-popup-content { margin: 10px 12px; }
-.leaflet-popup-tip { background: #fff; }
-.leaflet-popup-close-button { color: #666 !important; }
-.leaflet-popup-tip { background: rgba(10,9,6,0.95); }
-.leaflet-popup-close-button { color: var(--txt-sub) !important; }
-
-/* ピン（涙滴型・先端シャープ） */
-.upin {
-  width: 0; height: 0;
-  border-left: 9px solid transparent;
-  border-right: 9px solid transparent;
-  border-top: 22px solid #e8a020;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(232,160,32,.4));
-  position: relative;
-}
-.upin::before {
-  content: '';
-  position: absolute;
-  top: -24px; left: -6px;
-  width: 12px; height: 12px;
-  border-radius: 50%;
-  background: #f8d860;
-  border: 2px solid #e8a020;
-}
-.mpin {
-  width: 0; height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-top: 18px solid #904018;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,.5));
-  position: relative;
-}
-.mpin::before {
-  content: '';
-  position: absolute;
-  top: -20px; left: -5px;
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: #c06030;
-  border: 2px solid #904018;
+// ── ステータス更新 ────────────────────────────
+function updGps(){
+  document.getElementById('gps-dot').className='sb-dot'+(gpsOn?' on':'');
+  let lbl='GPS オフ';
+  if(gpsOn){
+    if(gpsFlw) lbl='GPS 追従中';
+    else lbl='GPS オン';
+  }
+  document.getElementById('sb-gps-lbl').textContent=lbl;
 }
 
-/* 洪水警戒中マーカー（赤） */
-.mpin-alert {
-  border-top-color: #e02020;
-}
-.mpin-alert::before {
-  background: #ff4040;
-  border-color: #c00000;
-  box-shadow: 0 0 6px rgba(255,40,40,0.8);
+// ━━━ 座標表示（マウス/タッチ）
+map.on('mousemove',e=>{
+  if(!gpsOn) document.getElementById('sb-coord').textContent=e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5);
+});
+
+// ═══════════════════════════════════════════
+//  砂金分布ヒートマップ
+//  データソース:
+//    GSJ_MINE_DATA（Au_Ag鉱床） weight:低
+//    MINES（砂金採取実績地）    weight:中
+//    ユーザー投稿（Firestore）   weight:高 ← Phase2
+// ═══════════════════════════════════════════
+
+// ── グリッド集計 + log正規化 ──────────────────────────
+function _gridAggregate(rawPts, gridDeg) {
+  const grid = {};
+  rawPts.forEach(([lat, lng, w]) => {
+    const key = `${Math.round(lat / gridDeg)}_${Math.round(lng / gridDeg)}`;
+    if(!grid[key]) grid[key] = { lat: Math.round(lat/gridDeg)*gridDeg,
+                                  lng: Math.round(lng/gridDeg)*gridDeg,
+                                  sum: 0, count: 0 };
+    grid[key].sum   += w;
+    grid[key].count += 1;
+  });
+  const cells = Object.values(grid);
+  if(!cells.length) return [];
+  const maxLog = Math.log(Math.max(...cells.map(c => c.count)) + 1);
+  if(maxLog === 0) return [];
+  return cells.map(c => [c.lat, c.lng, Math.log(c.count + 1) / maxLog]);
 }
 
-/* 水位ボタンON時: 青グロー */
-#btn-water.active {
-  background: rgba(30,120,200,0.22);
-  border-color: rgba(80,180,255,0.6);
-  color: #7df;
-  box-shadow: 0 0 12px rgba(80,180,255,0.3), 0 2px 12px rgba(0,0,0,0.4);
+// ── Firebaseから取得したヒートポイントの蓄積バッファ ──
+// initHeatLayer()が呼ばれるたびに再合成される
+let _firebaseHeatPts = [];  // [{lat, lng, weight}]
+
+// ── 生データ生成 ─────────────────────────────────────
+function buildHeatPoints() {
+  const pts = [];
+  for (const d of GSJ_MINE_DATA) {
+    if (d.mat !== 'Au_Ag') continue;
+    pts.push([d.lat, d.lng, d.trace ? 0.3 : 0.5]);
+  }
+  for (const m of MINES) pts.push([m.lat, m.lng, 0.8]);
+  // Firebaseデータを合成（weight値をそのまま使用）
+  for (const p of _firebaseHeatPts) pts.push([p.lat, p.lng, p.weight ?? 1.0]);
+  return pts;
 }
 
-/* ━━━ ヒートマップ協力トグル ━━━ */
-.contrib-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  margin: 0 0 8px 0;
-  background: var(--bg3);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 10px;
-}
-.contrib-bar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.contrib-icon { font-size: 20px; }
-.contrib-label { display: flex; flex-direction: column; gap: 2px; }
-.contrib-title { font-size: 13px; font-weight: 700; color: var(--txt); }
-.contrib-sub   { font-size: 10px; color: var(--txt-sub); }
+// ── tier設定 ─────────────────────────────────────────
+const TIER_CFG = {
+  free: {
+    gridDeg: 0.1,   // 約11km
+    zoomMax: 9,
+    gradient: {
+      0.00: '#001233', 0.20: '#0a2a6e',
+      0.45: '#b85800', 0.72: '#e0a000', 1.00: '#fff0a0',
+    },
+  },
+  premium: {
+    gridDeg: 0.01,  // 約1.1km
+    zoomMax: 13,
+    gradient: {
+      0.00: '#001a0a', 0.22: '#0a4a1a',
+      0.48: '#6a9a00', 0.74: '#d4c800', 1.00: '#fffff0',
+    },
+  },
+};
 
-/* トグルボタン本体 */
-.contrib-toggle {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 76px;
-  height: 32px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.08);
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.25s, border-color 0.25s;
-  flex-shrink: 0;
-}
-.contrib-toggle.on {
-  background: var(--gold);
-  border-color: var(--gold-lt);
-}
-.contrib-thumb {
-  position: absolute;
-  left: 3px;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.5);
-  transition: left 0.25s, background 0.25s;
-  pointer-events: none;
-}
-.contrib-toggle.on .contrib-thumb {
-  left: calc(76px - 29px);
-  background: #fff;
-}
-.contrib-off-lbl {
-  position: absolute;
-  right: 7px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--txt-sub);
-  pointer-events: none;
-  transition: opacity 0.2s;
-}
-.contrib-on-lbl {
-  position: absolute;
-  left: 7px;
-  font-size: 10px;
-  font-weight: 700;
-  color: rgba(0,0,0,0.7);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.contrib-toggle.on .contrib-off-lbl { opacity: 0; }
-.contrib-toggle.on .contrib-on-lbl  { opacity: 1; }
+// ── パネル調整パラメーター（tier別デフォルト・リセット値）────
+const HEAT_PARAMS_DEFAULT = {
+  free:    { radius: 50, blur: 40, opacity: 25 },
+  premium: { radius: 50, blur: 40, opacity: 50 },
+};
 
-/* ━━━ GPSコンパス針マーカー ━━━ */
-.gps-compass-wrap {
-  position: relative;
-  width: 48px;
-  height: 48px;
-}
-.gps-compass-needle {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease-out;
-  transform-origin: center center;
-}
-.gps-needle-n {
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-bottom: 20px solid #e84040;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
-}
-.gps-needle-s {
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-top: 20px solid rgba(255,255,255,0.85);
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
-}
-.gps-dot-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%,-50%);
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #3080e8;
-  border: 2.5px solid #fff;
-  box-shadow: 0 0 6px rgba(48,128,232,0.7);
-  z-index: 1;
+// 調整域制限
+const HEAT_PARAMS_RANGE = {
+  free:    { radius:[30,70],  blur:[30,80], opacity:[0,80] },
+  premium: { radius:[15,70],  blur:[20,80], opacity:[0,80] },
+};
+
+// 現在の調整値（tier別に独立保持）
+const _heatParams = {
+  free:    { ...HEAT_PARAMS_DEFAULT.free },
+  premium: { ...HEAT_PARAMS_DEFAULT.premium },
+};
+
+let heatTier  = null;  // null=全OFF, 'free', 'premium'
+let heatLayer = null;
+
+// ── ヒートマップ初期化（layer丸ごと作り直し） ────────
+function initHeatLayer(tier) {
+  if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
+  if(!tier) return;
+
+  heatTier = tier;
+  const cfg    = TIER_CFG[tier];
+  const params = _heatParams[tier];
+  const raw    = buildHeatPoints();
+  const pts    = _gridAggregate(raw, cfg.gridDeg);
+
+  heatLayer = L.heatLayer(pts, {
+    radius:     params.radius,
+    blur:       params.blur,
+    minOpacity: params.opacity / 100,
+    maxZoom:    18,
+    max:        1.0,
+    gradient:   cfg.gradient,
+    pane:       'paneHeat',
+  }).addTo(map);
 }
 
-/* ━━━ プレミアムゲートダイアログ ━━━ */
-#dlg-premium-gate {
-  width: min(300px, 88vw);
-  max-height: 80vh;
-  padding: 14px 16px 12px;
-  display: flex;
-  flex-direction: column;
-}
-/* アイコン＋タイトルは固定 */
-#dlg-premium-gate > .premium-gate-icon,
-#dlg-premium-gate > h3 { flex-shrink: 0; }
-/* body領域だけスクロール */
-#dlg-premium-gate > .dlg-msg {
-  flex: 1;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* スクロールバーを細く（webkit系） */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(200,170,80,0.3) transparent;
-}
-#dlg-premium-gate > .dlg-msg::-webkit-scrollbar { width: 4px; }
-#dlg-premium-gate > .dlg-msg::-webkit-scrollbar-thumb {
-  background: rgba(200,170,80,0.3); border-radius: 2px;
-}
-#dlg-premium-gate .dlg-btns { margin-top: 10px; flex-shrink: 0; }
-#premium-gate-title {
-  font-size: 13px; font-weight: 700;
-  color: var(--gold); text-align: center;
-  margin: 0 0 4px; letter-spacing: .02em;
-}
-.gate-divider {
-  border: none; border-top: 1px solid rgba(255,220,80,0.18);
-  margin: 7px 0;
-}
-.gate-catchcopy {
-  text-align: center; font-size: 12px; font-weight: 700;
-  color: var(--txt); padding: 4px 0; letter-spacing: .02em;
-}
-.gate-section {
-  font-size: 11px; color: var(--txt-sub);
-  line-height: 1.6; margin-bottom: 5px;
-}
-.gate-section-ttl {
-  font-size: 11px; font-weight: 700;
-  color: var(--txt); margin-bottom: 1px;
-}
-.gate-note {
-  font-size: 10px; color: var(--txt-dim); line-height: 1.6;
-  margin-top: 6px;
-}
-.gate-note-alert {
-  color: #ff6b6b; font-weight: 700;
-}
-/* ═══════════════════════════════════════════
-   COMMUNITY TAB  コミュニティ
-═══════════════════════════════════════════ */
+// ── ズーム変化時: zoom制限チェック + layer再描画 ────
+map.on('zoomend', () => {
+  if(!heatTier) return;
+  const z    = map.getZoom();
+  const maxZ = TIER_CFG[heatTier].zoomMax;
+  if(z > maxZ){
+    if(heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
+    _showHeatZoomBanner(true, heatTier);
+  } else {
+    _showHeatZoomBanner(false);
+    initHeatLayer(heatTier);
+  }
+});
 
-/* 金相場行 */
-.comm-gold-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 0 6px;
-}
-.comm-gold-btn {
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.comm-gold-hint {
-  font-size: 10px;
-  color: var(--txt-dim);
-  line-height: 1.4;
+// ── プレミアム誘導バナー ──────────────────────────────
+function _showHeatZoomBanner(show, tier){
+  let b = document.getElementById('heat-zoom-banner');
+  if(show){
+    const msg = tier === 'free'
+      ? '🔒 この拡大率はプレミアム版で閲覧できます'
+      : '⚠ この拡大率は表示範囲外です';
+    const btnHtml = tier === 'free'
+      ? '<button onclick="toggleHeatPremium()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">プレミアムへ</button>'
+      : '';
+    if(!b){
+      b = document.createElement('div');
+      b.id = 'heat-zoom-banner';
+      b.style.cssText = 'position:fixed;bottom:calc(var(--tab-h)+10px);left:50%;transform:translateX(-50%);z-index:1050;background:rgba(0,0,0,0.88);border:1px solid var(--gold);border-radius:20px;padding:7px 16px;font-size:12px;color:var(--txt);white-space:nowrap;pointer-events:auto;display:flex;align-items:center;gap:4px;';
+      document.body.appendChild(b);
+    }
+    b.innerHTML = msg + btnHtml;
+    b.style.display = 'flex';
+  } else {
+    if(b) b.style.display = 'none';
+  }
 }
 
-/* プレミアムバナー */
-.comm-premium-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: linear-gradient(135deg, rgba(180,130,30,0.18), rgba(100,70,10,0.25));
-  border: 1px solid rgba(200,160,40,0.4);
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin: 6px 0 10px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.comm-premium-banner:active { background: rgba(180,130,30,0.28); }
-.comm-premium-icon { font-size: 22px; flex-shrink: 0; }
-.comm-premium-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.comm-premium-text b { font-size: 13px; color: var(--gold); }
-.comm-premium-text span { font-size: 10px; color: var(--txt-sub); }
-.comm-premium-arrow { font-size: 20px; color: var(--gold); opacity: 0.7; }
-
-/* 掲示板ルール */
-.comm-rule-box {
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 8px;
-  margin-bottom: 10px;
-  overflow: hidden;
-}
-.comm-rule-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 9px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--txt-sub);
-  cursor: pointer;
-  background: rgba(255,255,255,0.03);
-}
-.comm-rule-head:active { background: rgba(255,255,255,0.07); }
-.comm-rule-list {
-  margin: 0;
-  padding: 8px 12px 10px 28px;
-  font-size: 11px;
-  color: var(--txt-sub);
-  line-height: 2;
-}
-.comm-rule-list li b { color: var(--txt); }
-
-/* スコープタブ */
-.comm-scope-tabs {
-  display: flex;
-  gap: 0;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.1);
-  margin-bottom: 8px;
-}
-.comm-scope-btn {
-  flex: 1;
-  padding: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  background: rgba(255,255,255,0.04);
-  border: none;
-  color: var(--txt-sub);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.comm-scope-btn.active {
-  background: var(--gold);
-  color: #1a1000;
+// ── フリー版 ON/OFF ───────────────────────────────────
+function toggleHeatFree() {
+  if(heatTier === 'free'){
+    _heatAllOff();
+    return;
+  }
+  _closePremiumHeat();
+  heatTier = 'free';
+  document.getElementById('btn-heat-free').classList.add('active');
+  _applyHeatParamsSaved('free');
+  _renderHeatPanel('free');
+  document.getElementById('heat-ctrl-panel').style.display = 'block';
+  _showHeatAdjBtn(true);
+  initHeatLayer('free');
 }
 
-/* 地方セレクタ */
-.comm-sel-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.comm-select {
-  flex: 1;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 6px;
-  color: var(--txt);
-  font-size: 12px;
-  padding: 6px 8px;
-}
-.comm-select:focus { outline: none; border-color: var(--gold); }
-
-/* 投稿フォーム */
-.comm-form {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  padding: 10px;
-  margin-bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-.comm-input {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 6px;
-  color: var(--txt);
-  font-size: 12px;
-  padding: 7px 10px;
-}
-.comm-input:focus { outline: none; border-color: var(--gold); }
-.comm-input::placeholder { color: var(--txt-dim); }
-.comm-tag-select { font-size: 11px; }
-.comm-textarea {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 6px;
-  color: var(--txt);
-  font-size: 12px;
-  padding: 8px 10px;
-  min-height: 72px;
-  resize: vertical;
-  font-family: inherit;
-  line-height: 1.6;
-}
-.comm-textarea:focus { outline: none; border-color: var(--gold); }
-.comm-textarea::placeholder { color: var(--txt-dim); }
-.comm-form-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.comm-char-count {
-  font-size: 11px;
-  color: var(--txt-sub);
-}
-.comm-submit-btn { min-width: 80px; }
-
-/* 投稿一覧 */
-.comm-post-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-bottom: 16px;
-}
-.comm-empty {
-  text-align: center;
-  font-size: 12px;
-  color: var(--txt-dim);
-  padding: 24px 0;
-}
-.comm-post {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 10px;
-  padding: 10px 12px;
-}
-.comm-post-hidden {
-  text-align: center;
-  font-size: 11px;
-  color: var(--txt-dim);
-  padding: 8px 12px;
-  background: rgba(255,255,255,0.02);
-}
-.comm-post-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 5px;
-  flex-wrap: wrap;
-}
-.comm-nick {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--gold);
-}
-.comm-tag {
-  font-size: 10px;
-  background: rgba(180,130,30,0.2);
-  border: 1px solid rgba(180,130,30,0.35);
-  border-radius: 10px;
-  padding: 1px 7px;
-  color: var(--txt-sub);
-}
-.comm-time {
-  font-size: 10px;
-  color: var(--txt-dim);
-  margin-left: auto;
-}
-.comm-post-body {
-  font-size: 13px;
-  color: var(--txt);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin-bottom: 8px;
-}
-.comm-post-footer {
-  display: flex;
-  gap: 8px;
-}
-.comm-react-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  padding: 3px 10px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.05);
-  color: var(--txt-sub);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.comm-react-btn.like.active {
-  background: rgba(80,160,255,0.2);
-  border-color: rgba(80,160,255,0.4);
-  color: #80c8ff;
-}
-.comm-react-btn.bad.active {
-  background: rgba(255,80,80,0.15);
-  border-color: rgba(255,80,80,0.3);
-  color: #ff8888;
-}
-.comm-react-btn:active { opacity: 0.7; }
-
-/* 金相場インライン表示 */
-.comm-gold-display {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  background: rgba(180,130,30,0.1);
-  border: 1px solid rgba(180,130,30,0.3);
-  border-radius: 8px;
-  padding: 8px 12px;
-  margin-bottom: 8px;
-}
-.comm-gold-price {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--gold);
-  line-height: 1.2;
-}
-.comm-gold-price small {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--txt-sub);
-  margin-left: 2px;
-}
-.comm-gold-date {
-  font-size: 11px;
-  color: var(--txt-sub);
-}
-.comm-gold-note {
-  font-size: 10px;
-  color: var(--txt-dim);
+// ── プレミアム版 ON/OFF ──────────────────────────────
+async function toggleHeatPremium() {
+  if(heatTier === 'premium'){
+    _heatAllOff();
+    return;
+  }
+  const ok = await isPremiumUser();
+  if(!ok){
+    showPremiumGate('heatmap_pro');
+    return;
+  }
+  // ポイント投稿1件以上チェック
+  const postCount = await getUserPostCount();
+  if(postCount < 1){
+    showPremiumGate('heatmap_pro_no_post');
+    return;
+  }
+  _closeFreeHeat();
+  heatTier = 'premium';
+  document.getElementById('btn-heat-premium').classList.add('active');
+  _applyHeatParamsSaved('premium');
+  _renderHeatPanel('premium');
+  document.getElementById('heat-ctrl-panel').style.display = 'block';
+  _showHeatAdjBtn(true);
+  initHeatLayer('premium');
 }
 
-
-/* =============================================================================
-   熊出没レイヤー
-   ============================================================================= */
-
-/* 熊ピン (DivIcon) */
-.bear-pin {
-  width: 32px;
-  height: 32px;
-  background: var(--bear-color, #e53935);
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-  border: 2px solid rgba(255,255,255,0.85);
+// ── 内部: 全OFF ──────────────────────────────────────
+function _heatAllOff() {
+  heatTier = null;
+  if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
+  document.getElementById('btn-heat-free')?.classList.remove('active');
+  document.getElementById('btn-heat-premium')?.classList.remove('active');
+  document.getElementById('heat-ctrl-panel').style.display = 'none';
+  _showHeatAdjBtn(false);
+  _showHeatZoomBanner(false);
 }
-.bear-pin__emoji {
-  transform: rotate(45deg);
-  font-size: 16px;
-  line-height: 1;
-  display: block;
+function _closeFreeHeat() {
+  document.getElementById('btn-heat-free')?.classList.remove('active');
+}
+function _closePremiumHeat() {
+  document.getElementById('btn-heat-premium')?.classList.remove('active');
+  if(heatLayer && heatTier === 'premium'){ map.removeLayer(heatLayer); heatLayer = null; }
 }
 
-/* 熊ポップアップ */
-.bear-popup-wrapper .leaflet-popup-content-wrapper {
-  border-radius: 10px;
-  padding: 0;
-  overflow: hidden;
-}
-.bear-popup-wrapper .leaflet-popup-content {
-  margin: 0;
-  min-width: 200px;
-}
-.bear-popup {
-  padding: 12px 14px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.bear-popup__header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-  flex-wrap: wrap;
-}
-.bear-popup__emoji { font-size: 18px; }
-.bear-popup__pref  { font-weight: 700; font-size: 14px; }
-.bear-popup__kml-badge {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: #e8f5e9;
-  color: #2e7d32;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.bear-popup__date   { font-size: 12px; color: #888; margin-bottom: 2px; }
-.bear-popup__place  { font-weight: 600; margin-bottom: 4px; }
-.bear-popup__detail { font-size: 12px; color: #555; margin: 4px 0; word-break: break-all; }
-.bear-popup__link {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 11px;
-  color: #1565c0;
-  text-decoration: none;
-}
-.bear-popup__link:hover { text-decoration: underline; }
-
-/* Settings タブ：熊トグル行 */
-.bear-toggle-row {
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-}
-.bear-kml-chip {
-  display: inline-block;
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: #e8f5e9;
-  color: #2e7d32;
-  font-weight: 600;
-  margin-left: 6px;
-  vertical-align: middle;
+// ── 調整ボタン表示制御 ───────────────────────────────
+function _showHeatAdjBtn(show) {
+  const btn = document.getElementById('btn-heat-adj');
+  if(btn) btn.style.display = show ? 'flex' : 'none';
+  if(!show) document.getElementById('btn-heat-adj')?.classList.remove('active');
 }
 
-/* 展開パネル（県セレクタ + 凡例） */
-#bear-detail-panel { padding: 0 16px 12px; }
-.bear-pref-selector-wrap { margin-top: 10px; }
-.bear-pref-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: rgba(255,255,255,0.7);
-  margin-bottom: 6px;
-}
-.bear-count-wrap { flex-shrink: 0; }
-.bear-count-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.9);
-  font-weight: 600;
-}
-.bear-pref-select {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.2);
-  background: rgba(255,255,255,0.08);
-  color: #fff;
-  font-size: 13px;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff99' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  cursor: pointer;
-}
-.bear-pref-select:focus {
-  outline: none;
-  border-color: rgba(255,255,255,0.5);
-}
-.bear-pref-select option:disabled  { color: rgba(255,255,255,0.3); }
-.bear-pref-select option:not(:disabled) { color: #fff; background: #333; font-weight: 500; }
-.bear-pref-note {
-  margin-top: 6px;
-  font-size: 11px;
-  color: rgba(255,255,255,0.45);
-  line-height: 1.5;
+// ── パネルトグル（調整ボタン・✕ボタン共用）──────────
+function toggleHeatPanel() {
+  const panel = document.getElementById('heat-ctrl-panel');
+  const btn   = document.getElementById('btn-heat-adj');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  btn?.classList.toggle('active', !isOpen);
 }
 
-/* 凡例 */
-.bear-toggle-legend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  font-size: 11px;
-  color: rgba(255,255,255,0.6);
-  flex-wrap: wrap;
+// ── パネルUI描画（ONのtierだけ呼ぶ）────────────────
+function _renderHeatPanel(tier) {
+  const LABELS = { radius: '範囲', blur: 'ぼかし', opacity: '濃さ' };
+  const range  = HEAT_PARAMS_RANGE[tier];
+  const params = _heatParams[tier];
+
+  // タイトル更新
+  const titleEl = document.getElementById('heat-panel-title');
+  if(titleEl) titleEl.textContent =
+    tier === 'free' ? '🔥 調整（フリー）' : '✨ 調整（プレミアム）';
+
+  // ボディ: 各パラメーター1行
+  const body = document.getElementById('heat-panel-body');
+  if(body) body.innerHTML = ['radius','blur','opacity'].map(key => {
+    const [mn, mx] = range[key];
+    const val = params[key];
+    return `<div class="heat-param-row">
+      <span class="heat-param-label">${LABELS[key]}</span>
+      <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',-1)">←</button>
+      <span class="heat-param-val" id="hpv-${tier}-${key}">${val}</span>
+      <button class="heat-adj-btn" onclick="_adjHeat('${tier}','${key}',+1)">→</button>
+      <input type="range" class="heat-param-slider"
+        min="${mn}" max="${mx}" value="${val}"
+        oninput="_adjHeatSlider('${tier}','${key}',+this.value)"
+        id="hps-${tier}-${key}">
+    </div>`;
+  }).join('');
+
+  // フッター: 💾記憶 📂再現 ↩リセット
+  const hasSaved = !!localStorage.getItem(`gm_heat_saved_${tier}`);
+  const footer = document.getElementById('heat-panel-footer');
+  if(footer) footer.innerHTML = `
+    <button class="heat-mem-btn save"  onclick="_saveHeatParams('${tier}')">💾 記憶</button>
+    <button class="heat-mem-btn load"  onclick="_loadHeatParams('${tier}')"
+      id="hml-${tier}" ${hasSaved ? '' : 'disabled'}>📂 再現</button>
+    <button class="heat-mem-btn reset" onclick="_resetHeatParams('${tier}')">↩ リセット</button>`;
 }
-.bear-legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  flex-shrink: 0;
+
+// ── ←→ 1刻み調整 ────────────────────────────────────
+function _adjHeat(tier, key, delta) {
+  const [mn, mx] = HEAT_PARAMS_RANGE[tier][key];
+  const next = Math.min(mx, Math.max(mn, _heatParams[tier][key] + delta));
+  _heatParams[tier][key] = next;
+  const el = document.getElementById(`hpv-${tier}-${key}`);
+  if(el) el.textContent = next;
+  const sl = document.getElementById(`hps-${tier}-${key}`);
+  if(sl) sl.value = next;
+  if(heatTier === tier) initHeatLayer(tier);
 }
-.bear-legend-dot--fresh  { background: #e53935; margin-left: 8px; }
-.bear-legend-dot--recent { background: #fb8c00; margin-left: 8px; }
-.bear-legend-dot--old    { background: #757575; margin-left: 8px; }
-.bear-legend-dot--fresh:first-child { margin-left: 0; }
+
+// ── シークバー入力 ───────────────────────────────────
+function _adjHeatSlider(tier, key, val) {
+  const [mn, mx] = HEAT_PARAMS_RANGE[tier][key];
+  const next = Math.min(mx, Math.max(mn, parseInt(val)));
+  _heatParams[tier][key] = next;
+  const el = document.getElementById(`hpv-${tier}-${key}`);
+  if(el) el.textContent = next;
+  if(heatTier === tier) initHeatLayer(tier);
+}
+
+// ── 💾 記憶（localStorage保存）──────────────────────
+function _saveHeatParams(tier) {
+  try {
+    localStorage.setItem(`gm_heat_saved_${tier}`, JSON.stringify(_heatParams[tier]));
+    // 再現ボタンを有効化
+    const loadBtn = document.getElementById(`hml-${tier}`);
+    if(loadBtn) loadBtn.disabled = false;
+    // 保存フィードバック（ボタンを一瞬ゴールドに）
+    const saveBtn = document.querySelector('.heat-mem-btn.save');
+    if(saveBtn){ saveBtn.style.color='var(--gold)'; setTimeout(()=>saveBtn.style.color='',600); }
+  } catch(e) { console.warn('[heat] save failed', e); }
+}
+
+// ── パネルON時: 保存値があれば_heatParamsに反映（再描画なし）────
+function _applyHeatParamsSaved(tier) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(`gm_heat_saved_${tier}`));
+    if(!saved) return;
+    _heatParams[tier] = { ..._heatParams[tier], ...saved };
+  } catch(e) { console.warn('[heat] applyHeatParamsSaved failed', e); }
+}
+
+// ── 📂 再現（localStorage読込）──────────────────────
+function _loadHeatParams(tier) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(`gm_heat_saved_${tier}`));
+    if(!saved) return;
+    _heatParams[tier] = { ..._heatParams[tier], ...saved };
+    _renderHeatPanel(tier);
+    if(heatTier === tier) initHeatLayer(tier);
+  } catch(e) { console.warn('[heat] load failed', e); }
+}
+
+// ── ↩ リセット（デフォルト値に戻す）────────────────
+function _resetHeatParams(tier) {
+  _heatParams[tier] = { ...HEAT_PARAMS_DEFAULT[tier] };
+  _renderHeatPanel(tier);
+  if(heatTier === tier) initHeatLayer(tier);
+}
+
+// ── Firestore連携用（外部からデータ追加）─────────────
+// バッファに蓄積し、heatLayerが存在すれば即時再描画する。
+// initHeatLayer()はbuildHeatPoints()経由でバッファを合成するため、
+// ボタンON/OFFやパラメーター調整後もデータが消えない。
+function addHeatPoints(points) {
+  _firebaseHeatPts = _firebaseHeatPts.concat(points);
+  if(heatTier) initHeatLayer(heatTier);
+}
+
+// ═══════════════════════════════════════════
+//  タイル数計算
+// ═══════════════════════════════════════════
+const JAPAN=L.latLngBounds([24,122],[46,154]);
+function lon2x(lon,z){return Math.floor((lon+180)/360*Math.pow(2,z));}
+function lat2y(lat,z){return Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*Math.pow(2,z));}
+function cntTiles(b,zmin,zmax){let n=0;for(let z=zmin;z<=zmax;z++){const x0=lon2x(b.getWest(),z),x1=lon2x(b.getEast(),z),y0=lat2y(b.getNorth(),z),y1=lat2y(b.getSouth(),z);n+=(x1-x0+1)*(y1-y0+1);}return n;}
+function ckLayers(){return['std','photo','topo'].filter(k=>document.getElementById('ck-'+k).checked);}
+function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M枚';if(n>=1e3)return Math.round(n/1e3)+'K枚';return n+'枚';}
+function mbEst(n){return(n*20/1024).toFixed(0);}
+
+function updBaseEst(){
+  const zmax=parseInt(document.getElementById('base-zmax').value);
+  const L2=ckLayers().length||1, n=cntTiles(JAPAN,5,zmax)*L2;
+  document.getElementById('base-est').innerHTML=`Z5〜Z${zmax}、<b>${fmt(n)}</b>（約 <b>${mbEst(n)} MB</b>）<br><span style="font-size:10px;color:#907030">※ Z10全国は約3万枚×レイヤー数</span>`;
+}
+function updDetEst(){
+  const btn=document.getElementById('btn-dldet');
+  if(!detRect){document.getElementById('det-est').textContent='— 範囲を選択してください —';btn.disabled=true;return;}
+  const zmin=parseInt(document.getElementById('det-zmin').value),zmax=parseInt(document.getElementById('det-zmax').value);
+  const L2=ckLayers().length||1, n=cntTiles(detRect,zmin,zmax)*L2;
+  document.getElementById('det-est').innerHTML=`Z${zmin}〜Z${zmax}、<b>${fmt(n)}</b>（約 <b>${mbEst(n)} MB</b>）`;
+  btn.disabled=false;
+}
+['ck-std','ck-photo','ck-topo'].forEach(id=>{ document.getElementById(id).onchange=()=>{updBaseEst();updDetEst();}; });
+document.getElementById('base-zmax').onchange=updBaseEst;
+document.getElementById('det-zmin').onchange=updDetEst;
+document.getElementById('det-zmax').onchange=updDetEst;
+
+// ═══════════════════════════════════════════
+//  矩形選択
+// ═══════════════════════════════════════════
+let detRect=null,drawMode=false,rs=null,rPrev=null;
+
+function useView(){detRect=map.getBounds();showRect();updDetEst();}
+
+function startRectDraw(){
+  if(drawMode)return; drawMode=true;
+  document.getElementById('rect-banner').style.display='block';
+  map.dragging.disable(); map.scrollWheelZoom.disable();
+  map.getContainer().style.cursor='crosshair';
+  const down=e=>{rs=e.latlng;if(rPrev){map.removeLayer(rPrev);rPrev=null;}};
+  const move=e=>{if(!rs)return;if(rPrev)map.removeLayer(rPrev);
+    rPrev=L.rectangle(L.latLngBounds(rs,e.latlng),{color:'#00ffff',weight:2,dashArray:'6 3',fillColor:'#00ffff',fillOpacity:.08}).addTo(map);};
+  const up=e=>{if(!rs)return;detRect=L.latLngBounds(rs,e.latlng);finishDraw();showRect();updDetEst();
+    // 矩形選択完了後にオフラインシートへ戻る
+    setTimeout(()=>switchTab('offline'),300);
+  };
+  map._re={down,move,up}; map.on('mousedown',down).on('mousemove',move).on('mouseup',up);
+}
+function finishDraw(){
+  drawMode=false;rs=null;
+  document.getElementById('rect-banner').style.display='none';
+  map.dragging.enable();map.scrollWheelZoom.enable();
+  map.getContainer().style.cursor='';
+  const e=map._re; if(e)map.off('mousedown',e.down).off('mousemove',e.move).off('mouseup',e.up);
+}
+function showRect(){
+  if(rPrev){map.removeLayer(rPrev);rPrev=null;}
+  if(detRect){
+    rPrev=L.rectangle(detRect,{color:'#00ffff',weight:2,dashArray:'4 3',fillColor:'#00ffff',fillOpacity:.06}).addTo(map);
+    document.getElementById('rect-info').innerHTML=`北: <b>${detRect.getNorth().toFixed(3)}</b>　南: <b>${detRect.getSouth().toFixed(3)}</b><br>西: <b>${detRect.getWest().toFixed(3)}</b>　東: <b>${detRect.getEast().toFixed(3)}</b>`;
+  }
+}
+
+// ═══════════════════════════════════════════
+//  レジューム管理
+// ═══════════════════════════════════════════
+const RESUME_KEY='gm_dl_resume';
+
+function saveResume(state){
+  try{ localStorage.setItem(RESUME_KEY,JSON.stringify(state)); }catch(e){}
+}
+function loadResume(){
+  try{ return JSON.parse(localStorage.getItem(RESUME_KEY)||'null'); }catch(e){return null;}
+}
+function deleteResume(){
+  localStorage.removeItem(RESUME_KEY);
+}
+
+function checkResume(){
+  const s=loadResume(); if(!s)return;
+  const banner=document.getElementById('resume-banner');
+  const modeStr=s.mode==='base'?'全日本ベース':'詳細範囲';
+  const layerStr=s.layers.join('・');
+  const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
+  document.getElementById('resume-desc').innerHTML=
+    `${modeStr} / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
+  banner.classList.add('show');
+}
+
+function clearResume(){
+  deleteResume();
+  document.getElementById('resume-banner').classList.remove('show');
+}
+
+async function resumeDl(){
+  const s=loadResume(); if(!s)return;
+  // 状態を復元してDL再開
+  const layers=s.layers; if(!layers.length)return;
+  let bounds;
+  if(s.mode==='base') bounds=JAPAN;
+  else {
+    bounds=L.latLngBounds([s.bounds.s,s.bounds.w],[s.bounds.n,s.bounds.e]);
+    detRect=bounds; showRect(); updDetEst();
+  }
+  await runDl(s.mode, bounds, s.zmin, s.zmax, layers, s.taskIndex);
+}
+
+// ═══════════════════════════════════════════
+//  ダウンロードエンジン
+// ═══════════════════════════════════════════
+let dlRun=false, dlStop=false;
+const CONCUR=6;
+
+async function startDl(mode){
+  if(dlRun)return;
+  const layers=ckLayers(); if(!layers.length){showAlert('エラー','レイヤーを1つ以上選択してください');return;}
+  let bounds,zmin,zmax;
+  if(mode==='base'){
+    bounds=JAPAN; zmin=5; zmax=parseInt(document.getElementById('base-zmax').value);
+  }else{
+    if(!detRect){showAlert('エラー','範囲を選択してください');return;}
+    bounds=detRect;
+    zmin=parseInt(document.getElementById('det-zmin').value);
+    zmax=parseInt(document.getElementById('det-zmax').value);
+  }
+  await runDl(mode, bounds, zmin, zmax, layers, 0);
+}
+
+async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
+  if(dlRun)return;
+
+  // タスク全生成
+  const tasks=[];
+  for(const lk of layers) for(let z=zmin;z<=zmax;z++){
+    const x0=lon2x(bounds.getWest(),z),x1=lon2x(bounds.getEast(),z);
+    const y0=lat2y(bounds.getNorth(),z),y1=lat2y(bounds.getSouth(),z);
+    for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++) tasks.push({lk,z,x,y});
+  }
+  const total=tasks.length;
+
+  dlRun=true; dlStop=false;
+  document.getElementById('prog-section').classList.add('show');
+
+  // ボタン切替
+  const SB=mode==='base'?document.getElementById('btn-stpbase'):document.getElementById('btn-stpdet');
+  const DB2=mode==='base'?document.getElementById('btn-dlbase'):document.getElementById('btn-dldet');
+  SB.style.display='block'; DB2.disabled=true;
+
+  // 統計リセット
+  document.getElementById('pg-tot').textContent=fmt(total);
+  document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-startIdx));
+  document.getElementById('pg-done').textContent=fmt(startIdx);
+  document.getElementById('pg-bar').style.width=(total>0?Math.round(startIdx/total*100):0)+'%';
+  document.getElementById('dl-log').textContent='';
+
+  // resumeの境界情報
+  const boundsData=mode==='base'?null:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
+
+  let done=startIdx, fail=0;
+  const log=msg=>{const el=document.getElementById('dl-log');el.textContent=msg+'\n'+el.textContent;el.textContent=el.textContent.split('\n').slice(0,40).join('\n');};
+
+  const tick=()=>{
+    const pct=total>0?Math.round(done/total*100):0;
+    document.getElementById('pg-done').textContent=fmt(done);
+    document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-done));
+    document.getElementById('pg-mb').textContent=mbEst(done)+' MB';
+    document.getElementById('pg-bar').style.width=pct+'%';
+  };
+
+  // startIdx以降のキュー（方式B: dbGetで重複スキップ）
+  const q=tasks.slice(startIdx);
+  let active=0, qIdx=startIdx;
+
+  await new Promise(resolve=>{
+    const next=()=>{
+      if(dlStop){resolve();return;}
+      while(active<CONCUR&&q.length){
+        active++;
+        const t=q.shift();
+        const curIdx=qIdx++;
+        const k=tileKey(t.lk,t.z,t.x,t.y);
+        const url2=tileURL(t.lk,t.z,t.x,t.y);
+        const promise=db
+          ?dbGet(k).then(c=>{
+              if(c){done++;tick();return;} // 既存キャッシュはスキップ
+              return fetch(url2,{signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined})
+                .then(r=>r.ok?r.arrayBuffer():null)
+                .then(buf=>{if(buf)return dbPut(k,buf).then(()=>{done++;tick();});else{fail++;tick();}});
+            }).catch(()=>{fail++;tick();})
+          :fetch(url2).then(r=>r.ok?r.arrayBuffer():null)
+            .then(buf=>{if(buf){done++;tick();}else{fail++;tick();}})
+            .catch(()=>{fail++;tick();});
+
+        promise.finally(()=>{
+          active--;
+          if(done%200===0||done===total) log(`完了: ${fmt(done)} / ${fmt(total)}  失敗: ${fail}`);
+
+          if(dlStop){
+            // 停止時にレジューム状態を保存
+            const now=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+            saveResume({mode,bounds:boundsData,zmin,zmax,layers,taskIndex:done,total,savedAt:now});
+            resolve();
+          } else if(!q.length&&active===0){
+            resolve();
+          } else {
+            next();
+          }
+        });
+      }
+    };
+    next();
+  });
+
+  dlRun=false; SB.style.display='none'; DB2.disabled=false;
+  if(!dlStop){
+    // 完了したらレジューム削除
+    deleteResume();
+    document.getElementById('resume-banner').classList.remove('show');
+    log('✅ 完了！ '+fmt(done)+'枚保存（失敗: '+fail+'）');
+  } else {
+    log('⏸ 停止しました。続きから再開できます。');
+    checkResume(); // バナー更新
+  }
+  refreshCache();
+}
+
+function stopDl(){dlStop=true;}
+
+// ═══════════════════════════════════════════
+//  キャッシュ情報
+// ═══════════════════════════════════════════
+async function refreshCache(){
+  if(!db){document.getElementById('cache-info').textContent='IndexedDB 未対応';return;}
+  const n=await dbCnt();
+  const txt=fmt(n)+'（約 '+mbEst(n)+' MB）';
+  document.getElementById('cache-info').textContent=txt;
+  document.getElementById('sb-cache').textContent='💾 '+txt;
+}
+async function clearCache(){
+  if(!confirm('キャッシュを全て削除しますか？'))return;
+  await dbClr(); refreshCache(); showAlert('完了','キャッシュを削除しました');
+}
+
+// ═══════════════════════════════════════════
+//  タブ切替
+// ═══════════════════════════════════════════
+let curTab='map';
+const SHEETS={pts:'pt-sheet', offline:'dl-sheet', cfg:'cfg-sheet', community:'comm-sheet'};
+
+function switchTab(tab){
+  _openTab(tab);
+}
+
+function _openTab(tab){
+  // 前のタブのシートを閉じる
+  if(curTab!=='map' && SHEETS[curTab]){
+    document.getElementById(SHEETS[curTab]).classList.remove('open');
+  }
+  curTab=tab;
+  // タブボタンのアクティブ状態
+  ['map','pts','offline','cfg','community'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+  });
+  // シートを開く
+  if(tab!=='map' && SHEETS[tab]){
+    document.getElementById(SHEETS[tab]).classList.add('open');
+    // タブ切替時にLeafletサイズ更新
+    setTimeout(()=>map.invalidateSize(),300);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  ダイアログ
+// ═══════════════════════════════════════════
+const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp','dlg-alr','dlg-contrib-on','dlg-contrib-off','dlg-premium-gate','dlg-gps-lost'];
+function showDlg(id){DLGS.forEach(d=>document.getElementById(d).style.display='none');document.getElementById(id).style.display='block';document.getElementById('overlay').classList.add('open');}
+function closeOv(){document.getElementById('overlay').classList.remove('open');DLGS.forEach(d=>document.getElementById(d).style.display='none');eid=null;}
+function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;document.getElementById('alr-msg').textContent=msg;showDlg('dlg-alr');}
+
+// ═══════════════════════════════════════════
+//  バックボタン制御
+//  優先順位:
+//    ① overlay(ダイアログ)open → 閉じる → push（次のバックに備える）
+//    ② 終了確認ダイアログopen  → 閉じる（pushしない: 次バックで自然終了）
+//    ③ シートopen              → 地図に戻す → push（④に備える）
+//    ④ 地図表示中              → 終了確認ダイアログ → push（②に備える）
+//
+//  設計原則:
+//    「次のバックで何かアクションが必要な状態」の場合だけ push する。
+//    終了確認を閉じた後は次のバックでアプリ終了するため push しない。
+// ═══════════════════════════════════════════
+let _suppressPush = false;
+let _exitDlgOpen = false;
+
+(function initHistory(){
+  // エントリを2つ積む
+  // [0] ベース: ここまで戻ったらOS/ブラウザに委ねる
+  // [1] アプリ状態: popstateをここで受け取る
+  history.replaceState({appBack:true}, '');
+  history.pushState({appBack:true}, '');
+})();
+
+function _pushHistory(){
+  history.pushState({appBack:true}, '');
+}
+
+window.addEventListener('popstate', function(e){
+  // ① overlayダイアログが開いているなら閉じる
+  const ov = document.getElementById('overlay');
+  if(ov && ov.classList.contains('open')){
+    closeOv();
+    _pushHistory();
+    return;
+  }
+
+  // ② 終了確認ダイアログが開いているなら閉じる
+  if(_exitDlgOpen){
+    _closeExitDlgOnly();
+    _pushHistory();
+    return;
+  }
+
+  // ③ シートが開いていたら閉じる
+  if(curTab !== 'map'){
+    _openTab('map');
+    setTimeout(()=>{ _pushHistory(); }, 50);
+    return;
+  }
+
+  // ④ 地図表示中 → 終了確認ダイアログ
+  _showExitDlg();
+  _pushHistory();
+});
+
+function _showExitDlg(){
+  _exitDlgOpen = true;
+  document.getElementById('exit-overlay').style.display = 'flex';
+}
+function _closeExitDlgOnly(){
+  _exitDlgOpen = false;
+  document.getElementById('exit-overlay').style.display = 'none';
+}
+function closeExitDlg(){
+  _closeExitDlgOnly();
+}
+function doExitApp(){
+  _closeExitDlgOnly();
+  setTimeout(()=>{
+    try { window.close(); } catch(e){}
+    try { location.replace('about:blank'); } catch(e){}
+  }, 100);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    closeOv();
+    if(drawMode)finishDraw();
+    if(addMode)cancelAdd();
+  }
+});
+
+// switchTab ラッパー:
+//   ・offline → ゲートB（課金チェック）
+//   ・community → 初期化
+//   ※ historyのpushはバックボタン制御側に任せる
+(function(){
+  const _orig = switchTab;
+  switchTab = function(tab){
+    if(tab === 'offline'){
+      isPremiumUser().then(premium => {
+        if(!premium){
+          showPremiumGate('offline');
+        } else {
+          _openTab(tab);
+        }
+      });
+      return;
+    }
+    _orig(tab);
+    if(tab === 'community'){
+      if(typeof initCommunity === 'function') initCommunity();
+      if(typeof _buildTagSelector === 'function') _buildTagSelector();
+    }
+  };
+})();
+
+// 起動
