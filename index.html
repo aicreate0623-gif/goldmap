@@ -28,27 +28,27 @@
 
 <div id="float-ctrl">
   <div class="fc-row">
-    <button class="fc-btn" id="btn-std" onclick="setBase('std')" title="地理院地図">
+    <button class="fc-btn fc-grp-map" id="btn-std" onclick="setBase('std')" title="地理院地図">
       <span class="fc-ico">🗾</span><span>地理院</span>
     </button>
-    <button class="fc-btn base-active active" id="btn-photo" onclick="setBase('photo')" title="航空写真">
+    <button class="fc-btn fc-grp-map base-active active" id="btn-photo" onclick="setBase('photo')" title="航空写真">
       <span class="fc-ico">📷</span><span>航空</span>
     </button>
-    <button class="fc-btn" id="btn-topo" onclick="setBase('topo')" title="地形図">
+    <button class="fc-btn fc-grp-map" id="btn-topo" onclick="setBase('topo')" title="地形図">
       <span class="fc-ico">⛰</span><span>地形</span>
     </button>
-    <button class="fc-btn" id="btn-heat-free" onclick="toggleHeatFree()" title="砂金分布ヒートマップ（フリー版）">
+    <button class="fc-btn fc-grp-heat" id="btn-heat-free" onclick="toggleHeatFree()" title="砂金分布ヒートマップ（フリー版）">
       <span class="fc-ico">🔥</span><span>分布</span>
     </button>
-    <button class="fc-btn" id="btn-heat-premium" onclick="toggleHeatPremium()" title="砂金分布ヒートマップ（プレミアム版）">
+    <button class="fc-btn fc-grp-heat" id="btn-heat-premium" onclick="toggleHeatPremium()" title="砂金分布ヒートマップ（プレミアム版）">
       <span class="fc-ico">🔒</span><span>分布Pro</span>
     </button>
-    <button class="fc-btn" id="btn-heat-adj" onclick="toggleHeatPanel()" title="ヒートマップ調整" style="display:none">
+    <button class="fc-btn fc-grp-heat" id="btn-heat-adj" onclick="toggleHeatPanel()" title="ヒートマップ調整" style="display:none">
       <span class="fc-ico">🎛</span><span>調整</span>
     </button>
   </div>
   <div class="fc-row">
-    <button class="fc-btn" id="btn-geo" onclick="toggleGeo()" title="地質図">
+    <button class="fc-btn fc-grp-map" id="btn-geo" onclick="toggleGeo()" title="地質図">
       <span class="fc-ico">🪨</span><span>地質</span>
     </button>
     <div id="geo-row">
@@ -60,29 +60,29 @@
 </div>
 
 <div id="float-ctrl-right">
-  <button class="fc-btn" id="btn-mine"  onclick="toggleMine()"     title="砂金DB">
-    <span class="fc-ico">⛏</span><span>砂金DB</span>
+  <button class="fc-btn fc-grp-safety" id="btn-bear" onclick="toggleBearLayer()" title="熊出没情報（KMLデータ）">
+    <span class="fc-ico">🐻</span><span>熊情報</span>
   </button>
-  <button class="fc-btn" id="btn-water" onclick="toggleWaterLevel()" title="水位情報">
+  <button class="fc-btn fc-grp-safety" id="btn-water" onclick="toggleWaterLevel()" title="水位情報">
     <span class="fc-ico">💧</span><span>水位</span>
   </button>
-  <button class="fc-btn" id="btn-kinno" onclick="toggleKinnoLayer()" title="kinno調査記（鉱山調査地）">
-    <span class="fc-ico">📌</span><span>調査記</span>
+  <button class="fc-btn fc-grp-db" id="btn-mine"  onclick="toggleMine()"     title="スポット">
+    <span class="fc-ico">⛏</span><span>スポット</span>
   </button>
-  <button class="fc-btn" id="btn-gsj" onclick="toggleGsjLayer()" title="鉱床・鉱徴地">
+  <button class="fc-btn fc-grp-db" id="btn-gsj" onclick="toggleGsjLayer()" title="鉱床・鉱徴地">
     <span class="fc-ico">🔶</span><span>鉱床</span>
   </button>
-  <button class="fc-btn" id="btn-wiki" onclick="toggleWikiLayer()" title="Wikidata鉱山">
+  <button class="fc-btn fc-grp-db" id="btn-wiki" onclick="toggleWikiLayer()" title="Wikidata鉱山">
     <span class="fc-ico">🌐</span><span>Wiki鉱山</span>
   </button>
-  <button class="fc-btn" id="btn-gps"   onclick="toggleGps()"      title="現在地">
+  <button class="fc-btn fc-grp-db" id="btn-kinno" onclick="toggleKinnoLayer()" title="kinno調査記（鉱山調査地）">
+    <span class="fc-ico">📌</span><span>調査記</span>
+  </button>
+  <button class="fc-btn fc-grp-gps" id="btn-gps"   onclick="toggleGps()"      title="現在地">
     <span class="fc-ico">📍</span><span>GPS</span>
   </button>
-  <button class="fc-btn" id="btn-flw"   onclick="toggleFollow()"   title="追従">
+  <button class="fc-btn fc-grp-gps" id="btn-flw"   onclick="toggleFollow()"   title="追従">
     <span class="fc-ico">🎯</span><span>追従</span>
-  </button>
-  <button class="fc-btn" id="btn-bear" onclick="toggleBearLayer()" title="熊出没情報（KMLデータ）">
-    <span class="fc-ico">🐻</span><span>熊情報</span>
   </button>
 </div>
 
