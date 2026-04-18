@@ -870,10 +870,12 @@ function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;d
 let _suppressPush = false;
 let _exitDlgOpen = false;
 
-// 常に1エントリをキープする方式
-// popstate発生 → 処理 → 必要ならpushして1エントリ維持
 (function initHistory(){
+  // エントリを2つ積む
+  // [0] ベース: ここまで戻ったらOS/ブラウザに委ねる
+  // [1] アプリ状態: popstateをここで受け取る
   history.replaceState({appBack:true}, '');
+  history.pushState({appBack:true}, '');
 })();
 
 function _pushHistory(){
@@ -889,27 +891,16 @@ window.addEventListener('popstate', function(e){
     return;
   }
 
-  // ② 終了確認ダイアログが開いているなら閉じるだけ
+  // ② 終了確認ダイアログが開いているなら閉じる
   if(_exitDlgOpen){
     _closeExitDlgOnly();
-    _pushHistory(); // 地図状態に戻すためpush
+    _pushHistory();
     return;
   }
 
   // ③ シートが開いているなら地図に戻す
   if(curTab !== 'map'){
-    _suppressPush = true;
     _openTab('map');
-    // offlineタブは課金チェックがあるので直接閉じる
-    if(SHEETS[curTab]){
-      document.getElementById(SHEETS[curTab]).classList.remove('open');
-    }
-    curTab = 'map';
-    ['map','pts','offline','cfg','community'].forEach(t=>{
-      const el = document.getElementById('tab-'+t);
-      if(el) el.classList.toggle('active', t==='map');
-    });
-    _suppressPush = false;
     _pushHistory();
     return;
   }
