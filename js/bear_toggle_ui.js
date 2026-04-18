@@ -62,7 +62,7 @@ function initBearToggle() {
             熊出没情報
             <span class="bear-kml-chip">✅ KMLデータ</span>
           </div>
-          <div class="settings-row__sub">行政公開 KML から毎朝 06:00 更新</div>
+          <div class="settings-row__sub">生息域ヒートマップ＋直近90日ピン</div>
         </div>
       </div>
       <label class="toggle-switch" aria-label="熊出没情報の表示">
@@ -94,9 +94,9 @@ function initBearToggle() {
 
       <!-- 凡例 -->
       <div class="bear-toggle-legend">
-        <span class="bear-legend-dot bear-legend-dot--fresh"></span><span>30日以内</span>
-        <span class="bear-legend-dot bear-legend-dot--recent"></span><span>90日以内</span>
-        <span class="bear-legend-dot bear-legend-dot--old"></span><span>それ以前</span>
+        <span class="bear-legend-heat"></span><span>生息域ヒートマップ（全件）</span>
+        <span class="bear-legend-dot bear-legend-dot--fresh"></span><span>30日以内ピン</span>
+        <span class="bear-legend-dot bear-legend-dot--recent"></span><span>90日以内ピン</span>
       </div>
 
     </div>`;

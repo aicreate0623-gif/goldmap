@@ -27,7 +27,12 @@ import requests
 # 定数
 # ---------------------------------------------------------------------------
 
-OUTPUT_PATH = Path(__file__).parent.parent / "data" / "bears.json"
+OUTPUT_PATH      = Path(__file__).parent.parent / "data" / "bears.json"   # 後方互換で残す
+OUTPUT_HEAT_PATH = Path(__file__).parent.parent / "data" / "bears_heat.json"
+OUTPUT_PINS_PATH = Path(__file__).parent.parent / "data" / "bears_pins.json"
+
+# ピン表示に使う直近日数
+PINS_DAYS = 90
 
 USER_AGENT = (
     "Mozilla/5.0 (compatible; GoldMapBot/1.0; "
@@ -466,12 +471,28 @@ def main() -> int:
     # 日付降順ソート
     all_records.sort(key=lambda r: r["date"] or "0000-00-00", reverse=True)
 
-    # 出力
+    # ── 出力 ──────────────────────────────────────────────────────
+    from datetime import timedelta
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with OUTPUT_PATH.open("w", encoding="utf-8") as f:
-        json.dump(all_records, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✅ {OUTPUT_PATH} に {len(all_records)} 件を書き出しました")
+    # 1) bears_heat.json: 全件・座標のみ [[lat, lng], ...]
+    heat_data = [[r["lat"], r["lng"]] for r in all_records]
+    with OUTPUT_HEAT_PATH.open("w", encoding="utf-8") as f:
+        json.dump(heat_data, f, separators=(",", ":"))
+    print(f"\n✅ {OUTPUT_HEAT_PATH} に {len(heat_data)} 件（座標のみ）")
+
+    # 2) bears_pins.json: 直近 PINS_DAYS 日以内・全フィールド
+    cutoff_str = (datetime.now(timezone.utc).date() - timedelta(days=PINS_DAYS)).strftime("%Y-%m-%d")
+    pins_data = [r for r in all_records if r["date"] and r["date"] >= cutoff_str]
+    with OUTPUT_PINS_PATH.open("w", encoding="utf-8") as f:
+        json.dump(pins_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ {OUTPUT_PINS_PATH} に {len(pins_data)} 件（直近{PINS_DAYS}日）")
+
+    # 3) bears.json: 後方互換（pins と同内容）
+    with OUTPUT_PATH.open("w", encoding="utf-8") as f:
+        json.dump(pins_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ {OUTPUT_PATH} に {len(pins_data)} 件（後方互換）")
+
     return 0
 
 

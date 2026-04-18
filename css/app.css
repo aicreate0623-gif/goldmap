@@ -1372,3 +1372,15 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .bear-legend-dot--recent { background: #fb8c00; margin-left: 8px; }
 .bear-legend-dot--old    { background: #757575; margin-left: 8px; }
 .bear-legend-dot--fresh:first-child { margin-left: 0; }
+
+/* 熊ヒートマップ凡例バー */
+.bear-legend-heat {
+  width: 36px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+  flex-shrink: 0;
+  background: linear-gradient(to right, #fffb00, #ff8800, #ff2200, #8b0000);
+  margin-left: 8px;
+}
+.bear-legend-heat:first-child { margin-left: 0; }

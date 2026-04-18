@@ -1,29 +1,29 @@
 // =============================================================================
-// 熊出没レイヤー (bears layer) v2 - 県フィルタ対応版
+// 熊出没レイヤー (bears layer) v3 - ヒートマップ + 直近ピン構成
 // map.js の末尾に追記する。
-// 依存: map (L.Map インスタンス) が既に存在すること。
+// 依存: map (L.Map インスタンス)、L.heatLayer (leaflet.heat) が存在すること。
 // =============================================================================
 
 // ---------------------------------------------------------------------------
 // 定数
 // ---------------------------------------------------------------------------
 
-const BEARS_JSON_URL = "data/bears.json";
+const BEARS_HEAT_URL = "data/bears_heat.json"; // 全件・座標のみ [[lat,lng],...]
+const BEARS_PINS_URL = "data/bears_pins.json";  // 直近90日・全フィールド
 
 const BEAR_COLOR_FRESH  = "#e53935"; // 30日以内  → 赤
 const BEAR_COLOR_RECENT = "#fb8c00"; // 90日以内  → オレンジ
-const BEAR_COLOR_OLD    = "#757575"; // それ以降  → グレー
 
-/**
- * KML 対応県マスタ。
- * kml: true  → データあり（選択可能）
- * kml: false → データなし（グレーアウト）
- *
- * 「島根県・鳥取県」は 1 KML ソースから生成されるため
- * bears.json の r.pref が "島根県・鳥取県" になる。
- * UI では「島根県」「鳥取県」をグレーアウトし
- * 「島根県・鳥取県（合算）」を KML 対応として表示する。
- */
+// ヒートマップ設定
+const BEAR_HEAT_OPTIONS = {
+  radius:    18,
+  blur:      22,
+  maxZoom:   13,
+  max:       1.0,
+  gradient:  { 0.2: "#fffb00", 0.5: "#ff8800", 0.8: "#ff2200", 1.0: "#8b0000" },
+};
+
+// KML 対応県マスタ（県セレクタ用）
 const BEAR_PREF_LIST = [
   { pref: "北海道",         kml: false },
   { pref: "青森県",         kml: true  },
@@ -55,7 +55,7 @@ const BEAR_PREF_LIST = [
   { pref: "兵庫県",         kml: false },
   { pref: "奈良県",         kml: true  },
   { pref: "和歌山県",       kml: false },
-  { pref: "島根県・鳥取県", kml: true  }, // bears.json の実際の pref 値
+  { pref: "島根県・鳥取県", kml: true  },
   { pref: "岡山県",         kml: false },
   { pref: "広島県",         kml: false },
   { pref: "山口県",         kml: false },
@@ -73,16 +73,18 @@ const BEAR_PREF_LIST = [
   { pref: "沖縄県",         kml: false },
 ];
 
-// 「全 KML 対応県を表示」を示す特殊値
 const BEAR_PREF_ALL_VALUE = "__all__";
 
 // ---------------------------------------------------------------------------
 // モジュールスコープ変数
 // ---------------------------------------------------------------------------
 
-let bearLayer        = L.layerGroup();       // デフォルト非表示
-let bearData         = [];                   // 全レコードキャッシュ
-let bearFilteredPref = BEAR_PREF_ALL_VALUE;  // 現在の県フィルタ
+let bearHeatLayer    = null;             // L.heatLayer インスタンス
+let bearPinLayer     = L.layerGroup();   // 直近ピンのレイヤーグループ
+let bearHeatData     = [];               // [[lat,lng], ...] 全件
+let bearPinsData     = [];               // 直近90日・全フィールド
+let bearFilteredPref = BEAR_PREF_ALL_VALUE;
+let bearVisible      = false;
 
 // ---------------------------------------------------------------------------
 // ユーティリティ（プライベート）
@@ -97,8 +99,7 @@ function _bearDaysAgo(dateStr) {
 
 function _bearColor(daysAgo) {
   if (daysAgo <= 30) return BEAR_COLOR_FRESH;
-  if (daysAgo <= 90) return BEAR_COLOR_RECENT;
-  return BEAR_COLOR_OLD;
+  return BEAR_COLOR_RECENT;
 }
 
 function _bearIcon(color) {
@@ -117,8 +118,7 @@ function _bearPopupHtml(r) {
   const detailHtml = r.detail
     ? `<p class="bear-popup__detail">${_escHtml(r.detail)}</p>` : "";
   const sourceHtml = r.source_url
-    ? `<a class="bear-popup__link" href="${_escHtml(r.source_url)}"
-         target="_blank" rel="noopener">出典</a>` : "";
+    ? `<a class="bear-popup__link" href="${_escHtml(r.source_url)}" target="_blank" rel="noopener">出典</a>` : "";
 
   return `
     <div class="bear-popup">
@@ -142,118 +142,120 @@ function _escHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-// ---------------------------------------------------------------------------
-// フィルタ処理
-// ---------------------------------------------------------------------------
-
-/** KML 対応県の pref 値セットを返す */
 function _kmlPrefSet() {
   return new Set(BEAR_PREF_LIST.filter(p => p.kml).map(p => p.pref));
-}
-
-/**
- * 現在のフィルタ値に応じて表示対象レコードを返す。
- * BEAR_PREF_ALL_VALUE → 全 KML 対応県
- * 県名               → その県のみ
- */
-function _filteredBearData(prefValue) {
-  if (prefValue === BEAR_PREF_ALL_VALUE) {
-    const kmlSet = _kmlPrefSet();
-    return bearData.filter(r => kmlSet.has(r.pref));
-  }
-  return bearData.filter(r => r.pref === prefValue);
 }
 
 // ---------------------------------------------------------------------------
 // レイヤー描画
 // ---------------------------------------------------------------------------
 
-function _renderBearMarkers() {
-  bearLayer.clearLayers();
+/** ヒートマップを再描画する */
+function _renderBearHeat() {
+  if (bearHeatLayer) {
+    map.removeLayer(bearHeatLayer);
+    bearHeatLayer = null;
+  }
+  if (!bearVisible) return;
 
-  const records = _filteredBearData(bearFilteredPref);
+  const kmlSet = _kmlPrefSet();
+
+  // 県フィルタ：heat は座標のみなのでフィルタなし（全件表示）
+  // ただし将来的に県フィルタに対応する場合は pins データと突合が必要
+  const points = bearHeatData.map(([lat, lng]) => [lat, lng, 1]);
+  if (points.length === 0) return;
+
+  bearHeatLayer = L.heatLayer(points, BEAR_HEAT_OPTIONS).addTo(map);
+}
+
+/** ピンレイヤーを再描画する */
+function _renderBearPins() {
+  bearPinLayer.clearLayers();
+  if (!bearVisible) return;
+
+  const kmlSet = _kmlPrefSet();
+  let records = bearPinsData;
+
+  // 県フィルタ適用
+  if (bearFilteredPref === BEAR_PREF_ALL_VALUE) {
+    records = records.filter(r => kmlSet.has(r.pref));
+  } else {
+    records = records.filter(r => r.pref === bearFilteredPref);
+  }
 
   records.forEach(r => {
     const daysAgo = _bearDaysAgo(r.date);
     const color   = _bearColor(daysAgo);
     const icon    = _bearIcon(color);
-
     L.marker([r.lat, r.lng], { icon })
-      .bindPopup(_bearPopupHtml(r), {
-        maxWidth:  280,
-        className: "bear-popup-wrapper",
-      })
-      .addTo(bearLayer);
+      .bindPopup(_bearPopupHtml(r), { maxWidth: 280, className: "bear-popup-wrapper" })
+      .addTo(bearPinLayer);
   });
 
-  // UI カウンターバッジを更新（存在する場合）
+  // カウンターバッジ更新
   const counter = document.getElementById("bear-count-badge");
-  if (counter) counter.textContent = `${records.length}件`;
+  if (counter) counter.textContent = `直近${records.length}件`;
 }
 
 // ---------------------------------------------------------------------------
 // 公開 API
 // ---------------------------------------------------------------------------
 
-/** bears.json を fetch してレイヤーを初期化する（ページロード時に 1 回だけ呼ぶ） */
+/** bears_heat.json と bears_pins.json を並行fetchして初期化する */
 async function initBearLayer() {
   try {
-    const resp = await fetch(BEARS_JSON_URL);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    bearData = await resp.json();
-    _renderBearMarkers();
-    console.log(`[bears] ${bearData.length} 件ロード完了`);
+    const [heatResp, pinsResp] = await Promise.all([
+      fetch(BEARS_HEAT_URL),
+      fetch(BEARS_PINS_URL),
+    ]);
+    if (heatResp.ok) bearHeatData = await heatResp.json();
+    if (pinsResp.ok) bearPinsData = await pinsResp.json();
+
+    // ピンレイヤーを map に追加（非表示状態で待機）
+    bearPinLayer.addTo(map);
+    map.removeLayer(bearPinLayer);
+
+    console.log(`[bears] heat:${bearHeatData.length}件 pins:${bearPinsData.length}件 ロード完了`);
   } catch (err) {
     console.warn("[bears] データ取得失敗:", err);
-    bearData = [];
   }
 }
 
-/**
- * 熊レイヤーの表示/非表示を切り替える。
- * フロートボタン #btn-bear の active 状態も同期する。
- */
+/** 熊レイヤー（ヒートマップ＋ピン）の表示/非表示を切り替える */
 function setBearLayerVisible(visible) {
+  bearVisible = visible;
+  _renderBearHeat();
+
   if (visible) {
-    if (!map.hasLayer(bearLayer)) bearLayer.addTo(map);
+    if (!map.hasLayer(bearPinLayer)) bearPinLayer.addTo(map);
   } else {
-    if (map.hasLayer(bearLayer)) map.removeLayer(bearLayer);
+    if (map.hasLayer(bearPinLayer)) map.removeLayer(bearPinLayer);
   }
+  _renderBearPins();
+
   // フロートボタンの active クラスを同期
-  const btn = document.getElementById('btn-bear');
-  if (btn) btn.classList.toggle('active', visible);
-  // 設定タブのトグルチェックボックスも同期（存在する場合）
-  const chk = document.getElementById('bear-layer-toggle');
+  const btn = document.getElementById("btn-bear");
+  if (btn) btn.classList.toggle("active", visible);
+  // 設定タブのチェックボックスも同期
+  const chk = document.getElementById("bear-layer-toggle");
   if (chk) chk.checked = visible;
 }
 
-/**
- * 熊レイヤーのON/OFFをトグルする（フロートボタン用）。
- */
+/** 熊レイヤーのON/OFFをトグルする（フロートボタン用） */
 function toggleBearLayer() {
-  setBearLayerVisible(!isBearLayerVisible());
+  setBearLayerVisible(!bearVisible);
 }
 
-/** 現在の熊レイヤーの表示状態を返す */
+/** 現在の表示状態を返す */
 function isBearLayerVisible() {
-  return map.hasLayer(bearLayer);
+  return bearVisible;
 }
 
-/**
- * 県フィルタを変更してレイヤーを再描画する
- * @param {string} prefValue - 県名 or BEAR_PREF_ALL_VALUE
- */
+/** 県フィルタを変更してピンを再描画する（ヒートマップは全県固定） */
 function setBearPrefFilter(prefValue) {
   bearFilteredPref = prefValue;
-  _renderBearMarkers();
+  _renderBearPins();
 }
 
-/** 現在の県フィルタ値を返す */
-function getBearPrefFilter() {
-  return bearFilteredPref;
-}
-
-/** KML 対応県リストを返す（UI 構築用） */
-function getBearPrefList() {
-  return BEAR_PREF_LIST;
-}
+function getBearPrefFilter()  { return bearFilteredPref; }
+function getBearPrefList()    { return BEAR_PREF_LIST; }
