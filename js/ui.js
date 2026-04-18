@@ -898,10 +898,10 @@ window.addEventListener('popstate', function(e){
     return;
   }
 
-  // ③ シートが開いていたら閉じてから終了ダイアログ
+  // ③ シートが開いていたら閉じる
   if(curTab !== 'map'){
     _openTab('map');
-    _pushHistory();
+    setTimeout(()=>{ _pushHistory(); }, 50);
     return;
   }
 
