@@ -47,5 +47,6 @@ jobs:
             echo "変更なし - コミットをスキップ"
           else
             git commit -m "chore: update bears.json [skip ci]"
+            git pull --rebase origin main
             git push
           fi
