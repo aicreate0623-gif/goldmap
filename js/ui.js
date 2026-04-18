@@ -867,28 +867,21 @@ function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;d
 //    「次のバックで何かアクションが必要な状態」の場合だけ push する。
 //    終了確認を閉じた後は次のバックでアプリ終了するため push しない。
 // ═══════════════════════════════════════════
-let _backDepth = 0;
 let _suppressPush = false;
 let _exitDlgOpen = false;
 
+// 常に1エントリをキープする方式
+// popstate発生 → 処理 → 必要ならpushして1エントリ維持
 (function initHistory(){
-  // アプリ用エントリを2つ積む
-  // depth:0 = ベース（終了確認後に戻る先）
-  // depth:1 = 地図表示中の通常状態
-  history.replaceState({appBack:true, depth:0}, '');
-  history.pushState({appBack:true, depth:1}, '');
-  _backDepth = 1;
+  history.replaceState({appBack:true}, '');
 })();
 
 function _pushHistory(){
-  _backDepth++;
-  history.pushState({appBack:true, depth:_backDepth}, '');
+  history.pushState({appBack:true}, '');
 }
 
 window.addEventListener('popstate', function(e){
-  const st = e.state;
-
-  // ① overlay(ダイアログ)が開いているなら閉じる
+  // ① overlayダイアログが開いているなら閉じる
   const ov = document.getElementById('overlay');
   if(ov && ov.classList.contains('open')){
     closeOv();
@@ -896,25 +889,32 @@ window.addEventListener('popstate', function(e){
     return;
   }
 
-  // ② 終了確認ダイアログが開いているなら閉じる
+  // ② 終了確認ダイアログが開いているなら閉じるだけ
   if(_exitDlgOpen){
     _closeExitDlgOnly();
-    // pushしない → 次のバックはdepth:0に戻り④で再表示 or OS終了
-    _pushHistory(); // depth:1相当を再度積んで地図状態に
+    _pushHistory(); // 地図状態に戻すためpush
     return;
   }
 
   // ③ シートが開いているなら地図に戻す
   if(curTab !== 'map'){
     _suppressPush = true;
-    switchTab('map');
+    _openTab('map');
+    // offlineタブは課金チェックがあるので直接閉じる
+    if(SHEETS[curTab]){
+      document.getElementById(SHEETS[curTab]).classList.remove('open');
+    }
+    curTab = 'map';
+    ['map','pts','offline','cfg','community'].forEach(t=>{
+      const el = document.getElementById('tab-'+t);
+      if(el) el.classList.toggle('active', t==='map');
+    });
     _suppressPush = false;
     _pushHistory();
     return;
   }
 
-  // ④ 地図表示中 → 終了確認ダイアログ表示
-  // appBackでないstateの場合も地図表示中なら終了ダイアログを出す
+  // ④ 地図表示中 → 終了確認ダイアログ
   _showExitDlg();
   _pushHistory();
 });
@@ -932,13 +932,10 @@ function closeExitDlg(){
 }
 function doExitApp(){
   _closeExitDlgOnly();
-  // PWA/ブラウザどちらでも動く終了処理
-  try { history.go(-(_backDepth + 2)); } catch(e){}
   setTimeout(()=>{
     try { window.close(); } catch(e){}
-    // window.closeが効かない場合はabout:blankへ
     try { location.replace('about:blank'); } catch(e){}
-  }, 150);
+  }, 100);
 }
 
 document.addEventListener('keydown',e=>{
