@@ -857,25 +857,17 @@ function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;d
 
 // ═══════════════════════════════════════════
 //  バックボタン制御
-//  優先順位:
-//    ① overlay(ダイアログ)open → 閉じる → push（次のバックに備える）
-//    ② 終了確認ダイアログopen  → 閉じる（pushしない: 次バックで自然終了）
-//    ③ シートopen              → 地図に戻す → push（④に備える）
-//    ④ 地図表示中              → 終了確認ダイアログ → push（②に備える）
-//
-//  設計原則:
-//    「次のバックで何かアクションが必要な状態」の場合だけ push する。
-//    終了確認を閉じた後は次のバックでアプリ終了するため push しない。
+//  設計:
+//    タブを開く時にpushして「戻れる状態」を作る
+//    バック① ダイアログ閉じる
+//    バック② シート閉じる（タブを開いた時のpushに対応）
+//    バック③ 終了確認ダイアログ
 // ═══════════════════════════════════════════
-let _suppressPush = false;
 let _exitDlgOpen = false;
 
 (function initHistory(){
-  // エントリを2つ積む
-  // [0] ベース: ここまで戻ったらOS/ブラウザに委ねる
-  // [1] アプリ状態: popstateをここで受け取る
+  // ベースエントリのみ（タブを開く時にpushを積む）
   history.replaceState({appBack:true}, '');
-  history.pushState({appBack:true}, '');
 })();
 
 function _pushHistory(){
@@ -894,14 +886,16 @@ window.addEventListener('popstate', function(e){
   // ② 終了確認ダイアログが開いているなら閉じる
   if(_exitDlgOpen){
     _closeExitDlgOnly();
+    // pushしない→次のバックはベースに戻りブラウザ/OSに委ねる
+    // ただしもう一度アプリを使えるようにpushを戻す
     _pushHistory();
     return;
   }
 
-  // ③ シートが開いていたら閉じる
+  // ③ シートが開いているなら閉じる
   if(curTab !== 'map'){
     _openTab('map');
-    setTimeout(()=>{ _pushHistory(); }, 50);
+    // pushしない→次のバックは④終了ダイアログへ
     return;
   }
 
@@ -940,7 +934,7 @@ document.addEventListener('keydown',e=>{
 // switchTab ラッパー:
 //   ・offline → ゲートB（課金チェック）
 //   ・community → 初期化
-//   ※ historyのpushはバックボタン制御側に任せる
+//   ・map以外へ → _pushHistory()でバック用エントリを積む
 (function(){
   const _orig = switchTab;
   switchTab = function(tab){
@@ -949,16 +943,21 @@ document.addEventListener('keydown',e=>{
         if(!premium){
           showPremiumGate('offline');
         } else {
+          const wasMap = (curTab === 'map');
           _openTab(tab);
+          if(wasMap) _pushHistory();
         }
       });
       return;
     }
+    const wasMap = (curTab === 'map');
     _orig(tab);
     if(tab === 'community'){
       if(typeof initCommunity === 'function') initCommunity();
       if(typeof _buildTagSelector === 'function') _buildTagSelector();
     }
+    // 地図→シートへの切替時のみpush
+    if(wasMap && tab !== 'map') _pushHistory();
   };
 })();
 
