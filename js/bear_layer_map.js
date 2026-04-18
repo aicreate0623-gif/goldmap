@@ -209,13 +209,29 @@ async function initBearLayer() {
   }
 }
 
-/** 熊レイヤーの表示/非表示を切り替える */
+/**
+ * 熊レイヤーの表示/非表示を切り替える。
+ * フロートボタン #btn-bear の active 状態も同期する。
+ */
 function setBearLayerVisible(visible) {
   if (visible) {
     if (!map.hasLayer(bearLayer)) bearLayer.addTo(map);
   } else {
     if (map.hasLayer(bearLayer)) map.removeLayer(bearLayer);
   }
+  // フロートボタンの active クラスを同期
+  const btn = document.getElementById('btn-bear');
+  if (btn) btn.classList.toggle('active', visible);
+  // 設定タブのトグルチェックボックスも同期（存在する場合）
+  const chk = document.getElementById('bear-layer-toggle');
+  if (chk) chk.checked = visible;
+}
+
+/**
+ * 熊レイヤーのON/OFFをトグルする（フロートボタン用）。
+ */
+function toggleBearLayer() {
+  setBearLayerVisible(!isBearLayerVisible());
 }
 
 /** 現在の熊レイヤーの表示状態を返す */

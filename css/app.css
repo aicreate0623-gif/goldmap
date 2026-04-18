@@ -1211,3 +1211,164 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   font-size: 10px;
   color: var(--txt-dim);
 }
+
+
+/* =============================================================================
+   熊出没レイヤー
+   ============================================================================= */
+
+/* 熊ピン (DivIcon) */
+.bear-pin {
+  width: 32px;
+  height: 32px;
+  background: var(--bear-color, #e53935);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  border: 2px solid rgba(255,255,255,0.85);
+}
+.bear-pin__emoji {
+  transform: rotate(45deg);
+  font-size: 16px;
+  line-height: 1;
+  display: block;
+}
+
+/* 熊ポップアップ */
+.bear-popup-wrapper .leaflet-popup-content-wrapper {
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+}
+.bear-popup-wrapper .leaflet-popup-content {
+  margin: 0;
+  min-width: 200px;
+}
+.bear-popup {
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.bear-popup__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.bear-popup__emoji { font-size: 18px; }
+.bear-popup__pref  { font-weight: 700; font-size: 14px; }
+.bear-popup__kml-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.bear-popup__date   { font-size: 12px; color: #888; margin-bottom: 2px; }
+.bear-popup__place  { font-weight: 600; margin-bottom: 4px; }
+.bear-popup__detail { font-size: 12px; color: #555; margin: 4px 0; word-break: break-all; }
+.bear-popup__link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #1565c0;
+  text-decoration: none;
+}
+.bear-popup__link:hover { text-decoration: underline; }
+
+/* Settings タブ：熊トグル行 */
+.bear-toggle-row {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.bear-kml-chip {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-weight: 600;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* 展開パネル（県セレクタ + 凡例） */
+#bear-detail-panel { padding: 0 16px 12px; }
+.bear-pref-selector-wrap { margin-top: 10px; }
+.bear-pref-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 6px;
+}
+.bear-count-wrap { flex-shrink: 0; }
+.bear-count-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.9);
+  font-weight: 600;
+}
+.bear-pref-select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 13px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff99' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+.bear-pref-select:focus {
+  outline: none;
+  border-color: rgba(255,255,255,0.5);
+}
+.bear-pref-select option:disabled  { color: rgba(255,255,255,0.3); }
+.bear-pref-select option:not(:disabled) { color: #fff; background: #333; font-weight: 500; }
+.bear-pref-note {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  line-height: 1.5;
+}
+
+/* 凡例 */
+.bear-toggle-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  flex-wrap: wrap;
+}
+.bear-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.bear-legend-dot--fresh  { background: #e53935; margin-left: 8px; }
+.bear-legend-dot--recent { background: #fb8c00; margin-left: 8px; }
+.bear-legend-dot--old    { background: #757575; margin-left: 8px; }
+.bear-legend-dot--fresh:first-child { margin-left: 0; }

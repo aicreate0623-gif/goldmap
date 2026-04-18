@@ -12,7 +12,6 @@
 
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <link rel="stylesheet" href="css/app.css">
-  <link rel="stylesheet" href="css/bear_styles.css">
 </head>
 <body>
 
@@ -81,6 +80,9 @@
   </button>
   <button class="fc-btn" id="btn-flw"   onclick="toggleFollow()"   title="追従">
     <span class="fc-ico">🎯</span><span>追従</span>
+  </button>
+  <button class="fc-btn" id="btn-bear" onclick="toggleBearLayer()" title="熊出没情報（KMLデータ）">
+    <span class="fc-ico">🐻</span><span>熊情報</span>
   </button>
 </div>
 
