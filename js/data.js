@@ -112,7 +112,7 @@ function _minePopup(m,withWater){
     ?`<br><span style="color:#e08020;font-size:11px">⚠️ 周辺河川で洪水警戒情報あり</span><br><small style="color:#888;font-size:10px">※気象庁情報との自動照合のため実際の状況は川の防災情報でご確認ください</small>`
     :'';
   const link=withWater||alert
-    ?`<br><a href="https://k.river.go.jp/?lat=${m.lat}&lng=${m.lng}&zm=12" target="_blank" rel="noopener" style="font-size:11px;color:#4af">💧 現在の水位を確認</a>`
+    ?`<br><a href="https://www.river.go.jp" target="_blank" rel="noopener" style="font-size:11px;color:#4af">💧 現在の水位を確認</a>`
     :'';
   return `<b style="color:#c06030">${m.name}</b><br><small>${m.note}</small>${alertNote}${link}`;
 }
