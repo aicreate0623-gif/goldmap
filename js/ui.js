@@ -918,10 +918,7 @@ function closeExitDlg(){
 }
 function doExitApp(){
   _closeExitDlgOnly();
-  setTimeout(()=>{
-    try { window.close(); } catch(e){}
-    try { location.replace('about:blank'); } catch(e){}
-  }, 100);
+  try { window.close(); } catch(e){}
 }
 
 document.addEventListener('keydown',e=>{
