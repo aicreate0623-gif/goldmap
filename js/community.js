@@ -317,9 +317,9 @@ async function commShowGoldPrice(){
     const priceUsdOz = parseFloat(goldJson.price);
     if(!priceUsdOz || isNaN(priceUsdOz)) throw new Error('invalid price');
 
-    // 為替レート(USD→JPY) 取得 - frankfurter.app: 無料・CORS対応
-    const fxRes = await fetch('https://api.frankfurter.app/latest?from=USD&to=JPY');
-    if(!fxRes.ok) throw new Error('frankfurter ' + fxRes.status);
+    // 為替レート(USD→JPY) 取得 - open.er-api.com: 無料・CORS対応・APIキー不要
+    const fxRes = await fetch('https://open.er-api.com/v6/latest/USD');
+    if(!fxRes.ok) throw new Error('er-api ' + fxRes.status);
     const fxJson = await fxRes.json();
     const rateJpy = fxJson.rates.JPY;
 
