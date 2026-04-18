@@ -151,15 +151,15 @@ function toggleWaterLevel(){
   waterV=!waterV;
   document.getElementById('btn-water').classList.toggle('active',waterV);
   if(waterV){
-    // 水位ONで砂金DBも表示
-    if(!mineV){ mineV=true; mineLayer.addTo(map); document.getElementById('btn-mine').classList.add('active'); }
+    // 即時：全河川ピンを表示（警報なしでも109本表示）
+    if(typeof buildFloodHeatmap === 'function') buildFloodHeatmap();
+    // 非同期：警報情報を取得して警告色・ヒートマップを更新
     fetchFloodAlerts().then(()=>{
       if(typeof buildFloodHeatmap === 'function') buildFloodHeatmap();
     });
   } else {
     if(typeof clearFloodHeatmap === 'function') clearFloodHeatmap();
   }
-  refreshMineMarkers();
 }
 
 // ═══════════════════════════════════════════

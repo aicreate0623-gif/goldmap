@@ -216,40 +216,62 @@ function getRiverCoord(name){
   return MAJOR_RIVERS.find(r => name.includes(r.name) || r.name.includes(name)) || null;
 }
 
-// ━━━ 洪水警戒ヒートマップ（Phase①: デバッグ用ドットプロット） ━━━
-let floodHeatLayer = null;
+// ━━━ 一級河川ピン＋洪水警戒ヒートマップ ━━━
+let floodHeatLayer  = null; // ヒートマップレイヤー
+let floodPinLayer   = null; // 河川ピンレイヤー
 
+// 河川ピン＋警戒時ヒートマップを構築
 function buildFloodHeatmap(){
+  // 既存レイヤーを消去
+  if(floodPinLayer) { map.removeLayer(floodPinLayer);  floodPinLayer  = null; }
   if(floodHeatLayer){ map.removeLayer(floodHeatLayer); floodHeatLayer = null; }
-  const names = window.floodAlertNames;
-  if(!names || !names.size) return;
 
-  const matched = [];
-  names.forEach(name => {
-    const r = getRiverCoord(name);
-    if(r) matched.push({name: r.name, lat: r.lat, lng: r.lng});
+  const alertNames = window.floodAlertNames || new Set();
+
+  // ── ① 109本全河川にcircleMarkerピン ──
+  const pinLayer = L.layerGroup({pane:'paneKinno'});
+  const alertPoints = []; // ヒートマップ用座標
+
+  MAJOR_RIVERS.forEach(r => {
+    const isAlert = [...alertNames].some(n => n.includes(r.name) || r.name.includes(n));
+    const color = isAlert ? '#ff4400' : '#1a90ff';
+    const fill  = isAlert ? '#ff6600' : '#44b3ff';
+    const popup = isAlert
+      ? `<b style="color:#ff4400">🚨 洪水警戒中</b><br><b>${r.name}</b><br><small style="color:#aaa">一級河川</small>`
+      : `<b style="color:#1a90ff">💧 ${r.name}</b><br><small style="color:#aaa">一級河川</small>`;
+
+    L.circleMarker([r.lat, r.lng], {
+      radius: isAlert ? 9 : 6,
+      color, fillColor: fill,
+      fillOpacity: isAlert ? 0.9 : 0.7,
+      weight: isAlert ? 2 : 1,
+      pane: 'paneKinno'
+    }).bindPopup(popup).addTo(pinLayer);
+
+    if(isAlert) alertPoints.push([r.lat, r.lng, 1.0]);
   });
 
-  if(!matched.length){
-    console.warn('[floodHeat] 座標マッチなし:', [...names]);
-    return;
+  floodPinLayer = pinLayer;
+  floodPinLayer.addTo(map);
+
+  // ── ② 警戒河川がある場合のみヒートマップ表示 ──
+  if(alertPoints.length && typeof L.heatLayer !== 'undefined'){
+    floodHeatLayer = L.heatLayer(alertPoints, {
+      radius:   60,
+      blur:     50,
+      maxZoom:  10,
+      max:      1.0,
+      gradient: {0.0:'blue', 0.3:'cyan', 0.6:'yellow', 1.0:'red'},
+      pane:     'paneHeat'
+    });
+    floodHeatLayer.addTo(map);
   }
 
-  // フェーズ①: 赤ドットで散らばり確認
-  const debugLayer = L.layerGroup({pane:'paneHeat'});
-  matched.forEach(({name, lat, lng}) => {
-    L.circleMarker([lat, lng], {
-      radius: 8, color: '#ff4444', fillColor: '#ff0000',
-      fillOpacity: 0.8, weight: 2, pane: 'paneHeat'
-    }).bindPopup(`🚨 洪水警戒: ${name}`).addTo(debugLayer);
-  });
-
-  floodHeatLayer = debugLayer;
-  floodHeatLayer.addTo(map);
-  console.log(`[floodHeat] ${matched.length}件プロット:`, matched);
+  console.log(`[riverPins] ${MAJOR_RIVERS.length}本 / 警戒:${alertPoints.length}本`);
 }
 
 function clearFloodHeatmap(){
+  if(floodPinLayer) { map.removeLayer(floodPinLayer);  floodPinLayer  = null; }
   if(floodHeatLayer){ map.removeLayer(floodHeatLayer); floodHeatLayer = null; }
 }
 
