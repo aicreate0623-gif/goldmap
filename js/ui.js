@@ -903,7 +903,7 @@ window.addEventListener('popstate', function(e){
 
   // ④ 地図表示中 → 終了確認ダイアログ
   _showExitDlg();
-  _pushHistory();
+  // pushしない→キャンセル後のpopstate再発火を防ぐ
 });
 
 function _showExitDlg(){
@@ -916,6 +916,7 @@ function _closeExitDlgOnly(){
 }
 function closeExitDlg(){
   _closeExitDlgOnly();
+  _pushHistory(); // 次のバックに備えてエントリを再生成
 }
 function doExitApp(){
   _closeExitDlgOnly();
