@@ -898,7 +898,7 @@ window.addEventListener('popstate', function(e){
     return;
   }
 
-  // ③ シートが開いているなら地図に戻す
+  // ③ シートが開いていたら閉じてから終了ダイアログ
   if(curTab !== 'map'){
     _openTab('map');
     _pushHistory();
@@ -939,7 +939,8 @@ document.addEventListener('keydown',e=>{
 
 // switchTab ラッパー:
 //   ・offline → ゲートB（課金チェック）
-//   ・map以外へ切替時 → _pushHistory()で③用エントリを積む
+//   ・community → 初期化
+//   ※ historyのpushはバックボタン制御側に任せる
 (function(){
   const _orig = switchTab;
   switchTab = function(tab){
@@ -948,22 +949,16 @@ document.addEventListener('keydown',e=>{
         if(!premium){
           showPremiumGate('offline');
         } else {
-          const wasMap = (curTab === 'map');
           _openTab(tab);
-          if(!_suppressPush && wasMap) _pushHistory();
         }
       });
       return;
     }
-    const wasMap = (curTab === 'map');
     _orig(tab);
-    // コミュニティタブ初期化（初回のみ）
     if(tab === 'community'){
       if(typeof initCommunity === 'function') initCommunity();
       if(typeof _buildTagSelector === 'function') _buildTagSelector();
     }
-    // 地図→シートへの切替時のみpush（シート表示状態を③用に積む）
-    if(!_suppressPush && wasMap && tab !== 'map') _pushHistory();
   };
 })();
 
