@@ -405,6 +405,143 @@ def fetch_tvAsahi() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# 秋田県クマダス CSV（公式オープンデータ CC BY 4.0）
+# ---------------------------------------------------------------------------
+
+def fetch_akita_csv() -> list[dict]:
+    """秋田県オープンデータカタログのクマダスCSVを取得する。"""
+    import io, csv as csv_mod
+    url = "https://ckan.pref.akita.lg.jp/dataset/f801a10f-f076-47e4-b5a6-0bb5569639e0/resource/0678f9b3-4bf7-4212-9c0e-c0cb9b09b3cf/download?user-download=true"
+    print(f"  [CSV] 秋田県 (クマダス) ...", end=" ", flush=True)
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        print(f"SKIP ({e})")
+        return []
+
+    records: list[dict] = []
+    fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    reader = csv_mod.DictReader(io.StringIO(resp.content.decode("utf-8-sig", errors="replace")))
+    for row in reader:
+        lat_val = next((row[k] for k in row if "緯度" in k or k.lower() in ("lat","latitude")), "")
+        lng_val = next((row[k] for k in row if "経度" in k or k.lower() in ("lng","lon","longitude")), "")
+        if not lat_val or not lng_val:
+            continue
+        try:
+            lat, lng = float(lat_val), float(lng_val)
+        except ValueError:
+            continue
+        if not (20.0 <= lat <= 46.0 and 122.0 <= lng <= 154.0):
+            continue
+        date_str = _parse_date(str(next((row[k] for k in row if "日" in k), "")))
+        place    = str(next((row[k] for k in row if "市町村" in k or "場所" in k or "住所" in k), ""))
+        detail   = str(next((row[k] for k in row if "状況" in k or "コメント" in k or "種別" in k), ""))
+        record_id = f"akita_{abs(hash(f'{lat:.5f}{lng:.5f}{date_str}')) % 10**8:08d}"
+        records.append({"id": record_id, "lat": round(lat,6), "lng": round(lng,6),
+            "date": date_str, "pref": "秋田県", "place": place[:100],
+            "species": "ツキノワグマ", "detail": detail[:200],
+            "source_url": "https://kumadas.net/", "fetched_at": fetched_at})
+    print(f"OK ({len(records)} records)")
+    return records
+
+
+# ---------------------------------------------------------------------------
+# 埼玉県 CSV（公式オープンデータ PDL1.0）
+# ---------------------------------------------------------------------------
+
+def fetch_saitama_csv() -> list[dict]:
+    """埼玉県オープンデータポータルのツキノワグマ出没CSVを取得する。"""
+    import io, csv as csv_mod
+    url = "https://opendata.pref.saitama.lg.jp/resource_download/6789"
+    print(f"  [CSV] 埼玉県 ...", end=" ", flush=True)
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        print(f"SKIP ({e})")
+        return []
+
+    records: list[dict] = []
+    fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    reader = csv_mod.DictReader(io.StringIO(resp.content.decode("utf-8-sig", errors="replace")))
+    for row in reader:
+        lat_val = next((row[k] for k in row if "緯度" in k or k.lower() in ("lat","latitude","y座標","y")), "")
+        lng_val = next((row[k] for k in row if "経度" in k or k.lower() in ("lng","lon","longitude","x座標","x")), "")
+        if not lat_val or not lng_val:
+            continue
+        try:
+            lat, lng = float(lat_val), float(lng_val)
+        except ValueError:
+            continue
+        if not (20.0 <= lat <= 46.0 and 122.0 <= lng <= 154.0):
+            continue
+        date_str = _parse_date(str(next((row[k] for k in row if "日" in k), "")))
+        place    = str(next((row[k] for k in row if "市町村" in k or "場所" in k or "住所" in k), ""))
+        detail   = str(next((row[k] for k in row if "状況" in k or "コメント" in k), ""))
+        record_id = f"saitama_{abs(hash(f'{lat:.5f}{lng:.5f}{date_str}')) % 10**8:08d}"
+        records.append({"id": record_id, "lat": round(lat,6), "lng": round(lng,6),
+            "date": date_str, "pref": "埼玉県", "place": place[:100],
+            "species": "ツキノワグマ", "detail": detail[:200],
+            "source_url": url, "fetched_at": fetched_at})
+    print(f"OK ({len(records)} records)")
+    return records
+
+
+# ---------------------------------------------------------------------------
+# 札幌市 ヒグマ出没情報 CSV（CC BY 4.0）
+# ---------------------------------------------------------------------------
+
+def fetch_sapporo_csv() -> list[dict]:
+    """札幌市 CKAN の最新年ヒグマ出没CSVを取得する。"""
+    import io, csv as csv_mod
+    urls = [
+        "https://ckan.pf-sapporo.jp/dataset/0d3197ef-c473-48ac-86bd-0fc34084b0ee/resource/76c539c8-cd17-4449-a972-6ddc8c3d5306/download/2025sapporobearappearance.csv",
+        "https://ckan.pf-sapporo.jp/dataset/0d3197ef-c473-48ac-86bd-0fc34084b0ee/resource/0fba45c6-b2e5-4038-b9ad-8c91da0af9a2/download/2024sapporobearappearance.csv",
+    ]
+    print(f"  [CSV] 札幌市 (ヒグマ) ...", end=" ", flush=True)
+    resp, used_url = None, ""
+    for url in urls:
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200:
+                resp, used_url = r, url
+                break
+        except requests.RequestException:
+            continue
+    if resp is None:
+        print("SKIP (全URLが取得不可)")
+        return []
+
+    records: list[dict] = []
+    fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    reader = csv_mod.DictReader(io.StringIO(resp.content.decode("utf-8-sig", errors="replace")))
+    for row in reader:
+        lat_val = next((row[k] for k in row if "緯度" in k or k.lower() in ("lat","latitude","y")), "")
+        lng_val = next((row[k] for k in row if "経度" in k or k.lower() in ("lng","lon","longitude","x")), "")
+        if not lat_val or not lng_val:
+            continue
+        try:
+            lat, lng = float(lat_val), float(lng_val)
+        except ValueError:
+            continue
+        if not (20.0 <= lat <= 46.0 and 122.0 <= lng <= 154.0):
+            continue
+        date_str = _parse_date(str(next((row[k] for k in row if "日" in k), "")))
+        place    = str(next((row[k] for k in row if "区" in k or "場所" in k or "住所" in k), ""))
+        detail   = str(next((row[k] for k in row if "状況" in k or "種別" in k or "コメント" in k), ""))
+        record_id = f"sapporo_{abs(hash(f'{lat:.5f}{lng:.5f}{date_str}')) % 10**8:08d}"
+        records.append({"id": record_id, "lat": round(lat,6), "lng": round(lng,6),
+            "date": date_str, "pref": "北海道", "place": f"札幌市 {place}"[:100],
+            "species": "ヒグマ", "detail": detail[:200],
+            "source_url": used_url, "fetched_at": fetched_at})
+    print(f"OK ({len(records)} records)")
+    return records
+
+
 # 重複除去
 # ---------------------------------------------------------------------------
 
@@ -462,6 +599,16 @@ def main() -> int:
         all_records.extend(fetch_tvAsahi())
     except Exception:
         traceback.print_exc()
+
+    # CSV ソース（公式オープンデータ）
+    print("\n[CSV ソース処理]")
+    for fn, name in [(fetch_akita_csv, "秋田"), (fetch_saitama_csv, "埼玉"), (fetch_sapporo_csv, "札幌")]:
+        try:
+            all_records.extend(fn())
+        except Exception:
+            print(f"  ERROR: {name}")
+            traceback.print_exc()
+        time.sleep(1)
 
     # 重複除去
     before = len(all_records)
