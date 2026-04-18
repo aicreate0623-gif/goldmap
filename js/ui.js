@@ -942,6 +942,7 @@ document.addEventListener('keydown',e=>{
       isPremiumUser().then(premium => {
         if(!premium){
           showPremiumGate('offline');
+          _pushHistory(); // ダイアログ表示時もpushしてバックで閉じられるようにする
         } else {
           const wasMap = (curTab === 'map');
           _openTab(tab);
