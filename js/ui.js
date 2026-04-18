@@ -888,8 +888,6 @@ window.addEventListener('popstate', function(e){
   // ② 終了確認ダイアログが開いているなら閉じる
   if(_exitDlgOpen){
     _closeExitDlgOnly();
-    // pushしない→次のバックはベースに戻りブラウザ/OSに委ねる
-    // ただしもう一度アプリを使えるようにpushを戻す
     _pushHistory();
     return;
   }
@@ -903,12 +901,12 @@ window.addEventListener('popstate', function(e){
 
   // ④ 地図表示中 → 終了確認ダイアログ
   _showExitDlg();
-  // pushしない→キャンセル後のpopstate再発火を防ぐ
 });
 
 function _showExitDlg(){
   _exitDlgOpen = true;
   document.getElementById('exit-overlay').style.display = 'flex';
+  _pushHistory(); // バックで閉じられるようにpush
 }
 function _closeExitDlgOnly(){
   _exitDlgOpen = false;
@@ -916,7 +914,7 @@ function _closeExitDlgOnly(){
 }
 function closeExitDlg(){
   _closeExitDlgOnly();
-  _pushHistory(); // 次のバックに備えてエントリを再生成
+  _pushHistory(); // キャンセル後も次のバックに備えてpush
 }
 function doExitApp(){
   _closeExitDlgOnly();
