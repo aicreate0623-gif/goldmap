@@ -80,7 +80,7 @@ const BEAR_PREF_ALL_VALUE = "__all__";
 // ---------------------------------------------------------------------------
 
 let bearHeatLayer    = null;             // L.heatLayer インスタンス
-let bearPinLayer     = L.layerGroup();   // 直近ピンのレイヤーグループ
+let bearPinLayer     = null;              // L.markerClusterGroup（initBearLayer内で初期化）
 let bearHeatData     = [];               // [[lat,lng], ...] 全件
 let bearPinsData     = [];               // 直近90日・全フィールド
 let bearFilteredPref = BEAR_PREF_ALL_VALUE;
@@ -203,6 +203,23 @@ function _renderBearPins() {
 
 /** bears_heat.json と bears_pins.json を並行fetchして初期化する */
 async function initBearLayer() {
+  // markerClusterGroup を初期化（L.markercluster が読み込まれてから実行）
+  bearPinLayer = L.markerClusterGroup({
+    maxClusterRadius: 60,       // クラスター半径（px）
+    disableClusteringAtZoom: 14, // Z14以上で個別ピン表示
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    iconCreateFunction: (cluster) => {
+      const count = cluster.getChildCount();
+      const size  = count < 10 ? 32 : count < 50 ? 40 : 48;
+      return L.divIcon({
+        html: `<div class="bear-cluster"><span>🐻</span><b>${count}</b></div>`,
+        className: "",
+        iconSize: [size, size],
+      });
+    },
+  });
+
   try {
     const [heatResp, pinsResp] = await Promise.all([
       fetch(BEARS_HEAT_URL),
@@ -210,10 +227,6 @@ async function initBearLayer() {
     ]);
     if (heatResp.ok) bearHeatData = await heatResp.json();
     if (pinsResp.ok) bearPinsData = await pinsResp.json();
-
-    // ピンレイヤーを map に追加（非表示状態で待機）
-    bearPinLayer.addTo(map);
-    map.removeLayer(bearPinLayer);
 
     console.log(`[bears] heat:${bearHeatData.length}件 pins:${bearPinsData.length}件 ロード完了`);
   } catch (err) {
