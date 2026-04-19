@@ -313,8 +313,8 @@ function clearFloodHeatmap(){
 }
 
 // 水位ステータストースト表示
-// html=true でHTML挿入、autoClose=false で手動クローズのみ
-function _showWaterStatus(msg, {html=false, autoClose=true}={}){
+// html=true でHTML挿入、手動クローズのみ
+function _showWaterStatus(msg, {html=false}={}){
   let el = document.getElementById('water-status-toast');
   if(!el){
     el = document.createElement('div');
@@ -322,24 +322,23 @@ function _showWaterStatus(msg, {html=false, autoClose=true}={}){
     el.style.cssText = [
       'position:fixed','top:50%','left:50%','transform:translate(-50%,-50%)',
       'background:rgba(0,20,40,0.96)','color:#7df','border:2px solid rgba(100,200,255,0.45)',
-      'border-radius:18px','padding:28px 52px 28px 28px','font-size:16px','z-index:9999',
+      'border-radius:14px','padding:22px 44px 22px 22px','font-size:14px','z-index:9999',
       'pointer-events:auto','transition:opacity .4s','backdrop-filter:blur(12px)',
-      'max-width:500px','width:90vw','line-height:2.0','box-shadow:0 8px 40px rgba(0,0,0,0.7)'
+      'max-width:440px','width:88vw','line-height:1.9','box-shadow:0 8px 40px rgba(0,0,0,0.7)',
+      'display:none'
     ].join(';');
     document.body.appendChild(el);
   }
-  const closeBtn = `<span onclick="document.getElementById('water-status-toast').style.opacity='0'"
-    style="position:absolute;top:12px;right:16px;cursor:pointer;font-size:20px;color:#aaa;line-height:1;">✕</span>`;
+  const detailLink = `<a href="https://www.river.go.jp" target="_blank" rel="noopener" style="color:#ffcc44;text-decoration:underline;">💧 詳細を確認する</a>`;
+  const closeBtn = `<span onclick="(function(){var e=document.getElementById('water-status-toast');e.style.opacity='0';setTimeout(function(){e.style.display='none';},420);})()" style="position:absolute;top:10px;right:14px;cursor:pointer;font-size:18px;color:#aaa;line-height:1;">✕</span>`;
   if(html){
     el.innerHTML = closeBtn + msg;
   } else {
-    el.innerHTML = closeBtn + `<span>${msg}</span>`;
+    el.innerHTML = closeBtn + `<span>${msg}</span><br>` + detailLink;
   }
+  el.style.display = 'block';
   el.style.opacity = '1';
   clearTimeout(el._timer);
-  if(autoClose){
-    el._timer = setTimeout(()=>{ el.style.opacity='0'; }, 4000);
-  }
 }
 
 // 50km以内に警戒河川があるか判定してアラートトーストを表示
