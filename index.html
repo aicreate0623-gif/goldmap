@@ -101,7 +101,7 @@
   <div class="rect-banner-btns">
     <button class="btn sm accent" onclick="confirmRect()">範囲決定</button>
     <button class="btn sm red"   onclick="cancelRect()">範囲解除</button>
-    <button class="btn sm"       onclick="cancelRect()">キャンセル</button>
+    <button class="btn sm"       onclick="cancelRectAll()">キャンセル</button>
   </div>
 </div>
 
@@ -203,7 +203,7 @@
       <div class="sec-ttl">② 詳細タイル（指定範囲）</div>
       <div class="btn-row" style="margin-bottom:10px">
         <button class="btn sm" onclick="useView()">現在表示範囲</button>
-        <button class="btn sm" id="btn-drawrect" onclick="startRectDraw(); switchTab('map')">地図上でドラッグ選択</button>
+        <button class="btn sm" id="btn-drawrect" onclick="startRectDraw()">地図上でドラッグ選択</button>
         <button class="btn sm red" id="btn-clearrect" onclick="clearRect()" style="display:none">✕ 解除</button>
       </div>
       <div class="info-box" id="rect-info">範囲: 未選択</div>
