@@ -544,9 +544,9 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   position: fixed; top: 20%; left: 50%;
   transform: translateX(-50%); z-index: 1050;
   background: rgba(0,0,0,0.92); border: 1px solid #00ffff;
-  border-radius: 18px; padding: 16px 24px;
-  font-size: 18px; color: var(--txt); white-space: nowrap;
-  display: none; align-items: center; gap: 14px;
+  border-radius: 15px; padding: 14px 20px;
+  font-size: 15px; color: var(--txt); white-space: nowrap;
+  display: none; align-items: center; gap: 12px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.7);
   pointer-events: auto;
 }
