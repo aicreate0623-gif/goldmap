@@ -611,11 +611,18 @@ document.getElementById('det-zmax').onchange=updDetEst;
 // ═══════════════════════════════════════════
 let detRect=null,drawMode=false,rs=null,rPrev=null;
 
-function useView(){detRect=map.getBounds();showRect();updDetEst();}
+// 現在表示範囲をプレビュー表示してパネルを出す
+function useView(){
+  _rectPending = map.getBounds();
+  _showRectPreview(_rectPending);
+  document.getElementById('rect-banner-msg').textContent =
+    '現在表示されている範囲でよろしければ決定ボタンを押してタブ内からDLを開始して下さい';
+  document.getElementById('rect-banner').style.display = 'block';
+}
 
+// ドラッグ選択モード開始
 function startRectDraw(){
   if(drawMode)return; drawMode=true;
-  document.getElementById('rect-banner').style.display='block';
   map.dragging.disable(); map.scrollWheelZoom.disable();
   map.getContainer().style.cursor='crosshair';
 
@@ -623,17 +630,31 @@ function startRectDraw(){
   const down=e=>{rs=e.latlng;if(rPrev){map.removeLayer(rPrev);rPrev=null;}};
   const move=e=>{if(!rs)return;if(rPrev)map.removeLayer(rPrev);
     rPrev=L.rectangle(L.latLngBounds(rs,e.latlng),{color:'#00ffff',weight:2,dashArray:'6 3',fillColor:'#00ffff',fillOpacity:.08}).addTo(map);};
-  const up=e=>{if(!rs)return;detRect=L.latLngBounds(rs,e.latlng);finishDraw();showRect();updDetEst();
-    setTimeout(()=>switchTab('offline'),300);
+  const up=e=>{
+    if(!rs)return;
+    _rectPending=L.latLngBounds(rs,e.latlng);
+    finishDraw();
+    _showRectPreview(_rectPending);
+    document.getElementById('rect-banner-msg').textContent =
+      'ドラッグして範囲を指定して決定ボタンを押しタブ内からDLを開始して下さい';
+    document.getElementById('rect-banner').style.display='block';
   };
 
   // タッチイベント（スマホ対応）
-  const _ll=e=>{const t=e.touches[0];return map.containerPointToLatLng(L.point(t.clientX-map.getContainer().getBoundingClientRect().left, t.clientY-map.getContainer().getBoundingClientRect().top));};
+  const _ll=e=>{const t=e.touches[0];return map.containerPointToLatLng(L.point(
+    t.clientX-map.getContainer().getBoundingClientRect().left,
+    t.clientY-map.getContainer().getBoundingClientRect().top));};
   const tdown=e=>{e.preventDefault();rs=_ll(e);if(rPrev){map.removeLayer(rPrev);rPrev=null;}};
   const tmove=e=>{e.preventDefault();if(!rs)return;if(rPrev)map.removeLayer(rPrev);
     rPrev=L.rectangle(L.latLngBounds(rs,_ll(e)),{color:'#00ffff',weight:2,dashArray:'6 3',fillColor:'#00ffff',fillOpacity:.08}).addTo(map);};
-  const tup=e=>{e.preventDefault();if(!rs)return;detRect=L.latLngBounds(rs,_ll(e));finishDraw();showRect();updDetEst();
-    setTimeout(()=>switchTab('offline'),300);
+  const tup=e=>{
+    e.preventDefault();if(!rs)return;
+    _rectPending=L.latLngBounds(rs,_ll(e));
+    finishDraw();
+    _showRectPreview(_rectPending);
+    document.getElementById('rect-banner-msg').textContent =
+      'ドラッグして範囲を指定して決定ボタンを押しタブ内からDLを開始して下さい';
+    document.getElementById('rect-banner').style.display='block';
   };
 
   map._re={down,move,up,tdown,tmove,tup};
@@ -643,9 +664,9 @@ function startRectDraw(){
   mc.addEventListener('touchmove',tmove,{passive:false});
   mc.addEventListener('touchend',tup,{passive:false});
 }
+
 function finishDraw(){
   drawMode=false;rs=null;
-  document.getElementById('rect-banner').style.display='none';
   map.dragging.enable();map.scrollWheelZoom.enable();
   map.getContainer().style.cursor='';
   const e=map._re;
@@ -657,17 +678,48 @@ function finishDraw(){
     mc.removeEventListener('touchend',e.tup);
   }
 }
+
+// プレビュー（確定前の薄い矩形）
+let _rectPending = null;
+function _showRectPreview(bounds){
+  if(rPrev){map.removeLayer(rPrev);rPrev=null;}
+  if(bounds){
+    rPrev=L.rectangle(bounds,{color:'#00ffff',weight:2,dashArray:'4 3',fillColor:'#00ffff',fillOpacity:.06}).addTo(map);
+  }
+}
+
+// 範囲決定：pendingをdetRectに確定
+function confirmRect(){
+  if(!_rectPending) return;
+  detRect = _rectPending;
+  document.getElementById('rect-banner').style.display='none';
+  // rect-infoに座標表示・DLボタン有効化
+  document.getElementById('rect-info').innerHTML=
+    `北: <b>${detRect.getNorth().toFixed(3)}</b>　南: <b>${detRect.getSouth().toFixed(3)}</b><br>`+
+    `西: <b>${detRect.getWest().toFixed(3)}</b>　東: <b>${detRect.getEast().toFixed(3)}</b>`;
+  document.getElementById('btn-clearrect').style.display='inline-flex';
+  updDetEst();
+}
+
+// 範囲解除：pending・確定済みを両方クリア
+function cancelRect(){
+  _rectPending=null;
+  if(rPrev){map.removeLayer(rPrev);rPrev=null;}
+  document.getElementById('rect-banner').style.display='none';
+  clearRect();
+}
+
 function showRect(){
   if(rPrev){map.removeLayer(rPrev);rPrev=null;}
   if(detRect){
     rPrev=L.rectangle(detRect,{color:'#00ffff',weight:2,dashArray:'4 3',fillColor:'#00ffff',fillOpacity:.06}).addTo(map);
-    document.getElementById('rect-info').innerHTML=`北: <b>${detRect.getNorth().toFixed(3)}</b>　南: <b>${detRect.getSouth().toFixed(3)}</b><br>西: <b>${detRect.getWest().toFixed(3)}</b>　東: <b>${detRect.getEast().toFixed(3)}</b>`;
-    document.getElementById('btn-clearrect').style.display='inline-flex';
   }
 }
+
 function clearRect(){
-  detRect=null;
+  detRect=null; _rectPending=null;
   if(rPrev){map.removeLayer(rPrev);rPrev=null;}
+  document.getElementById('rect-banner').style.display='none';
   document.getElementById('rect-info').textContent='範囲: 未選択';
   document.getElementById('btn-clearrect').style.display='none';
   document.getElementById('btn-dldet').disabled=true;

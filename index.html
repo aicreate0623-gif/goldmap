@@ -96,7 +96,13 @@
   <button class="btn sm accent" onclick="openAddDlg()">入力へ</button>
   <button class="btn sm" onclick="cancelAdd()">✕</button>
 </div>
-<div id="rect-banner">ドラッグして範囲を選択　ESC でキャンセル</div>
+<div id="rect-banner">
+  <p id="rect-banner-msg"></p>
+  <div class="rect-banner-btns">
+    <button class="btn sm accent" onclick="confirmRect()">範囲決定</button>
+    <button class="btn sm red"   onclick="cancelRect()">範囲解除</button>
+  </div>
+</div>
 
 <div id="tabbar">
   <button class="tab-btn active" id="tab-map"     onclick="switchTab('map')">
@@ -189,12 +195,13 @@
         <button class="btn blue"  id="btn-dlbase"  onclick="startDl('base')">▶ DL 開始</button>
         <button class="btn red"   id="btn-stpbase" onclick="stopDl()" style="display:none">■ 停止</button>
       </div>
+      <div class="dl-warn">⚠️ DLする際は容量をよく確認しWIFI環境をお勧めします</div>
     </div>
 
     <div class="dl-section">
       <div class="sec-ttl">② 詳細タイル（指定範囲）</div>
       <div class="btn-row" style="margin-bottom:10px">
-        <button class="btn sm" onclick="useView(); switchTab('map'); setTimeout(()=>switchTab('offline'),300)">現在表示範囲</button>
+        <button class="btn sm" onclick="useView()">現在表示範囲</button>
         <button class="btn sm" id="btn-drawrect" onclick="startRectDraw(); switchTab('map')">地図上でドラッグ選択</button>
         <button class="btn sm red" id="btn-clearrect" onclick="clearRect()" style="display:none">✕ 解除</button>
       </div>
@@ -218,6 +225,7 @@
         <button class="btn blue" id="btn-dldet"  onclick="startDl('detail')" disabled>▶ DL 開始</button>
         <button class="btn red"  id="btn-stpdet" onclick="stopDl()" style="display:none">■ 停止</button>
       </div>
+      <div class="dl-warn">⚠️ DLする際は容量をよく確認しWIFI環境をお勧めします</div>
     </div>
 
     </div>
