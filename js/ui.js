@@ -613,16 +613,22 @@ let detRect=null,drawMode=false,rs=null,rPrev=null;
 
 // 現在表示範囲をプレビュー表示してパネルを出す
 function useView(){
+  // overlayが開いていれば先に閉じる
+  closeOv();
   _rectPending = map.getBounds();
   _showRectPreview(_rectPending);
   document.getElementById('rect-banner-msg').textContent =
     '現在表示されている範囲でよろしければ決定ボタンを押してタブ内からDLを開始して下さい';
   document.getElementById('rect-banner').style.display = 'block';
+  switchTab('map');
 }
 
 // ドラッグ選択モード開始
 function startRectDraw(){
-  if(drawMode)return; drawMode=true;
+  if(drawMode)return;
+  // overlayが開いていれば先に閉じる
+  closeOv();
+  drawMode=true;
   map.dragging.disable(); map.scrollWheelZoom.disable();
   map.getContainer().style.cursor='crosshair';
 
@@ -688,21 +694,22 @@ function _showRectPreview(bounds){
   }
 }
 
-// 範囲決定：pendingをdetRectに確定
+// 範囲決定：pendingをdetRectに確定してオフラインタブを開く
 function confirmRect(){
   if(!_rectPending) return;
   detRect = _rectPending;
   document.getElementById('rect-banner').style.display='none';
-  // rect-infoに座標表示・DLボタン有効化
   document.getElementById('rect-info').innerHTML=
     `北: <b>${detRect.getNorth().toFixed(3)}</b>　南: <b>${detRect.getSouth().toFixed(3)}</b><br>`+
     `西: <b>${detRect.getWest().toFixed(3)}</b>　東: <b>${detRect.getEast().toFixed(3)}</b>`;
   document.getElementById('btn-clearrect').style.display='inline-flex';
   updDetEst();
+  switchTab('offline');
 }
 
-// 範囲解除：pending・確定済みを両方クリア
+// 範囲解除：ドラッグ中なら停止・pending・確定済みを両方クリア
 function cancelRect(){
+  if(drawMode) finishDraw();
   _rectPending=null;
   if(rPrev){map.removeLayer(rPrev);rPrev=null;}
   document.getElementById('rect-banner').style.display='none';
@@ -716,7 +723,9 @@ function showRect(){
   }
 }
 
+// タブ内の解除ボタン：ドラッグ中でも確実に停止してクリア
 function clearRect(){
+  if(drawMode) finishDraw();
   detRect=null; _rectPending=null;
   if(rPrev){map.removeLayer(rPrev);rPrev=null;}
   document.getElementById('rect-banner').style.display='none';

@@ -324,7 +324,7 @@ function _showWaterStatus(msg, {html=false}={}){
       'background:rgba(0,20,40,0.96)','color:#7df','border:2px solid rgba(100,200,255,0.45)',
       'border-radius:14px','padding:22px 44px 22px 22px','font-size:14px','z-index:9999',
       'pointer-events:auto','transition:opacity .4s','backdrop-filter:blur(12px)',
-      'max-width:440px','width:88vw','line-height:1.9','box-shadow:0 8px 40px rgba(0,0,0,0.7)',
+      'max-width:320px','width:calc(100vw - 80px)','line-height:1.9','box-shadow:0 8px 40px rgba(0,0,0,0.7)',
       'display:none'
     ].join(';');
     document.body.appendChild(el);
