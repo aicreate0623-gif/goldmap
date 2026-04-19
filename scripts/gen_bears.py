@@ -35,8 +35,9 @@ OUTPUT_PINS_PATH = Path(__file__).parent.parent / "data" / "bears_pins.json"
 PINS_DAYS = 90
 
 USER_AGENT = (
-    "Mozilla/5.0 (compatible; GoldMapBot/1.0; "
-    "+https://github.com/your-org/goldmap)"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
 )
 
 HEADERS = {"User-Agent": USER_AGENT}
@@ -412,7 +413,6 @@ def fetch_tvAsahi() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def fetch_akita_csv() -> list[dict]:
-    """秋田県オープンデータカタログのクマダスCSVを取得する。"""
     import io, csv as csv_mod
     url = "https://ckan.pref.akita.lg.jp/dataset/f801a10f-f076-47e4-b5a6-0bb5569639e0/resource/0678f9b3-4bf7-4212-9c0e-c0cb9b09b3cf/download?user-download=true"
     print(f"  [CSV] 秋田県 (クマダス) ...", end=" ", flush=True)
@@ -422,7 +422,6 @@ def fetch_akita_csv() -> list[dict]:
     except requests.RequestException as e:
         print(f"SKIP ({e})")
         return []
-
     records: list[dict] = []
     fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     reader = csv_mod.DictReader(io.StringIO(resp.content.decode("utf-8-sig", errors="replace")))
@@ -451,40 +450,52 @@ def fetch_akita_csv() -> list[dict]:
 
 # ---------------------------------------------------------------------------
 # 埼玉県 CSV（公式オープンデータ PDL1.0）
+# フィールド: ObjectID, 出没年, 月, 日, 出没時間, 市町村名, 地名, 出没状況の概要, 出没頭数, x(経度), y(緯度)
 # ---------------------------------------------------------------------------
 
 def fetch_saitama_csv() -> list[dict]:
-    """埼玉県オープンデータポータルのツキノワグマ出没CSVを取得する。"""
     import io, csv as csv_mod
     url = "https://opendata.pref.saitama.lg.jp/resource_download/6789"
+    # ブラウザ風ヘッダーで403回避
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ja,en;q=0.5",
+        "Referer": "https://opendata.pref.saitama.lg.jp/datasets/2290",
+    }
     print(f"  [CSV] 埼玉県 ...", end=" ", flush=True)
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+        resp = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT, allow_redirects=True)
         resp.raise_for_status()
     except requests.RequestException as e:
         print(f"SKIP ({e})")
         return []
-
     records: list[dict] = []
     fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     reader = csv_mod.DictReader(io.StringIO(resp.content.decode("utf-8-sig", errors="replace")))
     for row in reader:
-        lat_val = next((row[k] for k in row if "緯度" in k or k.lower() in ("lat","latitude","y座標","y")), "")
-        lng_val = next((row[k] for k in row if "経度" in k or k.lower() in ("lng","lon","longitude","x座標","x")), "")
-        if not lat_val or not lng_val:
-            continue
+        # 座標: x=経度, y=緯度
         try:
-            lat, lng = float(lat_val), float(lng_val)
-        except ValueError:
+            lng = float(row.get("x") or row.get("X") or 0)
+            lat = float(row.get("y") or row.get("Y") or 0)
+        except (ValueError, TypeError):
             continue
         if not (20.0 <= lat <= 46.0 and 122.0 <= lng <= 154.0):
             continue
-        date_str = _parse_date(str(next((row[k] for k in row if "日" in k), "")))
-        place    = str(next((row[k] for k in row if "市町村" in k or "場所" in k or "住所" in k), ""))
-        detail   = str(next((row[k] for k in row if "状況" in k or "コメント" in k), ""))
+        # 日付: 出没年・月・日を結合
+        year  = str(row.get("出没年") or "").strip()
+        month = str(row.get("月") or "").strip().zfill(2)
+        day   = str(row.get("日") or "").strip().zfill(2)
+        date_str = f"{year}-{month}-{day}" if year and month and day else ""
+        place  = str(row.get("市町村名") or "") + " " + str(row.get("地名") or "")
+        detail = str(row.get("出没状況の概要") or "")
         record_id = f"saitama_{abs(hash(f'{lat:.5f}{lng:.5f}{date_str}')) % 10**8:08d}"
         records.append({"id": record_id, "lat": round(lat,6), "lng": round(lng,6),
-            "date": date_str, "pref": "埼玉県", "place": place[:100],
+            "date": date_str.strip(), "pref": "埼玉県", "place": place.strip()[:100],
             "species": "ツキノワグマ", "detail": detail[:200],
             "source_url": url, "fetched_at": fetched_at})
     print(f"OK ({len(records)} records)")
@@ -496,7 +507,6 @@ def fetch_saitama_csv() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def fetch_sapporo_csv() -> list[dict]:
-    """札幌市 CKAN の最新年ヒグマ出没CSVを取得する。"""
     import io, csv as csv_mod
     urls = [
         "https://ckan.pf-sapporo.jp/dataset/0d3197ef-c473-48ac-86bd-0fc34084b0ee/resource/76c539c8-cd17-4449-a972-6ddc8c3d5306/download/2025sapporobearappearance.csv",
@@ -515,7 +525,6 @@ def fetch_sapporo_csv() -> list[dict]:
     if resp is None:
         print("SKIP (全URLが取得不可)")
         return []
-
     records: list[dict] = []
     fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     reader = csv_mod.DictReader(io.StringIO(resp.content.decode("utf-8-sig", errors="replace")))
@@ -540,6 +549,7 @@ def fetch_sapporo_csv() -> list[dict]:
             "source_url": used_url, "fetched_at": fetched_at})
     print(f"OK ({len(records)} records)")
     return records
+
 
 
 # 重複除去
