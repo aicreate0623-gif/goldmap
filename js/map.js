@@ -169,10 +169,17 @@ async function fetchFloodAlerts(){
     window.floodAlertNames = names;
     if(typeof refreshMineMarkers === 'function') refreshMineMarkers();
 
-    const label = names.size
-      ? `🚨 洪水警戒中: ${[...names].slice(0,3).join('・')}${names.size>3?'…':''}`
-      : '⚠️ 洪水情報取得済み（河川名抽出なし）';
-    _showWaterStatus(label);
+    const link = `<a href="https://www.river.go.jp" target="_blank" rel="noopener"
+      style="color:#ffcc44;text-decoration:underline;">💧 詳細を確認する</a>`;
+    if(names.size){
+      const riverText = [...names].slice(0,3).join('・')+(names.size>3?'…':'');
+      _showWaterStatus(
+        `🚨 <b style="color:#ff6644">洪水警戒中</b>: ${riverText}<br>${link}`,
+        {html:true, autoClose:false}
+      );
+    } else {
+      _showWaterStatus('⚠️ 洪水情報取得済み（河川名抽出なし）');
+    }
     console.log('[floodAlerts] 取得河川名:', [...names]);
   } catch(err){
     console.warn('fetchFloodAlerts:', err);
@@ -264,9 +271,11 @@ function buildFloodHeatmap(){
     const isAlert = [...alertNames].some(n => n.includes(r.name) || r.name.includes(n));
     const color = isAlert ? '#ff4400' : '#1a90ff';
     const fill  = isAlert ? '#ff6600' : '#44b3ff';
+    const riverLink = `<a href="https://www.river.go.jp" target="_blank" rel="noopener"
+      style="color:#4af;font-size:11px;">💧 詳細を確認</a>`;
     const popup = isAlert
-      ? `<b style="color:#ff4400">🚨 洪水警戒中</b><br><b>${r.name}</b><br><small style="color:#aaa">一級河川</small>`
-      : `<b style="color:#1a90ff">💧 ${r.name}</b><br><small style="color:#aaa">一級河川</small>`;
+      ? `<b style="color:#ff4400">🚨 洪水警戒中</b><br><b>${r.name}</b><br>${riverLink}`
+      : `<b style="color:#1a90ff">💧 ${r.name}</b><br>${riverLink}`;
 
     L.circleMarker([r.lat, r.lng], {
       radius: isAlert ? 9 : 6,
@@ -303,22 +312,59 @@ function clearFloodHeatmap(){
   if(floodHeatLayer){ map.removeLayer(floodHeatLayer); floodHeatLayer = null; }
 }
 
-// 水位ステータストースト表示（3秒）
-function _showWaterStatus(msg){
+// 水位ステータストースト表示
+// html=true でHTML挿入、autoClose=false で手動クローズのみ
+function _showWaterStatus(msg, {html=false, autoClose=true}={}){
   let el = document.getElementById('water-status-toast');
   if(!el){
     el = document.createElement('div');
     el.id = 'water-status-toast';
     el.style.cssText = [
       'position:fixed','bottom:80px','left:50%','transform:translateX(-50%)',
-      'background:rgba(0,20,40,0.88)','color:#7df','border:1px solid rgba(100,200,255,0.3)',
-      'border-radius:8px','padding:8px 16px','font-size:12px','z-index:9999',
-      'pointer-events:none','transition:opacity .4s','backdrop-filter:blur(8px)'
+      'background:rgba(0,20,40,0.92)','color:#7df','border:1px solid rgba(100,200,255,0.3)',
+      'border-radius:10px','padding:10px 36px 10px 16px','font-size:12px','z-index:9999',
+      'pointer-events:auto','transition:opacity .4s','backdrop-filter:blur(8px)',
+      'max-width:320px','line-height:1.6'
     ].join(';');
     document.body.appendChild(el);
   }
-  el.textContent = msg;
+  const closeBtn = `<span onclick="document.getElementById('water-status-toast').style.opacity='0'"
+    style="position:absolute;top:6px;right:10px;cursor:pointer;font-size:14px;color:#aaa;line-height:1;">✕</span>`;
+  if(html){
+    el.innerHTML = closeBtn + msg;
+  } else {
+    el.innerHTML = closeBtn + `<span>${msg}</span>`;
+  }
   el.style.opacity = '1';
   clearTimeout(el._timer);
-  el._timer = setTimeout(()=>{ el.style.opacity='0'; }, 4000);
+  if(autoClose){
+    el._timer = setTimeout(()=>{ el.style.opacity='0'; }, 4000);
+  }
+}
+
+// 50km以内に警戒河川があるか判定してアラートトーストを表示
+function _checkNearbyFloodAlert(userLat, userLng){
+  const alertNames = window.floodAlertNames;
+  if(!alertNames || !alertNames.size) return;
+  function _dist(la1,lo1,la2,lo2){
+    const R=6371, dLa=(la2-la1)*Math.PI/180, dLo=(lo2-lo1)*Math.PI/180;
+    const a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+    return R*2*Math.asin(Math.sqrt(a));
+  }
+  const nearby = [];
+  MAJOR_RIVERS.forEach(r => {
+    const isAlert = [...alertNames].some(n => n.includes(r.name) || r.name.includes(n));
+    if(!isAlert) return;
+    const d = _dist(userLat, userLng, r.lat, r.lng);
+    if(d <= 50) nearby.push({name: r.name, dist: Math.round(d)});
+  });
+  if(!nearby.length) return;
+  nearby.sort((a,b) => a.dist - b.dist);
+  const riverList = nearby.map(r=>`${r.name}(約${r.dist}km)`).join('・');
+  const link = `<a href="https://www.river.go.jp" target="_blank" rel="noopener"
+    style="color:#ffcc44;text-decoration:underline;">💧 詳細を確認する</a>`;
+  _showWaterStatus(
+    `📍 <b style="color:#ff6644">50km以内に洪水警戒河川</b><br>${riverList}<br>${link}`,
+    {html:true, autoClose:false}
+  );
 }

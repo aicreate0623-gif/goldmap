@@ -139,6 +139,9 @@ function onGps(pos){
     _gpsLostDialogShown = false;
   }
   const{latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
+  // 50km洪水判定用にグローバル保存
+  window._userLat = lat;
+  window._userLng = lng;
   gpsLL=L.latLng(lat,lng);
   if(!gpsCI) gpsCI=L.circle([lat,lng],{radius:acc,color:'#3080e8',fillColor:'#3080e8',fillOpacity:.1,weight:1,pane:'paneUser'}).addTo(map);
   else{gpsCI.setLatLng([lat,lng]);gpsCI.setRadius(acc);}

@@ -153,9 +153,21 @@ function toggleWaterLevel(){
   if(waterV){
     // 即時：全河川ピンを表示（警報なしでも109本表示）
     if(typeof buildFloodHeatmap === 'function') buildFloodHeatmap();
-    // 非同期：警報情報を取得して警告色・ヒートマップを更新
+    // 非同期：警報情報を取得して警告色・ヒートマップ・50km判定を更新
     fetchFloodAlerts().then(()=>{
       if(typeof buildFloodHeatmap === 'function') buildFloodHeatmap();
+      // GPS取得済みなら50km以内の警戒河川をチェック
+      if(typeof _checkNearbyFloodAlert === 'function'){
+        if(window._userLat && window._userLng){
+          _checkNearbyFloodAlert(window._userLat, window._userLng);
+        } else {
+          navigator.geolocation?.getCurrentPosition(pos=>{
+            window._userLat = pos.coords.latitude;
+            window._userLng = pos.coords.longitude;
+            _checkNearbyFloodAlert(window._userLat, window._userLng);
+          }, ()=>{}, {timeout:5000});
+        }
+      }
     });
   } else {
     if(typeof clearFloodHeatmap === 'function') clearFloodHeatmap();
