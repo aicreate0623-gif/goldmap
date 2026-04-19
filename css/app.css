@@ -109,19 +109,80 @@ html, body {
 }
 .fc-btn .fc-ico { font-size: 15px; line-height: 1; }
 .fc-btn:active { transform: scale(0.93); }
-/* ON状態: 緑グロー */
-.fc-btn.active {
-  background: rgba(40,160,80,0.22);
-  border-color: rgba(64,220,120,0.6);
-  color: #60e890;
-  box-shadow: 0 0 12px rgba(64,220,120,0.2), 0 2px 12px rgba(0,0,0,0.4);
+
+/* ━━━ グループ別ボタンカラー ━━━ */
+
+/* ── 地図タイルグループ（地理院・航空・地形・地質）: ゴールド ── */
+.fc-grp-map {
+  background: rgba(18,15,8,0.92);
+  border-color: rgba(200,170,80,0.28);
+  color: rgba(200,170,80,0.65);
 }
-/* ベース地図選択中（切替ボタン）: ゴールド */
-.fc-btn.base-active {
-  background: rgba(200,170,80,0.18);
-  border-color: rgba(200,170,80,0.55);
+.fc-grp-map.base-active {
+  background: rgba(200,170,80,0.20);
+  border-color: rgba(200,170,80,0.6);
   color: var(--gold-lt);
-  box-shadow: 0 0 12px rgba(200,170,80,0.18), 0 2px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 0 14px rgba(200,170,80,0.22), 0 2px 12px rgba(0,0,0,0.4);
+}
+
+/* ── ヒートマップグループ（分布・分布Pro・調整）: オレンジ ── */
+.fc-grp-heat {
+  background: rgba(18,10,4,0.92);
+  border-color: rgba(230,120,30,0.28);
+  color: rgba(230,130,50,0.65);
+}
+.fc-grp-heat.active {
+  background: rgba(100,48,8,0.88);
+  border-color: rgba(255,150,60,0.65);
+  color: #ffaa55;
+  box-shadow: 0 0 14px rgba(230,120,30,0.28), 0 2px 12px rgba(0,0,0,0.4);
+}
+
+/* ── 安全情報グループ（熊情報・水位）: ティール ── */
+.fc-grp-safety {
+  background: rgba(4,18,16,0.92);
+  border-color: rgba(30,180,160,0.28);
+  color: rgba(40,190,170,0.65);
+}
+.fc-grp-safety.active {
+  background: rgba(8,80,72,0.88);
+  border-color: rgba(50,210,190,0.65);
+  color: #50e8d8;
+  box-shadow: 0 0 14px rgba(30,190,170,0.28), 0 2px 12px rgba(0,0,0,0.4);
+}
+
+/* ── 探索DBグループ（スポット・鉱床・Wiki・調査記）: アンバー ── */
+.fc-grp-db {
+  background: rgba(16,12,4,0.92);
+  border-color: rgba(180,120,20,0.30);
+  color: rgba(190,135,40,0.65);
+}
+.fc-grp-db.active {
+  background: rgba(80,52,8,0.88);
+  border-color: rgba(220,160,50,0.65);
+  color: #e8c060;
+  box-shadow: 0 0 14px rgba(190,140,30,0.28), 0 2px 12px rgba(0,0,0,0.4);
+}
+
+/* ── GPSグループ（GPS・追従）: ブルー ── */
+.fc-grp-gps {
+  background: rgba(4,10,20,0.92);
+  border-color: rgba(60,130,230,0.30);
+  color: rgba(80,150,240,0.65);
+}
+.fc-grp-gps.active {
+  background: rgba(16,52,110,0.88);
+  border-color: rgba(90,160,255,0.65);
+  color: #78b8ff;
+  box-shadow: 0 0 14px rgba(60,140,240,0.28), 0 2px 12px rgba(0,0,0,0.4);
+}
+
+/* 後方互換 */
+.fc-btn.base-active {
+  background: rgba(200,170,80,0.20);
+  border-color: rgba(200,170,80,0.6);
+  color: var(--gold-lt);
+  box-shadow: 0 0 14px rgba(200,170,80,0.22), 0 2px 12px rgba(0,0,0,0.4);
 }
 
 /* GPS追従ボタン（GPS ON時のみ表示）*/
@@ -679,13 +740,19 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .leaflet-control-zoom a {
   width: 42px !important; height: 42px !important;
   line-height: 42px !important; font-size: 18px !important;
-  background: rgba(13,12,8,0.92) !important;
-  color: var(--txt-sub) !important;
-  border-color: rgba(255,255,255,0.1) !important;
+  background: rgba(18,16,12,0.94) !important;
+  color: rgba(244,240,232,0.70) !important;
+  border-color: rgba(255,255,255,0.14) !important;
   border-radius: var(--radius-sm) !important;
   display: flex !important; align-items: center !important; justify-content: center !important;
 }
-.leaflet-control-zoom a:hover { background: rgba(255,255,255,0.12) !important; color: var(--txt) !important; }
+.leaflet-control-zoom a:hover,
+.leaflet-control-zoom a:focus,
+.leaflet-control-zoom a:active {
+  background: rgba(18,16,12,0.94) !important;
+  color: rgba(244,240,232,0.70) !important;
+  border-color: rgba(255,255,255,0.14) !important;
+}
 .leaflet-control-zoom {
   border: none !important;
   display: flex !important; flex-direction: column !important; gap: 5px !important;
@@ -746,13 +813,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   box-shadow: 0 0 6px rgba(255,40,40,0.8);
 }
 
-/* 水位ボタンON時: 青グロー */
-#btn-water.active {
-  background: rgba(30,120,200,0.22);
-  border-color: rgba(80,180,255,0.6);
-  color: #7df;
-  box-shadow: 0 0 12px rgba(80,180,255,0.3), 0 2px 12px rgba(0,0,0,0.4);
-}
 
 /* ━━━ ヒートマップ協力トグル ━━━ */
 .contrib-bar {
