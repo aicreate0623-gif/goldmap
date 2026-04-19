@@ -388,7 +388,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .pt-empty { text-align: center; padding: 60px 20px; color: var(--txt-dim); font-size: 13px; line-height: 2.2; }
 
 /* ━━━ OFFLINE SHEET ━━━ */
-#dl-sheet .sheet-body { padding: 0; }
+#dl-sheet .sheet-body { padding: 0; padding-bottom: calc(var(--tab-h) + 24px); }
 .dl-section {
   padding: 16px 18px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -427,6 +427,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .info-box {
   font-size: 11px; color: var(--txt-sub); background: rgba(255,255,255,0.05);
   border-radius: 6px; padding: 8px 11px; margin-bottom: 10px; line-height: 1.8;
+  word-break: break-all;
 }
 .info-box b { color: var(--txt); }
 

@@ -153,7 +153,7 @@
 
 <div class="sheet" id="dl-sheet">
   <div class="sheet-head">
-    <h2>⬇ オフライン管理</h2>
+    <h2>⬇ オフライン地図管理</h2>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
@@ -195,7 +195,8 @@
       <div class="sec-ttl">② 詳細タイル（指定範囲）</div>
       <div class="btn-row" style="margin-bottom:10px">
         <button class="btn sm" onclick="useView(); switchTab('map'); setTimeout(()=>switchTab('offline'),300)">現在表示範囲</button>
-        <button class="btn sm" id="btn-drawrect" onclick="startRectDraw(); switchTab('map')">地図上で矩形選択</button>
+        <button class="btn sm" id="btn-drawrect" onclick="startRectDraw(); switchTab('map')">地図上でドラッグ選択</button>
+        <button class="btn sm red" id="btn-clearrect" onclick="clearRect()" style="display:none">✕ 解除</button>
       </div>
       <div class="info-box" id="rect-info">範囲: 未選択</div>
       <div class="sl2-row">
