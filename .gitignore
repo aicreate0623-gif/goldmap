@@ -1,5 +1,4 @@
-"scripts/*.shp" 
-"scripts/*.dbf" 
-"scripts/*.shx" 
-"scripts/*.xml" 
-"scripts/*.js" 
+git checkout --theirs data/bears.json data/bears_heat.json data/bears_pins.json
+git add data/bears.json data/bears_heat.json data/bears_pins.json
+git commit -m "fix: resolve data conflicts"
+git push origin main
