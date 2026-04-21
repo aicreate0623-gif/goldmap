@@ -252,30 +252,78 @@ function getRiverCoord(name){
 }
 
 // ━━━ 一級河川ピン＋洪水警戒ヒートマップ ━━━
-let floodHeatLayer  = null; // ヒートマップレイヤー
-let floodPinLayer   = null; // 河川ピンレイヤー
+let floodHeatLayer  = null;
+let floodPinLayer   = null;
 
-// 河川ピン＋警戒時ヒートマップを構築
-function buildFloodHeatmap(){
-  // 既存レイヤーを消去
+// 標高キャッシュ（localStorage）
+const ELEV_CACHE_KEY = 'gm_river_elev_v1';
+const ELEV_THRESHOLD = 200; // 山岳河川とみなす標高(m)
+
+// 標高キャッシュを読み込む
+function _loadElevCache(){
+  try { return JSON.parse(localStorage.getItem(ELEV_CACHE_KEY)) || {}; }
+  catch(e){ return {}; }
+}
+// 標高キャッシュを保存
+function _saveElevCache(cache){
+  try { localStorage.setItem(ELEV_CACHE_KEY, JSON.stringify(cache)); }
+  catch(e){}
+}
+
+// 国土地理院標高API（1リクエスト1座標）
+async function _fetchElev(lat, lng){
+  const url = `https://cyberjapandata2.gsi.go.jp/general/dem/scripts/getelevation.php?lon=${lng}&lat=${lat}&outtype=JSON`;
+  try {
+    const res = await fetch(url, {signal: AbortSignal.timeout(5000)});
+    const j = await res.json();
+    return (j && j.elevation != null) ? j.elevation : -1;
+  } catch(e){ return -1; }
+}
+
+// 109本の標高を並列取得してキャッシュ保存
+// キャッシュ済みの河川はスキップ
+async function _ensureElevCache(){
+  const cache = _loadElevCache();
+  const missing = MAJOR_RIVERS.filter(r => cache[r.name] == null);
+  if(!missing.length) return cache;
+
+  console.log(`[elev] ${missing.length}本の標高を取得中...`);
+  const results = await Promise.all(
+    missing.map(r => _fetchElev(r.lat, r.lng).then(elev => ({name: r.name, elev})))
+  );
+  results.forEach(({name, elev}) => { cache[name] = elev; });
+  _saveElevCache(cache);
+  console.log(`[elev] キャッシュ保存完了 (${Object.keys(cache).length}本)`);
+  return cache;
+}
+
+// 河川ピン＋警戒時ヒートマップを構築（標高200m以上のみ表示）
+async function buildFloodHeatmap(){
   if(floodPinLayer) { map.removeLayer(floodPinLayer);  floodPinLayer  = null; }
   if(floodHeatLayer){ map.removeLayer(floodHeatLayer); floodHeatLayer = null; }
 
+  // 標高キャッシュ取得（初回のみAPI並列取得・以降はキャッシュ使用）
+  const elevCache = await _ensureElevCache();
   const alertNames = window.floodAlertNames || new Set();
 
-  // ── ① 109本全河川にcircleMarkerピン ──
   const pinLayer = L.layerGroup({pane:'paneKinno'});
-  const alertPoints = []; // ヒートマップ用座標
+  const alertPoints = [];
+  let shown = 0;
 
   MAJOR_RIVERS.forEach(r => {
+    // 標高200m未満は非表示
+    const elev = elevCache[r.name] ?? -1;
+    if(elev >= 0 && elev < ELEV_THRESHOLD) return;
+
     const isAlert = [...alertNames].some(n => n.includes(r.name) || r.name.includes(n));
     const color = isAlert ? '#ff4400' : '#1a90ff';
     const fill  = isAlert ? '#ff6600' : '#44b3ff';
+    const elevTxt = elev >= 0 ? `標高約${Math.round(elev)}m` : '標高取得中';
     const riverLink = `<a href="https://www.river.go.jp" target="_blank" rel="noopener"
       style="color:#4af;font-size:11px;">💧 詳細を確認</a>`;
     const popup = isAlert
-      ? `<b style="color:#ff4400">🚨 洪水警戒中</b><br><b>${r.name}</b><br>${riverLink}`
-      : `<b style="color:#1a90ff">💧 ${r.name}</b><br>${riverLink}`;
+      ? `<b style="color:#ff4400">🚨 洪水警戒中</b><br><b>${r.name}</b><br><small style="color:#aaa">${elevTxt}</small><br>${riverLink}`
+      : `<b style="color:#1a90ff">💧 ${r.name}</b><br><small style="color:#aaa">${elevTxt}</small><br>${riverLink}`;
 
     L.circleMarker([r.lat, r.lng], {
       radius: isAlert ? 9 : 6,
@@ -286,25 +334,23 @@ function buildFloodHeatmap(){
     }).bindPopup(popup).addTo(pinLayer);
 
     if(isAlert) alertPoints.push([r.lat, r.lng, 1.0]);
+    shown++;
   });
 
   floodPinLayer = pinLayer;
   floodPinLayer.addTo(map);
 
-  // ── ② 警戒河川がある場合のみヒートマップ表示 ──
+  // 警戒河川がある場合のみヒートマップ表示
   if(alertPoints.length && typeof L.heatLayer !== 'undefined'){
     floodHeatLayer = L.heatLayer(alertPoints, {
-      radius:   60,
-      blur:     50,
-      maxZoom:  10,
-      max:      1.0,
+      radius:   60, blur: 50, maxZoom: 10, max: 1.0,
       gradient: {0.0:'blue', 0.3:'cyan', 0.6:'yellow', 1.0:'red'},
-      pane:     'paneHeat'
+      pane: 'paneHeat'
     });
     floodHeatLayer.addTo(map);
   }
 
-  console.log(`[riverPins] ${MAJOR_RIVERS.length}本 / 警戒:${alertPoints.length}本`);
+  console.log(`[riverPins] 表示:${shown}本 / 警戒:${alertPoints.length}本 (標高${ELEV_THRESHOLD}m以上)`);
 }
 
 function clearFloodHeatmap(){
