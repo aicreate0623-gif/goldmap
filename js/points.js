@@ -69,7 +69,7 @@ function addMk(p){
   }
 
   function _startLp(x, y, latlng){
-    if(addMode) return;
+    if(addMode || (typeof drawMode !== 'undefined' && drawMode)) return;
     // マップのcanvas/tile領域内のみ発動（tabbar等は除外済み）
     _lpRipple = document.createElement('div');
     _lpRipple.style.cssText=`position:fixed;left:${x-20}px;top:${y-20}px;width:40px;height:40px;border-radius:50%;border:2px solid rgba(200,170,80,0.8);animation:lpRipple 1s ease-out forwards;pointer-events:none;z-index:1001;`;
@@ -142,7 +142,9 @@ function jumpPt(id){
 // ── 追加モード ───────────────────────────────
 let addMode=false,tPin=null;
 function startAddPt(){
-  if(addMode)return; addMode=true;
+  if(addMode)return;
+  if(typeof drawMode !== 'undefined' && drawMode) return;
+  addMode=true;
   const c=gpsLL||map.getCenter();
   tPin=L.marker([c.lat,c.lng],{icon:uIco(),draggable:true,pane:'paneUser'}).addTo(map);
   document.getElementById('add-banner').classList.add('show');

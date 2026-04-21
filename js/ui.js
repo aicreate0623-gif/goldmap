@@ -626,9 +626,17 @@ function useView(){
 // ドラッグ選択モード開始
 function startRectDraw(){
   if(drawMode)return;
-  // overlayが開いていれば先に閉じる
   closeOv();
+  if(typeof cancelAdd === 'function' && typeof addMode !== 'undefined' && addMode) cancelAdd();
+  // ボタン押した瞬間にパネル表示＋地図タブへ
+  document.getElementById('rect-banner-msg').textContent =
+    'ドラッグして範囲を指定して決定ボタンを押しタブ内からDLを開始して下さい';
+  document.getElementById('rect-banner').style.display='block';
+  switchTab('map');
   drawMode=true;
+  // drawMode中はフロートボタンを無効化
+  document.getElementById('float-ctrl').classList.add('draw-mode-active');
+  document.getElementById('float-ctrl-right').classList.add('draw-mode-active');
   map.dragging.disable(); map.scrollWheelZoom.disable();
   map.getContainer().style.cursor='crosshair';
 
@@ -675,6 +683,9 @@ function finishDraw(){
   drawMode=false;rs=null;
   map.dragging.enable();map.scrollWheelZoom.enable();
   map.getContainer().style.cursor='';
+  // フロートボタン再有効化
+  document.getElementById('float-ctrl').classList.remove('draw-mode-active');
+  document.getElementById('float-ctrl-right').classList.remove('draw-mode-active');
   const e=map._re;
   if(e){
     map.off('mousedown',e.down).off('mousemove',e.move).off('mouseup',e.up);
@@ -697,6 +708,7 @@ function _showRectPreview(bounds){
 // 範囲決定：pendingをdetRectに確定してオフラインタブを開く
 function confirmRect(){
   if(!_rectPending) return;
+  if(drawMode) finishDraw();
   detRect = _rectPending;
   document.getElementById('rect-banner').style.display='none';
   document.getElementById('rect-info').innerHTML=
@@ -707,13 +719,20 @@ function confirmRect(){
   switchTab('offline');
 }
 
-// 範囲解除：ドラッグ中なら停止・pending・確定済みを両方クリア
+// パネル内「範囲解除」：プレビューのみ消す・パネル継続・再ドラッグ可能
 function cancelRect(){
   if(drawMode) finishDraw();
   _rectPending=null;
   if(rPrev){map.removeLayer(rPrev);rPrev=null;}
+  // パネルは閉じない・継続
+}
+
+// パネル内「キャンセル」：完全中断・パネル閉じる・ブロック解除
+function cancelRectAll(){
+  if(drawMode) finishDraw();
+  _rectPending=null;
+  if(rPrev){map.removeLayer(rPrev);rPrev=null;}
   document.getElementById('rect-banner').style.display='none';
-  clearRect();
 }
 
 function showRect(){
