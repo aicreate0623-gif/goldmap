@@ -10,6 +10,7 @@ GitHub Actions から毎日 JST 06:00 (UTC 21:00) に実行される。
   - テレビ朝日 JSON (全国) ※シーズン外はスキップ
   - 東京都 CSV (CC BY / 東京都オープンデータ) ※accuracy High/Medium のみ
   - 福島県 Excel (CC BY 2.1 / 福島県) ※令和7年度
+  - 新潟県 ArcGIS FeatureServer (Survey123 / 新潟県鳥獣被害対策支援センター)
   # - higumap.info (北海道) ※ログイン必須のためスキップ中
 """
 
@@ -724,6 +725,106 @@ def fetch_fukushima_csv() -> list[dict]:
     return records
 
 
+# ---------------------------------------------------------------------------
+# 新潟県 ArcGIS FeatureServer (Survey123 / 新潟県鳥獣被害対策支援センター)
+# フィールド:
+#   geometry.x/y → 経度/緯度 (WGS84)
+#   field_7  → 出没市町村
+#   field_8  → 出没区分（目撃/痕跡/人身）
+#   field_9  → 出没時の状況
+#   field_17 → 出没地区
+#   field_20 → 出没日（Unixミリ秒）
+# ---------------------------------------------------------------------------
+
+def fetch_niigata_arcgis() -> list[dict]:
+    BASE_URL = (
+        "https://services6.arcgis.com/SKz58fvdFlaEB35q/arcgis/rest/services"
+        "/survey123_08d14b98657b47309b868f49602375c8_results/FeatureServer/0/query"
+    )
+    SOURCE_PAGE = "https://www.arcgis.com/apps/dashboards/20b4d06fb3b34776959a4e69c7a8511a"
+    print("  [ArcGIS] 新潟県 ...", end=" ", flush=True)
+
+    records: list[dict] = []
+    fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    offset = 0
+    page_size = 2000
+
+    while True:
+        params = {
+            "f":                 "json",
+            "where":             "1=1",
+            "outFields":         "field_7,field_8,field_9,field_17,field_20",
+            "returnGeometry":    "true",
+            "outSR":             "4326",
+            "resultOffset":      offset,
+            "resultRecordCount": page_size,
+            "orderByFields":     "objectid ASC",
+        }
+        try:
+            resp = requests.get(BASE_URL, params=params, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+            resp.raise_for_status()
+            data = resp.json()
+        except (requests.RequestException, ValueError) as e:
+            print(f"SKIP ({e})")
+            return []
+
+        features = data.get("features", [])
+        for feat in features:
+            geom = feat.get("geometry") or {}
+            attr = feat.get("attributes") or {}
+
+            x = geom.get("x")
+            y = geom.get("y")
+            if x is None or y is None:
+                continue
+            try:
+                lng, lat = float(x), float(y)
+            except (TypeError, ValueError):
+                continue
+            if not (20.0 <= lat <= 46.0 and 122.0 <= lng <= 154.0):
+                continue
+
+            # 出没日: Unixミリ秒 → YYYY-MM-DD
+            ts = attr.get("field_20")
+            if ts:
+                try:
+                    date_str = datetime.fromtimestamp(int(ts) / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+                except (TypeError, ValueError, OSError):
+                    date_str = ""
+            else:
+                date_str = ""
+
+            city   = str(attr.get("field_7")  or "").strip()
+            area   = str(attr.get("field_17") or "").strip()
+            kind   = str(attr.get("field_8")  or "").strip()
+            detail = str(attr.get("field_9")  or "").strip()[:200]
+            place  = f"{city} {area}".strip()[:100]
+
+            record_id = f"niigata_{abs(hash(f'{lat:.5f}{lng:.5f}{date_str}')) % 10**8:08d}"
+            records.append({
+                "id":         record_id,
+                "lat":        round(lat, 6),
+                "lng":        round(lng, 6),
+                "date":       date_str,
+                "pref":       "新潟県",
+                "place":      place,
+                "species":    "ツキノワグマ",
+                "detail":     f"{kind} {detail}".strip(),
+                "source_url": SOURCE_PAGE,
+                "fetched_at": fetched_at,
+            })
+
+        # 次ページ判定
+        if data.get("exceededTransferLimit"):
+            offset += page_size
+            time.sleep(0.5)
+        else:
+            break
+
+    print(f"OK ({len(records)} records)")
+    return records
+
+
 # 重複除去
 # ---------------------------------------------------------------------------
 
@@ -788,8 +889,9 @@ def main() -> int:
         (fetch_akita_csv,     "秋田"),
         (fetch_saitama_csv,   "埼玉"),
         (fetch_sapporo_csv,   "札幌"),
-        (fetch_tokyo_csv,     "東京都"),
-        (fetch_fukushima_csv, "福島県"),
+        (fetch_tokyo_csv,      "東京都"),
+        (fetch_fukushima_csv,  "福島県"),
+        (fetch_niigata_arcgis, "新潟県"),
     ]:
         try:
             all_records.extend(fn())
