@@ -5,9 +5,11 @@ gen_bears.py
 GitHub Actions から毎日 JST 06:00 (UTC 21:00) に実行される。
 
 対応ソース:
-  - Google My Maps KML (富山・栃木・静岡・石川・奈良・島根鳥取・滋賀・山形・青森)
+  - Google My Maps KML (富山・栃木・静岡・石川・奈良・島根鳥取・滋賀・山形・青森・宮城)
   - kumadas.net JSON API (秋田)
   - テレビ朝日 JSON (全国) ※シーズン外はスキップ
+  - 東京都 CSV (CC BY / 東京都オープンデータ) ※accuracy High/Medium のみ
+  - 福島県 Excel (CC BY 2.1 / 福島県) ※令和7年度
   # - higumap.info (北海道) ※ログイン必須のためスキップ中
 """
 
@@ -551,6 +553,176 @@ def fetch_sapporo_csv() -> list[dict]:
     return records
 
 
+# ---------------------------------------------------------------------------
+# 東京都 CSV（東京都オープンデータ CC BY）
+# 列: lat, lon, number, date, accuracy, "sightings, traces, etc."
+# accuracy: High/Medium のみ採用（Low 除外）
+# URL: /bear/data ページから動的取得（年次更新に自動追従）
+# ---------------------------------------------------------------------------
+
+def fetch_tokyo_csv() -> list[dict]:
+    import io, csv as csv_mod
+    SOURCE_PAGE = "https://www.kankyo.metro.tokyo.lg.jp/nature/animals_plants/bear/data"
+    BASE        = "https://www.kankyo.metro.tokyo.lg.jp"
+    FALLBACK    = "https://www.kankyo.metro.tokyo.lg.jp/documents/d/kankyo/tukinowaguma_source20260302"
+    print("  [CSV] 東京都 ...", end=" ", flush=True)
+
+    # CSV直リンクをページから動的取得
+    csv_url = None
+    try:
+        page = requests.get(SOURCE_PAGE, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        page.raise_for_status()
+        m = re.search(r'(/documents/d/kankyo/tukinowaguma_source\d+)', page.text)
+        if m:
+            csv_url = BASE + m.group(1)
+    except requests.RequestException:
+        pass
+
+    if not csv_url:
+        csv_url = FALLBACK
+        print("(fallback URL) ", end="", flush=True)
+
+    try:
+        resp = requests.get(csv_url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        print(f"SKIP ({e})")
+        return []
+
+    records: list[dict] = []
+    fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    reader = csv_mod.DictReader(
+        io.StringIO(resp.content.decode("utf-8-sig", errors="replace"))
+    )
+
+    kind_map = {
+        "Sightings": "目撃",
+        "Trace":     "痕跡",
+        "Filming":   "撮影",
+        "Capture":   "捕獲",
+    }
+
+    for row in reader:
+        # accuracy フィルタ: Low 除外
+        if (row.get("accuracy") or "").strip() == "Low":
+            continue
+        try:
+            lat = float(row.get("lat") or 0)
+            lng = float(row.get("lon") or 0)
+        except (ValueError, TypeError):
+            continue
+        if not (20.0 <= lat <= 46.0 and 122.0 <= lng <= 154.0):
+            continue
+
+        date_str = _parse_date(str(row.get("date") or ""))
+        kind_raw = str(row.get("sightings, traces, etc.") or "").strip()
+        detail   = kind_map.get(kind_raw, kind_raw)
+
+        record_id = f"tokyo_{abs(hash(f'{lat:.5f}{lng:.5f}{date_str}')) % 10**8:08d}"
+        records.append({
+            "id":         record_id,
+            "lat":        round(lat, 6),
+            "lng":        round(lng, 6),
+            "date":       date_str,
+            "pref":       "東京都",
+            "place":      "",
+            "species":    "ツキノワグマ",
+            "detail":     detail,
+            "source_url": SOURCE_PAGE,
+            "fetched_at": fetched_at,
+        })
+
+    print(f"OK ({len(records)} records)")
+    return records
+
+
+# ---------------------------------------------------------------------------
+# 福島県 Excel（福島県 CC BY 2.1）
+# 列: No., 緯度, 経度, 日付, 年, 月, 時間, 市町村, 場所, 被害, 頭数, 体長(m), 環境, 状況
+# 緯度・経度が直接含まれるため、ジオコーディング不要
+# ---------------------------------------------------------------------------
+
+def fetch_fukushima_csv() -> list[dict]:
+    import io
+    url         = "https://www.pref.fukushima.lg.jp/uploaded/life/878833_2585032_misc.xlsx"
+    SOURCE_PAGE = "https://www.pref.fukushima.lg.jp/sec/16035b/tukinowaguma-mokugeki.html"
+    print("  [XLSX] 福島県 ...", end=" ", flush=True)
+
+    try:
+        import pandas as pd
+    except ImportError:
+        print("SKIP (pandas 未インストール)")
+        return []
+
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        print(f"SKIP ({e})")
+        return []
+
+    try:
+        df = pd.read_excel(
+            io.BytesIO(resp.content),
+            engine="openpyxl",
+            header=0,
+            dtype=str,
+        )
+    except Exception as e:
+        print(f"SKIP (Excel読込失敗: {e})")
+        return []
+
+    # 列名正規化（Shift-JIS 由来の文字化け対策として位置インデックスも併用）
+    cols = list(df.columns)
+    def _col(name: str, idx: int) -> str:
+        """列名で取れれば使い、なければ位置インデックスで取る"""
+        for c in cols:
+            if name in str(c):
+                return c
+        return cols[idx] if idx < len(cols) else ""
+
+    col_lat    = _col("緯度", 1)
+    col_lng    = _col("経度", 2)
+    col_date   = _col("日付", 3)
+    col_city   = _col("市町村", 7)
+    col_place  = _col("場所",   8)
+    col_detail = _col("状況",  13)
+
+    records: list[dict] = []
+    fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    for _, row in df.iterrows():
+        try:
+            lat = float(str(row.get(col_lat) or "").strip())
+            lng = float(str(row.get(col_lng) or "").strip())
+        except (ValueError, TypeError):
+            continue
+        if not (20.0 <= lat <= 46.0 and 122.0 <= lng <= 154.0):
+            continue
+
+        date_str   = _parse_date(str(row.get(col_date) or "").strip())
+        city       = str(row.get(col_city)   or "").strip()
+        place      = str(row.get(col_place)  or "").strip()
+        detail     = str(row.get(col_detail) or "").strip()[:200]
+        place_full = f"{city} {place}".strip()[:100]
+
+        record_id = f"fukushima_{abs(hash(f'{lat:.5f}{lng:.5f}{date_str}')) % 10**8:08d}"
+        records.append({
+            "id":         record_id,
+            "lat":        round(lat, 6),
+            "lng":        round(lng, 6),
+            "date":       date_str,
+            "pref":       "福島県",
+            "place":      place_full,
+            "species":    "ツキノワグマ",
+            "detail":     detail,
+            "source_url": SOURCE_PAGE,
+            "fetched_at": fetched_at,
+        })
+
+    print(f"OK ({len(records)} records)")
+    return records
+
 
 # 重複除去
 # ---------------------------------------------------------------------------
@@ -612,7 +784,13 @@ def main() -> int:
 
     # CSV ソース（公式オープンデータ）
     print("\n[CSV ソース処理]")
-    for fn, name in [(fetch_akita_csv, "秋田"), (fetch_saitama_csv, "埼玉"), (fetch_sapporo_csv, "札幌")]:
+    for fn, name in [
+        (fetch_akita_csv,     "秋田"),
+        (fetch_saitama_csv,   "埼玉"),
+        (fetch_sapporo_csv,   "札幌"),
+        (fetch_tokyo_csv,     "東京都"),
+        (fetch_fukushima_csv, "福島県"),
+    ]:
         try:
             all_records.extend(fn())
         except Exception:
