@@ -181,11 +181,10 @@ function _renderPosts(){
 function commSubmit(){
   const nickEl = document.getElementById('comm-nick-input');
   const textEl = document.getElementById('comm-text-input');
-  const tagEl  = document.getElementById('comm-tag-sel');
 
   const nick = (nickEl.value.trim() || '匿名さん').slice(0,20);
   const text = textEl.value.trim();
-  const tag  = tagEl.value || '';
+  const tag  = '';
 
   // バリデーション
   if(!text){ _commToast('本文を入力してください'); return; }
@@ -285,22 +284,7 @@ function _updateCharCount(){
 }
 
 // ── スポットタグセレクタ生成 ─────────────────
-function _buildTagSelector(){
-  const sel = document.getElementById('comm-tag-sel');
-  if(!sel) return;
-  sel.innerHTML = '<option value="">📍 スポットタグなし</option>';
-  if(typeof MINES !== 'undefined'){
-    MINES.forEach(m=>{
-      const opt = document.createElement('option');
-      opt.value = m.name;
-      opt.textContent = m.name;
-      sel.appendChild(opt);
-    });
-  }
-  const other = document.createElement('option');
-  other.value = 'その他'; other.textContent = 'その他';
-  sel.appendChild(other);
-}
+function _buildTagSelector(){ /* タグ機能削除済み */ }
 
 // ── 金相場取得 ────────────────────────────────
 async function commShowGoldPrice(){

@@ -515,6 +515,27 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   margin-bottom: 4px;
 }
 
+/* ━━━ DL進捗バー（常時監視） ━━━ */
+.dl-progress-bar {
+  background: rgba(10,20,40,0.95);
+  border-bottom: 1px solid rgba(74,142,232,0.3);
+  padding: 6px 14px 8px;
+  flex-shrink: 0;
+}
+.dl-progress-bar--cfg {
+  border-radius: 8px;
+  border: 1px solid rgba(74,142,232,0.3);
+  margin: 8px 0;
+  padding: 8px 14px;
+}
+.dl-pb-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; margin-bottom: 5px;
+}
+.dl-pb-label { color: var(--blue); font-weight: 700; }
+.dl-pb-nums  { color: var(--txt); flex: 1; }
+.dl-pb-mb    { color: var(--txt-sub); font-size: 10px; }
+
 /* ━━━ 設定タブ アコーディオン ━━━ */
 .cfg-accordion {
   border-bottom: 1px solid rgba(255,255,255,0.07);
@@ -528,23 +549,12 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 .cfg-accordion-header:active { background: rgba(255,255,255,0.05); }
 .cfg-accordion-title {
-  flex: 1;
-  font-size: 13px; font-weight: 700; color: var(--txt);
+  flex: 1; font-size: 13px; font-weight: 700; color: var(--txt);
 }
-.cfg-accordion-sub {
-  font-size: 10px; color: var(--txt-dim);
-}
-.cfg-accordion-arrow {
-  font-size: 11px; color: var(--txt-dim);
-  flex-shrink: 0; transition: transform .2s;
-}
-.cfg-accordion-body {
-  display: none;
-  padding: 0 0 12px;
-}
-.cfg-accordion-body.open {
-  display: block;
-}
+.cfg-accordion-sub { font-size: 10px; color: var(--txt-dim); }
+.cfg-accordion-arrow { font-size: 11px; color: var(--txt-dim); flex-shrink: 0; }
+.cfg-accordion-body { display: none; padding: 0 0 12px; }
+.cfg-accordion-body.open { display: block; }
 
 /* ━━━ 熊アコーディオン ━━━ */
 .bear-accordion-header {
@@ -552,8 +562,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   padding: 8px 4px;
   cursor: pointer; user-select: none;
   border-bottom: 1px solid rgba(255,255,255,0.07);
-  transition: background .15s;
-  border-radius: 6px;
+  transition: background .15s; border-radius: 6px;
 }
 .bear-accordion-header:active { background: rgba(255,255,255,0.05); }
 .bear-accordion-left { display: flex; align-items: center; gap: 8px; }
@@ -564,6 +573,31 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .bear-accordion-arrow { font-size: 11px; color: var(--txt-dim); flex-shrink: 0; }
 .bear-detail-panel-open   { display: block; }
 .bear-detail-panel-closed { display: none; }
+
+/* ━━━ コミュニティ掲示板アコーディオン ━━━ */
+.comm-accordion {
+  margin-top: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.comm-accordion-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px;
+  cursor: pointer; user-select: none;
+  background: rgba(255,255,255,0.04);
+  transition: background .15s;
+}
+.comm-accordion-header:active { background: rgba(255,255,255,0.08); }
+.comm-accordion-title {
+  flex: 1; font-size: 13px; font-weight: 700; color: var(--txt);
+}
+.comm-accordion-arrow { font-size: 11px; color: var(--txt-dim); flex-shrink: 0; }
+.comm-accordion-body { display: none; }
+.comm-accordion-body.open { display: block; }
+
+/* バッドボタン非表示（機能は残す） */
+.comm-react-btn.bad { display: none !important; }
 .cfg-row {
   display: flex; align-items: center; gap: 10px;
   padding: 13px 0; border-bottom: 1px solid rgba(200,170,80,0.07);

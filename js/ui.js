@@ -814,6 +814,11 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
 
   dlRun=true; dlStop=false;
   document.getElementById('prog-section').classList.add('show');
+  // 進捗バー表示（オフラインタブ・設定タブ）
+  const _pbEl = document.getElementById('dl-progress-bar');
+  const _cfgEl = document.getElementById('cfg-dl-progress-bar');
+  if(_pbEl) _pbEl.style.display='block';
+  if(_cfgEl) _cfgEl.style.display='block';
 
   // ボタン切替
   const SB=mode==='base'?document.getElementById('btn-stpbase'):document.getElementById('btn-stpdet');
@@ -839,6 +844,11 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-done));
     document.getElementById('pg-mb').textContent=mbEst(done)+' MB';
     document.getElementById('pg-bar').style.width=pct+'%';
+    // ミラーバー同期
+    const _pbd=document.getElementById('dl-pb-done'); if(_pbd) _pbd.textContent=fmt(done);
+    const _pbt=document.getElementById('dl-pb-tot');  if(_pbt) _pbt.textContent=fmt(total);
+    const _pbm=document.getElementById('dl-pb-mb');   if(_pbm) _pbm.textContent=mbEst(done)+' MB';
+    const _pbb=document.getElementById('dl-pb-bar');  if(_pbb) _pbb.style.width=pct+'%';
   };
 
   // startIdx以降のキュー（方式B: dbGetで重複スキップ）
@@ -886,6 +896,11 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
   });
 
   dlRun=false; SB.style.display='none'; DB2.disabled=false;
+  // 進捗バー非表示
+  const _pbElEnd = document.getElementById('dl-progress-bar');
+  const _cfgElEnd = document.getElementById('cfg-dl-progress-bar');
+  if(_pbElEnd) _pbElEnd.style.display='none';
+  if(_cfgElEnd) _cfgElEnd.style.display='none';
   if(!dlStop){
     // 完了したらレジューム削除
     deleteResume();
@@ -1062,6 +1077,20 @@ document.addEventListener('keydown',e=>{
 function toggleCfgAccordion(header) {
   const body  = header.nextElementSibling;
   const arrow = header.querySelector('.cfg-accordion-arrow');
+  const isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    if (arrow) arrow.textContent = '▶';
+  } else {
+    body.classList.add('open');
+    if (arrow) arrow.textContent = '▼';
+  }
+}
+
+// ─── コミュニティ掲示板アコーディオン ───
+function toggleCommAccordion(header) {
+  const body  = header.nextElementSibling;
+  const arrow = header.querySelector('.comm-accordion-arrow');
   const isOpen = body.classList.contains('open');
   if (isOpen) {
     body.classList.remove('open');

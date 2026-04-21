@@ -83,11 +83,11 @@ function initBearToggle() {
           <div class="bear-accordion-sub">生息域ヒートマップ＋直近90日ピン</div>
         </div>
       </div>
-      <span class="bear-accordion-arrow" id="bear-accordion-arrow">▼</span>
+      <span class="bear-accordion-arrow" id="bear-accordion-arrow">▶</span>
     </div>
 
     <!-- 展開パネル（初期: 開いた状態） -->
-    <div id="bear-detail-panel" class="bear-detail-panel-open">
+    <div id="bear-detail-panel" class="bear-detail-panel-closed">
 
       <!-- 県セレクタ -->
       <div class="bear-pref-selector-wrap">
