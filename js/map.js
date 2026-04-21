@@ -256,8 +256,6 @@ let floodHeatLayer  = null;
 let floodPinLayer   = null;
 
 // ━━━ 一級河川ピン＋洪水警戒ヒートマップ ━━━
-let floodHeatLayer  = null;
-let floodPinLayer   = null;
 
 // 河川ピン＋警戒時ヒートマップを構築（全109本・フィルターなし）
 function buildFloodHeatmap(){
