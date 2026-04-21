@@ -25,7 +25,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests
+          pip install requests pandas openpyxl
 
       - name: Run gen_bears.py
         run: python scripts/gen_bears.py
