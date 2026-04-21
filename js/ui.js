@@ -705,7 +705,7 @@ function _showRectPreview(bounds){
   }
 }
 
-// 範囲決定：pendingをdetRectに確定してオフラインタブを開く
+// 範囲決定：pendingをdetRectに確定する（タブは自動で開かない）
 function confirmRect(){
   if(!_rectPending) return;
   if(drawMode) finishDraw();
@@ -716,7 +716,6 @@ function confirmRect(){
     `西: <b>${detRect.getWest().toFixed(3)}</b>　東: <b>${detRect.getEast().toFixed(3)}</b>`;
   document.getElementById('btn-clearrect').style.display='inline-flex';
   updDetEst();
-  switchTab('offline');
 }
 
 // パネル内「範囲解除」：プレビューのみ消す・パネル継続・再ドラッグ可能
