@@ -514,6 +514,56 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   border-bottom: 1px solid rgba(200,170,80,0.2);
   margin-bottom: 4px;
 }
+
+/* ━━━ 設定タブ アコーディオン ━━━ */
+.cfg-accordion {
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.cfg-accordion-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 4px;
+  cursor: pointer; user-select: none;
+  transition: background .15s;
+  border-radius: 6px;
+}
+.cfg-accordion-header:active { background: rgba(255,255,255,0.05); }
+.cfg-accordion-title {
+  flex: 1;
+  font-size: 13px; font-weight: 700; color: var(--txt);
+}
+.cfg-accordion-sub {
+  font-size: 10px; color: var(--txt-dim);
+}
+.cfg-accordion-arrow {
+  font-size: 11px; color: var(--txt-dim);
+  flex-shrink: 0; transition: transform .2s;
+}
+.cfg-accordion-body {
+  display: none;
+  padding: 0 0 12px;
+}
+.cfg-accordion-body.open {
+  display: block;
+}
+
+/* ━━━ 熊アコーディオン ━━━ */
+.bear-accordion-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 4px;
+  cursor: pointer; user-select: none;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  transition: background .15s;
+  border-radius: 6px;
+}
+.bear-accordion-header:active { background: rgba(255,255,255,0.05); }
+.bear-accordion-left { display: flex; align-items: center; gap: 8px; }
+.bear-accordion-icon { font-size: 16px; }
+.bear-accordion-text { display: flex; flex-direction: column; gap: 1px; }
+.bear-accordion-title { font-size: 12px; font-weight: 700; color: var(--txt); }
+.bear-accordion-sub   { font-size: 10px; color: var(--txt-dim); }
+.bear-accordion-arrow { font-size: 11px; color: var(--txt-dim); flex-shrink: 0; }
+.bear-detail-panel-open   { display: block; }
+.bear-detail-panel-closed { display: none; }
 .cfg-row {
   display: flex; align-items: center; gap: 10px;
   padding: 13px 0; border-bottom: 1px solid rgba(200,170,80,0.07);

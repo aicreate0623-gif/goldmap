@@ -1,20 +1,7 @@
 // =============================================================================
-// 熊レイヤートグル UI v2 - 県フィルタセレクタ対応版
-// ui.js の Settings タブ初期化処理に組み込む差分コード。
-//
-// 組み込み方法:
-//   1. Settings タブパネルに以下を追加:
-//      <div class="settings-section" id="bear-settings-section"></div>
-//   2. Settings タブの表示イベントまたは initSettings() 内で呼ぶ:
-//      initBearToggle();
+// 熊レイヤートグル UI v3 - アコーディオン式・6地方セレクタ対応版
 // =============================================================================
 
-/**
- * Settings タブの熊セクションを初期化する。
- * ・ON/OFF トグル
- * ・県セレクタ（KML 対応県のみ選択可能、非対応はグレーアウト）
- * ・凡例 + 件数バッジ
- */
 function initBearToggle() {
   const section = document.getElementById("bear-settings-section");
   if (!section) {
@@ -22,58 +9,85 @@ function initBearToggle() {
     return;
   }
 
-  const initialChecked = isBearLayerVisible();
-
-  // ------- セレクタ HTML を構築 -------
-  const prefList    = getBearPrefList();           // bear_layer_map.js の公開 API
   const currentPref = getBearPrefFilter();
 
-  // <option> を生成
-  // 先頭: 全 KML 対応県（__all__）
+  // ------- 6地方グループ定義 -------
+  const REGION_GROUPS = [
+    {
+      label: "北海道・東北",
+      prefs: ["北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県"],
+    },
+    {
+      label: "関東",
+      prefs: ["茨城県","栃木県","群馬県","埼玉県","千葉県","東京都","神奈川県"],
+    },
+    {
+      label: "中部",
+      prefs: ["新潟県","富山県","石川県","福井県","山梨県","長野県","岐阜県","静岡県","愛知県"],
+    },
+    {
+      label: "近畿",
+      prefs: ["三重県","滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県"],
+    },
+    {
+      label: "中国・四国",
+      prefs: ["島根県・鳥取県","岡山県","広島県","山口県","徳島県","香川県","愛媛県","高知県"],
+    },
+    {
+      label: "九州・沖縄",
+      prefs: ["福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県"],
+    },
+  ];
+
+  // prefList をマップ化
+  const prefList = getBearPrefList();
+  const prefMap  = {};
+  prefList.forEach(p => { prefMap[p.pref] = p.kml; });
+
+  // ------- optgroup HTML 構築 -------
   let optionsHtml = `
     <option value="__all__" ${currentPref === "__all__" ? "selected" : ""}>
-      ✅ 全 KML 対応県（11県）
+      ✅ 全 KML 対応県
     </option>`;
 
-  prefList.forEach(({ pref, kml }) => {
-    if (kml) {
-      // KML 対応 → 選択可能、✅ バッジ付き
-      optionsHtml += `
-        <option value="${pref}" ${currentPref === pref ? "selected" : ""}>
-          ✅ ${pref}
-        </option>`;
-    } else {
-      // KML 非対応 → disabled + グレーアウト
-      optionsHtml += `
-        <option value="${pref}" disabled>
-          ${pref}（データなし）
-        </option>`;
-    }
+  REGION_GROUPS.forEach(({ label, prefs }) => {
+    optionsHtml += `<optgroup label="${label}">`;
+    prefs.forEach(pref => {
+      const kml = prefMap[pref] || false;
+      if (kml) {
+        optionsHtml += `
+          <option value="${pref}" ${currentPref === pref ? "selected" : ""}>
+            ✅ ${pref}
+          </option>`;
+      } else {
+        optionsHtml += `
+          <option value="${pref}" disabled>
+            ${pref}（データなし）
+          </option>`;
+      }
+    });
+    optionsHtml += `</optgroup>`;
   });
 
-  // ------- セクション全体の HTML -------
+  // ------- セクション HTML -------
   section.innerHTML = `
-    <!-- ON/OFF トグル行 -->
-    <div class="settings-row bear-toggle-row">
-      <div class="settings-row__label">
-        <span class="settings-row__icon">🐻</span>
-        <div class="settings-row__text">
-          <div class="settings-row__title">
+    <!-- アコーディオンヘッダー -->
+    <div class="bear-accordion-header" id="bear-accordion-header" onclick="toggleBearAccordion()">
+      <div class="bear-accordion-left">
+        <span class="bear-accordion-icon">🐻</span>
+        <div class="bear-accordion-text">
+          <div class="bear-accordion-title">
             熊出没情報
             <span class="bear-kml-chip">✅ KMLデータ</span>
           </div>
-          <div class="settings-row__sub">生息域ヒートマップ＋直近90日ピン</div>
+          <div class="bear-accordion-sub">生息域ヒートマップ＋直近90日ピン</div>
         </div>
       </div>
-      <label class="toggle-switch" aria-label="熊出没情報の表示">
-        <input type="checkbox" id="bear-layer-toggle"
-               ${initialChecked ? "checked" : ""} />
-        <span class="toggle-switch__track"></span>
-      </label>
+      <span class="bear-accordion-arrow" id="bear-accordion-arrow">▼</span>
     </div>
 
-    <!-- 展開パネル（トグル ON 時のみ表示） -->
-    <div id="bear-detail-panel" style="display:${initialChecked ? "block" : "none"}">
+    <!-- 展開パネル（初期: 開いた状態） -->
+    <div id="bear-detail-panel" class="bear-detail-panel-open">
 
       <!-- 県セレクタ -->
       <div class="bear-pref-selector-wrap">
@@ -102,23 +116,28 @@ function initBearToggle() {
     </div>`;
 
   // ------- イベントリスナー -------
-  const checkbox   = document.getElementById("bear-layer-toggle");
-  const panel      = document.getElementById("bear-detail-panel");
   const prefSelect = document.getElementById("bear-pref-select");
-
-  // トグル ON/OFF
-  checkbox.addEventListener("change", () => {
-    const checked = checkbox.checked;
-    setBearLayerVisible(checked);
-    panel.style.display = checked ? "block" : "none";
-  });
-
-  // 県セレクタ変更 → フィルタ適用
   prefSelect.addEventListener("change", () => {
     setBearPrefFilter(prefSelect.value);
   });
 
-  // 初期カウント表示（bears.json ロード済みなら即時反映）
-  // ロード前の場合は initBearLayer() 完了後に _renderBearMarkers() が更新する
+  // 初期カウント表示
   setBearPrefFilter(currentPref);
+}
+
+/** アコーディオン開閉トグル */
+function toggleBearAccordion() {
+  const panel = document.getElementById("bear-detail-panel");
+  const arrow = document.getElementById("bear-accordion-arrow");
+  if (!panel || !arrow) return;
+  const isOpen = panel.classList.contains("bear-detail-panel-open");
+  if (isOpen) {
+    panel.classList.remove("bear-detail-panel-open");
+    panel.classList.add("bear-detail-panel-closed");
+    arrow.textContent = "▶";
+  } else {
+    panel.classList.remove("bear-detail-panel-closed");
+    panel.classList.add("bear-detail-panel-open");
+    arrow.textContent = "▼";
+  }
 }

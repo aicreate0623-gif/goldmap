@@ -238,169 +238,193 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
-    <div class="settings-section" id="bear-settings-section">
-      </div>
 
-    <div class="cfg-row">
-      <div>
-        <div class="cfg-label">キャッシュ容量</div>
-        <div class="cfg-sub cfg-val" id="cache-info">読み込み中…</div>
-      </div>
-      <button class="btn sm" onclick="refreshCache()">更新</button>
-    </div>
-    <div class="cfg-row">
-      <div>
-        <div class="cfg-label">キャッシュ削除</div>
-        <div class="cfg-sub">保存済みタイルを全て削除します</div>
-      </div>
-      <button class="btn sm red" onclick="clearCache()">全削除</button>
-    </div>
+    <!-- ① 熊出没情報 -->
+    <div class="settings-section" id="bear-settings-section"></div>
 
-    <div class="cfg-section-ttl">⬇ ダウンロード進捗</div>
-    <div class="dl-section" id="prog-section">
-      <div class="stat-grid">
-        <div class="stat-card"><div class="stat-val" id="pg-done">0</div><div class="stat-lbl">完了</div></div>
-        <div class="stat-card"><div class="stat-val" id="pg-rem">—</div><div class="stat-lbl">残り</div></div>
-        <div class="stat-card"><div class="stat-val" id="pg-tot">—</div><div class="stat-lbl">合計</div></div>
-        <div class="stat-card"><div class="stat-val" id="pg-mb">0 MB</div><div class="stat-lbl">推定容量</div></div>
+    <!-- ② キャッシュ管理 -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">💾 キャッシュ管理</span>
+        <span class="cfg-accordion-arrow">▶</span>
       </div>
-      <div class="prog-bar-bg"><div class="prog-bar-fill" id="pg-bar" style="width:0%"></div></div>
-      <div class="dl-log" id="dl-log"></div>
-    </div>
-
-    <div class="cfg-section-ttl">🔶 鉱床・鉱徴地データ</div>
-    <div class="dl-section">
-      <div class="info-box">
-        産総研地質調査総合センターの鉱床・鉱徴地データ。<br>
-        <b>取得</b>ボタンで地図に表示。GeoJSONファイルの追加インポートも可能。
-      </div>
-      <div id="mine-cache-info" class="info-box" style="margin-top:6px;color:var(--txt-sub)">状態: 未読込</div>
-      <div id="mine-prog-wrap" style="display:none;margin-top:8px;">
-        <div style="font-size:11px;color:var(--txt-sub);margin-bottom:4px;">読込中… <span id="mine-prog-pct">0%</span></div>
-        <div class="prog-bar-bg"><div class="prog-bar-fill" id="mine-prog-bar" style="width:0%"></div></div>
-      </div>
-      <div class="btn-row" style="margin-top:10px;">
-        <button class="btn blue sm" id="btn-mine-load" onclick="loadMineData(true)">📥 取得</button>
-        <button class="btn sm" onclick="document.getElementById('mine-geojson-impf').click()">➕ GeoJSON追加</button>
-        <button class="btn red sm" onclick="clearMineCache()">🗑 追加分削除</button>
-      </div>
-      <input type="file" id="mine-geojson-impf" accept=".geojson,.json" style="display:none" onchange="importMineGeoJSON(event)">
-    </div>
-    <div class="dl-section" id="mine-filter-section" style="display:none;">
-      <div class="sec-ttl">鉱床フィルター</div>
-      <div class="ck-row"><input type="checkbox" id="mf-metal" checked onchange="applyMineFilter()"><label for="mf-metal">🔴 金属鉱物</label></div>
-      <div class="ck-row"><input type="checkbox" id="mf-nonmetal" checked onchange="applyMineFilter()"><label for="mf-nonmetal">🟧 非金属鉱物</label></div>
-      <div class="ck-row"><input type="checkbox" id="mf-fuel" checked onchange="applyMineFilter()"><label for="mf-fuel">✖ 燃料鉱物</label></div>
-      <div class="ck-row"><input type="checkbox" id="mf-trace" checked onchange="applyMineFilter()"><label for="mf-trace">鉱徴を含む</label></div>
-      <div class="btn-row" style="margin-top:8px;">
-        <button class="btn sm" onclick="openMineLegend()">📋 凡例を見る</button>
+      <div class="cfg-accordion-body">
+        <div class="cfg-row">
+          <div>
+            <div class="cfg-label">キャッシュ容量</div>
+            <div class="cfg-sub cfg-val" id="cache-info">読み込み中…</div>
+          </div>
+          <button class="btn sm" onclick="refreshCache()">更新</button>
+        </div>
+        <div class="cfg-row">
+          <div>
+            <div class="cfg-label">キャッシュ削除</div>
+            <div class="cfg-sub">保存済みタイルを全て削除します</div>
+          </div>
+          <button class="btn sm red" onclick="clearCache()">全削除</button>
+        </div>
       </div>
     </div>
 
-    <div class="cfg-section-ttl">🌐 Wikidata 日本鉱山</div>
-    <div class="dl-section">
-      <div class="info-box">
-        Wikidataに登録された日本国内の鉱山を自動取得。<br>
-        起動時にSPARQLクエリで取得・7日間キャッシュ保持。
+    <!-- ③ ダウンロード進捗 -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">⬇ ダウンロード進捗</span>
+        <span class="cfg-accordion-arrow">▶</span>
       </div>
-      <div id="wiki-status" style="font-size:11px;padding:4px 6px;margin-top:4px;color:var(--txt-sub);">
-        ステータス: 確認中…
-      </div>
-      <div class="btn-row" style="margin-top:8px;">
-        <button class="btn sm" onclick="reloadWikiData()">🔄 再取得</button>
-      </div>
-      <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
-        出典: <a href="https://www.wikidata.org/" target="_blank" style="color:#4a90d9">Wikidata</a>（CC0）
-      </div>
-    </div>
-
-    <div class="cfg-section-ttl">📌 kinno調査記</div>
-    <div class="dl-section">
-      <div class="info-box">
-        kinno lab.（金野実）氏による鉱山調査記の位置プロット。<br>
-        組み込み済み（215地点）。地図ボタン「📌調査記」でON/OFF。
-      </div>
-      <div class="btn-row" style="margin-top:8px;">
-        <button class="btn blue sm" onclick="toggleKinnoLayer(); switchTab('map')">🗺 地図に表示</button>
-      </div>
-      <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
-        出典: <a href="https://kinno-homepage.sakura.ne.jp/kinno_mineral.html" target="_blank" style="color:#4a90d9">kinno-homepage.sakura.ne.jp</a>
+      <div class="cfg-accordion-body">
+        <div class="dl-section" id="prog-section">
+          <div class="stat-grid">
+            <div class="stat-card"><div class="stat-val" id="pg-done">0</div><div class="stat-lbl">完了</div></div>
+            <div class="stat-card"><div class="stat-val" id="pg-rem">—</div><div class="stat-lbl">残り</div></div>
+            <div class="stat-card"><div class="stat-val" id="pg-tot">—</div><div class="stat-lbl">合計</div></div>
+            <div class="stat-card"><div class="stat-val" id="pg-mb">0 MB</div><div class="stat-lbl">推定容量</div></div>
+          </div>
+          <div class="prog-bar-bg"><div class="prog-bar-fill" id="pg-bar" style="width:0%"></div></div>
+          <div class="dl-log" id="dl-log"></div>
+        </div>
       </div>
     </div>
 
-    <div style="
-      margin: 20px -18px 0;
-      padding: 10px 18px 0;
-      border-top: 1px solid rgba(200,170,80,0.14);
-      background: linear-gradient(180deg, rgba(200,170,80,0.04) 0%, transparent 100%);
-    ">
-      <div style="
-        display:flex; align-items:center; gap:8px;
-        margin-bottom: 14px;
-      ">
-        <span style="font-size:11px; color:var(--gold); font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.8;">🪨 地質図 凡例</span>
-        <span style="flex:1; height:1px; background:rgba(200,170,80,0.18);"></span>
-        <span style="font-size:9px; color:var(--txt-dim); white-space:nowrap;">産総研 V2</span>
+    <!-- ④ 鉱床・鉱徴地データ -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">🔶 鉱床・鉱徴地データ</span>
+        <span class="cfg-accordion-arrow">▶</span>
       </div>
-
-      <div style="font-size:11px;color:var(--txt-sub);background:rgba(255,255,255,0.04);
-                  border-radius:6px;padding:8px 11px;margin-bottom:12px;line-height:1.8;
-                  border:1px solid rgba(255,255,255,0.07);">
-        <b style="color:var(--txt);">縦軸</b>：地質時代（新しい↑ 古い↓）<br>
-        <b style="color:var(--txt);">横軸</b>：岩石の種類　
-        <b style="color:var(--gold);">★</b> = 砂金採取と関連性が高い地質
-      </div>
-
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-        <table id="geo-legend-table" style="
-          border-collapse:collapse;
-          width:100%;min-width:300px;
-          font-size:10px;
-        ">
-          <thead>
-            <tr>
-              <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
-                         border:1px solid rgba(255,255,255,0.1);font-size:9px;white-space:nowrap;
-                         min-width:62px;">地質時代</th>
-              <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
-                         border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">堆積岩</th>
-              <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
-                         border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">付加体</th>
-              <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
-                         border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">火成岩</th>
-              <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);
-                         border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">変成岩</th>
-            </tr>
-          </thead>
-          <tbody id="geo-legend-body">
-            </tbody>
-        </table>
-      </div>
-
-      <div style="margin-top:10px;font-size:11px;color:var(--txt-sub);
-                  background:rgba(200,170,80,0.07);border:1px solid rgba(200,170,80,0.16);
-                  border-radius:6px;padding:8px 11px;line-height:1.8;">
-        <b style="color:var(--gold);">★ 砂金採取のヒント</b><br>
-        <span style="color:rgba(255,220,100,0.85);">新第三紀・火成岩（緑系）</span>：熱水脈型金鉱床が多い<br>
-        <span style="color:rgba(255,220,100,0.85);">中生代・火成岩（青緑系）</span>：接触交代型鉱床<br>
-        <span style="color:rgba(255,220,100,0.85);">変成岩（紫・赤紫系）</span>：変成熱水型金鉱脈を伴う場合あり<br>
-        <span style="color:rgba(255,220,100,0.85);">第四紀・堆積岩（黄系）</span>：砂金が集積しやすい河川堆積物
-      </div>
-
-      <div style="margin-top:10px;font-size:11px;color:var(--txt-sub);
-                  background:rgba(255,255,255,0.03);border-radius:6px;padding:8px 11px;line-height:1.9;
-                  border:1px solid rgba(255,255,255,0.06);">
-        <b style="color:var(--txt);">線記号</b><br>
-        <span style="display:inline-block;width:28px;height:2px;background:#e03020;vertical-align:middle;margin-right:4px;"></span>活断層<br>
-        <span style="display:inline-block;width:28px;height:2px;background:#606060;vertical-align:middle;margin-right:4px;border-top:1px dashed #aaa;"></span>断層（不確かなもの含む）<br>
-        <span style="display:inline-block;width:28px;height:2px;background:#a06030;vertical-align:middle;margin-right:4px;border-top:2px dotted #c08040;"></span>地質境界
-      </div>
-
-      <div style="margin-top:8px;margin-bottom:4px;font-size:10px;color:var(--txt-dim);line-height:1.7;padding:0 2px;">
-        出典: 産業技術総合研究所 地質調査総合センター<br>
-        「20万分の1日本シームレス地質図 V2」　© AIST All Rights Reserved.
+      <div class="cfg-accordion-body">
+        <div class="dl-section">
+          <div class="info-box">
+            産総研地質調査総合センターの鉱床・鉱徴地データ。<br>
+            <b>取得</b>ボタンで地図に表示。GeoJSONファイルの追加インポートも可能。
+          </div>
+          <div id="mine-cache-info" class="info-box" style="margin-top:6px;color:var(--txt-sub)">状態: 未読込</div>
+          <div id="mine-prog-wrap" style="display:none;margin-top:8px;">
+            <div style="font-size:11px;color:var(--txt-sub);margin-bottom:4px;">読込中… <span id="mine-prog-pct">0%</span></div>
+            <div class="prog-bar-bg"><div class="prog-bar-fill" id="mine-prog-bar" style="width:0%"></div></div>
+          </div>
+          <div class="btn-row" style="margin-top:10px;">
+            <button class="btn blue sm" id="btn-mine-load" onclick="loadMineData(true)">📥 取得</button>
+            <button class="btn sm" onclick="document.getElementById('mine-geojson-impf').click()">➕ GeoJSON追加</button>
+            <button class="btn red sm" onclick="clearMineCache()">🗑 追加分削除</button>
+          </div>
+          <input type="file" id="mine-geojson-impf" accept=".geojson,.json" style="display:none" onchange="importMineGeoJSON(event)">
+        </div>
+        <div class="dl-section" id="mine-filter-section" style="display:none;">
+          <div class="sec-ttl">鉱床フィルター</div>
+          <div class="ck-row"><input type="checkbox" id="mf-metal" checked onchange="applyMineFilter()"><label for="mf-metal">🔴 金属鉱物</label></div>
+          <div class="ck-row"><input type="checkbox" id="mf-nonmetal" checked onchange="applyMineFilter()"><label for="mf-nonmetal">🟧 非金属鉱物</label></div>
+          <div class="ck-row"><input type="checkbox" id="mf-fuel" checked onchange="applyMineFilter()"><label for="mf-fuel">✖ 燃料鉱物</label></div>
+          <div class="ck-row"><input type="checkbox" id="mf-trace" checked onchange="applyMineFilter()"><label for="mf-trace">鉱徴を含む</label></div>
+          <div class="btn-row" style="margin-top:8px;">
+            <button class="btn sm" onclick="openMineLegend()">📋 凡例を見る</button>
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- ⑤ Wikidata鉱山 -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">🌐 Wikidata 日本鉱山</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <div class="dl-section">
+          <div class="info-box">
+            Wikidataに登録された日本国内の鉱山を自動取得。<br>
+            起動時にSPARQLクエリで取得・7日間キャッシュ保持。
+          </div>
+          <div id="wiki-status" style="font-size:11px;padding:4px 6px;margin-top:4px;color:var(--txt-sub);">
+            ステータス: 確認中…
+          </div>
+          <div class="btn-row" style="margin-top:8px;">
+            <button class="btn sm" onclick="reloadWikiData()">🔄 再取得</button>
+          </div>
+          <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
+            出典: <a href="https://www.wikidata.org/" target="_blank" style="color:#4a90d9">Wikidata</a>（CC0）
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑥ kinno調査記 -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">📌 kinno調査記</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <div class="dl-section">
+          <div class="info-box">
+            kinno lab.（金野実）氏による鉱山調査記の位置プロット。<br>
+            組み込み済み（215地点）。地図ボタン「📌調査記」でON/OFF。
+          </div>
+          <div class="btn-row" style="margin-top:8px;">
+            <button class="btn blue sm" onclick="toggleKinnoLayer(); switchTab('map')">🗺 地図に表示</button>
+          </div>
+          <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
+            出典: <a href="https://kinno-homepage.sakura.ne.jp/kinno_mineral.html" target="_blank" style="color:#4a90d9">kinno-homepage.sakura.ne.jp</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑦ 地質図凡例 -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">🪨 地質図 凡例</span>
+        <span class="cfg-accordion-sub">産総研 V2</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <div style="padding: 4px 0 8px;">
+          <div style="font-size:11px;color:var(--txt-sub);background:rgba(255,255,255,0.04);
+                      border-radius:6px;padding:8px 11px;margin-bottom:12px;line-height:1.8;
+                      border:1px solid rgba(255,255,255,0.07);">
+            <b style="color:var(--txt);">縦軸</b>：地質時代（新しい↑ 古い↓）<br>
+            <b style="color:var(--txt);">横軸</b>：岩石の種類　
+            <b style="color:var(--gold);">★</b> = 砂金採取と関連性が高い地質
+          </div>
+          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+            <table id="geo-legend-table" style="border-collapse:collapse;width:100%;min-width:300px;font-size:10px;">
+              <thead>
+                <tr>
+                  <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);border:1px solid rgba(255,255,255,0.1);font-size:9px;white-space:nowrap;min-width:62px;">地質時代</th>
+                  <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">堆積岩</th>
+                  <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">付加体</th>
+                  <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">火成岩</th>
+                  <th style="padding:5px 4px;background:rgba(0,0,0,0.4);color:var(--txt-sub);border:1px solid rgba(255,255,255,0.1);font-size:9px;text-align:center;">変成岩</th>
+                </tr>
+              </thead>
+              <tbody id="geo-legend-body"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:10px;font-size:11px;color:var(--txt-sub);
+                      background:rgba(200,170,80,0.07);border:1px solid rgba(200,170,80,0.16);
+                      border-radius:6px;padding:8px 11px;line-height:1.8;">
+            <b style="color:var(--gold);">★ 砂金採取のヒント</b><br>
+            <span style="color:rgba(255,220,100,0.85);">新第三紀・火成岩（緑系）</span>：熱水脈型金鉱床が多い<br>
+            <span style="color:rgba(255,220,100,0.85);">中生代・火成岩（青緑系）</span>：接触交代型鉱床<br>
+            <span style="color:rgba(255,220,100,0.85);">変成岩（紫・赤紫系）</span>：変成熱水型金鉱脈を伴う場合あり<br>
+            <span style="color:rgba(255,220,100,0.85);">第四紀・堆積岩（黄系）</span>：砂金が集積しやすい河川堆積物
+          </div>
+          <div style="margin-top:10px;font-size:11px;color:var(--txt-sub);
+                      background:rgba(255,255,255,0.03);border-radius:6px;padding:8px 11px;line-height:1.9;
+                      border:1px solid rgba(255,255,255,0.06);">
+            <b style="color:var(--txt);">線記号</b><br>
+            <span style="display:inline-block;width:28px;height:2px;background:#e03020;vertical-align:middle;margin-right:4px;"></span>活断層<br>
+            <span style="display:inline-block;width:28px;height:2px;background:#606060;vertical-align:middle;margin-right:4px;border-top:1px dashed #aaa;"></span>断層（不確かなもの含む）<br>
+            <span style="display:inline-block;width:28px;height:2px;background:#a06030;vertical-align:middle;margin-right:4px;border-top:2px dotted #c08040;"></span>地質境界
+          </div>
+          <div style="margin-top:8px;margin-bottom:4px;font-size:10px;color:var(--txt-dim);line-height:1.7;padding:0 2px;">
+            出典: 産業技術総合研究所 地質調査総合センター<br>
+            「20万分の1日本シームレス地質図 V2」　© AIST All Rights Reserved.
+          </div>
+        </div>
+      </div>
+    </div>
+
     </div>
 </div>
 

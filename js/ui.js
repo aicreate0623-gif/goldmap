@@ -1056,4 +1056,20 @@ document.addEventListener('keydown',e=>{
   };
 })();
 
+// ═══════════════════════════════════════════
+//  設定タブ アコーディオン
+// ═══════════════════════════════════════════
+function toggleCfgAccordion(header) {
+  const body  = header.nextElementSibling;
+  const arrow = header.querySelector('.cfg-accordion-arrow');
+  const isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    if (arrow) arrow.textContent = '▶';
+  } else {
+    body.classList.add('open');
+    if (arrow) arrow.textContent = '▼';
+  }
+}
+
 // 起動
