@@ -63,6 +63,9 @@
 </div>
 
 <div id="float-ctrl-right">
+  <button class="fc-btn fc-grp-custom" id="btn-custom-layer" onclick="toggleClMapVisible()" title="カスタムデータ表示/非表示" style="display:none">
+    <span class="fc-ico">📂</span><span>マイData</span>
+  </button>
   <button class="fc-btn fc-grp-safety" id="btn-bear" onclick="toggleBearLayer()" title="熊出没情報（KMLデータ）">
     <span class="fc-ico">🐻</span><span>熊情報</span>
   </button>
@@ -256,6 +259,31 @@
   <div class="sheet-body">
     <!-- ① 熊出没情報 -->
     <div class="settings-section" id="bear-settings-section"></div>
+
+    <!-- カスタムインポートデータ -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">📂 カスタムインポートデータ</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <div class="cl-section-toggle-row">
+          <span class="cl-section-label">インポートデータ表示</span>
+          <button class="contrib-toggle" id="cl-section-toggle" onclick="toggleClSection()">
+            <span class="contrib-off-lbl">OFF</span>
+            <span class="contrib-thumb"></span>
+            <span class="contrib-on-lbl">ON</span>
+          </button>
+        </div>
+        <div id="cl-sets-body" style="display:none">
+          <div class="cl-add-row">
+            <button class="btn accent sm" onclick="openClAdd()" id="cl-add-btn">＋ 新規セット追加</button>
+            <span class="cl-limit-note" id="cl-limit-note"></span>
+          </div>
+          <div id="cl-sets-list"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- ② キャッシュ管理はオフラインタブに移動 -->
 
@@ -564,6 +592,40 @@
 </div>
 
 <div id="overlay">
+
+  <!-- カスタムレイヤー：セット追加・編集ダイアログ -->
+  <div class="dialog" id="dlg-cl-edit" style="display:none">
+    <h3 id="cl-dlg-title">新規セット追加</h3>
+    <label>セット名</label>
+    <input type="text" id="cl-dlg-name" placeholder="例：私の調査メモ" maxlength="20">
+    <label>アイコン
+      <span class="cl-selected-preview" id="cl-dlg-icon-selected" data-icon="📍">📍</span>
+    </label>
+    <div class="cl-icon-picker" id="cl-icon-picker"></div>
+    <label>マーカー色
+      <span class="cl-color-preview" id="cl-dlg-color-selected" data-color="#e74c3c" style="background:#e74c3c"></span>
+    </label>
+    <div class="cl-color-picker" id="cl-color-picker"></div>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="closeOv()">キャンセル</button>
+      <button class="dbtn ok" onclick="saveClEdit()">保存</button>
+    </div>
+  </div>
+
+  <!-- カスタムレイヤー：削除確認ダイアログ -->
+  <div class="dialog" id="dlg-cl-delete" style="display:none">
+    <h3>⚠️ セットを削除</h3>
+    <p style="margin:10px 0;color:var(--txt-sub);font-size:13px;line-height:1.7;">
+      「<b id="cl-del-name" style="color:var(--txt)"></b>」を削除します。<br>
+      このセットに登録された <b id="cl-del-count" style="color:var(--gold)"></b> 件のデータが<br>
+      <span style="color:#e74c3c;font-weight:bold;">完全に削除されます。この操作は元に戻せません。</span>
+    </p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="closeOv()">キャンセル</button>
+      <button class="dbtn red" id="cl-del-confirm-btn">削除する</button>
+    </div>
+  </div>
+
   <div class="dialog" id="dlg-edit" style="display:none">
     <h3 id="dlg-edit-ttl">ポイントを追加</h3>
     <label>名前</label><input type="text" id="pt-name" placeholder="例：○○川上流">
@@ -811,6 +873,7 @@
   <script src="js/bear_toggle_ui.js"></script>
   <script src="js/firebase.js"></script>
   <script src="js/community.js"></script>
+  <script src="js/custom_layer.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
