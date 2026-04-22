@@ -711,21 +711,148 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 #add-banner.show { display: flex; }
 
-/* 矩形選択バナー */
-#rect-banner {
-  display: none; position: fixed;
-  top: calc(var(--sb-h) + 8px); left: 50%;
-  transform: translateX(-50%); z-index: 3100;
-  pointer-events: auto;
-  background: rgba(0,10,20,0.97); border: 2px solid #00ffff;
-  border-radius: 16px; padding: 18px 22px 14px;
-  font-size: 14px; color: var(--txt); width: min(360px, 88vw);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.7);
-  backdrop-filter: blur(10px);
-  line-height: 1.7;
+/* 矩形選択バナー: DLダイアログに統合のため廃止 */
+/* #rect-banner { ... } */
+
+/* ━━━ オフラインタブ: DL開始ラッパー ━━━ */
+.dl-start-wrap {
+  padding: 20px 18px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  text-align: center;
 }
-#rect-banner p { margin: 0 0 12px; }
-.rect-banner-btns { display: flex; gap: 10px; justify-content: flex-end; }
+.dl-start-btn {
+  width: 100%; padding: 14px; font-size: 15px; font-weight: 700;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(200,150,30,0.4), rgba(200,170,80,0.25));
+  border-color: rgba(200,170,80,0.6);
+  box-shadow: 0 0 20px rgba(200,170,80,0.18);
+}
+.dl-start-hint {
+  margin-top: 8px; font-size: 11px; color: var(--txt-dim); line-height: 1.6;
+}
+
+/* ━━━ DLダイアログ（地図上フロートパネル・下部固定） ━━━ */
+#dl-dialog {
+  position: fixed;
+  bottom: calc(var(--tab-h) + 8px);
+  left: 8px; right: 8px;
+  z-index: 2500;
+  background: rgba(8,7,5,0.97);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(200,170,80,0.28);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 -4px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(200,170,80,0.08);
+  padding: 14px 16px 12px;
+  max-height: 72vh;
+  overflow-y: auto;
+}
+
+/* ステップインジケーター */
+.dld-steps {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0; margin-bottom: 14px;
+}
+.dld-step {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  opacity: 0.35; transition: opacity .2s;
+}
+.dld-step.active { opacity: 1; }
+.dld-step.done   { opacity: 0.7; }
+.dld-step-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.15);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--txt-sub);
+}
+.dld-step.active .dld-step-num {
+  background: rgba(200,170,80,0.25);
+  border-color: rgba(200,170,80,0.6);
+  color: var(--gold-lt);
+}
+.dld-step.done .dld-step-num {
+  background: rgba(64,232,120,0.15);
+  border-color: rgba(64,232,120,0.4);
+  color: #40e878;
+}
+.dld-step-lbl { font-size: 9px; color: var(--txt-dim); font-weight: 600; letter-spacing: .05em; }
+.dld-step.active .dld-step-lbl { color: var(--gold-lt); }
+.dld-step-line {
+  flex: 1; height: 1px; min-width: 28px; max-width: 48px;
+  background: rgba(255,255,255,0.12);
+  margin: 0 4px; margin-bottom: 14px;
+}
+
+/* パネル共通 */
+.dld-panel { padding-bottom: 4px; }
+.dld-title {
+  font-size: 12px; font-weight: 700; color: var(--gold-lt);
+  letter-spacing: .05em; margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(200,170,80,0.15);
+}
+
+/* モード切替タブ */
+.dld-mode-tabs {
+  display: flex; gap: 6px; margin-bottom: 12px;
+}
+.dld-mode-tab {
+  flex: 1; padding: 8px 6px; border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: var(--txt-dim); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .15s; text-align: center;
+}
+.dld-mode-tab.active {
+  background: rgba(200,170,80,0.18);
+  border-color: rgba(200,170,80,0.5);
+  color: var(--gold-lt);
+}
+
+/* ヒント文・確定ボタン */
+.dld-hint {
+  font-size: 12px; color: var(--txt-sub);
+  line-height: 1.7; margin-bottom: 12px;
+}
+.dld-confirm-btn {
+  width: 100%; padding: 11px; font-size: 13px; font-weight: 700;
+  border-radius: var(--radius-sm); margin-bottom: 4px;
+}
+.dld-confirm-btn:disabled {
+  opacity: .3; pointer-events: none;
+}
+
+/* セクション小見出し */
+.dld-section-ttl {
+  font-size: 10px; color: var(--gold); font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  margin: 12px 0 6px;
+}
+
+/* 推定ボックス */
+.dld-est { margin: 10px 0 6px; }
+
+/* フッターボタン列 */
+.dld-footer-btns {
+  display: flex; gap: 8px; justify-content: flex-end;
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+/* 進捗ラップ */
+.dld-pb-wrap { margin-bottom: 8px; }
+
+/* キャンセルボタン（常時表示・右上固定） */
+.dld-cancel-btn {
+  position: absolute; top: 12px; right: 14px;
+  padding: 4px 10px; border-radius: 12px;
+  border: 1px solid rgba(255,90,71,0.35);
+  background: rgba(255,90,71,0.1);
+  color: #ff8070; font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+}
+.dld-cancel-btn:active { background: rgba(255,90,71,0.25); }
 
 /* DL注意書き */
 .dl-warn {

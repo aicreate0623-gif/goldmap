@@ -584,7 +584,12 @@ const JAPAN=L.latLngBounds([24,122],[46,154]);
 function lon2x(lon,z){return Math.floor((lon+180)/360*Math.pow(2,z));}
 function lat2y(lat,z){return Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*Math.pow(2,z));}
 function cntTiles(b,zmin,zmax){let n=0;for(let z=zmin;z<=zmax;z++){const x0=lon2x(b.getWest(),z),x1=lon2x(b.getEast(),z),y0=lat2y(b.getNorth(),z),y1=lat2y(b.getSouth(),z);n+=(x1-x0+1)*(y1-y0+1);}return n;}
-function ckLayers(){return['std','photo','topo'].filter(k=>document.getElementById('ck-'+k).checked);}
+function ckLayers(){
+  // DLダイアログが開いている場合はダイアログ内チェックボックスを参照
+  const dlgOpen = document.getElementById('dl-dialog')?.style.display !== 'none';
+  const prefix  = dlgOpen ? 'dlg-ck-' : 'ck-';
+  return ['std','photo','topo'].filter(k=>document.getElementById(prefix+k)?.checked);
+}
 function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M枚';if(n>=1e3)return Math.round(n/1e3)+'K枚';return n+'枚';}
 function mbEst(n){return(n*20/1024).toFixed(0);}
 
@@ -884,6 +889,245 @@ function clearRect(){
 function finishDraw(){ if(drawMode) _stopDraw(); }
 
 // ═══════════════════════════════════════════
+//  地図上DLダイアログ（ウィザード式・3STEP）
+//  STEP1: 範囲選択（useView / drawRect）
+//  STEP2: レイヤー・ズーム設定
+//  STEP3: DL進捗
+// ═══════════════════════════════════════════
+
+let _dldStep   = 1;       // 現在のSTEP（1〜3）
+let _dldMode   = 'view';  // 'view' | 'draw'
+let _dldType   = 'detail';// 'detail' | 'base'
+let _dldBounds = null;    // STEP1で確定したbounds
+
+// ── ダイアログ開く ──────────────────────────────────────
+function openDlDialog(){
+  // プレミアムチェック（既存ゲートを流用）
+  isPremiumUser().then(premium=>{
+    if(!premium){ showPremiumGate('offline'); return; }
+    _dldStep   = 1;
+    _dldBounds = null;
+    _dldMode   = 'view';
+    _dldType   = 'detail';
+    _dldRenderStep(1);
+    document.getElementById('dl-dialog').style.display = 'block';
+    // 地図タブに切り替え（地図が見える状態で操作）
+    _openTab('map');
+    _pushHistory();
+  });
+}
+
+// ── ダイアログ閉じる ────────────────────────────────────
+function _dldClose(){
+  document.getElementById('dl-dialog').style.display = 'none';
+  // drawMode中なら停止
+  if(drawMode) _stopDraw();
+  _clearDrawPreview();
+  _clearViewPreview();
+  _dldBounds = null;
+}
+
+// ── キャンセル ──────────────────────────────────────────
+function _dldCancel(){
+  _dldClose();
+  _openTab('offline');
+  _pushHistory();
+}
+
+// ── ステップ描画 ────────────────────────────────────────
+function _dldRenderStep(step){
+  _dldStep = step;
+  // パネル切替
+  ['dld-s1','dld-s2','dld-s3'].forEach((id,i)=>{
+    document.getElementById(id).style.display = (i+1===step) ? 'block' : 'none';
+  });
+  // インジケーター更新
+  [1,2,3].forEach(n=>{
+    const el = document.getElementById('dld-si-'+n);
+    el.classList.toggle('active', n===step);
+    el.classList.toggle('done',   n<step);
+  });
+  // STEP1初期化
+  if(step===1){
+    _dldApplyMode(_dldMode);
+  }
+  // STEP2初期化
+  if(step===2){
+    _dldSetType(_dldType);
+    _dldUpdEst();
+  }
+}
+
+// ── STEP1: モード切替（viewタブ / drawタブ） ────────────
+function _dldSelectMode(mode){
+  _dldMode = mode;
+  document.getElementById('dld-tab-view').classList.toggle('active', mode==='view');
+  document.getElementById('dld-tab-draw').classList.toggle('active', mode==='draw');
+  _dldApplyMode(mode);
+}
+
+function _dldApplyMode(mode){
+  document.getElementById('dld-mode-view').style.display = mode==='view' ? 'block' : 'none';
+  document.getElementById('dld-mode-draw').style.display = mode==='draw' ? 'block' : 'none';
+  if(mode==='draw'){
+    // ドラッグ選択モード開始（既存ロジック流用）
+    if(!drawMode){
+      _clearViewPreview();
+      _enterDrawMode();
+      // ドラッグ完了を検知してダイアログのOKボタンを有効化
+      _dldWatchDrawComplete();
+    }
+    document.getElementById('dld-draw-hint').textContent='地図上をドラッグして範囲を指定してください';
+    document.getElementById('dld-draw-ok').disabled = true;
+  } else {
+    // drawモード中なら停止
+    if(drawMode){ _stopDraw(); _clearDrawPreview(); }
+    _dldBounds = null;
+  }
+}
+
+// ドラッグ完了を監視（_drawPendingがセットされたらOKボタンを有効化）
+function _dldWatchDrawComplete(){
+  const timer = setInterval(()=>{
+    if(!document.getElementById('dl-dialog') ||
+       document.getElementById('dl-dialog').style.display==='none'){
+      clearInterval(timer); return;
+    }
+    if(_drawPending){
+      clearInterval(timer);
+      document.getElementById('dld-draw-hint').textContent='範囲が選択されました。「選択範囲を確定」を押してください';
+      document.getElementById('dld-draw-ok').disabled = false;
+    }
+  }, 200);
+}
+
+// ── STEP1: 確定（view系） ───────────────────────────────
+function _dldConfirmView(){
+  _dldBounds = map.getBounds();
+  _showViewPreview(_dldBounds);
+  _dldRenderStep(2);
+}
+
+// ── STEP1: 確定（draw系） ───────────────────────────────
+function _dldConfirmDraw(){
+  if(!_drawPending) return;
+  _dldBounds = _drawPending;
+  _drawPending = null;
+  _showDrawPreview(_dldBounds);
+  _dldRenderStep(2);
+}
+
+// ── STEP1に戻る ──────────────────────────────────────────
+function _dldBack(toStep){
+  _clearDrawPreview();
+  _clearViewPreview();
+  if(drawMode) _stopDraw();
+  _drawPending = null;
+  _dldBounds   = null;
+  _dldRenderStep(toStep);
+}
+
+// ── STEP2: DL種別切替 ──────────────────────────────────
+function _dldSetType(type){
+  _dldType = type;
+  document.getElementById('dld-tab-det').classList.toggle('active',  type==='detail');
+  document.getElementById('dld-tab-base').classList.toggle('active', type==='base');
+  document.getElementById('dld-zoom-det').style.display  = type==='detail' ? 'block' : 'none';
+  document.getElementById('dld-zoom-base').style.display = type==='base'   ? 'block' : 'none';
+  _dldUpdEst();
+}
+
+// ── STEP2: タイル数推定 ────────────────────────────────
+function _dldUpdEst(){
+  const layers = ['std','photo','topo'].filter(k=>
+    document.getElementById('dlg-ck-'+k)?.checked
+  );
+  const L2 = layers.length || 1;
+  let n = 0, txt = '';
+  if(_dldType==='detail'){
+    if(_dldBounds){
+      const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
+      const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
+      n = cntTiles(_dldBounds, zmin, zmax) * L2;
+      txt = `Z${zmin}〜Z${zmax}、<b>${fmt(n)}</b>（約 <b>${mbEst(n)} MB</b>）`;
+    } else {
+      txt = '— 範囲が選択されていません —';
+    }
+  } else {
+    const zmax = parseInt(document.getElementById('dlg-base-zmax').value);
+    n = cntTiles(JAPAN, 5, zmax) * L2;
+    txt = `Z5〜Z${zmax}、<b>${fmt(n)}</b>（約 <b>${mbEst(n)} MB</b>）`;
+  }
+  document.getElementById('dld-est').innerHTML = txt;
+}
+
+// ── STEP2: DL開始 ──────────────────────────────────────
+function _dldStartDl(){
+  // ダイアログ内のIDを既存startDl()が読むIDに同期
+  const syncCk = k =>{
+    const src = document.getElementById('dlg-ck-'+k);
+    const dst = document.getElementById('ck-'+k);
+    if(src && dst) dst.checked = src.checked;
+  };
+  ['std','photo','topo'].forEach(syncCk);
+
+  if(_dldType==='detail'){
+    // detRectに確定
+    detRect = _dldBounds;
+    const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
+    const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
+    // ズーム値をダミーselectに反映
+    const setOpt = (id, val) => {
+      const el = document.getElementById(id);
+      if(el){ [...el.options].forEach(o=>{ o.selected = (o.value===String(val)); }); }
+    };
+    setOpt('det-zmin', zmin);
+    setOpt('det-zmax', zmax);
+  } else {
+    const zmax = parseInt(document.getElementById('dlg-base-zmax').value);
+    const setOpt = (id, val) => {
+      const el = document.getElementById(id);
+      if(el){ [...el.options].forEach(o=>{ o.selected = (o.value===String(val)); }); }
+    };
+    setOpt('base-zmax', zmax);
+  }
+
+  _dldRenderStep(3);
+  // ログ出力先をダイアログ内に切替
+  _dldLog('DL開始...');
+  startDl(_dldType);
+}
+
+// ── STEP3: ログ出力（startDl内のlog()がdl-logに書くため別途ミラー） ──
+function _dldLog(msg){
+  const el = document.getElementById('dld-log');
+  if(el){ el.textContent += msg + '\n'; el.scrollTop = el.scrollHeight; }
+}
+
+// DL進捗をダイアログ内バーに同期（startDl内のtick()から呼ばれる想定）
+// tick()はui.js内にあるため、進捗バーIDをダイアログ内のIDに加えて更新する
+function _dldSyncProgress(done, total, mb){
+  const pct = total>0 ? Math.round(done/total*100) : 0;
+  const doneEl = document.getElementById('dld-pb-done');
+  const totEl  = document.getElementById('dld-pb-tot');
+  const barEl  = document.getElementById('dld-pb-bar');
+  const mbEl   = document.getElementById('dld-pb-mb');
+  if(doneEl) doneEl.textContent = fmt(done);
+  if(totEl)  totEl.textContent  = fmt(total);
+  if(barEl)  barEl.style.width  = pct+'%';
+  if(mbEl)   mbEl.textContent   = mb+' MB';
+}
+
+// ── DL完了・停止時にダイアログに「閉じる」ボタンを出す ──
+function _dldShowDone(stopped){
+  const btns = document.getElementById('dld-dl-btns');
+  if(!btns) return;
+  btns.innerHTML = stopped
+    ? `<button class="btn sm" onclick="_dldCancel()">閉じる</button>`
+    : `<button class="btn accent" onclick="_dldCancel()">✅ 完了・閉じる</button>`;
+}
+
+// ═══════════════════════════════════════════
 //  レジューム管理
 // ═══════════════════════════════════════════
 const RESUME_KEY='gm_dl_resume';
@@ -992,11 +1236,19 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-done));
     document.getElementById('pg-mb').textContent=mbEst(done)+' MB';
     document.getElementById('pg-bar').style.width=pct+'%';
-    // ミラーバー同期
+    // ミラーバー同期（オフラインタブ内）
     const _pbd=document.getElementById('dl-pb-done'); if(_pbd) _pbd.textContent=fmt(done);
     const _pbt=document.getElementById('dl-pb-tot');  if(_pbt) _pbt.textContent=fmt(total);
     const _pbm=document.getElementById('dl-pb-mb');   if(_pbm) _pbm.textContent=mbEst(done)+' MB';
     const _pbb=document.getElementById('dl-pb-bar');  if(_pbb) _pbb.style.width=pct+'%';
+    // DLダイアログ内バー同期
+    if(typeof _dldSyncProgress==='function') _dldSyncProgress(done,total,mbEst(done));
+    // DLダイアログ内ログミラー
+    const _dlog=document.getElementById('dld-log');
+    if(_dlog&&done%200===0){
+      _dlog.textContent=`完了: ${fmt(done)} / ${fmt(total)}  失敗: ${fail}\n`+_dlog.textContent;
+      _dlog.textContent=_dlog.textContent.split('\n').slice(0,20).join('\n');
+    }
   };
 
   // startIdx以降のキュー（方式B: dbGetで重複スキップ）
@@ -1054,9 +1306,11 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     deleteResume();
     document.getElementById('resume-banner').classList.remove('show');
     log('✅ 完了！ '+fmt(done)+'枚保存（失敗: '+fail+'）');
+    if(typeof _dldShowDone==='function') _dldShowDone(false);
   } else {
     log('⏸ 停止しました。続きから再開できます。');
     checkResume(); // バナー更新
+    if(typeof _dldShowDone==='function') _dldShowDone(true);
   }
   refreshCache();
 }
@@ -1196,16 +1450,11 @@ document.addEventListener('keydown',e=>{
   const _orig = switchTab;
   switchTab = function(tab){
     if(tab === 'offline'){
-      isPremiumUser().then(premium => {
-        if(!premium){
-          showPremiumGate('offline');
-          _pushHistory(); // ダイアログ表示時もpushしてバックで閉じられるようにする
-        } else {
-          const wasMap = (curTab === 'map');
-          _openTab(tab);
-          if(wasMap) _pushHistory();
-        }
-      });
+      // offlineタブはプレミアムチェックなしで直接開く
+      // DL操作はタブ内「DL開始」ボタン→openDlDialog()でゲートチェック
+      const wasMap2 = (curTab === 'map');
+      _openTab(tab);
+      if(wasMap2) _pushHistory();
       return;
     }
     const wasMap = (curTab === 'map');

@@ -96,14 +96,7 @@
   <button class="btn sm accent" onclick="openAddDlg()">入力へ</button>
   <button class="btn sm" onclick="cancelAdd()">✕</button>
 </div>
-<div id="rect-banner">
-  <p id="rect-banner-msg"></p>
-  <div class="rect-banner-btns">
-    <button class="btn sm accent" onclick="confirmRect()">範囲決定</button>
-    <button class="btn sm red"   onclick="cancelRect()">範囲解除</button>
-    <button class="btn sm"       onclick="cancelRectAll()">キャンセル</button>
-  </div>
-</div>
+<!-- rect-banner廃止: DLダイアログに統合 -->
 
 <div id="tabbar">
   <button class="tab-btn active" id="tab-map"     onclick="switchTab('map')">
@@ -174,16 +167,17 @@
     <h2>⬇ オフライン地図管理</h2>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
-  <div id="dl-progress-bar" class="dl-progress-bar" style="display:none">
-    <div class="dl-pb-row">
-      <span class="dl-pb-label">DL進捗</span>
-      <span class="dl-pb-nums"><span id="dl-pb-done">0</span>/<span id="dl-pb-tot">0</span></span>
-      <span class="dl-pb-mb" id="dl-pb-mb">0 MB</span>
-    </div>
-    <div class="prog-bar-bg"><div class="prog-bar-fill" id="dl-pb-bar" style="width:0%"></div></div>
-  </div>
   <div class="sheet-body">
 
+    <!-- DL開始ボタン -->
+    <div class="dl-start-wrap">
+      <button class="btn accent dl-start-btn" onclick="openDlDialog()">
+        ⬇ タイルダウンロード開始
+      </button>
+      <p class="dl-start-hint">地図を見ながら範囲・レイヤー・ズームを設定できます</p>
+    </div>
+
+    <!-- レジュームバナー -->
     <div id="resume-banner">
       <strong>⏸ 前回の続きがあります</strong><br>
       <span id="resume-desc"></span>
@@ -193,92 +187,7 @@
       </div>
     </div>
 
-    <!-- レイヤー選択 アコーディオン -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🗂 ダウンロードするレイヤー</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <div class="ck-row"><input type="checkbox" id="ck-std" checked><label for="ck-std">地理院地図</label></div>
-        <div class="ck-row"><input type="checkbox" id="ck-photo"><label for="ck-photo">航空写真</label></div>
-        <div class="ck-row"><input type="checkbox" id="ck-topo"><label for="ck-topo">地形図 (OpenTopoMap)</label></div>
-      </div>
-    </div>
-
-    <!-- ベースタイル アコーディオン -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🗾 ① ベースタイルダウンロード（全日本 Z5〜Z10）</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <div class="sl2-row">
-          <label>最大ズーム</label>
-          <select id="base-zmax" onchange="updBaseEst()">
-            <option value="8">Z8（軽量・推奨）</option>
-            <option value="9">Z9</option>
-            <option value="10" selected>Z10（標準）</option>
-          </select>
-        </div>
-        <div class="info-box" id="base-est">計算中…</div>
-        <div class="btn-row">
-          <button class="btn blue"  id="btn-dlbase"  onclick="startDl('base')">▶ DL 開始</button>
-          <button class="btn red"   id="btn-stpbase" onclick="stopDl()" style="display:none">■ 停止</button>
-        </div>
-        <div class="dl-warn">⚠️ DLする際は容量をよく確認しWIFI環境をお勧めします</div>
-      </div>
-    </div>
-
-    <!-- 詳細タイル アコーディオン -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🔍 ② 詳細タイルダウンロード（指定範囲）</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <div class="btn-row" style="margin-bottom:10px">
-          <button class="btn sm" onclick="useView()">現在表示範囲</button>
-          <button class="btn sm" id="btn-drawrect" onclick="startRectDraw()">地図上でドラッグ選択</button>
-          <button class="btn sm red" id="btn-clearrect" onclick="clearRect()" style="display:none">✕ 解除</button>
-        </div>
-        <div class="info-box" id="rect-info">範囲: 未選択</div>
-        <div class="sl2-row">
-          <label>最小ズーム</label>
-          <select id="det-zmin" onchange="updDetEst()">
-            <option value="11" selected>Z11</option><option value="12">Z12</option><option value="13">Z13</option>
-          </select>
-        </div>
-        <div class="sl2-row">
-          <label>最大ズーム</label>
-          <select id="det-zmax" onchange="updDetEst()">
-            <option value="12">Z12</option><option value="13">Z13</option><option value="14">Z14</option>
-            <option value="15" selected>Z15</option><option value="16">Z16</option>
-            <option value="17">Z17</option><option value="18">Z18</option>
-          </select>
-        </div>
-        <div class="info-box" id="det-est">— 範囲を選択してください —</div>
-        <div class="btn-row">
-          <button class="btn blue" id="btn-dldet"  onclick="startDl('detail')" disabled>▶ DL 開始</button>
-          <button class="btn red"  id="btn-stpdet" onclick="stopDl()" style="display:none">■ 停止</button>
-        </div>
-        <div class="dl-warn">⚠️ DLする際は容量をよく確認しWIFI環境をお勧めします</div>
-      </div>
-    </div>
-
-    </div>
-</div>
-
-<div class="sheet" id="cfg-sheet">
-  <div class="sheet-head">
-    <h2>⚙ 設定</h2>
-    <button class="sheet-close" onclick="switchTab('map')">✕</button>
-  </div>
-  <div class="sheet-body">
-    <!-- ① 熊出没情報 -->
-    <div class="settings-section" id="bear-settings-section"></div>
-
-    <!-- ② キャッシュ管理 -->
+    <!-- キャッシュ管理（設定タブから移動） -->
     <div class="cfg-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
         <span class="cfg-accordion-title">💾 地図キャッシュ管理</span>
@@ -295,14 +204,14 @@
         <div class="cfg-row">
           <div>
             <div class="cfg-label">キャッシュ削除</div>
-            <div class="cfg-sub">保存済み地図タイルを全て削除します（掲示板等のキャッシュは保持）</div>
+            <div class="cfg-sub">保存済み地図タイルを全て削除します</div>
           </div>
           <button class="btn sm red" onclick="clearCache()">全削除</button>
         </div>
       </div>
     </div>
 
-    <!-- ③ ダウンロード進捗（常時バー） -->
+    <!-- DL進捗ログ（DL中のみ表示） -->
     <div id="cfg-dl-progress-bar" class="dl-progress-bar dl-progress-bar--cfg" style="display:none">
       <div class="dl-pb-row">
         <span class="dl-pb-label">DL進捗</span>
@@ -314,6 +223,41 @@
     </div>
     <!-- prog-section: ui.js の show クラス制御のため非表示で保持 -->
     <div id="prog-section" style="display:none"><span id="pg-rem"></span></div>
+
+    <!-- 旧ID互換ダミー（ui.jsのstartDl参照用） -->
+    <input type="checkbox" id="ck-std"   checked   style="display:none">
+    <input type="checkbox" id="ck-photo"           style="display:none">
+    <input type="checkbox" id="ck-topo"            style="display:none">
+    <select id="base-zmax" style="display:none"><option value="10" selected>Z10</option></select>
+    <select id="det-zmin"  style="display:none"><option value="11" selected>Z11</option></select>
+    <select id="det-zmax"  style="display:none"><option value="15" selected>Z15</option></select>
+    <div id="dl-progress-bar" style="display:none">
+      <span id="dl-pb-done">0</span><span id="dl-pb-tot">0</span>
+      <span id="dl-pb-mb">0</span>
+      <div class="prog-bar-fill" id="dl-pb-bar"></div>
+    </div>
+    <div id="rect-info"  style="display:none"></div>
+    <div id="base-est"   style="display:none"></div>
+    <div id="det-est"    style="display:none"></div>
+    <button id="btn-dlbase"  style="display:none" onclick="startDl('base')"></button>
+    <button id="btn-stpbase" style="display:none" onclick="stopDl()"></button>
+    <button id="btn-dldet"   style="display:none" onclick="startDl('detail')"></button>
+    <button id="btn-stpdet"  style="display:none" onclick="stopDl()"></button>
+    <button id="btn-clearrect" style="display:none" onclick="clearRect()"></button>
+
+  </div>
+</div>
+
+<div class="sheet" id="cfg-sheet">
+  <div class="sheet-head">
+    <h2>⚙ 設定</h2>
+    <button class="sheet-close" onclick="switchTab('map')">✕</button>
+  </div>
+  <div class="sheet-body">
+    <!-- ① 熊出没情報 -->
+    <div class="settings-section" id="bear-settings-section"></div>
+
+    <!-- ② キャッシュ管理はオフラインタブに移動 -->
 
     <!-- ④ 鉱床・鉱徴地データ -->
     <div class="cfg-accordion">
@@ -745,6 +689,130 @@
            color:#ff8888;cursor:pointer;backdrop-filter:blur(8px);">
     DEV: FREE
   </button>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     地図上DLダイアログ（ウィザード式・3STEP）
+     ─────────────────────────────────────────
+     STEP1: 範囲選択
+     STEP2: レイヤー・ズーム設定
+     STEP3: DL進捗
+     ═══════════════════════════════════════════ -->
+<div id="dl-dialog" style="display:none">
+
+  <!-- ステップインジケーター -->
+  <div class="dld-steps">
+    <div class="dld-step active" id="dld-si-1"><span class="dld-step-num">1</span><span class="dld-step-lbl">範囲</span></div>
+    <div class="dld-step-line"></div>
+    <div class="dld-step" id="dld-si-2"><span class="dld-step-num">2</span><span class="dld-step-lbl">設定</span></div>
+    <div class="dld-step-line"></div>
+    <div class="dld-step" id="dld-si-3"><span class="dld-step-num">3</span><span class="dld-step-lbl">DL</span></div>
+  </div>
+
+  <!-- STEP 1: 範囲選択 -->
+  <div class="dld-panel" id="dld-s1">
+    <div class="dld-title">📍 STEP 1 ─ ダウンロード範囲を選択</div>
+
+    <!-- モード切替タブ -->
+    <div class="dld-mode-tabs">
+      <button class="dld-mode-tab active" id="dld-tab-view" onclick="_dldSelectMode('view')">
+        🖼 現在表示範囲
+      </button>
+      <button class="dld-mode-tab" id="dld-tab-draw" onclick="_dldSelectMode('draw')">
+        ✏️ ドラッグ選択
+      </button>
+    </div>
+
+    <!-- 現在表示範囲モード -->
+    <div id="dld-mode-view">
+      <p class="dld-hint">地図を動かして「この範囲で確定」を押してください</p>
+      <button class="btn accent dld-confirm-btn" onclick="_dldConfirmView()">この範囲で確定 →</button>
+    </div>
+
+    <!-- ドラッグ選択モード -->
+    <div id="dld-mode-draw" style="display:none">
+      <p class="dld-hint" id="dld-draw-hint">地図上をドラッグして範囲を指定してください</p>
+      <button class="btn accent dld-confirm-btn" id="dld-draw-ok" onclick="_dldConfirmDraw()" disabled>選択範囲を確定 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: レイヤー・ズーム設定 -->
+  <div class="dld-panel" id="dld-s2" style="display:none">
+    <div class="dld-title">🗂 STEP 2 ─ レイヤーとズームを設定</div>
+
+    <!-- DL種別 -->
+    <div class="dld-mode-tabs">
+      <button class="dld-mode-tab active" id="dld-tab-det" onclick="_dldSetType('detail')">🔍 指定範囲</button>
+      <button class="dld-mode-tab" id="dld-tab-base" onclick="_dldSetType('base')">🗾 全日本ベース</button>
+    </div>
+
+    <!-- レイヤー -->
+    <div class="dld-section-ttl">レイヤー選択</div>
+    <div class="ck-row"><input type="checkbox" id="dlg-ck-std" checked><label for="dlg-ck-std">地理院地図</label></div>
+    <div class="ck-row"><input type="checkbox" id="dlg-ck-photo"><label for="dlg-ck-photo">航空写真</label></div>
+    <div class="ck-row"><input type="checkbox" id="dlg-ck-topo"><label for="dlg-ck-topo">地形図 (OpenTopoMap)</label></div>
+
+    <!-- ズーム（指定範囲） -->
+    <div id="dld-zoom-det">
+      <div class="dld-section-ttl">ズームレベル</div>
+      <div class="sl2-row">
+        <label>最小ズーム</label>
+        <select id="dlg-det-zmin" onchange="_dldUpdEst()">
+          <option value="11" selected>Z11</option><option value="12">Z12</option><option value="13">Z13</option>
+        </select>
+      </div>
+      <div class="sl2-row">
+        <label>最大ズーム</label>
+        <select id="dlg-det-zmax" onchange="_dldUpdEst()">
+          <option value="12">Z12</option><option value="13">Z13</option><option value="14">Z14</option>
+          <option value="15" selected>Z15</option><option value="16">Z16</option>
+          <option value="17">Z17</option><option value="18">Z18</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ズーム（全日本ベース） -->
+    <div id="dld-zoom-base" style="display:none">
+      <div class="dld-section-ttl">最大ズームレベル</div>
+      <div class="sl2-row">
+        <label>最大ズーム</label>
+        <select id="dlg-base-zmax" onchange="_dldUpdEst()">
+          <option value="8">Z8（軽量・推奨）</option>
+          <option value="9">Z9</option>
+          <option value="10" selected>Z10（標準）</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 推定 -->
+    <div class="info-box dld-est" id="dld-est">計算中…</div>
+    <div class="dl-warn">⚠️ DL前に容量を確認し、WIFI環境を推奨します</div>
+
+    <div class="dld-footer-btns">
+      <button class="btn sm" onclick="_dldBack(1)">← 戻る</button>
+      <button class="btn accent" onclick="_dldStartDl()">▶ DL 開始 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: 進捗 -->
+  <div class="dld-panel" id="dld-s3" style="display:none">
+    <div class="dld-title">⬇ STEP 3 ─ ダウンロード中</div>
+    <div class="dld-pb-wrap">
+      <div class="dl-pb-row">
+        <span class="dl-pb-label">進捗</span>
+        <span class="dl-pb-nums"><span id="dld-pb-done">0</span> / <span id="dld-pb-tot">0</span></span>
+        <span class="dl-pb-mb" id="dld-pb-mb">0 MB</span>
+      </div>
+      <div class="prog-bar-bg"><div class="prog-bar-fill" id="dld-pb-bar" style="width:0%"></div></div>
+    </div>
+    <div class="dl-log" id="dld-log"></div>
+    <div class="dld-footer-btns" id="dld-dl-btns">
+      <button class="btn red" id="dld-stop-btn" onclick="stopDl()">■ 停止</button>
+    </div>
+  </div>
+
+  <!-- キャンセルボタン（常時表示） -->
+  <button class="dld-cancel-btn" id="dld-cancel-btn" onclick="_dldCancel()">✕ キャンセル</button>
 </div>
 
 <div id="exit-overlay" style="
