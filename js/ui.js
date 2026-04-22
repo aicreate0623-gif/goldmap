@@ -608,159 +608,282 @@ document.getElementById('det-zmax').onchange=updDetEst;
 
 // ═══════════════════════════════════════════
 //  矩形選択
+//  設計:
+//    useView系  … 現在表示範囲をそのまま取得するパス
+//    drawRect系 … 地図上ドラッグで矩形を引くパス
+//    両系は完全独立。互いに干渉しない。
+//    「範囲解除」は今アクティブな系だけリセットしてバナーを保持。
+//    「キャンセル」で両系クリア＋バナー閉じ＋オフラインタブへ戻る。
 // ═══════════════════════════════════════════
-let detRect=null,drawMode=false,rs=null,rPrev=null;
 
-// 現在表示範囲をプレビュー表示してパネルを出す
-function useView(){
-  // overlayが開いていれば先に閉じる
-  closeOv();
-  _rectPending = map.getBounds();
-  _showRectPreview(_rectPending);
-  document.getElementById('rect-banner-msg').textContent =
-    '現在表示されている範囲でよろしければ範囲決定ボタンを押してタブ内からDLを開始して下さい';
-  document.getElementById('rect-banner').style.display = 'block';
-  switchTab('map');
+// ── 確定済み範囲（DLに使う） ─────────────────────────
+let detRect = null;
+
+// ── useView系 ────────────────────────────────────────
+// _viewPending : 現在表示範囲のbounds（未確定）
+// _viewPreview : 地図上に表示中の薄い矩形レイヤー
+let _viewPending = null;
+let _viewPreview = null;
+
+function _clearViewPreview(){
+  if(_viewPreview){ map.removeLayer(_viewPreview); _viewPreview=null; }
+}
+function _showViewPreview(bounds){
+  _clearViewPreview();
+  if(bounds){
+    _viewPreview = L.rectangle(bounds,{
+      color:'#00ffff',weight:2,dashArray:'4 3',
+      fillColor:'#00ffff',fillOpacity:.06
+    }).addTo(map);
+  }
 }
 
-// ドラッグ選択モード開始
-function startRectDraw(){
-  if(drawMode)return;
+// オフラインタブ内「現在表示範囲」ボタン
+function useView(){
   closeOv();
-  if(typeof cancelAdd === 'function' && typeof addMode !== 'undefined' && addMode) cancelAdd();
-  // ボタン押した瞬間にパネル表示＋地図タブへ
+  // drawRect系が動いていれば先に停止（干渉防止）
+  if(drawMode) _stopDraw();
+  _clearDrawPreview();
+  _drawPending = null;
+
+  _viewPending = map.getBounds();
+  _showViewPreview(_viewPending);
   document.getElementById('rect-banner-msg').textContent =
-    'ドラッグして範囲を指定して範囲決定ボタンを押してタブ内からDLを開始して下さい';
+    '現在表示されている範囲でよろしければ「範囲決定」を押してください。\n再選択したい場合は「範囲解除」で地図を動かして再度お試しください';
   document.getElementById('rect-banner').style.display='block';
   switchTab('map');
-  drawMode=true;
-  // drawMode中はフロートボタンを無効化
+}
+
+// ── drawRect系 ───────────────────────────────────────
+// drawMode     : ドラッグ受付中フラグ
+// _drawStart   : ドラッグ開始latlng
+// _drawPending : ドラッグ完了後の確定前bounds
+// _drawPreview : 地図上に表示中の薄い矩形レイヤー（ドラッグ中＋完了後）
+let drawMode     = false;
+let _drawStart   = null;
+let _drawPending = null;
+let _drawPreview = null;
+
+function _clearDrawPreview(){
+  if(_drawPreview){ map.removeLayer(_drawPreview); _drawPreview=null; }
+}
+function _showDrawPreview(bounds){
+  _clearDrawPreview();
+  if(bounds){
+    _drawPreview = L.rectangle(bounds,{
+      color:'#00ffff',weight:2,dashArray:'4 3',
+      fillColor:'#00ffff',fillOpacity:.06
+    }).addTo(map);
+  }
+}
+
+// オフラインタブ内「ドラッグ選択」ボタン
+function startRectDraw(){
+  if(drawMode) return;
+  closeOv();
+  if(typeof cancelAdd==='function' && typeof addMode!=='undefined' && addMode) cancelAdd();
+  // useView系のプレビューは残さない
+  _clearViewPreview();
+  _viewPending = null;
+
+  _enterDrawMode();
+  document.getElementById('rect-banner-msg').textContent =
+    '地図上をドラッグして範囲を指定してください';
+  document.getElementById('rect-banner').style.display='block';
+  switchTab('map');
+}
+
+// ドラッグモード開始（イベント登録）
+function _enterDrawMode(){
+  drawMode   = true;
+  _drawStart = null;
   document.getElementById('float-ctrl').classList.add('draw-mode-active');
   document.getElementById('float-ctrl-right').classList.add('draw-mode-active');
-  map.dragging.disable(); map.scrollWheelZoom.disable();
+  map.dragging.disable();
+  map.scrollWheelZoom.disable();
   map.getContainer().style.cursor='crosshair';
 
-  // マウスイベント
-  const down=e=>{rs=e.latlng;if(rPrev){map.removeLayer(rPrev);rPrev=null;}};
-  const move=e=>{if(!rs)return;if(rPrev)map.removeLayer(rPrev);
-    rPrev=L.rectangle(L.latLngBounds(rs,e.latlng),{color:'#00ffff',weight:2,dashArray:'6 3',fillColor:'#00ffff',fillOpacity:.08}).addTo(map);};
-  const up=e=>{
-    if(!rs)return;
-    _rectPending=L.latLngBounds(rs,e.latlng);
-    finishDraw();
-    _showRectPreview(_rectPending);
+  // ── マウスイベント ──
+  const onDown = e => {
+    _drawStart = e.latlng;
+    _clearDrawPreview();
+  };
+  const onMove = e => {
+    if(!_drawStart) return;
+    _clearDrawPreview();
+    _drawPreview = L.rectangle(L.latLngBounds(_drawStart,e.latlng),{
+      color:'#00ffff',weight:2,dashArray:'6 3',
+      fillColor:'#00ffff',fillOpacity:.08
+    }).addTo(map);
+  };
+  const onUp = e => {
+    if(!_drawStart) return;
+    const bounds = L.latLngBounds(_drawStart, e.latlng);
+    _drawStart = null;
+    _stopDraw();                     // イベント解除・カーソル戻す
+    _drawPending = bounds;
+    _showDrawPreview(_drawPending);  // 確定前プレビューに切替
     document.getElementById('rect-banner-msg').textContent =
-      '範囲が選択されました。範囲決定ボタンを押してタブ内からDLを開始して下さい';
+      '範囲が選択されました。よろしければ「範囲決定」を押してください';
     document.getElementById('rect-banner').style.display='block';
   };
 
-  // タッチイベント（スマホ対応）
-  const _ll=e=>{const t=e.touches[0];return map.containerPointToLatLng(L.point(
-    t.clientX-map.getContainer().getBoundingClientRect().left,
-    t.clientY-map.getContainer().getBoundingClientRect().top));};
-  const tdown=e=>{e.preventDefault();rs=_ll(e);if(rPrev){map.removeLayer(rPrev);rPrev=null;}};
-  const tmove=e=>{e.preventDefault();if(!rs)return;if(rPrev)map.removeLayer(rPrev);
-    rPrev=L.rectangle(L.latLngBounds(rs,_ll(e)),{color:'#00ffff',weight:2,dashArray:'6 3',fillColor:'#00ffff',fillOpacity:.08}).addTo(map);};
-  const tup=e=>{
-    e.preventDefault();if(!rs)return;
-    _rectPending=L.latLngBounds(rs,_ll(e));
-    finishDraw();
-    _showRectPreview(_rectPending);
+  // ── タッチイベント（スマホ対応）──
+  const _toLL = e => {
+    const t = e.touches[0];
+    const r = map.getContainer().getBoundingClientRect();
+    return map.containerPointToLatLng(L.point(t.clientX-r.left, t.clientY-r.top));
+  };
+  const onTDown = e => {
+    e.preventDefault();
+    _drawStart = _toLL(e);
+    _clearDrawPreview();
+  };
+  const onTMove = e => {
+    e.preventDefault();
+    if(!_drawStart) return;
+    _clearDrawPreview();
+    _drawPreview = L.rectangle(L.latLngBounds(_drawStart,_toLL(e)),{
+      color:'#00ffff',weight:2,dashArray:'6 3',
+      fillColor:'#00ffff',fillOpacity:.08
+    }).addTo(map);
+  };
+  const onTUp = e => {
+    e.preventDefault();
+    if(!_drawStart) return;
+    // touchend時はe.touchesが空のためe.changedTouchesを使う
+    const t = e.changedTouches[0];
+    const r = map.getContainer().getBoundingClientRect();
+    const ll = map.containerPointToLatLng(L.point(t.clientX-r.left, t.clientY-r.top));
+    const bounds = L.latLngBounds(_drawStart, ll);
+    _drawStart = null;
+    _stopDraw();
+    _drawPending = bounds;
+    _showDrawPreview(_drawPending);
     document.getElementById('rect-banner-msg').textContent =
-      '範囲が選択されました。範囲決定ボタンを押してタブ内からDLを開始して下さい';
+      '範囲が選択されました。よろしければ「範囲決定」を押してください';
     document.getElementById('rect-banner').style.display='block';
   };
 
-  map._re={down,move,up,tdown,tmove,tup};
-  map.on('mousedown',down).on('mousemove',move).on('mouseup',up);
-  const mc=map.getContainer();
-  mc.addEventListener('touchstart',tdown,{passive:false});
-  mc.addEventListener('touchmove',tmove,{passive:false});
-  mc.addEventListener('touchend',tup,{passive:false});
+  // ハンドラを_reにまとめて保持（_stopDrawで使う）
+  map._re = {onDown,onMove,onUp,onTDown,onTMove,onTUp};
+  map.on('mousedown',onDown).on('mousemove',onMove).on('mouseup',onUp);
+  const mc = map.getContainer();
+  mc.addEventListener('touchstart', onTDown, {passive:false});
+  mc.addEventListener('touchmove',  onTMove, {passive:false});
+  mc.addEventListener('touchend',   onTUp,   {passive:false});
 }
 
-function finishDraw(){
-  drawMode=false;rs=null;
-  map.dragging.enable();map.scrollWheelZoom.enable();
+// ドラッグモード停止（イベント解除・カーソル戻す・フラグリセット）
+// ※ _drawPending / _drawPreview は触らない
+function _stopDraw(){
+  drawMode   = false;
+  _drawStart = null;
+  map.dragging.enable();
+  map.scrollWheelZoom.enable();
   map.getContainer().style.cursor='';
-  // フロートボタン再有効化
   document.getElementById('float-ctrl').classList.remove('draw-mode-active');
   document.getElementById('float-ctrl-right').classList.remove('draw-mode-active');
-  const e=map._re;
+  const e = map._re;
   if(e){
-    map.off('mousedown',e.down).off('mousemove',e.move).off('mouseup',e.up);
-    const mc=map.getContainer();
-    mc.removeEventListener('touchstart',e.tdown);
-    mc.removeEventListener('touchmove',e.tmove);
-    mc.removeEventListener('touchend',e.tup);
+    map.off('mousedown',e.onDown).off('mousemove',e.onMove).off('mouseup',e.onUp);
+    const mc = map.getContainer();
+    mc.removeEventListener('touchstart', e.onTDown);
+    mc.removeEventListener('touchmove',  e.onTMove);
+    mc.removeEventListener('touchend',   e.onTUp);
+    map._re = null;
   }
 }
 
-// プレビュー（確定前の薄い矩形）
-let _rectPending = null;
-function _showRectPreview(bounds){
-  if(rPrev){map.removeLayer(rPrev);rPrev=null;}
-  if(bounds){
-    rPrev=L.rectangle(bounds,{color:'#00ffff',weight:2,dashArray:'4 3',fillColor:'#00ffff',fillOpacity:.06}).addTo(map);
-  }
-}
-
-// 範囲決定：pendingをdetRectに確定する
+// ── 共通: 範囲決定 ───────────────────────────────────
+// viewPending / drawPending のどちらかを detRect に確定する
 function confirmRect(){
-  if(!_rectPending) return;
-  if(drawMode) finishDraw();
-  detRect = _rectPending;
-  _rectPending = null;
-  // バナーを閉じる
+  const pending = _viewPending || _drawPending;
+  if(!pending) return;
+  // ドラッグ中に決定ボタンを押した場合も安全に止める
+  if(drawMode) _stopDraw();
+  detRect      = pending;
+  _viewPending = null;
+  _drawPending = null;
+  // バナーを閉じてタブへ
   document.getElementById('rect-banner').style.display='none';
-  // rect-info・ボタン・推定を更新（アコーディオン開閉に関わらず値だけ更新）
   document.getElementById('rect-info').innerHTML=
     `北: <b>${detRect.getNorth().toFixed(3)}</b>　南: <b>${detRect.getSouth().toFixed(3)}</b><br>`+
     `西: <b>${detRect.getWest().toFixed(3)}</b>　東: <b>${detRect.getEast().toFixed(3)}</b>`;
   document.getElementById('btn-clearrect').style.display='inline-flex';
   updDetEst();
-  // オフラインタブへ遷移（プレミアムチェックせず直接_openTab、既にプレミアム済みのはず）
   _openTab('offline');
   _pushHistory();
 }
 
-// パネル内「範囲解除」：プレビューを消してバナーを再ドラッグ案内に戻す
+// ── 共通: 範囲解除 ───────────────────────────────────
+// 今アクティブな系のpendingとプレビューだけクリア。バナーは保持。
+// drawRect系が動いていれば再ドラッグ待ちに戻す。
+// useView系のみなら地図操作可能なまま再選択を促す。
 function cancelRect(){
-  if(drawMode) finishDraw();
-  _rectPending=null;
-  if(rPrev){map.removeLayer(rPrev);rPrev=null;}
-  // 再ドラッグ開始（startRectDraw内でメッセージが上書きされるので呼び出し後に再セット）
-  startRectDraw();
-  document.getElementById('rect-banner-msg').textContent =
-    'もう一度ドラッグして範囲を指定して範囲決定ボタンを押してください';
+  if(_drawPending || drawMode){
+    // drawRect系をリセット
+    if(drawMode) _stopDraw();
+    _drawPending = null;
+    _clearDrawPreview();
+    // 再ドラッグ待ちに戻す
+    _enterDrawMode();
+    document.getElementById('rect-banner-msg').textContent =
+      'もう一度ドラッグして範囲を指定してください';
+  } else if(_viewPending){
+    // useView系をリセット
+    _viewPending = null;
+    _clearViewPreview();
+    document.getElementById('rect-banner-msg').textContent =
+      '地図を動かして「現在表示範囲」を押し直してください';
+  }
+  // バナーはそのまま保持
 }
 
-// パネル内「キャンセル」：完全中断・パネル閉じる・ブロック解除
+// ── 共通: キャンセル ─────────────────────────────────
+// 両系を完全クリア・バナー閉じ・オフラインタブへ戻る
 function cancelRectAll(){
-  if(drawMode) finishDraw();
-  _rectPending=null;
-  if(rPrev){map.removeLayer(rPrev);rPrev=null;}
+  if(drawMode) _stopDraw();
+  _drawPending = null;
+  _viewPending = null;
+  _clearDrawPreview();
+  _clearViewPreview();
   document.getElementById('rect-banner').style.display='none';
+  _openTab('offline');
+  _pushHistory();
 }
 
+// ── タブ内「選択済み範囲を表示」────────────────────────
+// 確定済みのdetRectをviewPreviewで地図に表示する
 function showRect(){
-  if(rPrev){map.removeLayer(rPrev);rPrev=null;}
+  _clearViewPreview();
+  _clearDrawPreview();
   if(detRect){
-    rPrev=L.rectangle(detRect,{color:'#00ffff',weight:2,dashArray:'4 3',fillColor:'#00ffff',fillOpacity:.06}).addTo(map);
+    _viewPreview = L.rectangle(detRect,{
+      color:'#00ffff',weight:2,dashArray:'4 3',
+      fillColor:'#00ffff',fillOpacity:.06
+    }).addTo(map);
   }
 }
 
-// タブ内の解除ボタン：ドラッグ中でも確実に停止してクリア
+// ── タブ内「範囲をクリア」────────────────────────────
+// 確定済みdetRectを削除してUIをリセットする
 function clearRect(){
-  if(drawMode) finishDraw();
-  detRect=null; _rectPending=null;
-  if(rPrev){map.removeLayer(rPrev);rPrev=null;}
+  if(drawMode) _stopDraw();
+  detRect      = null;
+  _drawPending = null;
+  _viewPending = null;
+  _clearDrawPreview();
+  _clearViewPreview();
   document.getElementById('rect-banner').style.display='none';
   document.getElementById('rect-info').textContent='範囲: 未選択';
   document.getElementById('btn-clearrect').style.display='none';
   document.getElementById('btn-dldet').disabled=true;
   document.getElementById('det-est').textContent='— 範囲を選択してください —';
 }
+
+// finishDraw: 外部（Escapeキー等）から呼ばれる互換ラッパー
+function finishDraw(){ if(drawMode) _stopDraw(); }
 
 // ═══════════════════════════════════════════
 //  レジューム管理
