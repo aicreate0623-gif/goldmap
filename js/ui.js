@@ -620,22 +620,15 @@ document.getElementById('det-zmax').onchange=updDetEst;
 let detRect = null;
 
 // ── useView系 ────────────────────────────────────────
-// _viewPending : 現在表示範囲のbounds（未確定）
+// _viewMode    : useView待機中フラグ（true=「範囲決定」でgetBoundsする）
 // _viewPreview : 地図上に表示中の薄い矩形レイヤー
-let _viewPending = null;
+// ※ getBounds()はconfirmRect()時に初めて呼ぶ。
+//    ボタンを押した瞬間は範囲を固定しない。
+let _viewMode    = false;
 let _viewPreview = null;
 
 function _clearViewPreview(){
   if(_viewPreview){ map.removeLayer(_viewPreview); _viewPreview=null; }
-}
-function _showViewPreview(bounds){
-  _clearViewPreview();
-  if(bounds){
-    _viewPreview = L.rectangle(bounds,{
-      color:'#00ffff',weight:2,dashArray:'4 3',
-      fillColor:'#00ffff',fillOpacity:.06
-    }).addTo(map);
-  }
 }
 
 // オフラインタブ内「現在表示範囲」ボタン
@@ -646,10 +639,9 @@ function useView(){
   _clearDrawPreview();
   _drawPending = null;
 
-  _viewPending = map.getBounds();
-  _showViewPreview(_viewPending);
+  _viewMode = true;
   document.getElementById('rect-banner-msg').textContent =
-    '現在表示されている範囲でよろしければ「範囲決定」を押してください。\n再選択したい場合は「範囲解除」で地図を動かして再度お試しください';
+    '地図を好きな位置に動かして「範囲決定」を押してください';
   document.getElementById('rect-banner').style.display='block';
   switchTab('map');
 }
@@ -682,9 +674,9 @@ function startRectDraw(){
   if(drawMode) return;
   closeOv();
   if(typeof cancelAdd==='function' && typeof addMode!=='undefined' && addMode) cancelAdd();
-  // useView系のプレビューは残さない
+  // useView系をクリア（干渉防止）
+  _viewMode = false;
   _clearViewPreview();
-  _viewPending = null;
 
   _enterDrawMode();
   document.getElementById('rect-banner-msg').textContent =
@@ -796,14 +788,21 @@ function _stopDraw(){
 }
 
 // ── 共通: 範囲決定 ───────────────────────────────────
-// viewPending / drawPending のどちらかを detRect に確定する
+// _viewMode=true  → その時点のmap.getBounds()を取得して確定
+// _drawPending    → ドラッグ完了済みboundsを確定
 function confirmRect(){
-  const pending = _viewPending || _drawPending;
+  let pending = null;
+  if(_viewMode){
+    pending   = map.getBounds(); // 決定時点の表示範囲を取得
+    _viewMode = false;
+    _clearViewPreview();
+  } else if(_drawPending){
+    pending = _drawPending;
+  }
   if(!pending) return;
   // ドラッグ中に決定ボタンを押した場合も安全に止める
   if(drawMode) _stopDraw();
   detRect      = pending;
-  _viewPending = null;
   _drawPending = null;
   // バナーを閉じてタブへ
   document.getElementById('rect-banner').style.display='none';
@@ -817,25 +816,24 @@ function confirmRect(){
 }
 
 // ── 共通: 範囲解除 ───────────────────────────────────
-// 今アクティブな系のpendingとプレビューだけクリア。バナーは保持。
-// drawRect系が動いていれば再ドラッグ待ちに戻す。
-// useView系のみなら地図操作可能なまま再選択を促す。
+// 今アクティブな系だけリセット。バナーは保持。
+// drawRect系 → 再ドラッグ待ちに戻す
+// useView系  → フラグだけ落とす（地図はそのまま動かせる）
 function cancelRect(){
   if(_drawPending || drawMode){
-    // drawRect系をリセット
+    // drawRect系をリセット → 再ドラッグ待ちに戻す
     if(drawMode) _stopDraw();
     _drawPending = null;
     _clearDrawPreview();
-    // 再ドラッグ待ちに戻す
     _enterDrawMode();
     document.getElementById('rect-banner-msg').textContent =
       'もう一度ドラッグして範囲を指定してください';
-  } else if(_viewPending){
-    // useView系をリセット
-    _viewPending = null;
+  } else if(_viewMode){
+    // useView系をリセット → 地図を動かして再度「範囲決定」を促す
+    _viewMode = false;
     _clearViewPreview();
     document.getElementById('rect-banner-msg').textContent =
-      '地図を動かして「現在表示範囲」を押し直してください';
+      '地図を動かして「範囲決定」を押してください（表示範囲がそのまま確定します）';
   }
   // バナーはそのまま保持
 }
@@ -845,7 +843,7 @@ function cancelRect(){
 function cancelRectAll(){
   if(drawMode) _stopDraw();
   _drawPending = null;
-  _viewPending = null;
+  _viewMode    = false;
   _clearDrawPreview();
   _clearViewPreview();
   document.getElementById('rect-banner').style.display='none';
@@ -872,7 +870,7 @@ function clearRect(){
   if(drawMode) _stopDraw();
   detRect      = null;
   _drawPending = null;
-  _viewPending = null;
+  _viewMode    = false;
   _clearDrawPreview();
   _clearViewPreview();
   document.getElementById('rect-banner').style.display='none';
