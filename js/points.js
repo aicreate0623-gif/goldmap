@@ -100,6 +100,9 @@ function addMk(p){
 })();
 function updPtCnt(){
   document.getElementById('sb-pt').textContent='ポイント: '+pts.length+'件';
+  // アコーディオンタイトルに件数を反映
+  const ttl = document.getElementById('pt-list-accordion-title');
+  if(ttl) ttl.textContent = '📋 一覧（'+pts.length+'件）';
   renderPtList();
 }
 function savePts(){
@@ -115,6 +118,13 @@ function loadPts(){
     updPtCnt();
   }catch(e){}
   applyContribUI();
+  // プレミアムユーザーのみcontrib-bar表示
+  if(typeof isPremiumUser === 'function'){
+    isPremiumUser().then(premium=>{
+      const bar = document.getElementById('contrib-bar-wrap');
+      if(bar) bar.style.display = premium ? '' : 'none';
+    });
+  }
 }
 function renderPtList(){
   const el=document.getElementById('pt-list');

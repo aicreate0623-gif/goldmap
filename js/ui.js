@@ -402,7 +402,7 @@ function toggleHeatFree() {
   document.getElementById('btn-heat-free').classList.add('active');
   _applyHeatParamsSaved('free');
   _renderHeatPanel('free');
-  document.getElementById('heat-ctrl-panel').style.display = 'block';
+  // パネルは自動で開かない（調整ボタンから手動で開く）
   _showHeatAdjBtn(true);
   initHeatLayer('free');
 }
@@ -429,7 +429,7 @@ async function toggleHeatPremium() {
   document.getElementById('btn-heat-premium').classList.add('active');
   _applyHeatParamsSaved('premium');
   _renderHeatPanel('premium');
-  document.getElementById('heat-ctrl-panel').style.display = 'block';
+  // パネルは自動で開かない（調整ボタンから手動で開く）
   _showHeatAdjBtn(true);
   initHeatLayer('premium');
 }
@@ -618,7 +618,7 @@ function useView(){
   _rectPending = map.getBounds();
   _showRectPreview(_rectPending);
   document.getElementById('rect-banner-msg').textContent =
-    '現在表示されている範囲でよろしければ決定ボタンを押してタブ内からDLを開始して下さい';
+    '現在表示されている範囲でよろしければ範囲決定ボタンを押してタブ内からDLを開始して下さい';
   document.getElementById('rect-banner').style.display = 'block';
   switchTab('map');
 }
@@ -630,7 +630,7 @@ function startRectDraw(){
   if(typeof cancelAdd === 'function' && typeof addMode !== 'undefined' && addMode) cancelAdd();
   // ボタン押した瞬間にパネル表示＋地図タブへ
   document.getElementById('rect-banner-msg').textContent =
-    'ドラッグして範囲を指定して決定ボタンを押しタブ内からDLを開始して下さい';
+    'ドラッグして範囲を指定して範囲決定ボタンを押しタブ内からDLを開始して下さい';
   document.getElementById('rect-banner').style.display='block';
   switchTab('map');
   drawMode=true;
@@ -650,7 +650,7 @@ function startRectDraw(){
     finishDraw();
     _showRectPreview(_rectPending);
     document.getElementById('rect-banner-msg').textContent =
-      'ドラッグして範囲を指定して決定ボタンを押しタブ内からDLを開始して下さい';
+      '範囲が選択されました。範囲決定ボタンを押してタブ内からDLを開始して下さい';
     document.getElementById('rect-banner').style.display='block';
   };
 
@@ -667,7 +667,7 @@ function startRectDraw(){
     finishDraw();
     _showRectPreview(_rectPending);
     document.getElementById('rect-banner-msg').textContent =
-      'ドラッグして範囲を指定して決定ボタンを押しタブ内からDLを開始して下さい';
+      '範囲が選択されました。範囲決定ボタンを押してタブ内からDLを開始して下さい';
     document.getElementById('rect-banner').style.display='block';
   };
 
@@ -705,12 +705,20 @@ function _showRectPreview(bounds){
   }
 }
 
-// 範囲決定：pendingをdetRectに確定する（タブは自動で開かない）
+// 範囲決定：pendingをdetRectに確定する
 function confirmRect(){
   if(!_rectPending) return;
   if(drawMode) finishDraw();
   detRect = _rectPending;
+  _rectPending = null;
   document.getElementById('rect-banner').style.display='none';
+  // オフラインタブへ遷移してDL設定画面を表示
+  isPremiumUser().then(premium => {
+    if(premium) {
+      _openTab('offline');
+      _pushHistory();
+    }
+  });
   document.getElementById('rect-info').innerHTML=
     `北: <b>${detRect.getNorth().toFixed(3)}</b>　南: <b>${detRect.getSouth().toFixed(3)}</b><br>`+
     `西: <b>${detRect.getWest().toFixed(3)}</b>　東: <b>${detRect.getEast().toFixed(3)}</b>`;

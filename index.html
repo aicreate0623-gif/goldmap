@@ -129,7 +129,8 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
 
-  <div class="contrib-bar">
+  <!-- ⑦ ヒートマップ協力欄：プレミアム限定・初期非表示 -->
+  <div class="contrib-bar" id="contrib-bar-wrap" style="display:none">
     <div class="contrib-bar-left">
       <span class="contrib-icon">🗺️</span>
       <div class="contrib-label">
@@ -153,8 +154,18 @@
   <div class="pt-tip">
     💡 地図を<b>1秒長押し</b>してもポイントを追加できます
   </div>
-  <div class="pt-list" id="pt-list">
-    <div class="pt-empty">まだポイントがありません<br>「＋ ポイント追加」で地図上に登録できます</div>
+
+  <!-- ⑥ リストをアコーディオン型に -->
+  <div class="cfg-accordion pt-list-accordion">
+    <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)" id="pt-list-accordion-header">
+      <span class="cfg-accordion-title" id="pt-list-accordion-title">📋 一覧（0件）</span>
+      <span class="cfg-accordion-arrow">▶</span>
+    </div>
+    <div class="cfg-accordion-body">
+      <div class="pt-list" id="pt-list">
+        <div class="pt-empty">まだポイントがありません<br>「＋ ポイント追加」で地図上に登録できます</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -182,59 +193,77 @@
       </div>
     </div>
 
-    <div class="dl-section">
-      <div class="sec-ttl">ダウンロードするレイヤー</div>
-      <div class="ck-row"><input type="checkbox" id="ck-std" checked><label for="ck-std">地理院地図</label></div>
-      <div class="ck-row"><input type="checkbox" id="ck-photo"><label for="ck-photo">航空写真</label></div>
-      <div class="ck-row"><input type="checkbox" id="ck-topo"><label for="ck-topo">地形図 (OpenTopoMap)</label></div>
+    <!-- レイヤー選択 アコーディオン -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">🗂 ダウンロードするレイヤー</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <div class="ck-row"><input type="checkbox" id="ck-std" checked><label for="ck-std">地理院地図</label></div>
+        <div class="ck-row"><input type="checkbox" id="ck-photo"><label for="ck-photo">航空写真</label></div>
+        <div class="ck-row"><input type="checkbox" id="ck-topo"><label for="ck-topo">地形図 (OpenTopoMap)</label></div>
+      </div>
     </div>
 
-    <div class="dl-section">
-      <div class="sec-ttl">① ベースタイル（全日本 Z5〜Z10）</div>
-      <div class="sl2-row">
-        <label>最大ズーム</label>
-        <select id="base-zmax" onchange="updBaseEst()">
-          <option value="8">Z8（軽量・推奨）</option>
-          <option value="9">Z9</option>
-          <option value="10" selected>Z10（標準）</option>
-        </select>
+    <!-- ベースタイル アコーディオン -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">🗾 ① ベースタイル（全日本 Z5〜Z10）</span>
+        <span class="cfg-accordion-arrow">▶</span>
       </div>
-      <div class="info-box" id="base-est">計算中…</div>
-      <div class="btn-row">
-        <button class="btn blue"  id="btn-dlbase"  onclick="startDl('base')">▶ DL 開始</button>
-        <button class="btn red"   id="btn-stpbase" onclick="stopDl()" style="display:none">■ 停止</button>
+      <div class="cfg-accordion-body">
+        <div class="sl2-row">
+          <label>最大ズーム</label>
+          <select id="base-zmax" onchange="updBaseEst()">
+            <option value="8">Z8（軽量・推奨）</option>
+            <option value="9">Z9</option>
+            <option value="10" selected>Z10（標準）</option>
+          </select>
+        </div>
+        <div class="info-box" id="base-est">計算中…</div>
+        <div class="btn-row">
+          <button class="btn blue"  id="btn-dlbase"  onclick="startDl('base')">▶ DL 開始</button>
+          <button class="btn red"   id="btn-stpbase" onclick="stopDl()" style="display:none">■ 停止</button>
+        </div>
+        <div class="dl-warn">⚠️ DLする際は容量をよく確認しWIFI環境をお勧めします</div>
       </div>
-      <div class="dl-warn">⚠️ DLする際は容量をよく確認しWIFI環境をお勧めします</div>
     </div>
 
-    <div class="dl-section">
-      <div class="sec-ttl">② 詳細タイル（指定範囲）</div>
-      <div class="btn-row" style="margin-bottom:10px">
-        <button class="btn sm" onclick="useView()">現在表示範囲</button>
-        <button class="btn sm" id="btn-drawrect" onclick="startRectDraw()">地図上でドラッグ選択</button>
-        <button class="btn sm red" id="btn-clearrect" onclick="clearRect()" style="display:none">✕ 解除</button>
+    <!-- 詳細タイル アコーディオン -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">🔍 ② 詳細タイル（指定範囲）</span>
+        <span class="cfg-accordion-arrow">▶</span>
       </div>
-      <div class="info-box" id="rect-info">範囲: 未選択</div>
-      <div class="sl2-row">
-        <label>最小ズーム</label>
-        <select id="det-zmin" onchange="updDetEst()">
-          <option value="11" selected>Z11</option><option value="12">Z12</option><option value="13">Z13</option>
-        </select>
+      <div class="cfg-accordion-body">
+        <div class="btn-row" style="margin-bottom:10px">
+          <button class="btn sm" onclick="useView()">現在表示範囲</button>
+          <button class="btn sm" id="btn-drawrect" onclick="startRectDraw()">地図上でドラッグ選択</button>
+          <button class="btn sm red" id="btn-clearrect" onclick="clearRect()" style="display:none">✕ 解除</button>
+        </div>
+        <div class="info-box" id="rect-info">範囲: 未選択</div>
+        <div class="sl2-row">
+          <label>最小ズーム</label>
+          <select id="det-zmin" onchange="updDetEst()">
+            <option value="11" selected>Z11</option><option value="12">Z12</option><option value="13">Z13</option>
+          </select>
+        </div>
+        <div class="sl2-row">
+          <label>最大ズーム</label>
+          <select id="det-zmax" onchange="updDetEst()">
+            <option value="12">Z12</option><option value="13">Z13</option><option value="14">Z14</option>
+            <option value="15" selected>Z15</option><option value="16">Z16</option>
+            <option value="17">Z17</option><option value="18">Z18</option>
+          </select>
+        </div>
+        <div class="info-box" id="det-est">— 範囲を選択してください —</div>
+        <div class="btn-row">
+          <button class="btn blue" id="btn-dldet"  onclick="startDl('detail')" disabled>▶ DL 開始</button>
+          <button class="btn red"  id="btn-stpdet" onclick="stopDl()" style="display:none">■ 停止</button>
+        </div>
+        <div class="dl-warn">⚠️ DLする際は容量をよく確認しWIFI環境をお勧めします</div>
       </div>
-      <div class="sl2-row">
-        <label>最大ズーム</label>
-        <select id="det-zmax" onchange="updDetEst()">
-          <option value="12">Z12</option><option value="13">Z13</option><option value="14">Z14</option>
-          <option value="15" selected>Z15</option><option value="16">Z16</option>
-          <option value="17">Z17</option><option value="18">Z18</option>
-        </select>
-      </div>
-      <div class="info-box" id="det-est">— 範囲を選択してください —</div>
-      <div class="btn-row">
-        <button class="btn blue" id="btn-dldet"  onclick="startDl('detail')" disabled>▶ DL 開始</button>
-        <button class="btn red"  id="btn-stpdet" onclick="stopDl()" style="display:none">■ 停止</button>
-      </div>
-      <div class="dl-warn">⚠️ DLする際は容量をよく確認しWIFI環境をお勧めします</div>
     </div>
 
     </div>
@@ -252,7 +281,7 @@
     <!-- ② キャッシュ管理 -->
     <div class="cfg-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">💾 キャッシュ管理</span>
+        <span class="cfg-accordion-title">💾 地図キャッシュ管理</span>
         <span class="cfg-accordion-arrow">▶</span>
       </div>
       <div class="cfg-accordion-body">
@@ -266,7 +295,7 @@
         <div class="cfg-row">
           <div>
             <div class="cfg-label">キャッシュ削除</div>
-            <div class="cfg-sub">保存済みタイルを全て削除します</div>
+            <div class="cfg-sub">保存済み地図タイルを全て削除します（掲示板等のキャッシュは保持）</div>
           </div>
           <button class="btn sm red" onclick="clearCache()">全削除</button>
         </div>

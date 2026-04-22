@@ -436,6 +436,10 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   flex-shrink: 0;
 }
 .pt-list { flex: 1; overflow-y: auto; }
+/* アコーディオン内のpt-listは最大高さでスクロール */
+.pt-list-accordion .cfg-accordion-body { padding: 0 0 8px; }
+.pt-list-accordion .pt-list { max-height: 55vh; overflow-y: auto; flex: none; }
+.pt-list-accordion .cfg-accordion-header { padding: 12px 16px; }
 .pt-row {
   display: flex; align-items: center; gap: 12px;
   padding: 13px 18px; border-bottom: 1px solid rgba(200,170,80,0.06);
@@ -457,6 +461,10 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 
 /* ━━━ OFFLINE SHEET ━━━ */
 #dl-sheet .sheet-body { padding: 0; padding-bottom: calc(var(--tab-h) + 24px); }
+/* オフラインシート内アコーディオンのpadding調整 */
+#dl-sheet .cfg-accordion-header { padding: 12px 18px; }
+#dl-sheet .cfg-accordion-body   { padding: 0 18px 14px; }
+#dl-sheet .cfg-accordion { border-bottom: 1px solid rgba(255,255,255,0.07); }
 .dl-section {
   padding: 16px 18px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
