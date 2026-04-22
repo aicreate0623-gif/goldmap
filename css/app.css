@@ -611,8 +611,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .comm-accordion-body { display: none; }
 .comm-accordion-body.open { display: block; }
 
-/* バッドボタン非表示（機能は残す） */
-.comm-react-btn.bad { display: none !important; }
 .cfg-row {
   display: flex; align-items: center; gap: 10px;
   padding: 13px 0; border-bottom: 1px solid rgba(200,170,80,0.07);
@@ -1388,6 +1386,43 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   font-size: 10px;
   color: var(--txt-dim);
 }
+/* 通報ボタン */
+.comm-react-btn.report {
+  border-color: rgba(255,140,0,0.3);
+  color: rgba(255,160,40,0.7);
+}
+.comm-react-btn.report.active {
+  background: rgba(255,120,0,0.15);
+  border-color: rgba(255,140,0,0.5);
+  color: #ffaa44;
+}
+
+/* 自分の投稿削除ボタン */
+.comm-delete-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.45;
+  padding: 0 2px;
+  transition: opacity .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.comm-delete-btn:active { opacity: 1; }
+
+/* 更新ボタン行 */
+.comm-refresh-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 10px;
+}
+.comm-refresh-hint {
+  font-size: 10px;
+  color: var(--txt-dim);
+}
+
 
 
 /* =============================================================================
