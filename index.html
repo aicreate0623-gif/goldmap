@@ -709,92 +709,66 @@
     <div class="dld-step" id="dld-si-3"><span class="dld-step-num">3</span><span class="dld-step-lbl">DL</span></div>
   </div>
 
-  <!-- STEP 1: 範囲選択 -->
+  <!-- STEP 1: ドラッグで範囲選択 -->
   <div class="dld-panel" id="dld-s1">
-    <div class="dld-title">📍 STEP 1 ─ ダウンロード範囲を選択</div>
-
-    <!-- モード切替タブ -->
-    <div class="dld-mode-tabs">
-      <button class="dld-mode-tab active" id="dld-tab-view" onclick="_dldSelectMode('view')">
-        🖼 現在表示範囲
-      </button>
-      <button class="dld-mode-tab" id="dld-tab-draw" onclick="_dldSelectMode('draw')">
-        ✏️ ドラッグ選択
-      </button>
-    </div>
-
-    <!-- 現在表示範囲モード -->
-    <div id="dld-mode-view">
-      <p class="dld-hint">地図を動かして「この範囲で確定」を押してください</p>
-      <button class="btn accent dld-confirm-btn" onclick="_dldConfirmView()">この範囲で確定 →</button>
-    </div>
-
-    <!-- ドラッグ選択モード -->
-    <div id="dld-mode-draw" style="display:none">
-      <p class="dld-hint" id="dld-draw-hint">地図上をドラッグして範囲を指定してください</p>
-      <button class="btn accent dld-confirm-btn" id="dld-draw-ok" onclick="_dldConfirmDraw()" disabled>選択範囲を確定 →</button>
-    </div>
+    <div class="dld-title">📍 STEP 1 ─ 地図上をドラッグして範囲を選択</div>
+    <p class="dld-hint" id="dld-draw-hint">指でドラッグすると矩形が描かれます。選択後に確定ボタンを押してください</p>
+    <button class="btn accent dld-confirm-btn" id="dld-draw-ok" onclick="_dldConfirmDraw()" disabled>
+      選択範囲を確定 →
+    </button>
+    <button class="btn red dld-cancel-inline" onclick="_dldCancel()">✕ キャンセル</button>
   </div>
 
-  <!-- STEP 2: レイヤー・ズーム設定 -->
+  <!-- STEP 2: レイヤー・ズーム設定＋レイヤー別容量 -->
   <div class="dld-panel" id="dld-s2" style="display:none">
     <div class="dld-title">🗂 STEP 2 ─ レイヤーとズームを設定</div>
 
-    <!-- DL種別 -->
-    <div class="dld-mode-tabs">
-      <button class="dld-mode-tab active" id="dld-tab-det" onclick="_dldSetType('detail')">🔍 指定範囲</button>
-      <button class="dld-mode-tab" id="dld-tab-base" onclick="_dldSetType('base')">🗾 全日本ベース</button>
-    </div>
-
-    <!-- レイヤー -->
     <div class="dld-section-ttl">レイヤー選択</div>
-    <div class="ck-row"><input type="checkbox" id="dlg-ck-std" checked><label for="dlg-ck-std">地理院地図</label></div>
-    <div class="ck-row"><input type="checkbox" id="dlg-ck-photo"><label for="dlg-ck-photo">航空写真</label></div>
-    <div class="ck-row"><input type="checkbox" id="dlg-ck-topo"><label for="dlg-ck-topo">地形図 (OpenTopoMap)</label></div>
-
-    <!-- ズーム（指定範囲） -->
-    <div id="dld-zoom-det">
-      <div class="dld-section-ttl">ズームレベル</div>
-      <div class="sl2-row">
-        <label>最小ズーム</label>
-        <select id="dlg-det-zmin" onchange="_dldUpdEst()">
-          <option value="11" selected>Z11</option><option value="12">Z12</option><option value="13">Z13</option>
-        </select>
-      </div>
-      <div class="sl2-row">
-        <label>最大ズーム</label>
-        <select id="dlg-det-zmax" onchange="_dldUpdEst()">
-          <option value="12">Z12</option><option value="13">Z13</option><option value="14">Z14</option>
-          <option value="15" selected>Z15</option><option value="16">Z16</option>
-          <option value="17">Z17</option><option value="18">Z18</option>
-        </select>
-      </div>
+    <div class="ck-row">
+      <input type="checkbox" id="dlg-ck-std" checked onchange="_dldUpdEst()">
+      <label for="dlg-ck-std">地理院地図</label>
+    </div>
+    <div class="ck-row">
+      <input type="checkbox" id="dlg-ck-photo" onchange="_dldUpdEst()">
+      <label for="dlg-ck-photo">航空写真</label>
+    </div>
+    <div class="ck-row">
+      <input type="checkbox" id="dlg-ck-topo" onchange="_dldUpdEst()">
+      <label for="dlg-ck-topo">地形図 (OpenTopoMap)</label>
     </div>
 
-    <!-- ズーム（全日本ベース） -->
-    <div id="dld-zoom-base" style="display:none">
-      <div class="dld-section-ttl">最大ズームレベル</div>
-      <div class="sl2-row">
-        <label>最大ズーム</label>
-        <select id="dlg-base-zmax" onchange="_dldUpdEst()">
-          <option value="8">Z8（軽量・推奨）</option>
-          <option value="9">Z9</option>
-          <option value="10" selected>Z10（標準）</option>
-        </select>
-      </div>
+    <div class="dld-section-ttl">ズームレベル</div>
+    <div class="sl2-row">
+      <label>最小ズーム</label>
+      <select id="dlg-det-zmin" onchange="_dldUpdEst()">
+        <option value="11" selected>Z11</option>
+        <option value="12">Z12</option>
+        <option value="13">Z13</option>
+      </select>
+    </div>
+    <div class="sl2-row">
+      <label>最大ズーム</label>
+      <select id="dlg-det-zmax" onchange="_dldUpdEst()">
+        <option value="12">Z12</option><option value="13">Z13</option>
+        <option value="14">Z14</option><option value="15" selected>Z15</option>
+        <option value="16">Z16</option><option value="17">Z17</option>
+        <option value="18">Z18</option>
+      </select>
     </div>
 
-    <!-- 推定 -->
-    <div class="info-box dld-est" id="dld-est">計算中…</div>
-    <div class="dl-warn">⚠️ DL前に容量を確認し、WIFI環境を推奨します</div>
+    <!-- レイヤー別容量推定 -->
+    <div class="dld-section-ttl">ダウンロード容量</div>
+    <div class="dld-est" id="dld-est">計算中…</div>
+    <div class="dl-warn">⚠️ WIFI環境を推奨します。容量をよく確認してから開始してください</div>
 
     <div class="dld-footer-btns">
-      <button class="btn sm" onclick="_dldBack(1)">← 戻る</button>
-      <button class="btn accent" onclick="_dldStartDl()">▶ DL 開始 →</button>
+      <button class="btn sm"     onclick="_dldBack()">← 戻る</button>
+      <button class="btn accent" onclick="_dldStartDl()">▶ DL 開始</button>
     </div>
+    <button class="btn red dld-cancel-inline" onclick="_dldCancel()">✕ キャンセル</button>
   </div>
 
-  <!-- STEP 3: 進捗 -->
+  <!-- STEP 3: DL進捗 -->
   <div class="dld-panel" id="dld-s3" style="display:none">
     <div class="dld-title">⬇ STEP 3 ─ ダウンロード中</div>
     <div class="dld-pb-wrap">
@@ -807,12 +781,10 @@
     </div>
     <div class="dl-log" id="dld-log"></div>
     <div class="dld-footer-btns" id="dld-dl-btns">
-      <button class="btn red" id="dld-stop-btn" onclick="stopDl()">■ 停止</button>
+      <button class="btn red" onclick="stopDl()">■ 停止</button>
     </div>
   </div>
 
-  <!-- キャンセルボタン（常時表示） -->
-  <button class="dld-cancel-btn" id="dld-cancel-btn" onclick="_dldCancel()">✕ キャンセル</button>
 </div>
 
 <div id="exit-overlay" style="

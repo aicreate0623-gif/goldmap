@@ -843,16 +843,46 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 /* 進捗ラップ */
 .dld-pb-wrap { margin-bottom: 8px; }
 
-/* キャンセルボタン（常時表示・右上固定） */
-.dld-cancel-btn {
-  position: absolute; top: 12px; right: 14px;
-  padding: 4px 10px; border-radius: 12px;
-  border: 1px solid rgba(255,90,71,0.35);
-  background: rgba(255,90,71,0.1);
-  color: #ff8070; font-size: 11px; font-weight: 600;
-  cursor: pointer; transition: all .15s;
+/* キャンセルボタン（常時表示・各STEP下部） */
+.dld-cancel-btn { display: none; } /* 旧absolute版は非表示 */
+.dld-cancel-inline {
+  width: 100%; margin-top: 8px;
+  padding: 9px; font-size: 12px; font-weight: 600;
+  border-radius: var(--radius-sm);
+  text-align: center;
 }
-.dld-cancel-btn:active { background: rgba(255,90,71,0.25); }
+
+/* レイヤー別容量推定 */
+.dld-est {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin: 4px 0 8px;
+  font-size: 11px;
+}
+.dld-est-range {
+  font-size: 10px; color: var(--gold);
+  font-weight: 700; letter-spacing: .05em;
+  margin-bottom: 6px;
+}
+.dld-est-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 11px;
+}
+.dld-est-row:last-child { border-bottom: none; }
+.dld-est-lbl { color: var(--txt-sub); }
+.dld-est-val { color: var(--txt); }
+.dld-est-val b { color: var(--gold-lt); }
+.dld-est-total {
+  margin-top: 4px; padding-top: 6px;
+  border-top: 1px solid rgba(200,170,80,0.2) !important;
+  border-bottom: none !important;
+}
+.dld-est-total .dld-est-lbl { color: var(--gold); font-weight: 700; }
+.dld-est-total .dld-est-val b { color: var(--gold-lt); font-size: 13px; }
 
 /* DL注意書き */
 .dl-warn {

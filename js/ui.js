@@ -612,50 +612,20 @@ document.getElementById('det-zmin').onchange=updDetEst;
 document.getElementById('det-zmax').onchange=updDetEst;
 
 // ═══════════════════════════════════════════
-//  矩形選択
+//  矩形選択（drawRect系のみ）
 //  設計:
-//    useView系  … 現在表示範囲をそのまま取得するパス
-//    drawRect系 … 地図上ドラッグで矩形を引くパス
-//    両系は完全独立。互いに干渉しない。
-//    「範囲解除」は今アクティブな系だけリセットしてバナーを保持。
-//    「キャンセル」で両系クリア＋バナー閉じ＋オフラインタブへ戻る。
+//    DLダイアログのSTEP1でドラッグ選択に一本化。
+//    useView系は廃止。
 // ═══════════════════════════════════════════
 
 // ── 確定済み範囲（DLに使う） ─────────────────────────
 let detRect = null;
 
-// ── useView系 ────────────────────────────────────────
-// _viewMode    : useView待機中フラグ（true=「範囲決定」でgetBoundsする）
-// _viewPreview : 地図上に表示中の薄い矩形レイヤー
-// ※ getBounds()はconfirmRect()時に初めて呼ぶ。
-//    ボタンを押した瞬間は範囲を固定しない。
-let _viewMode    = false;
-let _viewPreview = null;
-
-function _clearViewPreview(){
-  if(_viewPreview){ map.removeLayer(_viewPreview); _viewPreview=null; }
-}
-
-// オフラインタブ内「現在表示範囲」ボタン
-function useView(){
-  closeOv();
-  // drawRect系が動いていれば先に停止（干渉防止）
-  if(drawMode) _stopDraw();
-  _clearDrawPreview();
-  _drawPending = null;
-
-  _viewMode = true;
-  document.getElementById('rect-banner-msg').textContent =
-    '地図を好きな位置に動かして「範囲決定」を押してください';
-  document.getElementById('rect-banner').style.display='block';
-  switchTab('map');
-}
-
 // ── drawRect系 ───────────────────────────────────────
 // drawMode     : ドラッグ受付中フラグ
 // _drawStart   : ドラッグ開始latlng
 // _drawPending : ドラッグ完了後の確定前bounds
-// _drawPreview : 地図上に表示中の薄い矩形レイヤー（ドラッグ中＋完了後）
+// _drawPreview : 地図上に表示中のプレビュー矩形レイヤー
 let drawMode     = false;
 let _drawStart   = null;
 let _drawPending = null;
@@ -674,22 +644,6 @@ function _showDrawPreview(bounds){
   }
 }
 
-// オフラインタブ内「ドラッグ選択」ボタン
-function startRectDraw(){
-  if(drawMode) return;
-  closeOv();
-  if(typeof cancelAdd==='function' && typeof addMode!=='undefined' && addMode) cancelAdd();
-  // useView系をクリア（干渉防止）
-  _viewMode = false;
-  _clearViewPreview();
-
-  _enterDrawMode();
-  document.getElementById('rect-banner-msg').textContent =
-    '地図上をドラッグして範囲を指定してください';
-  document.getElementById('rect-banner').style.display='block';
-  switchTab('map');
-}
-
 // ドラッグモード開始（イベント登録）
 function _enterDrawMode(){
   drawMode   = true;
@@ -700,234 +654,134 @@ function _enterDrawMode(){
   map.scrollWheelZoom.disable();
   map.getContainer().style.cursor='crosshair';
 
-  // ── マウスイベント ──
-  const onDown = e => {
-    _drawStart = e.latlng;
-    _clearDrawPreview();
-  };
+  const onDown = e => { _drawStart=e.latlng; _clearDrawPreview(); };
   const onMove = e => {
     if(!_drawStart) return;
     _clearDrawPreview();
     _drawPreview = L.rectangle(L.latLngBounds(_drawStart,e.latlng),{
-      color:'#00ffff',weight:2,dashArray:'6 3',
-      fillColor:'#00ffff',fillOpacity:.08
+      color:'#00ffff',weight:2,dashArray:'6 3',fillColor:'#00ffff',fillOpacity:.08
     }).addTo(map);
   };
   const onUp = e => {
     if(!_drawStart) return;
-    const bounds = L.latLngBounds(_drawStart, e.latlng);
-    _drawStart = null;
-    _stopDraw();                     // イベント解除・カーソル戻す
-    _drawPending = bounds;
-    _showDrawPreview(_drawPending);  // 確定前プレビューに切替
-    document.getElementById('rect-banner-msg').textContent =
-      '範囲が選択されました。よろしければ「範囲決定」を押してください';
-    document.getElementById('rect-banner').style.display='block';
+    const bounds = L.latLngBounds(_drawStart,e.latlng);
+    _drawStart=null; _stopDraw();
+    _drawPending=bounds; _showDrawPreview(_drawPending);
   };
-
-  // ── タッチイベント（スマホ対応）──
   const _toLL = e => {
-    const t = e.touches[0];
-    const r = map.getContainer().getBoundingClientRect();
-    return map.containerPointToLatLng(L.point(t.clientX-r.left, t.clientY-r.top));
+    const t=e.touches[0], r=map.getContainer().getBoundingClientRect();
+    return map.containerPointToLatLng(L.point(t.clientX-r.left,t.clientY-r.top));
   };
-  const onTDown = e => {
-    e.preventDefault();
-    _drawStart = _toLL(e);
-    _clearDrawPreview();
-  };
+  const onTDown = e => { e.preventDefault(); _drawStart=_toLL(e); _clearDrawPreview(); };
   const onTMove = e => {
-    e.preventDefault();
-    if(!_drawStart) return;
+    e.preventDefault(); if(!_drawStart) return;
     _clearDrawPreview();
     _drawPreview = L.rectangle(L.latLngBounds(_drawStart,_toLL(e)),{
-      color:'#00ffff',weight:2,dashArray:'6 3',
-      fillColor:'#00ffff',fillOpacity:.08
+      color:'#00ffff',weight:2,dashArray:'6 3',fillColor:'#00ffff',fillOpacity:.08
     }).addTo(map);
   };
   const onTUp = e => {
-    e.preventDefault();
-    if(!_drawStart) return;
-    // touchend時はe.touchesが空のためe.changedTouchesを使う
-    const t = e.changedTouches[0];
-    const r = map.getContainer().getBoundingClientRect();
-    const ll = map.containerPointToLatLng(L.point(t.clientX-r.left, t.clientY-r.top));
-    const bounds = L.latLngBounds(_drawStart, ll);
-    _drawStart = null;
-    _stopDraw();
-    _drawPending = bounds;
-    _showDrawPreview(_drawPending);
-    document.getElementById('rect-banner-msg').textContent =
-      '範囲が選択されました。よろしければ「範囲決定」を押してください';
-    document.getElementById('rect-banner').style.display='block';
+    e.preventDefault(); if(!_drawStart) return;
+    const t=e.changedTouches[0], r=map.getContainer().getBoundingClientRect();
+    const ll=map.containerPointToLatLng(L.point(t.clientX-r.left,t.clientY-r.top));
+    const bounds=L.latLngBounds(_drawStart,ll);
+    _drawStart=null; _stopDraw();
+    _drawPending=bounds; _showDrawPreview(_drawPending);
   };
 
-  // ハンドラを_reにまとめて保持（_stopDrawで使う）
-  map._re = {onDown,onMove,onUp,onTDown,onTMove,onTUp};
+  map._re={onDown,onMove,onUp,onTDown,onTMove,onTUp};
   map.on('mousedown',onDown).on('mousemove',onMove).on('mouseup',onUp);
-  const mc = map.getContainer();
-  mc.addEventListener('touchstart', onTDown, {passive:false});
-  mc.addEventListener('touchmove',  onTMove, {passive:false});
-  mc.addEventListener('touchend',   onTUp,   {passive:false});
+  const mc=map.getContainer();
+  mc.addEventListener('touchstart',onTDown,{passive:false});
+  mc.addEventListener('touchmove', onTMove,{passive:false});
+  mc.addEventListener('touchend',  onTUp,  {passive:false});
 }
 
-// ドラッグモード停止（イベント解除・カーソル戻す・フラグリセット）
-// ※ _drawPending / _drawPreview は触らない
+// ドラッグモード停止（イベント解除・_drawPending/_drawPreviewは保持）
 function _stopDraw(){
-  drawMode   = false;
-  _drawStart = null;
-  map.dragging.enable();
-  map.scrollWheelZoom.enable();
+  drawMode=false; _drawStart=null;
+  map.dragging.enable(); map.scrollWheelZoom.enable();
   map.getContainer().style.cursor='';
   document.getElementById('float-ctrl').classList.remove('draw-mode-active');
   document.getElementById('float-ctrl-right').classList.remove('draw-mode-active');
-  const e = map._re;
+  const e=map._re;
   if(e){
     map.off('mousedown',e.onDown).off('mousemove',e.onMove).off('mouseup',e.onUp);
-    const mc = map.getContainer();
-    mc.removeEventListener('touchstart', e.onTDown);
-    mc.removeEventListener('touchmove',  e.onTMove);
-    mc.removeEventListener('touchend',   e.onTUp);
-    map._re = null;
+    const mc=map.getContainer();
+    mc.removeEventListener('touchstart',e.onTDown);
+    mc.removeEventListener('touchmove', e.onTMove);
+    mc.removeEventListener('touchend',  e.onTUp);
+    map._re=null;
   }
 }
 
-// ── 共通: 範囲決定 ───────────────────────────────────
-// _viewMode=true  → その時点のmap.getBounds()を取得して確定
-// _drawPending    → ドラッグ完了済みboundsを確定
-function confirmRect(){
-  let pending = null;
-  if(_viewMode){
-    pending   = map.getBounds(); // 決定時点の表示範囲を取得
-    _viewMode = false;
-    _clearViewPreview();
-  } else if(_drawPending){
-    pending = _drawPending;
-  }
-  if(!pending) return;
-  // ドラッグ中に決定ボタンを押した場合も安全に止める
-  if(drawMode) _stopDraw();
-  detRect      = pending;
-  _drawPending = null;
-  // バナーを閉じてタブへ
-  document.getElementById('rect-banner').style.display='none';
-  document.getElementById('rect-info').innerHTML=
-    `北: <b>${detRect.getNorth().toFixed(3)}</b>　南: <b>${detRect.getSouth().toFixed(3)}</b><br>`+
-    `西: <b>${detRect.getWest().toFixed(3)}</b>　東: <b>${detRect.getEast().toFixed(3)}</b>`;
-  document.getElementById('btn-clearrect').style.display='inline-flex';
-  updDetEst();
-  _openTab('offline');
-  _pushHistory();
-}
-
-// ── 共通: 範囲解除 ───────────────────────────────────
-// 今アクティブな系だけリセット。バナーは保持。
-// drawRect系 → 再ドラッグ待ちに戻す
-// useView系  → フラグだけ落とす（地図はそのまま動かせる）
-function cancelRect(){
-  if(_drawPending || drawMode){
-    // drawRect系をリセット → 再ドラッグ待ちに戻す
-    if(drawMode) _stopDraw();
-    _drawPending = null;
-    _clearDrawPreview();
-    _enterDrawMode();
-    document.getElementById('rect-banner-msg').textContent =
-      'もう一度ドラッグして範囲を指定してください';
-  } else if(_viewMode){
-    // useView系をリセット → 地図を動かして再度「範囲決定」を促す
-    _viewMode = false;
-    _clearViewPreview();
-    document.getElementById('rect-banner-msg').textContent =
-      '地図を動かして「範囲決定」を押してください（表示範囲がそのまま確定します）';
-  }
-  // バナーはそのまま保持
-}
-
-// ── 共通: キャンセル ─────────────────────────────────
-// 両系を完全クリア・バナー閉じ・オフラインタブへ戻る
-function cancelRectAll(){
-  if(drawMode) _stopDraw();
-  _drawPending = null;
-  _viewMode    = false;
-  _clearDrawPreview();
-  _clearViewPreview();
-  document.getElementById('rect-banner').style.display='none';
-  _openTab('offline');
-  _pushHistory();
-}
-
-// ── タブ内「選択済み範囲を表示」────────────────────────
-// 確定済みのdetRectをviewPreviewで地図に表示する
-function showRect(){
-  _clearViewPreview();
-  _clearDrawPreview();
-  if(detRect){
-    _viewPreview = L.rectangle(detRect,{
-      color:'#00ffff',weight:2,dashArray:'4 3',
-      fillColor:'#00ffff',fillOpacity:.06
-    }).addTo(map);
-  }
-}
-
-// ── タブ内「範囲をクリア」────────────────────────────
-// 確定済みdetRectを削除してUIをリセットする
+// タブ内「範囲をクリア」
 function clearRect(){
   if(drawMode) _stopDraw();
-  detRect      = null;
-  _drawPending = null;
-  _viewMode    = false;
+  detRect=null; _drawPending=null; _clearDrawPreview();
+  const ri=document.getElementById('rect-info');     if(ri)  ri.textContent='範囲: 未選択';
+  const bc=document.getElementById('btn-clearrect'); if(bc)  bc.style.display='none';
+  const bd=document.getElementById('btn-dldet');     if(bd)  bd.disabled=true;
+  const de=document.getElementById('det-est');       if(de)  de.textContent='— 範囲を選択してください —';
+}
+
+// 確定済み範囲を地図上に表示
+function showRect(){
   _clearDrawPreview();
-  _clearViewPreview();
-  document.getElementById('rect-banner').style.display='none';
-  document.getElementById('rect-info').textContent='範囲: 未選択';
-  document.getElementById('btn-clearrect').style.display='none';
-  document.getElementById('btn-dldet').disabled=true;
-  document.getElementById('det-est').textContent='— 範囲を選択してください —';
+  if(detRect){
+    _drawPreview=L.rectangle(detRect,{
+      color:'#00ffff',weight:2,dashArray:'4 3',fillColor:'#00ffff',fillOpacity:.06
+    }).addTo(map);
+  }
 }
 
 // finishDraw: 外部（Escapeキー等）から呼ばれる互換ラッパー
 function finishDraw(){ if(drawMode) _stopDraw(); }
 
+
 // ═══════════════════════════════════════════
-//  地図上DLダイアログ（ウィザード式・3STEP）
-//  STEP1: 範囲選択（useView / drawRect）
-//  STEP2: レイヤー・ズーム設定
+//  地図上DLダイアログ（ウィザード式・2STEP）
+//  STEP1: ドラッグで範囲選択
+//  STEP2: レイヤー・ズーム設定＋レイヤー別容量表示
 //  STEP3: DL進捗
 // ═══════════════════════════════════════════
 
-let _dldStep   = 1;       // 現在のSTEP（1〜3）
-let _dldMode   = 'view';  // 'view' | 'draw'
-let _dldType   = 'detail';// 'detail' | 'base'
-let _dldBounds = null;    // STEP1で確定したbounds
+let _dldStep   = 1;        // 現在のSTEP（1〜3）
+let _dldType   = 'detail'; // 'detail' | 'base'
+let _dldBounds = null;     // STEP1で確定したbounds
+
+// レイヤー表示名（容量表示用）
+const _DLD_LAYER_LABEL = { std:'地理院地図', photo:'航空写真', topo:'地形図' };
 
 // ── ダイアログ開く ──────────────────────────────────────
 function openDlDialog(){
-  // プレミアムチェック（既存ゲートを流用）
   isPremiumUser().then(premium=>{
     if(!premium){ showPremiumGate('offline'); return; }
     _dldStep   = 1;
     _dldBounds = null;
-    _dldMode   = 'view';
     _dldType   = 'detail';
+    _drawPending = null;
+    _clearDrawPreview();
     _dldRenderStep(1);
     document.getElementById('dl-dialog').style.display = 'block';
-    // 地図タブに切り替え（地図が見える状態で操作）
     _openTab('map');
     _pushHistory();
+    // ダイアログ表示直後にドラッグモード開始
+    if(!drawMode) _enterDrawMode();
+    _dldWatchDraw();
   });
 }
 
-// ── ダイアログ閉じる ────────────────────────────────────
+// ── ダイアログ閉じる（内部用） ──────────────────────────
 function _dldClose(){
   document.getElementById('dl-dialog').style.display = 'none';
-  // drawMode中なら停止
   if(drawMode) _stopDraw();
   _clearDrawPreview();
-  _clearViewPreview();
-  _dldBounds = null;
+  _dldBounds   = null;
+  _drawPending = null;
 }
 
-// ── キャンセル ──────────────────────────────────────────
+// ── キャンセル（ボタン押下用） ──────────────────────────
 function _dldCancel(){
   _dldClose();
   _openTab('offline');
@@ -937,193 +791,148 @@ function _dldCancel(){
 // ── ステップ描画 ────────────────────────────────────────
 function _dldRenderStep(step){
   _dldStep = step;
-  // パネル切替
   ['dld-s1','dld-s2','dld-s3'].forEach((id,i)=>{
     document.getElementById(id).style.display = (i+1===step) ? 'block' : 'none';
   });
-  // インジケーター更新
   [1,2,3].forEach(n=>{
     const el = document.getElementById('dld-si-'+n);
     el.classList.toggle('active', n===step);
     el.classList.toggle('done',   n<step);
   });
-  // STEP1初期化
-  if(step===1){
-    _dldApplyMode(_dldMode);
-  }
-  // STEP2初期化
-  if(step===2){
-    _dldSetType(_dldType);
-    _dldUpdEst();
-  }
+  if(step===2) _dldUpdEst();
 }
 
-// ── STEP1: モード切替（viewタブ / drawタブ） ────────────
-function _dldSelectMode(mode){
-  _dldMode = mode;
-  document.getElementById('dld-tab-view').classList.toggle('active', mode==='view');
-  document.getElementById('dld-tab-draw').classList.toggle('active', mode==='draw');
-  _dldApplyMode(mode);
-}
-
-function _dldApplyMode(mode){
-  document.getElementById('dld-mode-view').style.display = mode==='view' ? 'block' : 'none';
-  document.getElementById('dld-mode-draw').style.display = mode==='draw' ? 'block' : 'none';
-  if(mode==='draw'){
-    // ドラッグ選択モード開始（既存ロジック流用）
-    if(!drawMode){
-      _clearViewPreview();
-      _enterDrawMode();
-      // ドラッグ完了を検知してダイアログのOKボタンを有効化
-      _dldWatchDrawComplete();
-    }
-    document.getElementById('dld-draw-hint').textContent='地図上をドラッグして範囲を指定してください';
-    document.getElementById('dld-draw-ok').disabled = true;
-  } else {
-    // drawモード中なら停止
-    if(drawMode){ _stopDraw(); _clearDrawPreview(); }
-    _dldBounds = null;
-  }
-}
-
-// ドラッグ完了を監視（_drawPendingがセットされたらOKボタンを有効化）
-function _dldWatchDrawComplete(){
+// ── STEP1: ドラッグ完了を監視してOKボタンを有効化 ────────
+function _dldWatchDraw(){
   const timer = setInterval(()=>{
-    if(!document.getElementById('dl-dialog') ||
-       document.getElementById('dl-dialog').style.display==='none'){
-      clearInterval(timer); return;
-    }
+    const dlg = document.getElementById('dl-dialog');
+    if(!dlg || dlg.style.display==='none'){ clearInterval(timer); return; }
+    if(_dldStep !== 1){ clearInterval(timer); return; }
     if(_drawPending){
       clearInterval(timer);
-      document.getElementById('dld-draw-hint').textContent='範囲が選択されました。「選択範囲を確定」を押してください';
-      document.getElementById('dld-draw-ok').disabled = false;
+      const hint = document.getElementById('dld-draw-hint');
+      const ok   = document.getElementById('dld-draw-ok');
+      if(hint) hint.textContent = '範囲が選択されました。よろしければ確定してください';
+      if(ok)   ok.disabled = false;
     }
-  }, 200);
+  }, 150);
 }
 
-// ── STEP1: 確定（view系） ───────────────────────────────
-function _dldConfirmView(){
-  _dldBounds = map.getBounds();
-  _showViewPreview(_dldBounds);
-  _dldRenderStep(2);
-}
-
-// ── STEP1: 確定（draw系） ───────────────────────────────
+// ── STEP1: 確定ボタン ────────────────────────────────────
 function _dldConfirmDraw(){
   if(!_drawPending) return;
-  _dldBounds = _drawPending;
+  _dldBounds   = _drawPending;
   _drawPending = null;
   _showDrawPreview(_dldBounds);
   _dldRenderStep(2);
 }
 
 // ── STEP1に戻る ──────────────────────────────────────────
-function _dldBack(toStep){
+function _dldBack(){
   _clearDrawPreview();
-  _clearViewPreview();
   if(drawMode) _stopDraw();
   _drawPending = null;
   _dldBounds   = null;
-  _dldRenderStep(toStep);
+  // OKボタンをリセット
+  const ok   = document.getElementById('dld-draw-ok');
+  const hint = document.getElementById('dld-draw-hint');
+  if(ok)   ok.disabled = true;
+  if(hint) hint.textContent = '地図上をドラッグして範囲を指定してください';
+  _dldRenderStep(1);
+  // ドラッグモード再開
+  if(!drawMode) _enterDrawMode();
+  _dldWatchDraw();
 }
 
-// ── STEP2: DL種別切替 ──────────────────────────────────
-function _dldSetType(type){
-  _dldType = type;
-  document.getElementById('dld-tab-det').classList.toggle('active',  type==='detail');
-  document.getElementById('dld-tab-base').classList.toggle('active', type==='base');
-  document.getElementById('dld-zoom-det').style.display  = type==='detail' ? 'block' : 'none';
-  document.getElementById('dld-zoom-base').style.display = type==='base'   ? 'block' : 'none';
-  _dldUpdEst();
-}
-
-// ── STEP2: タイル数推定 ────────────────────────────────
+// ── STEP2: レイヤー別容量推定表示 ────────────────────────
 function _dldUpdEst(){
-  const layers = ['std','photo','topo'].filter(k=>
-    document.getElementById('dlg-ck-'+k)?.checked
-  );
-  const L2 = layers.length || 1;
-  let n = 0, txt = '';
-  if(_dldType==='detail'){
-    if(_dldBounds){
-      const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
-      const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
-      n = cntTiles(_dldBounds, zmin, zmax) * L2;
-      txt = `Z${zmin}〜Z${zmax}、<b>${fmt(n)}</b>（約 <b>${mbEst(n)} MB</b>）`;
-    } else {
-      txt = '— 範囲が選択されていません —';
-    }
-  } else {
-    const zmax = parseInt(document.getElementById('dlg-base-zmax').value);
-    n = cntTiles(JAPAN, 5, zmax) * L2;
-    txt = `Z5〜Z${zmax}、<b>${fmt(n)}</b>（約 <b>${mbEst(n)} MB</b>）`;
+  const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
+  const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
+  const bounds = _dldBounds;
+  if(!bounds){
+    document.getElementById('dld-est').innerHTML = '— 範囲が選択されていません —';
+    return;
   }
-  document.getElementById('dld-est').innerHTML = txt;
+  const base = cntTiles(bounds, zmin, zmax); // 1レイヤー分のタイル数
+  let rows = '';
+  let total = 0;
+  ['std','photo','topo'].forEach(k=>{
+    const ck = document.getElementById('dlg-ck-'+k);
+    if(!ck?.checked) return;
+    const mb = mbEst(base);
+    total += base;
+    rows += `<div class="dld-est-row">
+      <span class="dld-est-lbl">${_DLD_LAYER_LABEL[k]}</span>
+      <span class="dld-est-val">約 <b>${mb} MB</b>（${fmt(base)}）</span>
+    </div>`;
+  });
+  if(!rows){
+    document.getElementById('dld-est').innerHTML = '— レイヤーを1つ以上選択してください —';
+    return;
+  }
+  rows += `<div class="dld-est-row dld-est-total">
+    <span class="dld-est-lbl">合計</span>
+    <span class="dld-est-val">約 <b>${mbEst(total)} MB</b>（${fmt(total)}）</span>
+  </div>`;
+  document.getElementById('dld-est').innerHTML =
+    `<div class="dld-est-range">Z${zmin}〜Z${zmax}</div>${rows}`;
 }
 
 // ── STEP2: DL開始 ──────────────────────────────────────
 function _dldStartDl(){
-  // ダイアログ内のIDを既存startDl()が読むIDに同期
-  const syncCk = k =>{
-    const src = document.getElementById('dlg-ck-'+k);
+  const layers = ['std','photo','topo'].filter(k=>
+    document.getElementById('dlg-ck-'+k)?.checked
+  );
+  if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
+  if(!_dldBounds){    showAlert('エラー','範囲が選択されていません'); return; }
+
+  // ダミーIDに同期（既存startDl()が参照するため）
+  layers.forEach(k=>{
     const dst = document.getElementById('ck-'+k);
-    if(src && dst) dst.checked = src.checked;
+    if(dst) dst.checked = true;
+  });
+  ['std','photo','topo'].filter(k=>!layers.includes(k)).forEach(k=>{
+    const dst = document.getElementById('ck-'+k);
+    if(dst) dst.checked = false;
+  });
+
+  const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
+  const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
+  const setOpt = (id, val) => {
+    const el = document.getElementById(id);
+    if(el) [...el.options].forEach(o=>{ o.selected = (o.value===String(val)); });
   };
-  ['std','photo','topo'].forEach(syncCk);
+  setOpt('det-zmin', zmin);
+  setOpt('det-zmax', zmax);
 
-  if(_dldType==='detail'){
-    // detRectに確定
-    detRect = _dldBounds;
-    const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
-    const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
-    // ズーム値をダミーselectに反映
-    const setOpt = (id, val) => {
-      const el = document.getElementById(id);
-      if(el){ [...el.options].forEach(o=>{ o.selected = (o.value===String(val)); }); }
-    };
-    setOpt('det-zmin', zmin);
-    setOpt('det-zmax', zmax);
-  } else {
-    const zmax = parseInt(document.getElementById('dlg-base-zmax').value);
-    const setOpt = (id, val) => {
-      const el = document.getElementById(id);
-      if(el){ [...el.options].forEach(o=>{ o.selected = (o.value===String(val)); }); }
-    };
-    setOpt('base-zmax', zmax);
-  }
-
+  // detRectに確定してDL開始
+  detRect = _dldBounds;
   _dldRenderStep(3);
-  // ログ出力先をダイアログ内に切替
-  _dldLog('DL開始...');
-  startDl(_dldType);
+  startDl('detail');
 }
 
-// ── STEP3: ログ出力（startDl内のlog()がdl-logに書くため別途ミラー） ──
-function _dldLog(msg){
-  const el = document.getElementById('dld-log');
-  if(el){ el.textContent += msg + '\n'; el.scrollTop = el.scrollHeight; }
-}
-
-// DL進捗をダイアログ内バーに同期（startDl内のtick()から呼ばれる想定）
-// tick()はui.js内にあるため、進捗バーIDをダイアログ内のIDに加えて更新する
+// ── STEP3: ダイアログ内バーに進捗同期 ─────────────────
 function _dldSyncProgress(done, total, mb){
   const pct = total>0 ? Math.round(done/total*100) : 0;
-  const doneEl = document.getElementById('dld-pb-done');
-  const totEl  = document.getElementById('dld-pb-tot');
-  const barEl  = document.getElementById('dld-pb-bar');
-  const mbEl   = document.getElementById('dld-pb-mb');
-  if(doneEl) doneEl.textContent = fmt(done);
-  if(totEl)  totEl.textContent  = fmt(total);
-  if(barEl)  barEl.style.width  = pct+'%';
-  if(mbEl)   mbEl.textContent   = mb+' MB';
+  const el = id => document.getElementById(id);
+  if(el('dld-pb-done')) el('dld-pb-done').textContent = fmt(done);
+  if(el('dld-pb-tot'))  el('dld-pb-tot').textContent  = fmt(total);
+  if(el('dld-pb-bar'))  el('dld-pb-bar').style.width  = pct+'%';
+  if(el('dld-pb-mb'))   el('dld-pb-mb').textContent   = mb+' MB';
+  // ダイアログ内ログミラー（200枚ごと）
+  if(done%200===0 && el('dld-log')){
+    const log = el('dld-log');
+    log.textContent = `完了: ${fmt(done)} / ${fmt(total)}\n` + log.textContent;
+    log.textContent = log.textContent.split('\n').slice(0,20).join('\n');
+  }
 }
 
-// ── DL完了・停止時にダイアログに「閉じる」ボタンを出す ──
+// ── DL完了・停止時に閉じるボタン表示 ──────────────────
 function _dldShowDone(stopped){
   const btns = document.getElementById('dld-dl-btns');
   if(!btns) return;
   btns.innerHTML = stopped
-    ? `<button class="btn sm" onclick="_dldCancel()">閉じる</button>`
+    ? `<button class="btn sm"     onclick="_dldCancel()">閉じる</button>`
     : `<button class="btn accent" onclick="_dldCancel()">✅ 完了・閉じる</button>`;
 }
 
