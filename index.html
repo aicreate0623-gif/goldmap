@@ -209,7 +209,7 @@
     <!-- ベースタイル アコーディオン -->
     <div class="cfg-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🗾 ① ベースタイル（全日本 Z5〜Z10）</span>
+        <span class="cfg-accordion-title">🗾 ① ベースタイルダウンロード（全日本 Z5〜Z10）</span>
         <span class="cfg-accordion-arrow">▶</span>
       </div>
       <div class="cfg-accordion-body">
@@ -233,7 +233,7 @@
     <!-- 詳細タイル アコーディオン -->
     <div class="cfg-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🔍 ② 詳細タイル（指定範囲）</span>
+        <span class="cfg-accordion-title">🔍 ② 詳細タイルダウンロード（指定範囲）</span>
         <span class="cfg-accordion-arrow">▶</span>
       </div>
       <div class="cfg-accordion-body">
@@ -325,7 +325,8 @@
         <div class="dl-section">
           <div class="info-box">
             産総研地質調査総合センターの鉱床・鉱徴地データ。<br>
-            <b>取得</b>ボタンで地図に表示。GeoJSONファイルの追加インポートも可能。
+            <b>取得</b>ボタンで取得・キャッシュ保持します。再起動後もキャッシュから即時表示されます。<br>
+            GeoJSONファイルの追加インポートも可能。
           </div>
           <div id="mine-cache-info" class="info-box" style="margin-top:6px;color:var(--txt-sub)">状態: 未読込</div>
           <div id="mine-prog-wrap" style="display:none;margin-top:8px;">
@@ -335,7 +336,7 @@
           <div class="btn-row" style="margin-top:10px;">
             <button class="btn blue sm" id="btn-mine-load" onclick="loadMineData(true)">📥 取得</button>
             <button class="btn sm" onclick="document.getElementById('mine-geojson-impf').click()">➕ GeoJSON追加</button>
-            <button class="btn red sm" onclick="clearMineCache()">🗑 追加分削除</button>
+            <button class="btn red sm" onclick="clearMineCache()">🗑 キャッシュ削除</button>
           </div>
           <input type="file" id="mine-geojson-impf" accept=".geojson,.json" style="display:none" onchange="importMineGeoJSON(event)">
         </div>

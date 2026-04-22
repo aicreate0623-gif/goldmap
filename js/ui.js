@@ -630,7 +630,7 @@ function startRectDraw(){
   if(typeof cancelAdd === 'function' && typeof addMode !== 'undefined' && addMode) cancelAdd();
   // ボタン押した瞬間にパネル表示＋地図タブへ
   document.getElementById('rect-banner-msg').textContent =
-    'ドラッグして範囲を指定して範囲決定ボタンを押しタブ内からDLを開始して下さい';
+    'ドラッグして範囲を指定して範囲決定ボタンを押してタブ内からDLを開始して下さい';
   document.getElementById('rect-banner').style.display='block';
   switchTab('map');
   drawMode=true;
@@ -711,27 +711,28 @@ function confirmRect(){
   if(drawMode) finishDraw();
   detRect = _rectPending;
   _rectPending = null;
+  // バナーを閉じる
   document.getElementById('rect-banner').style.display='none';
-  // オフラインタブへ遷移してDL設定画面を表示
-  isPremiumUser().then(premium => {
-    if(premium) {
-      _openTab('offline');
-      _pushHistory();
-    }
-  });
+  // rect-info・ボタン・推定を更新（アコーディオン開閉に関わらず値だけ更新）
   document.getElementById('rect-info').innerHTML=
     `北: <b>${detRect.getNorth().toFixed(3)}</b>　南: <b>${detRect.getSouth().toFixed(3)}</b><br>`+
     `西: <b>${detRect.getWest().toFixed(3)}</b>　東: <b>${detRect.getEast().toFixed(3)}</b>`;
   document.getElementById('btn-clearrect').style.display='inline-flex';
   updDetEst();
+  // オフラインタブへ遷移（プレミアムチェックせず直接_openTab、既にプレミアム済みのはず）
+  _openTab('offline');
+  _pushHistory();
 }
 
-// パネル内「範囲解除」：プレビューのみ消す・パネル継続・再ドラッグ可能
+// パネル内「範囲解除」：プレビューを消してバナーを再ドラッグ案内に戻す
 function cancelRect(){
   if(drawMode) finishDraw();
   _rectPending=null;
   if(rPrev){map.removeLayer(rPrev);rPrev=null;}
-  // パネルは閉じない・継続
+  // 再ドラッグ開始（startRectDraw内でメッセージが上書きされるので呼び出し後に再セット）
+  startRectDraw();
+  document.getElementById('rect-banner-msg').textContent =
+    'もう一度ドラッグして範囲を指定して範囲決定ボタンを押してください';
 }
 
 // パネル内「キャンセル」：完全中断・パネル閉じる・ブロック解除
