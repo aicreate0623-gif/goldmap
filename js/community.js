@@ -177,9 +177,9 @@ async function commRefresh(){
     let q = _db().collection('posts').where('scope', '==', fsScope);
     if(scope === 'regional') q = q.where('pref', '==', pref);
     // 差分取得：キャッシュがある場合のみ ts フィルターを追加
-    // ※ where('ts','>') + orderBy('ts') は同一フィールドなので複合インデックス不要
+    // ※ latestTs-1ms で境界値漏れを防ぐ
     if(latestTs > 0){
-      q = q.orderBy('ts', 'asc').where('ts', '>', new Date(latestTs)).limit(limit);
+      q = q.orderBy('ts', 'desc').where('ts', '>', new Date(latestTs - 1)).limit(limit);
     } else {
       q = q.orderBy('ts', 'desc').limit(limit);
     }
