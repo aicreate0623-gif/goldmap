@@ -251,7 +251,7 @@ function _renderPostsFromCache(){
       👍 <span id="comm-like-${p.id}">${p.like||0}</span>
     </button>
     <button class="comm-react-btn report${reportActive}" onclick="commReport('${p.id}')" title="既定回数の通報で非表示になります">
-      ⚠️ 通報<span class="comm-report-note">（既定回数で非表示）</span>
+      ！通報する
     </button>
   </div>
 </div>`;
@@ -327,7 +327,7 @@ async function commReport(postId){
   const reactions = _loadReactions();
   const r = reactions[postId] || {};
   if(r.report){ _commToast('すでに通報済みです'); return; }
-  if(!confirm('この投稿を通報しますか？\n通報が3件集まると非表示になります。')) return;
+  if(!confirm('この投稿を通報しますか？\n通報が既定回数に達すると非表示になります。')) return;
   r.report = true;
   reactions[postId] = r;
   _saveReactions(reactions);
@@ -440,7 +440,7 @@ function _renderGoldDisplay(d){
   el.innerHTML =
     `<span class="comm-gold-price">¥${d.price_jpy_g.toLocaleString()}<small>/g</small></span>` +
     `<span class="comm-gold-date">${d.date} 取得　USD/oz $${Math.round(d.price_usd).toLocaleString()}　USD/JPY ${d.rate_jpy.toFixed(1)}</span>` +
-    `<span class="comm-gold-note">※参考値。実際の買取価格は業者により異なります</span>`;
+    `<span class="comm-gold-note">※参考値。実際の価格は業者により異なります</span>`;
 }
 function _initGoldDisplay(){
   try{ const c = JSON.parse(localStorage.getItem(SK_GOLD)||'null'); if(c) _renderGoldDisplay(c); }catch(e){}

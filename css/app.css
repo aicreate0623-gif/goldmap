@@ -1486,6 +1486,8 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .comm-post-footer {
   display: flex;
   gap: 8px;
+  justify-content: space-between;
+  align-items: center;
 }
 .comm-react-btn {
   display: flex;
@@ -1552,12 +1554,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   background: rgba(255,120,0,0.15);
   border-color: rgba(255,140,0,0.5);
   color: #ffaa44;
-}
-.comm-report-note {
-  font-size: 9px;
-  opacity: 0.65;
-  margin-left: 2px;
-  white-space: nowrap;
 }
 
 /* 自分の投稿削除ボタン */
