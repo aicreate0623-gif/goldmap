@@ -59,7 +59,7 @@ function _renderIconPicker(selected, pickerId, selectedId) {
 function _renderColorPicker(selected, pickerId, selectedId) {
   const el = document.getElementById(pickerId); if (!el) return;
   el.innerHTML = PT_COLORS.map(c =>
-    `<button class="cl-color-btn${c.value===selected?' sel':''}"
+    `<button class="cl-col-btn${c.value===selected?' sel':''}"
       onclick="${pickerId==='pt-color-picker'?'ptSelectColor':'impSelectColor'}('${c.value}')"
       data-color="${c.value}"
       style="background:${c.value==='transparent'?'rgba(255,255,255,0.1)':c.value};${c.value==='transparent'?'border:2px dashed rgba(255,255,255,0.4)':''}"
@@ -79,7 +79,7 @@ function ptSelectIcon(ic) {
 }
 function ptSelectColor(val) {
   _curColor = val;
-  document.querySelectorAll('#pt-color-picker .cl-color-btn').forEach(b => b.classList.toggle('sel', b.dataset.color===val));
+  document.querySelectorAll('#pt-color-picker .cl-col-btn').forEach(b => b.classList.toggle('sel', b.dataset.color===val));
   const sel = document.getElementById('pt-color-selected');
   if (sel) { sel.dataset.color = val; sel.style.background = val==='transparent' ? 'rgba(255,255,255,0.1)' : val; }
 }
@@ -385,7 +385,7 @@ function impSelectIcon(ic){
 }
 function impSelectColor(val){
   _curImpColor=val;
-  document.querySelectorAll('#imp2-color-picker .cl-color-btn').forEach(b=>b.classList.toggle('sel',b.dataset.color===val));
+  document.querySelectorAll('#imp2-color-picker .cl-col-btn').forEach(b=>b.classList.toggle('sel',b.dataset.color===val));
   const sel=document.getElementById('imp2-color-selected');
   if(sel){sel.dataset.color=val;sel.style.background=val==='transparent'?'rgba(255,255,255,0.1)':val;}
 }

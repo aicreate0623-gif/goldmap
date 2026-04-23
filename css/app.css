@@ -1947,6 +1947,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 .mine-popup-note {
   font-size: 12px; color: var(--txt-sub);
+}
 
 /* ── ユーザーポイント新マーカー ── */
 .pt-marker {
@@ -1954,10 +1955,8 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   transform: rotate(-45deg);
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-  font-size: 15px;
+  font-size: 15px; line-height: 1;
 }
-.pt-marker > * { transform: rotate(45deg); }
-.pt-marker { font-size: 15px; line-height: 1; }
 /* 絵文字を正立させる */
 .pt-marker::after { content: ''; }
 .pt-marker-imp {
