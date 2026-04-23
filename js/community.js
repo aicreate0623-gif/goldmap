@@ -200,7 +200,11 @@ async function commRefresh(){
     _startRefreshCooldown(COMM_REFRESH_COOL);
   } catch(e){
     console.error('[comm] refresh failed', e);
-    _commToast('取得に失敗しました。通信を確認してください。');
+    if(e?.code === 'resource-exhausted' || e?.message?.includes('RESOURCE_EXHAUSTED')){
+      _commToast('⚠️ アクセスが集中しています。しばらくお待ちください。');
+    } else {
+      _commToast('取得に失敗しました。通信を確認してください。');
+    }
     if(btn){ btn.disabled = false; btn.textContent = '🔄 更新'; }
   } finally {
     _commLoading = false;
