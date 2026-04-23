@@ -144,22 +144,34 @@
   <div class="pt-actions">
     <button class="btn accent" onclick="startAddPt(); switchTab('map')">＋ ポイント追加</button>
     <button class="btn sm" onclick="exportPts()">📤 書出</button>
-    <button class="btn sm" onclick="document.getElementById('impf').click()">📥 読込</button>
-    <input type="file" id="impf" accept=".geojson,.json" style="display:none" onchange="importPts(event)">
+    <button class="btn sm" onclick="openImpDlg()">📥 読込</button>
   </div>
   <div class="pt-tip">
     💡 地図を<b>1秒長押し</b>してもポイントを追加できます
   </div>
 
-  <!-- ⑥ リストをアコーディオン型に -->
+  <!-- マイポイント一覧 -->
   <div class="cfg-accordion pt-list-accordion">
     <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)" id="pt-list-accordion-header">
-      <span class="cfg-accordion-title" id="pt-list-accordion-title">📋 一覧（0件）</span>
+      <span class="cfg-accordion-title" id="pt-list-accordion-title">📋 マイポイント（0件）</span>
       <span class="cfg-accordion-arrow">▶</span>
     </div>
     <div class="cfg-accordion-body">
       <div class="pt-list" id="pt-list">
         <div class="pt-empty">まだポイントがありません<br>「＋ ポイント追加」で地図上に登録できます</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 読込ポイント一覧 -->
+  <div class="cfg-accordion pt-list-accordion" style="margin-top:8px">
+    <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+      <span class="cfg-accordion-title" id="imp-list-accordion-title">📥 読込ポイント（0件）</span>
+      <span class="cfg-accordion-arrow">▶</span>
+    </div>
+    <div class="cfg-accordion-body">
+      <div class="pt-list" id="imp-set-list">
+        <div class="pt-empty">読込ポイントはありません<br>「📥 読込」でGeoJSONを追加できます</div>
       </div>
     </div>
   </div>
@@ -517,13 +529,13 @@
       </div>
       <div id="comm-rule-body" style="display:none">
         <ol class="comm-rule-list">
-          <li>特定の場所の公開はご遠慮ください</li>
+          <li>採取場所の詳細住所・秘密スポットの公開はご遠慮ください</li>
           <li>砂金採取に関するイベント・告知投稿は歓迎します</li>
           <li>他ユーザーへの誹謗中傷・荒らし行為は禁止です</li>
           <li>商業目的のスパム投稿は禁止です</li>
           <li>違法行為・危険行為を助長する投稿は禁止です</li>
-          <li>連続投稿防止のため<b>3分間に1投稿</b>までとします</li>
-          <li>⚠️ 通報が既定回数集まった投稿は自動的に非表示になります</li>
+          <li>連続投稿防止のため<b>1分間に1投稿</b>までとします</li>
+          <li>バッド👎が3票集まった投稿は自動的に非表示になります</li>
         </ol>
       </div>
     </div>
@@ -637,6 +649,16 @@
       <span class="star-label" id="star-label">未評価</span>
     </div>
     <label>メモ</label><textarea id="pt-memo" placeholder="採取状況・特記事項など"></textarea>
+    <label>アイコン</label>
+    <div class="pt-picker-row">
+      <div class="pt-picker-selected" id="pt-icon-selected" data-icon="⛏">⛏</div>
+      <div class="cl-icon-picker" id="pt-icon-picker"></div>
+    </div>
+    <label>マーカー色</label>
+    <div class="pt-picker-row">
+      <div class="pt-color-preview" id="pt-color-selected" data-color="#c8a020" style="background:#c8a020"></div>
+      <div class="cl-color-picker" id="pt-color-picker"></div>
+    </div>
     <div class="dlg-btns">
       <button class="dbtn" onclick="cancelEdit()">キャンセル</button>
       <button class="dbtn ok" onclick="reqSave()">保存する</button>
@@ -669,13 +691,30 @@
       <button class="dbtn del" onclick="confirmDel()">削除する</button>
     </div>
   </div>
-  <div class="dialog" id="dlg-imp" style="display:none">
-    <h3>インポート</h3>
-    <p class="dlg-msg" id="imp-msg"></p>
+  <div class="dialog" id="dlg-imp2" style="display:none">
+    <h3>📥 ポイントを読み込む</h3>
+    <label>セット名</label>
+    <input type="text" id="imp2-set-name" placeholder="例：〇〇川エリア">
+    <label>GeoJSONファイル</label>
+    <div class="imp2-file-row">
+      <button class="btn sm" onclick="imp2SelectFile()">ファイルを選択</button>
+      <span class="imp2-file-name" id="imp2-file-name">ファイル未選択</span>
+    </div>
+    <div class="imp2-count" id="imp2-count"></div>
+    <input type="file" id="impf2" accept=".geojson,.json" style="display:none" onchange="imp2OnFile(event)">
+    <label>アイコン</label>
+    <div class="pt-picker-row">
+      <div class="pt-picker-selected" id="imp2-icon-selected" data-icon="📥">📥</div>
+      <div class="cl-icon-picker" id="imp2-icon-picker"></div>
+    </div>
+    <label>マーカー色</label>
+    <div class="pt-picker-row">
+      <div class="pt-color-preview" id="imp2-color-selected" data-color="#3498db" style="background:#3498db"></div>
+      <div class="cl-color-picker" id="imp2-color-picker"></div>
+    </div>
     <div class="dlg-btns">
       <button class="dbtn" onclick="closeOv()">キャンセル</button>
-      <button class="dbtn ok" onclick="doImport('add')">追加</button>
-      <button class="dbtn del" onclick="doImport('over')">上書き</button>
+      <button class="dbtn ok" onclick="confirmImp2()">読み込む</button>
     </div>
   </div>
   <div class="dialog" id="dlg-contrib-on" style="display:none">

@@ -184,7 +184,7 @@ function _clSetHTML(s){
       </label>
       <div class="cl-filter-row">
         <span class="cl-filter-ico">🔍</span>
-        <input class="cl-filter-input" type="text" placeholder="セット内を検索…"
+        <input class="cl-filter-input" type="text" placeholder="フィルター文字列を入力…"
           value="${ft}"
           oninput="clFilter('${s.id}',this.value)">
         ${ft ? `<button class="cl-filter-clear" onclick="clFilterClear('${s.id}')">✕</button>` : ''}
