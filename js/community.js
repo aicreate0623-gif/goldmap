@@ -166,13 +166,23 @@ async function commRefresh(){
     const pref     = _commPref;
     const cached   = _loadCache(scope, pref);
     const latestTs = _getLatestTs(cached);
-    // ── フィルター修正：nationalとprefを正しく分岐 ──
-    const fsScope  = scope === 'national' ? 'national' : 'pref';
+    const limit    = scope === 'national' ? COMM_NATIONAL_DISPLAY : COMM_PREF_DISPLAY;
+    // ── クエリ構築 ──────────────────────────────────
+    // Firestoreの複合インデックス要件：
+    //   national: (scope ASC, ts DESC)
+    //   pref    : (scope ASC, pref ASC, ts DESC)
+    // 差分取得時は where('ts','>') を追加するが、
+    // orderBy('ts') は必ず最後に置き単一フィールドで完結させる。
+    const fsScope = scope === 'national' ? 'national' : 'pref';
     let q = _db().collection('posts').where('scope', '==', fsScope);
     if(scope === 'regional') q = q.where('pref', '==', pref);
-    if(latestTs > 0) q = q.where('ts', '>', new Date(latestTs));
-    const limit = scope === 'national' ? COMM_NATIONAL_DISPLAY : COMM_PREF_DISPLAY;
-    q = q.orderBy('ts', 'desc').limit(limit);
+    // 差分取得：キャッシュがある場合のみ ts フィルターを追加
+    // ※ where('ts','>') + orderBy('ts') は同一フィールドなので複合インデックス不要
+    if(latestTs > 0){
+      q = q.orderBy('ts', 'asc').where('ts', '>', new Date(latestTs)).limit(limit);
+    } else {
+      q = q.orderBy('ts', 'desc').limit(limit);
+    }
     const snap = await q.get();
     const newPosts = snap.docs.map(d => ({
       id: d.id, ...d.data(),
@@ -236,8 +246,8 @@ function _renderPostsFromCache(){
     <button class="comm-react-btn like${likeActive}" onclick="commReact('${p.id}','like')">
       👍 <span id="comm-like-${p.id}">${p.like||0}</span>
     </button>
-    <button class="comm-react-btn report${reportActive}" onclick="commReport('${p.id}')">
-      ⚠️ 通報
+    <button class="comm-react-btn report${reportActive}" onclick="commReport('${p.id}')" title="既定回数の通報で非表示になります">
+      ⚠️ 通報<span class="comm-report-note">（既定回数で非表示）</span>
     </button>
   </div>
 </div>`;

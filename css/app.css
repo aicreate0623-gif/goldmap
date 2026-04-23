@@ -1553,6 +1553,12 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   border-color: rgba(255,140,0,0.5);
   color: #ffaa44;
 }
+.comm-report-note {
+  font-size: 9px;
+  opacity: 0.65;
+  margin-left: 2px;
+  white-space: nowrap;
+}
 
 /* 自分の投稿削除ボタン */
 .comm-delete-btn {
