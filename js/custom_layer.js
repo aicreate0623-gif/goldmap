@@ -197,6 +197,29 @@ function _clSetHTML(s){
       </div>
       <div class="cl-color-dot" style="background:${s.color}" title="${CL_COLORS.find(c=>c.value===s.color)?.label||''}"></div>
     </div>
+
+    <!-- 個別ポイント アコーディオン -->
+    <div class="cl-pt-accordion-header" onclick="clTogglePointList('${s.id}')" id="cl-pt-acc-${s.id}">
+      <span>📍 ${s.points.length}件のポイント</span>
+      <span class="cl-pt-acc-arrow" id="cl-pt-arrow-${s.id}">▶</span>
+    </div>
+    <div class="cl-pt-list" id="cl-pt-list-${s.id}" style="display:none;">
+      ${s.points.length === 0
+        ? '<div class="cl-pt-empty">ポイントがありません</div>'
+        : s.points.map((p, i) => `
+          <div class="cl-pt-row">
+            <span class="cl-pt-icon">${s.icon}</span>
+            <div class="cl-pt-info">
+              <div class="cl-pt-name">${p.name || '（名前なし）'}</div>
+              <div class="cl-pt-meta">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.note ? ' · ' + p.note.slice(0,20) + (p.note.length>20?'…':'') : ''}</div>
+            </div>
+            <div class="cl-pt-row-btns">
+              <button class="btn sm" onclick="openClPointEdit('${s.id}',${i})">✏️</button>
+              <button class="btn sm red" onclick="openClPointDel('${s.id}',${i})">🗑</button>
+            </div>
+          </div>`).join('')
+      }
+    </div>
   </div>`;
 }
 
@@ -423,4 +446,85 @@ function clExport(id){
   a.href = URL.createObjectURL(new Blob([JSON.stringify(fc,null,2)],{type:'application/json'}));
   a.download = `${s.name.replace(/[^\w\u3000-\u9fff]/g,'_')}.geojson`;
   a.click();
+}
+
+// ── 個別ポイント アコーディオン開閉 ────────────────
+function clTogglePointList(setId) {
+  const list  = document.getElementById(`cl-pt-list-${setId}`);
+  const arrow = document.getElementById(`cl-pt-arrow-${setId}`);
+  if (!list || !arrow) return;
+  const isOpen = list.style.display !== 'none';
+  list.style.display  = isOpen ? 'none' : 'block';
+  arrow.textContent   = isOpen ? '▶' : '▼';
+}
+
+// ── 個別ポイント編集ダイアログを開く ───────────────
+let _editingPointSetId  = null;
+let _editingPointIndex  = null;
+
+function openClPointEdit(setId, idx) {
+  const s = _clSets.find(s => s.id === setId);
+  if (!s || !s.points[idx]) return;
+  const p = s.points[idx];
+  _editingPointSetId = setId;
+  _editingPointIndex = idx;
+  document.getElementById('cl-pt-edit-title').textContent = `ポイントを編集（${s.name}）`;
+  document.getElementById('cl-pt-name').value = p.name || '';
+  document.getElementById('cl-pt-note').value = p.note || '';
+  document.getElementById('cl-pt-lat').value  = p.lat;
+  document.getElementById('cl-pt-lng').value  = p.lng;
+  showDlg('dlg-cl-point-edit');
+}
+
+async function saveClPointEdit() {
+  const s = _clSets.find(s => s.id === _editingPointSetId);
+  if (!s || _editingPointIndex === null) return;
+  const lat = parseFloat(document.getElementById('cl-pt-lat').value);
+  const lng = parseFloat(document.getElementById('cl-pt-lng').value);
+  if (isNaN(lat) || isNaN(lng)) { showAlert('エラー', '緯度・経度は数値で入力してください'); return; }
+  s.points[_editingPointIndex] = {
+    ...s.points[_editingPointIndex],
+    name: document.getElementById('cl-pt-name').value.trim(),
+    note: document.getElementById('cl-pt-note').value.trim(),
+    lat, lng,
+  };
+  await _clSave();
+  if (s.visible) _buildLayer(s);
+  _renderClSets();
+  // 展開状態を復元
+  const list  = document.getElementById(`cl-pt-list-${_editingPointSetId}`);
+  const arrow = document.getElementById(`cl-pt-arrow-${_editingPointSetId}`);
+  if (list)  list.style.display = 'block';
+  if (arrow) arrow.textContent  = '▼';
+  closeOv();
+}
+
+// ── 個別ポイント削除確認ダイアログを開く ───────────
+let _deletingPointSetId  = null;
+let _deletingPointIndex  = null;
+
+function openClPointDel(setId, idx) {
+  const s = _clSets.find(s => s.id === setId);
+  if (!s || !s.points[idx]) return;
+  _deletingPointSetId  = setId;
+  _deletingPointIndex  = idx;
+  document.getElementById('cl-pt-del-name').textContent = s.points[idx].name || '（名前なし）';
+  const btn = document.getElementById('cl-pt-del-confirm-btn');
+  btn.onclick = () => _doClPointDelete();
+  showDlg('dlg-cl-point-del');
+}
+
+async function _doClPointDelete() {
+  const s = _clSets.find(s => s.id === _deletingPointSetId);
+  if (!s || _deletingPointIndex === null) return;
+  s.points.splice(_deletingPointIndex, 1);
+  await _clSave();
+  if (s.visible) _buildLayer(s);
+  _renderClSets();
+  // 展開状態を復元（削除後もリスト表示）
+  const list  = document.getElementById(`cl-pt-list-${_deletingPointSetId}`);
+  const arrow = document.getElementById(`cl-pt-arrow-${_deletingPointSetId}`);
+  if (list)  list.style.display = 'block';
+  if (arrow) arrow.textContent  = '▼';
+  closeOv();
 }

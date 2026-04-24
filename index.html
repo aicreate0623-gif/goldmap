@@ -128,6 +128,58 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
+    <!-- マイMAP機能説明 -->
+    <div class="cfg-accordion" style="margin:0 0 10px">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">📖 マイMAP機能について</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <div style="font-size:12px;color:var(--txt-sub);line-height:1.8;padding:4px 2px;">
+          <p style="margin:0 0 10px;color:var(--txt);font-weight:600;">📂 マイMAPとは</p>
+          <p style="margin:0 0 10px;">GeoJSONやCSVファイルをインポートして地図上に表示できる機能です。採取ポイントとは独立した<b>独自のデータセット</b>を最大10セット管理できます。データはすべて端末内（IndexedDB）に保存されます。</p>
+
+          <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🗂 セットとポイントの概念</p>
+          <p style="margin:0 0 10px;">「セット」は複数ポイントをまとめるフォルダです。例：「○○川流域調査」「気になる鉱山リスト」など用途別に作れます。各セットに対してアイコン・色・表示ON/OFFを個別設定できます。</p>
+
+          <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">📥 インポート対応形式</p>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;">
+            <tr style="background:rgba(255,255,255,0.05);">
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">GeoJSON</td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">Point型フィーチャーを読み込みます。<code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">name</code> <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">note</code> プロパティを自動取得</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">CSV</td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">列順：<code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">緯度,経度,名前,メモ</code><br>1行目がヘッダーの場合は自動スキップ</td>
+            </tr>
+          </table>
+
+          <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">✏️ ポイントの各項目</p>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;">
+            <tr style="background:rgba(255,255,255,0.05);">
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">name</td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">ポイントの名前。地図のポップアップに表示</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">note</td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">メモ・備考。ポップアップのサブテキストに表示</td>
+            </tr>
+            <tr style="background:rgba(255,255,255,0.05);">
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">lat</td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">緯度（例：36.123456）。小数点6桁程度が目安</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">lng</td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">経度（例：138.123456）。日本国内は136〜146付近</td>
+            </tr>
+          </table>
+
+          <p style="margin:0 0 4px;color:var(--txt);font-weight:600;">🔍 フィルター機能</p>
+          <p style="margin:0;">セットごとにキーワードで絞り込み表示できます。name・noteを対象に部分一致で検索します。</p>
+        </div>
+      </div>
+    </div>
+
     <div class="cl-section-toggle-row">
       <span class="cl-section-label">インポートデータ表示</span>
       <button class="contrib-toggle" id="cl-section-toggle" onclick="toggleClSection()">
@@ -175,6 +227,58 @@
   </div>
   <div class="pt-tip">
     💡 地図を<b>1秒長押し</b>してもポイントを追加できます
+  </div>
+
+  <!-- ポイント機能説明 -->
+  <div class="cfg-accordion" style="margin:10px 12px 0">
+    <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+      <span class="cfg-accordion-title">📖 ポイント機能について</span>
+      <span class="cfg-accordion-arrow">▶</span>
+    </div>
+    <div class="cfg-accordion-body">
+      <div style="font-size:12px;color:var(--txt-sub);line-height:1.8;padding:4px 2px;">
+        <p style="margin:0 0 10px;color:var(--txt);font-weight:600;">📍 ポイントとは</p>
+        <p style="margin:0 0 10px;">採取場所を地図上にピンで記録する機能です。ポイントはすべて<b>端末内（ローカル）</b>に保存されます。無料プランは最大3件、プレミアムは無制限です。</p>
+
+        <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">✏️ 登録できる項目</p>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;">
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">名前</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">採取場所の名前。例：○○川上流、△△峠付近</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">採取評価 ★</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">採取の手応えを★1〜3で記録。★3が最高評価</td>
+          </tr>
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">メモ</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">採取状況・水量・砂の様子など自由記述</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">アイコン</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">地図上のピンに表示する絵文字</td>
+          </tr>
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">マーカー色</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">ピンの背景色。複数エリアを色分けすると便利</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--txt-dim);font-weight:700;white-space:nowrap;">緯度 lat</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--txt-dim);">タップ位置から自動取得。編集時に手入力も可</td>
+          </tr>
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--txt-dim);font-weight:700;white-space:nowrap;">経度 lng</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--txt-dim);">タップ位置から自動取得。編集時に手入力も可</td>
+          </tr>
+        </table>
+
+        <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">📤 書出 / 📥 読込（GeoJSON形式）</p>
+        <p style="margin:0 0 10px;">ポイントデータを <b>GeoJSON</b> 形式でエクスポート・インポートできます。PCでの閲覧やバックアップ、機種変更時のデータ移行に使えます。</p>
+
+        <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🗺️ ヒートマップに協力（プレミアム）</p>
+        <p style="margin:0;">ポイントを1件以上登録するとONにできます。位置情報を約1km²単位に丸めて匿名で収集し、砂金分布ヒートマップの精度向上に活用します。個人を特定する情報は収集しません。</p>
+      </div>
+    </div>
   </div>
 
   <!-- マイポイント一覧 -->
@@ -640,7 +744,35 @@
     </div>
   </div>
 
-  <div class="dialog" id="dlg-edit" style="display:none">
+  <!-- カスタムレイヤー：個別ポイント編集ダイアログ -->
+  <div class="dialog" id="dlg-cl-point-edit" style="display:none">
+    <h3 id="cl-pt-edit-title">ポイントを編集</h3>
+    <label>名前</label>
+    <input type="text" id="cl-pt-name" placeholder="例：○○川上流" maxlength="50">
+    <label>メモ</label>
+    <textarea id="cl-pt-note" placeholder="採取状況・特記事項など" rows="3" style="resize:vertical;"></textarea>
+    <label>緯度 <span style="font-size:10px;color:var(--txt-dim);font-weight:400;">（例：36.123456）</span></label>
+    <input type="number" id="cl-pt-lat" placeholder="例：36.123456" step="0.000001">
+    <label>経度 <span style="font-size:10px;color:var(--txt-dim);font-weight:400;">（例：138.123456）</span></label>
+    <input type="number" id="cl-pt-lng" placeholder="例：138.123456" step="0.000001">
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="closeOv()">キャンセル</button>
+      <button class="dbtn ok" onclick="saveClPointEdit()">保存</button>
+    </div>
+  </div>
+
+  <!-- カスタムレイヤー：個別ポイント削除確認ダイアログ -->
+  <div class="dialog" id="dlg-cl-point-del" style="display:none">
+    <h3>⚠️ ポイントを削除</h3>
+    <p style="margin:10px 0;color:var(--txt-sub);font-size:13px;line-height:1.7;">
+      「<b id="cl-pt-del-name" style="color:var(--txt)"></b>」を削除します。<br>
+      <span style="color:#e74c3c;font-weight:bold;">この操作は元に戻せません。</span>
+    </p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="closeOv()">キャンセル</button>
+      <button class="dbtn red" id="cl-pt-del-confirm-btn">削除する</button>
+    </div>
+  </div>
     <h3 id="dlg-edit-ttl">ポイントを追加</h3>
     <label>名前</label><input type="text" id="pt-name" placeholder="例：○○川上流">
     <label>採取評価</label>
