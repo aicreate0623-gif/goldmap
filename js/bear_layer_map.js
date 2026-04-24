@@ -256,7 +256,13 @@ function setBearLayerVisible(visible) {
 
 /** 熊レイヤーのON/OFFをトグルする（フロートボタン用） */
 function toggleBearLayer() {
-  setBearLayerVisible(!bearVisible);
+  // OFFにする場合はゲートなし
+  if(bearVisible){ setBearLayerVisible(false); return; }
+  // ONにする場合はプレミアムチェック
+  isPremiumUser().then(premium => {
+    if(!premium){ showPremiumGate('bear_layer'); return; }
+    setBearLayerVisible(true);
+  });
 }
 
 /** 現在の表示状態を返す */

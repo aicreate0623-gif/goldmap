@@ -39,60 +39,16 @@ async function initFirebase() {
 
 // ── 開発用: 課金状態オーバーライド ──────────────
 let _devPremium = false; // デフォルト: 無料
-let _devVip     = false; // デフォルト: VIPなし
 
 function devTogglePremium(){
   _devPremium = !_devPremium;
-  const btn       = document.getElementById('dev-premium-btn');
-  const btnInline = document.getElementById('dev-premium-inline');
-  const label = _devPremium ? 'PREMIUM ✓' : 'FREE';
-  const bg    = _devPremium ? 'rgba(50,200,100,0.18)' : 'rgba(255,50,50,0.18)';
-  const bc    = _devPremium ? 'rgba(80,220,120,0.5)'  : 'rgba(255,80,80,0.5)';
-  const col   = _devPremium ? '#80e8a0' : '#ff8888';
-  [btn, btnInline].forEach(b => {
-    if(!b) return;
-    b.textContent        = (b === btn ? 'DEV: ' : '') + label;
-    b.style.background   = bg;
-    b.style.borderColor  = bc;
-    b.style.color        = col;
-  });
-}
-
-function devToggleVip(){
-  _devVip = !_devVip;
-  const btn = document.getElementById('dev-vip-btn');
+  const btn   = document.getElementById('dev-premium-btn');
   if(!btn) return;
-  if(_devVip){
-    btn.textContent      = 'VIP: ON ✓';
-    btn.style.background = 'rgba(160,80,255,0.22)';
-    btn.style.borderColor= 'rgba(180,100,255,0.6)';
-    btn.style.color      = '#c880ff';
-    const btnP = document.getElementById('dev-premium-btn');
-    const btnI = document.getElementById('dev-premium-inline');
-    [btnP, btnI].forEach(b => {
-      if(!b) return;
-      b.textContent      = (b === btnP ? 'DEV: ' : '') + 'PREMIUM ✓';
-      b.style.background = 'rgba(50,200,100,0.18)';
-      b.style.borderColor= 'rgba(80,220,120,0.5)';
-      b.style.color      = '#80e8a0';
-    });
-  } else {
-    btn.textContent      = 'VIP: OFF';
-    btn.style.background = 'rgba(255,50,50,0.18)';
-    btn.style.borderColor= 'rgba(255,80,80,0.5)';
-    btn.style.color      = '#ff8888';
-    if(!_devPremium){
-      const btnP = document.getElementById('dev-premium-btn');
-      const btnI = document.getElementById('dev-premium-inline');
-      [btnP, btnI].forEach(b => {
-        if(!b) return;
-        b.textContent      = (b === btnP ? 'DEV: ' : '') + 'FREE';
-        b.style.background = 'rgba(255,50,50,0.18)';
-        b.style.borderColor= 'rgba(255,80,80,0.5)';
-        b.style.color      = '#ff8888';
-      });
-    }
-  }
+  const label = _devPremium ? 'PREMIUM ✓' : 'FREE';
+  btn.textContent      = 'DEV: ' + label;
+  btn.style.background = _devPremium ? 'rgba(50,200,100,0.18)' : 'rgba(255,50,50,0.18)';
+  btn.style.borderColor= _devPremium ? 'rgba(80,220,120,0.5)'  : 'rgba(255,80,80,0.5)';
+  btn.style.color      = _devPremium ? '#80e8a0' : '#ff8888';
 }
 
 // ─────────────────────────────────────────────────────
@@ -103,7 +59,6 @@ function devToggleVip(){
 const _SK_PREMIUM = 'gm_premium_cache';
 
 async function isPremiumUser() {
-  if(_devVip)     return true;
   if(_devPremium) return true;
   if (!window._fbUid) return _getCachedPremium();
   try {
@@ -122,23 +77,6 @@ async function isPremiumUser() {
 
 function _getCachedPremium(){
   return localStorage.getItem(_SK_PREMIUM) === '1';
-}
-
-// ─────────────────────────────────────────────────────
-// VIPユーザー判定
-//   Firestoreの users/{uid}.vip フラグを参照
-// ─────────────────────────────────────────────────────
-async function isVipUser() {
-  if(_devVip) return true;
-  if (!window._fbUid) return false;
-  try {
-    const doc = await firebase.firestore()
-      .collection('users').doc(window._fbUid).get();
-    return doc.exists && doc.data().vip === true;
-  } catch (e) {
-    console.warn('[firebase.js] isVipUser error', e);
-    return false;
-  }
 }
 
 // ─────────────────────────────────────────────────────
@@ -180,42 +118,81 @@ function _localPostCountFallback() {
 
 // ─────────────────────────────────────────────────────
 // 課金ゲート表示
-//   type: 'point_limit' | 'offline' | 'heatmap_pro'
+//   type: 'point_limit' | 'offline' | 'mymap' | 'bear_layer' | 'water_level' | 'heatmap_pro'
 // ─────────────────────────────────────────────────────
 function showPremiumGate(type) {
+  // プレミアム機能一覧（共通フッター用）
+  const PREMIUM_LIST =
+    '<div class="gate-premium-list">' +
+    '<div>🗺 高精度ヒートマップPro</div>' +
+    '<div>⬇ オフライン地図ダウンロード</div>' +
+    '<div>📂 マイMAP作成</div>' +
+    '<div>🐻 熊生息ヒートマップ</div>' +
+    '<div>💧 水位・河川警戒情報</div>' +
+    '<div>📍 ポイント記録 無制限</div>' +
+    '</div>' +
+    '<div class="gate-price">月額 ¥480 ／ 年額 ¥3,800</div>';
+
   const GATE_CONTENT = {
     point_limit: {
       icon:  '📍',
       title: 'ポイント上限に達しました',
-      body:  `無料プランでは最大 ${FREE_POINT_LIMIT} 件まで保存できます。\nプレミアムプランにアップグレードすると、ポイントを無制限に保存できます。`,
+      body:  `<p>無料プランでは最大 <b>${FREE_POINT_LIMIT} 件</b>まで保存できます。</p>` +
+             `<p>プレミアムにアップグレードするとポイントを<b>無制限</b>に保存できます。</p>` +
+             PREMIUM_LIST,
     },
     offline: {
       icon:  '⬇',
-      title: 'オフライン機能はプレミアム',
-      body:  'タイルのダウンロード・オフライン利用はプレミアムプランの機能です。\nアップグレードすると電波のない山中でも地図を使えます。',
+      title: 'オフライン地図はプレミアム機能です',
+      body:  '<p>地図タイルのダウンロードはプレミアム機能です。<br>' +
+             '電波のない山中でも地図・データを完全に利用できます。</p>' +
+             PREMIUM_LIST,
+    },
+    mymap: {
+      icon:  '📂',
+      title: 'マイMAPはプレミアム機能です',
+      body:  '<p>GeoJSON・CSVをインポートして地図上に表示する<b>マイMAP</b>はプレミアム機能です。<br>' +
+             '最大10セットのデータを端末内に保存・管理できます。</p>' +
+             PREMIUM_LIST,
+    },
+    bear_layer: {
+      icon:  '🐻',
+      title: '熊生息ヒートマップはプレミアム機能です',
+      body:  '<p>全国の熊出没データを集計した<b>生息域ヒートマップ</b>と' +
+             '直近90日の出没ピンはプレミアム機能です。</p>' +
+             PREMIUM_LIST,
+    },
+    water_level: {
+      icon:  '💧',
+      title: '水位・河川警戒情報はプレミアム機能です',
+      body:  '<p>国土交通省の河川水位データをリアルタイム取得し、' +
+             '警戒レベルを地図上に表示する機能はプレミアム機能です。</p>' +
+             PREMIUM_LIST,
     },
     heatmap_pro_no_post: {
       icon:  '📍',
       title: 'ポイント投稿が必要です',
-      body:  `ヒートマップProを利用するには、採取ポイントを<b>1件以上投稿</b>している必要があります。\n\n地図上でポイントを登録し、「ヒートマップに協力」をONにして投稿してください。`,
+      body:  '<p>ヒートマップProを利用するには、採取ポイントを<b>1件以上投稿</b>している必要があります。</p>' +
+             '<p>地図上でポイントを登録し、「ヒートマップに協力」をONにして投稿してください。</p>',
     },
     heatmap_pro_revoked: {
       icon:  '⚠️',
       title: 'ヒートマップProを停止しました',
-      body:  `投稿済みのポイントが0件になったため、ヒートマップProを停止しました。\n\nポイントを1件以上投稿すると再度ご利用いただけます。`,
+      body:  '<p>投稿済みのポイントが0件になったため、ヒートマップProを停止しました。</p>' +
+             '<p>ポイントを1件以上投稿すると再度ご利用いただけます。</p>',
     },
     heatmap_pro: {
       icon:  '',
       title: '✨ ヒートマップPro（月額480円）',
-      body:  `<div class="gate-catchcopy">「この町のどこか」から「この川のどこか」へ</div>
-<div class="gate-section">
-  🗺 フリー版の<b>約10倍の解像度</b>で表示。場所選定の精度を高めます。<br>
-  🔥 ユーザー投稿を匿名集計・毎日3時更新。位置はランダムにずらして使用します。
-</div>
-<div class="gate-note">
-  <span class="gate-note-alert">※ ポイント投稿が1件以上必要です。</span><br>
-  ※ 採取を保証するものではありません。解約はいつでも可能です。
-</div>`,
+      body:  '<div class="gate-catchcopy">「この町のどこか」から「この川のどこか」へ</div>' +
+             '<div class="gate-section">' +
+             '🗺 フリー版の<b>約10倍の解像度</b>で表示。場所選定の精度を高めます。<br>' +
+             '🔥 ユーザー投稿を匿名集計・毎日3時更新。位置はランダムにずらして使用します。' +
+             '</div>' +
+             '<div class="gate-note">' +
+             '<span class="gate-note-alert">※ ポイント投稿が1件以上必要です。</span><br>' +
+             '※ 採取を保証するものではありません。解約はいつでも可能です。' +
+             '</div>',
     },
   };
 

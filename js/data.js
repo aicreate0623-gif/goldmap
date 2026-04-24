@@ -148,15 +148,21 @@ function toggleMine(){
 }
 
 function toggleWaterLevel(){
-  waterV=!waterV;
-  document.getElementById('btn-water').classList.toggle('active',waterV);
+  // OFFにする場合はゲートなしで即時OFF
   if(waterV){
-    // 即時：全河川ピンを表示（警報なしでも109本表示）
+    waterV = false;
+    document.getElementById('btn-water').classList.remove('active');
+    if(typeof clearFloodHeatmap === 'function') clearFloodHeatmap();
+    return;
+  }
+  // ONにする場合はプレミアムチェック
+  isPremiumUser().then(premium => {
+    if(!premium){ showPremiumGate('water_level'); return; }
+    waterV = true;
+    document.getElementById('btn-water').classList.add('active');
     if(typeof buildFloodHeatmap === 'function') buildFloodHeatmap();
-    // 非同期：警報情報を取得して警告色・ヒートマップ・50km判定を更新
     fetchFloodAlerts().then(()=>{
       if(typeof buildFloodHeatmap === 'function') buildFloodHeatmap();
-      // GPS取得済みなら50km以内の警戒河川をチェック
       if(typeof _checkNearbyFloodAlert === 'function'){
         if(window._userLat && window._userLng){
           _checkNearbyFloodAlert(window._userLat, window._userLng);
@@ -169,36 +175,8 @@ function toggleWaterLevel(){
         }
       }
     });
-  } else {
-    if(typeof clearFloodHeatmap === 'function') clearFloodHeatmap();
-  }
+  });
 }
-
-// ═══════════════════════════════════════════
-//  Wikidata 日本鉱山レイヤー
-//  出典: Wikidata（CC0）
-//  エンドポイント: https://query.wikidata.org/sparql
-// ═══════════════════════════════════════════
-const WIKI_SPARQL = `
-SELECT ?item ?itemLabel ?coord ?materialLabel WHERE {
-  ?item wdt:P17 wd:Q17 ;
-        wdt:P625 ?coord ;
-        wdt:P31/wdt:P279* wd:Q820477 .
-  OPTIONAL { ?item wdt:P1056 ?material. }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "ja,en". }
-}
-`.trim();
-
-const WIKI_ENDPOINT = 'https://query.wikidata.org/sparql';
-const WIKI_IDB_KEY  = 'wikidata_mines_v1';
-// キャッシュ有効期間: 7日
-const WIKI_TTL_MS   = 7 * 24 * 60 * 60 * 1000;
-
-let wikiLayer   = null;
-let wikiVisible = false;
-let wikiFetching = false;
-
-// ── 座標文字列をパース: "Point(lng lat)" → {lat, lng}
 function parseWikiCoord(pointStr){
   // 例: "Point(137.5 36.5)"
   const m = pointStr && pointStr.match(/Point\(([0-9.\-]+)\s+([0-9.\-]+)\)/i);
@@ -1419,12 +1397,6 @@ function buildGsjLayer(){
     }
     makeMineMarker(d).addTo(gsjLayer);
   });
-}
-
-function applyMineFilter(){
-  if(!gsjVisible) return;
-  buildGsjLayer();
-  gsjLayer.addTo(map);
 }
 
 function initGsjLayer(){
