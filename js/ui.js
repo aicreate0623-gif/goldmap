@@ -1307,4 +1307,4 @@ function toggleCommAccordion(header) {
   }
 }
 
-// 起動
+// 起動
