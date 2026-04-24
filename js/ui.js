@@ -1172,7 +1172,7 @@ function _openTab(tab){
 // ═══════════════════════════════════════════
 //  ダイアログ
 // ═══════════════════════════════════════════
-const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp2','dlg-alr','dlg-contrib-on','dlg-contrib-off','dlg-premium-gate','dlg-gps-lost','dlg-cl-edit','dlg-cl-delete'];
+const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp2','dlg-alr','dlg-contrib-on','dlg-contrib-off','dlg-premium-gate','dlg-gps-lost','dlg-cl-edit','dlg-cl-delete','dlg-cl-point-edit','dlg-cl-point-del'];
 function showDlg(id){DLGS.forEach(d=>document.getElementById(d).style.display='none');document.getElementById(id).style.display='block';document.getElementById('overlay').classList.add('open');}
 function closeOv(){document.getElementById('overlay').classList.remove('open');DLGS.forEach(d=>document.getElementById(d).style.display='none');eid=null;}
 function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;document.getElementById('alr-msg').textContent=msg;showDlg('dlg-alr');}
