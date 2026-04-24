@@ -2026,8 +2026,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .imp2-count {
   font-size: 11px; color: var(--gold); margin-bottom: 8px; min-height: 16px;
 }
-  line-height: 1.6; margin-bottom: 5px;
-}
 .mine-popup-meta {
   font-size: 10px; color: var(--txt-dim);
   border-top: 1px solid rgba(255,255,255,0.1);
