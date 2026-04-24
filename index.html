@@ -63,8 +63,8 @@
 </div>
 
 <div id="float-ctrl-right">
-  <button class="fc-btn fc-grp-custom" id="btn-custom-layer" onclick="toggleClMapVisible()" title="マイMAP表示/非表示" style="display:none">
-    <span class="fc-ico">📂</span><span>マイMAP</span>
+  <button class="fc-btn fc-grp-custom" id="btn-custom-layer" onclick="toggleClMapVisible()" title="カスタムデータ表示/非表示" style="display:none">
+    <span class="fc-ico">📂</span><span>マイData</span>
   </button>
   <button class="fc-btn fc-grp-safety" id="btn-bear" onclick="toggleBearLayer()" title="熊出没情報（KMLデータ）">
     <span class="fc-ico">🐻</span><span>熊情報</span>
@@ -275,7 +275,7 @@
     <!-- カスタムインポートデータ -->
     <div class="cfg-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">📂 マイMAPデータ管理</span>
+        <span class="cfg-accordion-title">📂 カスタムインポートデータ</span>
         <span class="cfg-accordion-arrow">▶</span>
       </div>
       <div class="cfg-accordion-body">
@@ -803,20 +803,35 @@
 
   <!-- ステップインジケーター -->
   <div class="dld-steps">
-    <div class="dld-step active" id="dld-si-1"><span class="dld-step-num">1</span><span class="dld-step-lbl">範囲</span></div>
+    <div class="dld-step active" id="dld-si-0"><span class="dld-step-num">1</span><span class="dld-step-lbl">移動</span></div>
     <div class="dld-step-line"></div>
-    <div class="dld-step" id="dld-si-2"><span class="dld-step-num">2</span><span class="dld-step-lbl">設定</span></div>
+    <div class="dld-step" id="dld-si-1"><span class="dld-step-num">2</span><span class="dld-step-lbl">範囲</span></div>
     <div class="dld-step-line"></div>
-    <div class="dld-step" id="dld-si-3"><span class="dld-step-num">3</span><span class="dld-step-lbl">DL</span></div>
+    <div class="dld-step" id="dld-si-2"><span class="dld-step-num">3</span><span class="dld-step-lbl">設定</span></div>
+    <div class="dld-step-line"></div>
+    <div class="dld-step" id="dld-si-3"><span class="dld-step-num">4</span><span class="dld-step-lbl">DL</span></div>
+  </div>
+
+  <!-- STEP 0: 地図を移動してエリアを決める -->
+  <div class="dld-panel" id="dld-s0">
+    <div class="dld-title">🗺 STEP 1 ─ ダウンロードしたい場所に地図を移動</div>
+    <p class="dld-hint">地図をスクロール・ピンチして、ダウンロードしたいエリアを画面に表示してください。<br>表示エリアを基準に次のステップで範囲を指定します。</p>
+    <div class="dld-footer-btns">
+      <button class="btn accent" onclick="_dldGoStep(1)">次へ → 範囲を選択する</button>
+    </div>
+    <button class="btn red dld-cancel-inline" onclick="_dldCancel()">✕ キャンセル</button>
   </div>
 
   <!-- STEP 1: ドラッグで範囲選択 -->
-  <div class="dld-panel" id="dld-s1">
-    <div class="dld-title">📍 STEP 1 ─ 地図上をドラッグして範囲を選択</div>
+  <div class="dld-panel" id="dld-s1" style="display:none">
+    <div class="dld-title">📍 STEP 2 ─ 地図上をドラッグして範囲を選択</div>
     <p class="dld-hint" id="dld-draw-hint">指でドラッグすると矩形が描かれます。選択後に確定ボタンを押してください</p>
     <button class="btn accent dld-confirm-btn" id="dld-draw-ok" onclick="_dldConfirmDraw()" disabled>
       選択範囲を確定 →
     </button>
+    <div class="dld-footer-btns">
+      <button class="btn sm" onclick="_dldGoStep(0)">← 戻る</button>
+    </div>
     <button class="btn red dld-cancel-inline" onclick="_dldCancel()">✕ キャンセル</button>
   </div>
 
@@ -882,6 +897,7 @@
     </div>
     <div class="dl-log" id="dld-log"></div>
     <div class="dld-footer-btns" id="dld-dl-btns">
+      <button class="btn sm" id="dld-s3-back" onclick="_dldGoStep(2)">← 戻る</button>
       <button class="btn red" onclick="stopDl()">■ 停止</button>
     </div>
   </div>
