@@ -137,7 +137,7 @@ function _buildLayer(set, filterText){
     mk.addTo(lg);
   });
   _clLayers[set.id] = lg;
-  if(_clOn && set.visible && _clMapShown) lg.addTo(map);
+  if(set.visible && _clMapShown) lg.addTo(map);
 }
 function _clShowPopup(p, set){
   // 既存鉱床と同デザインのポップアップ
