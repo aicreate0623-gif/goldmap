@@ -462,6 +462,13 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .pt-row-coord { font-size: 10px; color: var(--txt-dim); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .pt-row-memo { font-size: 10px; color: var(--txt-sub); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pt-empty { text-align: center; padding: 60px 20px; color: var(--txt-dim); font-size: 13px; line-height: 2.2; }
+.pt-row-del-btn {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  font-size: 16px; padding: 6px 4px; opacity: 0.45;
+  transition: opacity .15s, transform .15s;
+  line-height: 1;
+}
+.pt-row-del-btn:hover, .pt-row-del-btn:active { opacity: 1; transform: scale(1.15); }
 
 /* ━━━ OFFLINE SHEET ━━━ */
 #dl-sheet .sheet-body { padding: 0; padding-bottom: calc(var(--tab-h) + 24px); }

@@ -198,8 +198,15 @@ function renderPtList(){
         <div class="pt-row-coord">📍 ${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div>
         ${p.memo?`<div class="pt-row-memo">${p.memo}</div>`:''}
       </div>
+      <button class="pt-row-del-btn" onclick="event.stopPropagation();reqDelFromList(${p.id})" title="削除">🗑</button>
     </div>
   `).join('');
+}
+async function reqDelFromList(id){
+  const p=pts.find(q=>q.id===id);if(!p)return;
+  if(!confirm(`「${p.name||'このポイント'}」を削除しますか？`))return;
+  did=id;
+  await confirmDel();
 }
 function jumpPt(id){
   const p=pts.find(q=>q.id===id);if(!p)return;
