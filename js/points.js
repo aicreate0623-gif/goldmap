@@ -198,15 +198,8 @@ function renderPtList(){
         <div class="pt-row-coord">📍 ${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div>
         ${p.memo?`<div class="pt-row-memo">${p.memo}</div>`:''}
       </div>
-      <button class="pt-row-del-btn" onclick="event.stopPropagation();reqDelFromList(${p.id})" title="削除">🗑</button>
     </div>
   `).join('');
-}
-async function reqDelFromList(id){
-  const p=pts.find(q=>q.id===id);if(!p)return;
-  if(!confirm(`「${p.name||'このポイント'}」を削除しますか？`))return;
-  did=id;
-  await confirmDel();
 }
 function jumpPt(id){
   const p=pts.find(q=>q.id===id);if(!p)return;
@@ -432,6 +425,9 @@ function _renderImpList(){
   const ttl=document.getElementById('imp-list-accordion-title');
   const total=_impSets.reduce((s,x)=>s+x.points.length,0);
   if(ttl) ttl.textContent=`📥 読込ポイント（${total}件）`;
+  // フロートボタンをデータ有無に応じて表示/非表示
+  const btn=document.getElementById('btn-custom-layer');
+  if(btn) btn.style.display=_impSets.length?'':'none';
   if(!_impSets.length){
     el.innerHTML='<div class="pt-empty">読込ポイントはありません<br>「📥 読込」でGeoJSONを追加できます</div>';
     return;
@@ -448,6 +444,19 @@ function _renderImpList(){
       </div>
     </div>
   `).join('');
+}
+
+// ── マイMAP一括表示/非表示 ──────────────────
+let _clMapVisible=true;
+function toggleClMapVisible(){
+  _clMapVisible=!_clMapVisible;
+  _impSets.forEach(s=>s.points.forEach(p=>{
+    if(!p.mk) return;
+    if(_clMapVisible) p.mk.addTo(map);
+    else map.removeLayer(p.mk);
+  }));
+  const btn=document.getElementById('btn-custom-layer');
+  if(btn) btn.classList.toggle('active',_clMapVisible);
 }
 function reqDelImpSet(setId){
   const s=_impSets.find(x=>x.id===setId);if(!s)return;
