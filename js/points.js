@@ -109,12 +109,11 @@ function confirmContribOn() {
 function confirmContribOff() { localStorage.setItem(CONTRIB_KEY,'off'); applyContribUI(); closeOv(); }
 
 // ── マーカー生成 ─────────────────────────────
-function _makeIcon(icon, color, dragging) {
+function _makeIcon(icon, color) {
   const bg = (!color||color==='transparent') ? 'rgba(200,160,32,0.2)' : color;
   const border = (!color||color==='transparent') ? '2px dashed rgba(200,160,32,0.7)' : '2px solid rgba(255,255,255,0.7)';
-  const cls = dragging ? 'pt-marker pt-marker--dragging' : 'pt-marker';
   return L.divIcon({
-    html: `<div class="${cls}" style="background:${bg};border:${border}">${icon||'⛏'}</div>`,
+    html: `<div class="pt-marker" style="background:${bg};border:${border}">${icon||'⛏'}</div>`,
     className: '', iconSize:[32,32], iconAnchor:[16,32]
   });
 }
@@ -141,7 +140,7 @@ function _updateMk(p) {
     document.body.appendChild(_lpRipple);
     _lpTimer=setTimeout(()=>{
       _clearLp(); addMode=true;
-      tPin=L.marker([latlng.lat,latlng.lng],{icon:_makeIcon(PT_DEFAULT_ICON,PT_DEFAULT_COLOR,true),draggable:true,pane:'paneUser'}).addTo(map);
+      tPin=L.marker([latlng.lat,latlng.lng],{icon:_makeIcon(PT_DEFAULT_ICON,PT_DEFAULT_COLOR),draggable:true,pane:'paneUser'}).addTo(map);
       document.getElementById('add-banner').classList.add('show');
     },1000);
   }
@@ -199,13 +198,24 @@ function renderPtList(){
         <div class="pt-row-coord">📍 ${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div>
         ${p.memo?`<div class="pt-row-memo">${p.memo}</div>`:''}
       </div>
+      <div class="pt-row-btns" onclick="event.stopPropagation()">
+        <button class="pt-row-edit-btn" onclick="ptListEdit(${p.id})" title="編集">✏️</button>
+        <button class="pt-row-del-btn"  onclick="ptListDel(${p.id})"  title="削除">🗑</button>
+      </div>
     </div>
   `).join('');
 }
 function jumpPt(id){
   const p=pts.find(q=>q.id===id);if(!p)return;
   switchTab('map');map.setView([p.lat,p.lng],15);
-  setTimeout(()=>openDet(id),400);
+}
+function ptListEdit(id){
+  did=id;
+  editCur();
+}
+function ptListDel(id){
+  did=id;
+  reqDel();
 }
 
 // ── 追加モード ───────────────────────────────
@@ -215,7 +225,7 @@ function startAddPt(){
   if(typeof drawMode!=='undefined'&&drawMode) return;
   addMode=true;
   const c=gpsLL||map.getCenter();
-  tPin=L.marker([c.lat,c.lng],{icon:_makeIcon(PT_DEFAULT_ICON,PT_DEFAULT_COLOR,true),draggable:true,pane:'paneUser'}).addTo(map);
+  tPin=L.marker([c.lat,c.lng],{icon:_makeIcon(PT_DEFAULT_ICON,PT_DEFAULT_COLOR),draggable:true,pane:'paneUser'}).addTo(map);
   document.getElementById('add-banner').classList.add('show');
 }
 function cancelAdd(){

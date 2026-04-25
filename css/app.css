@@ -462,9 +462,19 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .pt-row-coord { font-size: 10px; color: var(--txt-dim); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .pt-row-memo { font-size: 10px; color: var(--txt-sub); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pt-empty { text-align: center; padding: 60px 20px; color: var(--txt-dim); font-size: 13px; line-height: 2.2; }
+.pt-row-btns {
+  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+}
+.pt-row-edit-btn {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  font-size: 15px; padding: 6px 4px; opacity: 0.45;
+  transition: opacity .15s, transform .15s; line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.pt-row-edit-btn:hover, .pt-row-edit-btn:active { opacity: 1; transform: scale(1.15); }
 .pt-row-del-btn {
   flex-shrink: 0; background: none; border: none; cursor: pointer;
-  font-size: 16px; padding: 6px 4px; opacity: 0.45;
+  font-size: 15px; padding: 6px 4px; opacity: 0.45;
   transition: opacity .15s, transform .15s;
   line-height: 1;
 }
@@ -1972,19 +1982,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 2px 5px rgba(0,0,0,0.4);
   font-size: 13px;
-}
-
-/* ── 追加モード：ドラッグ中ピンのパルス枠 ── */
-@keyframes ptPulse {
-  0%   { box-shadow: 0 0 0 0 rgba(200,170,80,0.8), 0 2px 6px rgba(0,0,0,0.5); }
-  60%  { box-shadow: 0 0 0 10px rgba(200,170,80,0), 0 2px 6px rgba(0,0,0,0.5); }
-  100% { box-shadow: 0 0 0 0 rgba(200,170,80,0), 0 2px 6px rgba(0,0,0,0.5); }
-}
-.pt-marker--dragging {
-  border: 2px solid var(--gold) !important;
-  animation: ptPulse 1.2s ease-out infinite;
-  outline: 2px solid rgba(200,170,80,0.35);
-  outline-offset: 3px;
 }
 
 /* ── アイコン・色ピッカー（ポイントダイアログ用） ── */
