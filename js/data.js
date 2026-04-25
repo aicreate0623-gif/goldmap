@@ -177,6 +177,15 @@ function toggleWaterLevel(){
     });
   });
 }
+const WIKI_ENDPOINT = 'https://query.wikidata.org/sparql';
+const WIKI_IDB_KEY  = 'wikidata_mines_v1';
+// キャッシュ有効期間: 7日
+const WIKI_TTL_MS   = 7 * 24 * 60 * 60 * 1000;
+
+let wikiLayer   = null;
+let wikiVisible = false;
+let wikiFetching = false;
+
 function parseWikiCoord(pointStr){
   // 例: "Point(137.5 36.5)"
   const m = pointStr && pointStr.match(/Point\(([0-9.\-]+)\s+([0-9.\-]+)\)/i);
