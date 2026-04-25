@@ -6,7 +6,6 @@
 
 const CL_IDB_KEY     = 'custom_layer_sets'; // IndexedDB キー
 const CL_MAX_SETS    = 10;
-const CL_VISIBLE_KEY = 'cl_section_on';     // セクションON/OFF
 const CL_SHOWN_KEY   = 'cl_map_shown';      // フロートボタン状態
 
 // ── アイコン選択肢（40種）────────────────────
@@ -32,7 +31,6 @@ const CL_COLORS = [
 // ── 状態 ────────────────────────────────────
 let _clSets      = [];   // [{id,name,icon,color,visible,points:[{lat,lng,name,note}]}]
 let _clLayers    = {};   // {id: L.layerGroup}
-let _clOn        = false; // セクションON/OFF
 let _clMapShown  = false; // フロートボタントグル状態
 let _clEditId    = null;  // 編集中セットID
 let _clFilterMap = {};   // {id: filterText}
@@ -52,39 +50,12 @@ async function _clSave(){
 
 // ── 初期化 ──────────────────────────────────
 async function initCustomLayer(){
-  _clOn = localStorage.getItem(CL_VISIBLE_KEY) === 'on';
   _clMapShown = localStorage.getItem(CL_SHOWN_KEY) === 'on';
   await _clLoad();
-  _applyClSectionUI();
   _renderClSets();
-  if(_clOn){
-    _showClFloatBtn(true);
-    _clSets.forEach(s=>{ if(s.visible) _buildLayer(s); });
-    if(_clMapShown) _showAllClLayers();
-  }
-}
-
-// ── セクションON/OFF ─────────────────────────
-function toggleClSection(){
-  _clOn = !_clOn;
-  localStorage.setItem(CL_VISIBLE_KEY, _clOn ? 'on' : 'off');
-  _applyClSectionUI();
-  _showClFloatBtn(_clOn);
-  if(!_clOn){
-    // 全レイヤー非表示
-    Object.values(_clLayers).forEach(lg=>{ if(map) map.removeLayer(lg); });
-    _clMapShown = false;
-    localStorage.setItem(CL_SHOWN_KEY, 'off');
-    _applyClFloatState();
-  } else {
-    _clSets.forEach(s=>{ if(s.visible) _buildLayer(s); });
-  }
-}
-function _applyClSectionUI(){
-  const tog = document.getElementById('cl-section-toggle');
-  if(tog) tog.classList.toggle('on', _clOn);
-  const body = document.getElementById('cl-sets-body');
-  if(body) body.style.display = _clOn ? '' : 'none';
+  if(_clSets.length) _showClFloatBtn(true);
+  _clSets.forEach(s=>{ if(s.visible) _buildLayer(s); });
+  if(_clMapShown) _showAllClLayers();
 }
 
 // ── フロートボタン ───────────────────────────
@@ -93,14 +64,16 @@ function _showClFloatBtn(show){
   if(btn) btn.style.display = show ? '' : 'none';
 }
 function toggleClMapVisible(){
-  _clMapShown = !_clMapShown;
-  localStorage.setItem(CL_SHOWN_KEY, _clMapShown ? 'on' : 'off');
-  _applyClFloatState();
-  if(_clMapShown){
+  // OFFにする場合はゲートなし
+  if(_clMapShown){ _clMapShown=false; localStorage.setItem(CL_SHOWN_KEY,'off'); _applyClFloatState(); _hideAllClLayers(); return; }
+  // ONにする場合はプレミアムチェック
+  isPremiumUser().then(premium=>{
+    if(!premium){ showPremiumGate('mymap'); return; }
+    _clMapShown = true;
+    localStorage.setItem(CL_SHOWN_KEY, 'on');
+    _applyClFloatState();
     _showAllClLayers();
-  } else {
-    _hideAllClLayers();
-  }
+  });
 }
 function _applyClFloatState(){
   const btn = document.getElementById('btn-custom-layer');
@@ -178,10 +151,14 @@ function _clSetHTML(s){
       </div>
     </div>
     <div class="cl-set-body">
-      <label class="cl-visible-row">
-        <input type="checkbox" ${s.visible?'checked':''} onchange="clToggleVisible('${s.id}',this.checked)">
-        <span>地図に表示</span>
-      </label>
+      <div class="cl-visible-row">
+        <span class="cl-visible-label">地図に表示</span>
+        <button class="contrib-toggle cl-vis-toggle${s.visible?' on':''}" onclick="clToggleVisible('${s.id}')">
+          <span class="contrib-off-lbl">OFF</span>
+          <span class="contrib-thumb"></span>
+          <span class="contrib-on-lbl">ON</span>
+        </button>
+      </div>
       <div class="cl-filter-row">
         <span class="cl-filter-ico">🔍</span>
         <input class="cl-filter-input" type="text" placeholder="フィルター文字列を入力…"
@@ -224,12 +201,15 @@ function _clSetHTML(s){
 }
 
 // ── 表示/非表示トグル ────────────────────────
-function clToggleVisible(id, checked){
+function clToggleVisible(id){
   const s = _clSets.find(s=>s.id===id);
   if(!s) return;
-  s.visible = checked;
+  s.visible = !s.visible;
   _clSave();
-  if(checked){
+  // ボタンのon/offクラス更新
+  const btn = document.querySelector(`#cl-set-${id} .cl-vis-toggle`);
+  if(btn) btn.classList.toggle('on', s.visible);
+  if(s.visible){
     _buildLayer(s);
   } else {
     if(_clLayers[id]){ map.removeLayer(_clLayers[id]); delete _clLayers[id]; }
@@ -312,6 +292,7 @@ function saveClEdit(){
       visible: false,
       points: []
     });
+    _showClFloatBtn(true);
   }
   _clSave();
   _renderClSets();
