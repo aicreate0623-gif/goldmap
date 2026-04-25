@@ -945,22 +945,20 @@
     <div class="dld-title">🗺 STEP 1 ─ ダウンロードしたい場所に地図を移動</div>
     <p class="dld-hint">地図をスクロール・ピンチして、ダウンロードしたいエリアを画面に表示してください。<br>表示エリアを基準に次のステップで範囲を指定します。</p>
     <div class="dld-footer-btns">
-      <button class="btn accent" onclick="_dldGoStep(1)">次へ → 範囲を選択する</button>
+      <button class="btn red" onclick="_dldCancel()">✕ キャンセル</button>
+      <button class="btn accent" onclick="_dldGoStep(1)">次へ →</button>
     </div>
-    <button class="btn red dld-cancel-inline" onclick="_dldCancel()">✕ キャンセル</button>
   </div>
 
   <!-- STEP 1: ドラッグで範囲選択 -->
   <div class="dld-panel" id="dld-s1" style="display:none">
     <div class="dld-title">📍 STEP 2 ─ 地図上をドラッグして範囲を選択</div>
     <p class="dld-hint" id="dld-draw-hint">指でドラッグすると矩形が描かれます。選択後に確定ボタンを押してください</p>
-    <button class="btn accent dld-confirm-btn" id="dld-draw-ok" onclick="_dldConfirmDraw()" disabled>
-      選択範囲を確定 →
-    </button>
     <div class="dld-footer-btns">
-      <button class="btn sm" onclick="_dldGoStep(0)">← 戻る</button>
+      <button class="btn red" onclick="_dldCancel()">✕ キャンセル</button>
+      <button class="btn sm"  onclick="_dldGoStep(0)">← 戻る</button>
+      <button class="btn accent dld-confirm-btn" id="dld-draw-ok" onclick="_dldConfirmDraw()" disabled>確定 →</button>
     </div>
-    <button class="btn red dld-cancel-inline" onclick="_dldCancel()">✕ キャンセル</button>
   </div>
 
   <!-- STEP 2: レイヤー・ズーム設定＋レイヤー別容量 -->
@@ -1006,10 +1004,10 @@
     <div class="dl-warn">⚠️ WIFI環境を推奨します。容量をよく確認してから開始してください</div>
 
     <div class="dld-footer-btns">
+      <button class="btn red"    onclick="_dldCancel()">✕ キャンセル</button>
       <button class="btn sm"     onclick="_dldBack()">← 戻る</button>
       <button class="btn accent" onclick="_dldStartDl()">▶ DL 開始</button>
     </div>
-    <button class="btn red dld-cancel-inline" onclick="_dldCancel()">✕ キャンセル</button>
   </div>
 
   <!-- STEP 3: DL進捗 -->

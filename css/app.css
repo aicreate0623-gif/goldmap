@@ -831,18 +831,18 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: var(--gold-lt);
 }
 
-/* ヒント文・確定ボタン */
-.dld-hint {
-  font-size: 12px; color: var(--txt-sub);
-  line-height: 1.7; margin-bottom: 12px;
-}
+/* 確定ボタン（footer内に統合） */
 .dld-confirm-btn {
-  width: 100%; padding: 11px; font-size: 13px; font-weight: 700;
-  border-radius: var(--radius-sm); margin-bottom: 4px;
+  padding: 8px 14px; font-size: 12px; font-weight: 700;
+  border-radius: var(--radius-sm);
 }
 .dld-confirm-btn:disabled {
   opacity: .3; pointer-events: none;
 }
+
+/* キャンセルボタン（旧独立行スタイル廃止） */
+.dld-cancel-btn    { display: none; }
+.dld-cancel-inline { display: none; }
 
 /* セクション小見出し */
 .dld-section-ttl {
@@ -856,7 +856,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 
 /* フッターボタン列 */
 .dld-footer-btns {
-  display: flex; gap: 8px; justify-content: flex-end;
+  display: flex; gap: 8px; justify-content: space-between; align-items: center;
   margin-top: 12px; padding-top: 10px;
   border-top: 1px solid rgba(255,255,255,0.06);
 }
@@ -864,13 +864,10 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 /* 進捗ラップ */
 .dld-pb-wrap { margin-bottom: 8px; }
 
-/* キャンセルボタン（常時表示・各STEP下部） */
-.dld-cancel-btn { display: none; } /* 旧absolute版は非表示 */
-.dld-cancel-inline {
-  width: 100%; margin-top: 8px;
-  padding: 9px; font-size: 12px; font-weight: 600;
-  border-radius: var(--radius-sm);
-  text-align: center;
+/* ヒント文 */
+.dld-hint {
+  font-size: 12px; color: var(--txt-sub);
+  line-height: 1.7; margin-bottom: 12px;
 }
 
 /* レイヤー別容量推定 */
