@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-24T20:07:38Z",
+  "generated_at": "2026-04-25T19:57:15Z",
   "total_submissions": 3,
   "grid_size_free": 0.1,
   "grid_size_paid": 0.01,
@@ -42,8 +42,22 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            137.5,
-            36.5
+            139.4,
+            36.7
+          ]
+        },
+        "properties": {
+          "weight": 0.3333,
+          "count": 1
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            138.9,
+            36.8
           ]
         },
         "properties": {
@@ -58,6 +72,20 @@
           "coordinates": [
             142.3,
             37.5
+          ]
+        },
+        "properties": {
+          "weight": 0.3333,
+          "count": 1
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            139.4,
+            35.9
           ]
         },
         "properties": {
