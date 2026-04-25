@@ -1255,7 +1255,36 @@ document.addEventListener('keydown',e=>{
 //   ・offline → ゲートB（課金チェック）
 //   ・community → 初期化
 //   ・map以外へ → _pushHistory()でバック用エントリを積む
-(function(){\r\n  const _orig = switchTab;\r\n  switchTab = function(tab){\r\n    if(tab === 'offline'){\r\n      // offlineタブはプレミアムチェックなしで直接開く\r\n      // DL操作はタブ内「DL開始」ボタン→openDlDialog()でゲートチェック\r\n      const wasMap2 = (curTab === 'map');\r\n      _openTab(tab);\r\n      if(wasMap2) _pushHistory();\r\n      return;\r\n    }\r\n    if(tab === 'mymap'){\r\n      isPremiumUser().then(premium => {\r\n        if(!premium){ showPremiumGate('mymap'); return; }\r\n        const wasMap3 = (curTab === 'map');\r\n        _orig(tab);\r\n        if(wasMap3) _pushHistory();\r\n      });\r\n      return;\r\n    }\r\n    const wasMap = (curTab === 'map');\r\n    _orig(tab);\r\n    if(tab === 'community'){\r\n      if(typeof initCommunity === 'function') initCommunity();\r\n      if(typeof _buildTagSelector === 'function') _buildTagSelector();\r\n    }\r\n    // 地図→シートへの切替時のみpush\r\n    if(wasMap && tab !== 'map') _pushHistory();\r\n  };\r\n})();
+(function(){
+  const _orig = switchTab;
+  switchTab = function(tab){
+    if(tab === 'offline'){
+      // offlineタブはプレミアムチェックなしで直接開く
+      // DL操作はタブ内「DL開始」ボタン→openDlDialog()でゲートチェック
+      const wasMap2 = (curTab === 'map');
+      _openTab(tab);
+      if(wasMap2) _pushHistory();
+      return;
+    }
+    if(tab === 'mymap'){
+      isPremiumUser().then(premium => {
+        if(!premium){ showPremiumGate('mymap'); return; }
+        const wasMap3 = (curTab === 'map');
+        _orig(tab);
+        if(wasMap3) _pushHistory();
+      });
+      return;
+    }
+    const wasMap = (curTab === 'map');
+    _orig(tab);
+    if(tab === 'community'){
+      if(typeof initCommunity === 'function') initCommunity();
+      if(typeof _buildTagSelector === 'function') _buildTagSelector();
+    }
+    // 地図→シートへの切替時のみpush
+    if(wasMap && tab !== 'map') _pushHistory();
+  };
+})();
 
 // ═══════════════════════════════════════════
 //  設定タブ アコーディオン
@@ -1287,4 +1316,4 @@ function toggleCommAccordion(header) {
   }
 }
 
-// 起動
+// 起動
