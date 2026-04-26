@@ -55,6 +55,8 @@ async function initMap(){
   initKinnoLayer();
   // Wikidataレイヤー初期化（起動時に自動fetch）
   initWikiLayer();
+  // マイMAPレイヤー初期化（IndexedDBからロード）
+  initCustomLayer();
   // 右フロートボタン位置をシームレスバー分下にオフセット
   // レイアウト確定後に計算するため requestAnimationFrame を使う
   requestAnimationFrame(()=>{ updateRightFloatTop(); });
