@@ -864,6 +864,20 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 /* 進捗ラップ */
 .dld-pb-wrap { margin-bottom: 8px; }
 
+/* 範囲選択パネル 簡易容量表示 */
+.dld-s1-est {
+  font-size: 12px; color: var(--gold-lt); font-weight: 600;
+  background: rgba(200,170,80,0.08);
+  border: 1px solid rgba(200,170,80,0.2);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px; margin-bottom: 10px;
+  text-align: center;
+}
+
+/* 設定パネル 容量OFF行・0MB文字 */
+.dld-est-row--off { opacity: 0.4; }
+.dld-est-off { color: var(--txt-dim); font-size: 11px; }
+
 /* ヒント文 */
 .dld-hint {
   font-size: 12px; color: var(--txt-sub);

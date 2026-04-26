@@ -827,7 +827,7 @@ function _dldRenderStep(step){
     el.classList.toggle('active', n===step);
     el.classList.toggle('done',   n<step);
   });
-  if(step===3) _dldUpdEst();
+  if(step===2 || step===3) _dldUpdEst();
 }
 
 // ── STEP2: ドラッグ完了を監視してOKボタンを有効化 ────────
@@ -842,6 +842,16 @@ function _dldWatchDraw(){
       const ok   = document.getElementById('dld-draw-ok');
       if(hint) hint.textContent = '範囲が選択されました。よろしければ確定してください';
       if(ok)   ok.disabled = false;
+      // 簡易容量を表示
+      const estEl = document.getElementById('dld-s1-est');
+      if(estEl){
+        const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
+        const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
+        const n = cntTiles(_drawPending, zmin, zmax);
+        const chk = ['std','photo','topo'].filter(k=>document.getElementById('dlg-ck-'+k)?.checked).length || 1;
+        estEl.textContent = `${chk}レイヤー × ${fmt(n)} · 約 ${mbEst(n*chk)} MB`;
+        estEl.style.display = '';
+      }
     }
   }, 150);
 }
@@ -886,18 +896,15 @@ function _dldUpdEst(){
   let total = 0;
   ['std','photo','topo'].forEach(k=>{
     const ck = document.getElementById('dlg-ck-'+k);
-    if(!ck?.checked) return;
-    const mb = mbEst(base);
-    total += base;
-    rows += `<div class="dld-est-row">
+    const checked = ck?.checked;
+    if(checked) total += base;
+    rows += `<div class="dld-est-row${checked ? '' : ' dld-est-row--off'}">
       <span class="dld-est-lbl">${_DLD_LAYER_LABEL[k]}</span>
-      <span class="dld-est-val">約 <b>${mb} MB</b>（${fmt(base)}）</span>
+      <span class="dld-est-val">${checked
+        ? `約 <b>${mbEst(base)} MB</b>（${fmt(base)}）`
+        : '<span class="dld-est-off">0 MB</span>'}</span>
     </div>`;
   });
-  if(!rows){
-    document.getElementById('dld-est').innerHTML = '— レイヤーを1つ以上選択してください —';
-    return;
-  }
   rows += `<div class="dld-est-row dld-est-total">
     <span class="dld-est-lbl">合計</span>
     <span class="dld-est-val">約 <b>${mbEst(total)} MB</b>（${fmt(total)}）</span>
