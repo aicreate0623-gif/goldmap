@@ -50,12 +50,10 @@ async function _clSave(){
 
 // ── 初期化 ──────────────────────────────────
 async function initCustomLayer(){
-  _clMapShown = localStorage.getItem(CL_SHOWN_KEY) === 'on';
   await _clLoad();
   _renderClSets();
-  if(_clSets.length) _showClFloatBtn(true);
   _clSets.forEach(s=>{ if(s.visible) _buildLayer(s); });
-  if(_clMapShown) _showAllClLayers();
+  _syncFloatBtn();
 }
 
 // ── フロートボタン ───────────────────────────
@@ -63,16 +61,30 @@ function _showClFloatBtn(show){
   const btn = document.getElementById('btn-custom-layer');
   if(btn) btn.style.display = show ? '' : 'none';
 }
+function _syncFloatBtn(){
+  const anyVisible = _clSets.some(s => s.visible);
+  const btn = document.getElementById('btn-custom-layer');
+  if(btn){
+    btn.style.display = _clSets.length ? '' : 'none';
+    btn.classList.toggle('active', anyVisible);
+  }
+  _clMapShown = anyVisible;
+  localStorage.setItem(CL_SHOWN_KEY, anyVisible ? 'on' : 'off');
+}
 function toggleClMapVisible(){
-  // OFFにする場合はゲートなし
-  if(_clMapShown){ _clMapShown=false; localStorage.setItem(CL_SHOWN_KEY,'off'); _applyClFloatState(); _hideAllClLayers(); return; }
+  if(_clMapShown){
+    // 地図から非表示にするだけ（visibleは触らない）
+    _clMapShown = false;
+    _hideAllClLayers();
+    _applyClFloatState();
+    return;
+  }
   // ONにする場合はプレミアムチェック
   isPremiumUser().then(premium=>{
     if(!premium){ showPremiumGate('mymap'); return; }
     _clMapShown = true;
-    localStorage.setItem(CL_SHOWN_KEY, 'on');
-    _applyClFloatState();
     _showAllClLayers();
+    _applyClFloatState();
   });
 }
 function _applyClFloatState(){
@@ -112,7 +124,7 @@ function _buildLayer(set, filterText){
     mk.addTo(lg);
   });
   _clLayers[set.id] = lg;
-  if(set.visible && _clMapShown) lg.addTo(map);
+  if(set.visible) lg.addTo(map);
 }
 function _clShowPopup(p, set){
   const pIcon = p.icon || set.icon;
@@ -212,6 +224,10 @@ function clToggleVisible(id){
   const btn = document.querySelector(`#cl-set-${id} .cl-vis-toggle`);
   if(btn) btn.classList.toggle('on', s.visible);
   if(s.visible){
+    if(!_clMapShown){
+      _clMapShown = true;
+      _applyClFloatState();
+    }
     _buildLayer(s);
   } else {
     if(_clLayers[id]){ map.removeLayer(_clLayers[id]); delete _clLayers[id]; }
@@ -580,11 +596,6 @@ function clJumpToPoint(setId, idx) {
   setTimeout(() => {
     map.invalidateSize({pan: false});
     map.setView([p.lat, p.lng], 15);
-    // セットが非表示なら表示ONにしてポップアップを出す
-    if (!s.visible || !_clMapShown) {
-      _clShowPopup(p, s);
-    } else {
-      _clShowPopup(p, s);
-    }
+    _clShowPopup(p, s);
   }, 320);
 }
