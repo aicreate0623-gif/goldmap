@@ -11,9 +11,9 @@ const COMM_RATE_MS       = 60000;
 const COMM_REFRESH_COOL  = 180000;
 
 const COMM_NATIONAL_DISPLAY  = 50;
-const COMM_NATIONAL_TRIGGER  = 100;
+const COMM_NATIONAL_TRIGGER  = 60;
 const COMM_PREF_DISPLAY      = 10;
-const COMM_PREF_TRIGGER      = 100;
+const COMM_PREF_TRIGGER      = 20;
 
 const SK_NICKNAME     = 'comm_nickname';
 const SK_LAST_POST    = 'comm_last_post';
@@ -162,39 +162,24 @@ async function commRefresh(){
   const btn = document.getElementById('comm-refresh-btn');
   if(btn){ btn.disabled = true; btn.textContent = '取得中…'; }
   try{
-    const scope    = _commScope;
-    const pref     = _commPref;
-    const cached   = _loadCache(scope, pref);
-    const latestTs = _getLatestTs(cached);
-    const limit    = scope === 'national' ? COMM_NATIONAL_DISPLAY : COMM_PREF_DISPLAY;
-    // ── クエリ構築 ──────────────────────────────────
-    // Firestoreの複合インデックス要件：
-    //   national: (scope ASC, ts DESC)
-    //   pref    : (scope ASC, pref ASC, ts DESC)
-    // 差分取得時は where('ts','>') を追加するが、
-    // orderBy('ts') は必ず最後に置き単一フィールドで完結させる。
+    const scope  = _commScope;
+    const pref   = _commPref;
+    const limit  = scope === 'national' ? COMM_NATIONAL_DISPLAY : COMM_PREF_DISPLAY;
     const fsScope = scope === 'national' ? 'national' : 'pref';
+    // 半年前のタイムスタンプ
+    const halfYearAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+    // 全件取得（半年以内・新しい順）
     let q = _db().collection('posts').where('scope', '==', fsScope);
     if(scope === 'regional') q = q.where('pref', '==', pref);
-    // 差分取得：キャッシュがある場合のみ ts フィルターを追加
-    // ※ latestTs-1ms で境界値漏れを防ぐ
-    if(latestTs > 0){
-      q = q.orderBy('ts', 'desc').where('ts', '>', new Date(latestTs - 1)).limit(limit);
-    } else {
-      q = q.orderBy('ts', 'desc').limit(limit);
-    }
+    q = q.where('ts', '>', halfYearAgo).orderBy('ts', 'desc').limit(limit);
     const snap = await q.get();
-    const newPosts = snap.docs.map(d => ({
+    const posts = snap.docs.map(d => ({
       id: d.id, ...d.data(),
       ts: d.data().ts?.toMillis?.() ?? d.data().ts
     }));
-    if(newPosts.length === 0){
-      _commToast('最新の状態です');
-    } else {
-      const merged = _mergePosts(cached, newPosts, limit);
-      _saveCache(scope, pref, merged);
-      _commToast(`${newPosts.length}件の新着を取得しました`);
-    }
+    // 全件でキャッシュ上書き（削除済み投稿も反映）
+    _saveCache(scope, pref, posts);
+    _commToast(posts.length > 0 ? `${posts.length}件を取得しました` : '最新の状態です');
     _renderPostsFromCache();
     localStorage.setItem(SK_LAST_REFRESH, Date.now().toString());
     _startRefreshCooldown(COMM_REFRESH_COOL);
@@ -250,7 +235,6 @@ function _renderPostsFromCache(){
     <button class="comm-react-btn like${likeActive}" onclick="commReact('${p.id}','like')">
       👍 <span id="comm-like-${p.id}">${p.like||0}</span>
     </button>
-    <span class="comm-report-hint">通報既定回数で非表示</span>
     <button class="comm-react-btn report${reportActive}" onclick="commReport('${p.id}')" title="既定回数の通報で非表示になります">
       ！通報する
     </button>
