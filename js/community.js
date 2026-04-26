@@ -250,6 +250,7 @@ function _renderPostsFromCache(){
     <button class="comm-react-btn like${likeActive}" onclick="commReact('${p.id}','like')">
       👍 <span id="comm-like-${p.id}">${p.like||0}</span>
     </button>
+    <span class="comm-report-hint">通報既定回数で非表示</span>
     <button class="comm-react-btn report${reportActive}" onclick="commReport('${p.id}')" title="既定回数の通報で非表示になります">
       ！通報する
     </button>

@@ -1567,7 +1567,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .comm-time {
   font-size: 10px;
   color: var(--txt-dim);
-  margin-left: auto;
 }
 .comm-post-body {
   font-size: 13px;
@@ -1580,6 +1579,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .comm-post-footer {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 .comm-react-btn {
   display: flex;
@@ -1641,6 +1641,12 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .comm-react-btn.report {
   border-color: rgba(255,140,0,0.3);
   color: rgba(255,160,40,0.7);
+  margin-left: auto;
+}
+.comm-report-hint {
+  font-size: 10px;
+  color: var(--txt-dim);
+  white-space: nowrap;
 }
 .comm-react-btn.report.active {
   background: rgba(255,120,0,0.15);
@@ -1655,10 +1661,11 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   border: none;
   font-size: 14px;
   cursor: pointer;
-  opacity: 0.45;
+  opacity: 0.6;
   padding: 0 2px;
   transition: opacity .15s;
   -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
 .comm-delete-btn:active { opacity: 1; }
 
@@ -2171,47 +2178,4 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: var(--txt); border-radius: 6px;
   padding: 8px 10px; font-size: 13px;
   font-family: inherit;
-}
-
-/* ── dlg-edit：評価1行横並び ── */
-.pt-inline-row {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 10px;
-}
-.pt-inline-label {
-  font-size: 12px; color: var(--txt-sub);
-  white-space: nowrap; flex-shrink: 0;
-}
-.pt-inline-row .star-rating {
-  margin: 0; flex: 1;
-}
-
-/* ── dlg-edit：緯度経度1行横並び ── */
-.pt-coord-row {
-  display: flex; gap: 8px; margin-bottom: 6px;
-}
-.pt-coord-field {
-  flex: 1; min-width: 0;
-}
-.pt-coord-field label {
-  display: block; font-size: 11px;
-  color: var(--txt-sub); margin-bottom: 3px;
-}
-.pt-coord-field input {
-  width: 100%;
-}
-
-/* ── dlg-edit：アイコン・色アコーディオン ── */
-.pt-icon-accordion {
-  margin: 4px 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: rgba(255,255,255,0.03);
-}
-.pt-icon-accordion .cfg-accordion-header {
-  padding: 8px 10px;
-  font-size: 13px;
-}
-.pt-icon-accordion .cfg-accordion-body {
-  padding: 4px 10px 10px;
 }
