@@ -374,7 +374,10 @@ function startMovePin(){
       draggable: false,
       pane: 'paneUser'
     }).addTo(map);
-    _attachMovePinDrag(_movePin);
+    // addTo直後はDOMがまだない。rAFで1フレーム待ってからイベント登録
+    requestAnimationFrame(()=>{
+      _attachMovePinDrag(_movePin);
+    });
     document.getElementById('move-banner').classList.add('show');
   }, 320);
 }
