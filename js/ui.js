@@ -841,30 +841,65 @@ function _dldWatchDraw(){
       clearInterval(timer);
       const hint = document.getElementById('dld-draw-hint');
       const ok   = document.getElementById('dld-draw-ok');
-      if(hint) hint.textContent = '範囲が選択されました。よろしければ確定してください';
+      if(hint) hint.textContent = '範囲が選択されました。概算を確認して確定してください';
       if(ok)   ok.disabled = false;
-      // 簡易容量を表示
-      const estEl = document.getElementById('dld-s1-est');
+      // 概算計算機を表示・初期計算
+      const calcEl = document.getElementById('dld-s1-est');
       const clrBtn = document.getElementById('dld-draw-clear');
-      if(estEl){
-        const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
-        const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
-        const n = cntTiles(_drawPending, zmin, zmax);
-        const chk = ['std','photo','topo'].filter(k=>document.getElementById('dlg-ck-'+k)?.checked).length || 1;
-        estEl.textContent = `${chk}レイヤー × ${fmt(n)} · 約 ${mbEst(n*chk)} MB`;
-        estEl.style.display = '';
-      }
+      if(calcEl) calcEl.style.display = '';
       if(clrBtn) clrBtn.style.display = '';
+      _dldSyncAndCalc();
     }
   }, 150);
 }
 
 // ── STEP2簡易容量・解除ボタンをリセット（共通） ──────────
 function _dldResetS1Est(){
-  const est = document.getElementById('dld-s1-est');
-  const clr = document.getElementById('dld-draw-clear');
-  if(est){ est.style.display = 'none'; est.textContent = ''; }
-  if(clr)  clr.style.display = 'none';
+  const calc = document.getElementById('dld-s1-est');
+  const clr  = document.getElementById('dld-draw-clear');
+  if(calc) calc.style.display = 'none';
+  if(clr)  clr.style.display  = 'none';
+  // チェック・ズームをデフォルトに戻す
+  const std   = document.getElementById('s1-ck-std');
+  const photo = document.getElementById('s1-ck-photo');
+  const topo  = document.getElementById('s1-ck-topo');
+  const zmax  = document.getElementById('s1-zmax');
+  if(std)   std.checked   = true;
+  if(photo) photo.checked = false;
+  if(topo)  topo.checked  = false;
+  if(zmax)  zmax.value    = '15';
+  const tot = document.getElementById('dld-s1-total');
+  if(tot) tot.textContent = '— MB';
+}
+
+// ── STEP2概算計算機 → STEP3設定パネルに同期して計算 ──────
+function _dldSyncAndCalc(){
+  // s1の値をSTEP3側に同期
+  const map = { std:'std', photo:'photo', topo:'topo' };
+  Object.keys(map).forEach(k=>{
+    const s1 = document.getElementById('s1-ck-'+k);
+    const s3 = document.getElementById('dlg-ck-'+k);
+    if(s1 && s3) s3.checked = s1.checked;
+  });
+  const s1zmax = document.getElementById('s1-zmax');
+  const s3zmax = document.getElementById('dlg-det-zmax');
+  if(s1zmax && s3zmax) s3zmax.value = s1zmax.value;
+
+  // 合計容量を計算して表示
+  const tot = document.getElementById('dld-s1-total');
+  if(!tot || !_drawPending) return;
+  const zmin = 11; // 最小ズームはZ11固定
+  const zmax = parseInt(s1zmax?.value || '15');
+  const base = cntTiles(_drawPending, zmin, zmax);
+  const chkCount = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked).length;
+  if(!chkCount){
+    tot.textContent = 'レイヤーを1つ以上選択してください';
+    tot.style.color = 'var(--txt-dim)';
+    return;
+  }
+  const total = base * chkCount;
+  tot.textContent = `${chkCount}レイヤー · Z11〜Z${zmax} · 約 ${mbEst(total)} MB（${fmt(total)}）`;
+  tot.style.color = '';
 }
 
 // ── STEP2: 範囲を解除する ────────────────────────────────
@@ -1368,4 +1403,4 @@ function toggleCommAccordion(header) {
   }
 }
 
-// 起動
+// 起動

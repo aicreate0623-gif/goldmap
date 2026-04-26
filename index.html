@@ -954,7 +954,30 @@
   <div class="dld-panel" id="dld-s1" style="display:none">
     <div class="dld-title">📍 STEP 2 ─ 地図上をドラッグして範囲を選択</div>
     <p class="dld-hint" id="dld-draw-hint">指でドラッグすると矩形が描かれます。選択後に確定ボタンを押してください</p>
-    <div id="dld-s1-est" class="dld-s1-est" style="display:none"></div>
+    <div id="dld-s1-est" class="dld-s1-calc" style="display:none">
+      <div class="dld-s1-calc-title">📊 概算計算機</div>
+      <div class="dld-s1-calc-row">
+        <span class="dld-s1-calc-lbl">レイヤー</span>
+        <div class="dld-s1-ck-group">
+          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-std"   checked onchange="_dldSyncAndCalc()">地理院</label>
+          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-photo"         onchange="_dldSyncAndCalc()">航空写真</label>
+          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-topo"          onchange="_dldSyncAndCalc()">地形図</label>
+        </div>
+      </div>
+      <div class="dld-s1-calc-row">
+        <span class="dld-s1-calc-lbl">最大ズーム</span>
+        <select id="s1-zmax" class="dld-s1-zmax-sel" onchange="_dldSyncAndCalc()">
+          <option value="12">Z12</option>
+          <option value="13">Z13</option>
+          <option value="14">Z14</option>
+          <option value="15" selected>Z15</option>
+          <option value="16">Z16</option>
+          <option value="17">Z17</option>
+          <option value="18">Z18</option>
+        </select>
+      </div>
+      <div class="dld-s1-calc-total" id="dld-s1-total">— MB</div>
+    </div>
     <button id="dld-draw-clear" class="btn sm dld-draw-clear" onclick="_dldClearDraw()" style="display:none">✕ 範囲を解除</button>
     <div class="dld-footer-btns">
       <button class="btn red" onclick="_dldCancel()">✕ キャンセル</button>
