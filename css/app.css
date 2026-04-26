@@ -736,6 +736,33 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 #add-banner.show { display: flex; }
 
+/* ── 位置変更バナー（add-bannerと同デザイン） ── */
+#move-banner {
+  position: fixed; top: calc(var(--sb-h) + 8px); left: 50%;
+  transform: translateX(-50%); z-index: 1050;
+  background: rgba(0,0,0,0.92); border: 1px solid var(--gold);
+  border-radius: 15px; padding: 14px 20px;
+  font-size: 15px; color: var(--txt); white-space: nowrap;
+  display: none; align-items: center; gap: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.7);
+  pointer-events: auto;
+}
+#move-banner.show { display: flex; }
+
+/* ── 位置変更ボタン（dlg-edit内） ── */
+.pt-move-btn {
+  width: 100%; margin: 4px 0 8px;
+  background: rgba(200,170,80,0.12);
+  border: 1px solid rgba(200,170,80,0.4);
+  color: var(--gold-lt);
+  font-size: 13px;
+  padding: 10px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.pt-move-btn:active { background: rgba(200,170,80,0.25); }
+
 /* 矩形選択バナー: DLダイアログに統合のため廃止 */
 /* #rect-banner { ... } */
 

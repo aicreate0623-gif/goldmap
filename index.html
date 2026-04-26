@@ -99,6 +99,11 @@
   <button class="btn sm accent" onclick="openAddDlg()">入力へ</button>
   <button class="btn sm" onclick="cancelAdd()">✕</button>
 </div>
+<div id="move-banner">
+  📍 ドラッグして位置を決定
+  <button class="btn sm accent" onclick="confirmMovePin()">完了</button>
+  <button class="btn sm" onclick="cancelMovePin()">✕</button>
+</div>
 <!-- rect-banner廃止: DLダイアログに統合 -->
 
 <div id="tabbar">
@@ -790,6 +795,13 @@
       <div class="pt-color-preview" id="pt-color-selected" data-color="#c8a020" style="background:#c8a020"></div>
       <div class="cl-color-picker" id="pt-color-picker"></div>
     </div>
+    <label>緯度 <span style="font-size:10px;color:var(--txt-dim);font-weight:400;">（例：36.123456）</span></label>
+    <input type="number" id="pt-lat" placeholder="例：36.123456" step="0.000001" readonly>
+    <label>経度 <span style="font-size:10px;color:var(--txt-dim);font-weight:400;">（例：138.123456）</span></label>
+    <input type="number" id="pt-lng" placeholder="例：138.123456" step="0.000001" readonly>
+    <button class="dbtn pt-move-btn" id="pt-move-btn" onclick="startMovePin()" style="display:none">
+      📍 地図上で位置を変更
+    </button>
     <div class="dlg-btns">
       <button class="dbtn" onclick="cancelEdit()">キャンセル</button>
       <button class="dbtn ok" onclick="reqSave()">保存する</button>

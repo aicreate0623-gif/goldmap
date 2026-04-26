@@ -262,6 +262,7 @@ function cancelAdd(){
   document.getElementById('add-banner').classList.remove('show');
 }
 let eid=null;
+// ── 追加ダイアログを開く ─────────────────────────────
 function openAddDlg(){
   eid=null;
   document.getElementById('dlg-edit-ttl').textContent='ポイントを追加';
@@ -270,21 +271,54 @@ function openAddDlg(){
   _renderStarUI(0);
   _renderIconPicker(_curIcon,'pt-icon-picker','pt-icon-selected');
   _renderColorPicker(_curColor,'pt-color-picker','pt-color-selected');
+  // 緯度経度表示（新規: tPinの現在位置・読み取り専用）
+  const ll = tPin ? tPin.getLatLng() : map.getCenter();
+  _setCoordFields(ll.lat, ll.lng, true);
+  document.getElementById('pt-move-btn').style.display = 'none';
   showDlg('dlg-edit');
+  // tPinドラッグ時にリアルタイム更新
+  if(tPin){ tPin.off('drag', _onAddPinDrag); tPin.on('drag', _onAddPinDrag); }
 }
+function _onAddPinDrag(){
+  if(!tPin) return;
+  const ll = tPin.getLatLng();
+  _setCoordFields(ll.lat, ll.lng, true);
+}
+function _setCoordFields(lat, lng, readOnly){
+  const fLat = document.getElementById('pt-lat');
+  const fLng = document.getElementById('pt-lng');
+  fLat.value = lat.toFixed(6);
+  fLng.value = lng.toFixed(6);
+  fLat.readOnly = !!readOnly;
+  fLng.readOnly = !!readOnly;
+}
+
 function cancelEdit(){closeOv();if(eid===null)cancelAdd();}
+
 function reqSave(){
   const n=document.getElementById('pt-name').value.trim();if(!n){document.getElementById('pt-name').focus();return;}
-  const p=eid!==null?pts.find(q=>q.id===eid):null;
-  const lat=p?p.lat:tPin.getLatLng().lat,lng=p?p.lng:tPin.getLatLng().lng;
+  // 緯度経度: 編集時はフィールド値を使用（位置変更対応）、新規はtPin
+  let lat, lng;
+  if(eid!==null){
+    lat=parseFloat(document.getElementById('pt-lat').value);
+    lng=parseFloat(document.getElementById('pt-lng').value);
+    if(isNaN(lat)||isNaN(lng)){showAlert('エラー','緯度・経度が正しくありません');return;}
+  }else{
+    const ll=tPin.getLatLng(); lat=ll.lat; lng=ll.lng;
+  }
   const starsStr=_curStars?'★'.repeat(_curStars):'未評価';
   document.getElementById('save-msg').textContent=`「${n}」[${starsStr}] を\n緯度 ${lat.toFixed(5)}\n経度 ${lng.toFixed(5)}\nに保存しますか？`;
   showDlg('dlg-savecf');
 }
+
 async function confirmSave(){
   const n=document.getElementById('pt-name').value.trim(),m=document.getElementById('pt-memo').value.trim();
   if(eid!==null){
     const p=pts.find(q=>q.id===eid);
+    // 位置変更があれば座標も更新
+    const newLat=parseFloat(document.getElementById('pt-lat').value);
+    const newLng=parseFloat(document.getElementById('pt-lng').value);
+    if(!isNaN(newLat)&&!isNaN(newLng)){ p.lat=newLat; p.lng=newLng; p.mk.setLatLng([newLat,newLng]); }
     p.name=n;p.memo=m;p.stars=_curStars;p.icon=_curIcon;p.color=_curColor;
     _updateMk(p);
   }else{
@@ -309,6 +343,51 @@ async function confirmSave(){
   savePts();updPtCnt();closeOv();eid=null;
 }
 
+// ── 位置変更モード（編集時: 地図上ドラッグ） ──────────────
+let _movePin = null; // 位置変更用仮ピン
+
+function startMovePin(){
+  const p = pts.find(q=>q.id===eid); if(!p) return;
+  closeOv();
+  switchTab('map');
+  setTimeout(()=>{
+    map.invalidateSize({pan:false});
+    map.setView([p.lat, p.lng], Math.max(map.getZoom(), 15));
+    // 既存マーカーを非表示にして仮ピンを配置
+    if(p.mk) p.mk.setOpacity(0);
+    _movePin = L.marker([p.lat, p.lng], {
+      icon: _makeTempIcon(p.icon||PT_DEFAULT_ICON, p.color||PT_DEFAULT_COLOR),
+      draggable: true,
+      pane: 'paneUser'
+    }).addTo(map);
+    document.getElementById('move-banner').classList.add('show');
+  }, 320);
+}
+
+function confirmMovePin(){
+  if(!_movePin) return;
+  const ll = _movePin.getLatLng();
+  const p = pts.find(q=>q.id===eid);
+  if(p){
+    // 座標フィールドに反映（編集ダイアログで保存時に使用）
+    _setCoordFields(ll.lat, ll.lng, false);
+    // 仮ピン削除・既存マーカー復元
+    map.removeLayer(_movePin); _movePin = null;
+    if(p.mk) p.mk.setOpacity(1);
+  }
+  document.getElementById('move-banner').classList.remove('show');
+  // 編集ダイアログを再表示
+  showDlg('dlg-edit');
+}
+
+function cancelMovePin(){
+  if(_movePin){ map.removeLayer(_movePin); _movePin = null; }
+  const p = pts.find(q=>q.id===eid);
+  if(p && p.mk) p.mk.setOpacity(1);
+  document.getElementById('move-banner').classList.remove('show');
+  showDlg('dlg-edit');
+}
+
 // ── 詳細・編集・削除 ─────────────────────────
 let did=null;
 function openDet(id){
@@ -328,6 +407,9 @@ function editCur(){
   _curIcon=p.icon||PT_DEFAULT_ICON;_curColor=p.color||PT_DEFAULT_COLOR;
   _renderIconPicker(_curIcon,'pt-icon-picker','pt-icon-selected');
   _renderColorPicker(_curColor,'pt-color-picker','pt-color-selected');
+  // 緯度経度フィールド（編集時: 直接編集可能）
+  _setCoordFields(p.lat, p.lng, false);
+  document.getElementById('pt-move-btn').style.display = '';
   showDlg('dlg-edit');
 }
 function reqDel(){
