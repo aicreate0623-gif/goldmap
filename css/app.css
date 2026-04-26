@@ -2025,6 +2025,30 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 /* 絵文字を正立させる */
 .pt-marker::after { content: ''; }
+/* ── 仮ピン 波紋アニメーション ── */
+.pt-marker-temp {
+  position: relative;
+}
+.pt-marker-temp::before,
+.pt-marker-temp::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(200,170,80,0.8);
+  animation: ptRipple 1.6s ease-out infinite;
+  pointer-events: none;
+}
+.pt-marker-temp::after {
+  animation-delay: 0.8s;
+}
+@keyframes ptRipple {
+  0%   { width: 32px; height: 32px; opacity: 0.9; }
+  100% { width: 80px; height: 80px; opacity: 0; }
+}
+
 
 /* ── アイコン・色ピッカー（ポイントダイアログ用） ── */
 .pt-picker-row {

@@ -90,12 +90,16 @@ function ptSelectIcon(ic) {
   document.querySelectorAll('#pt-icon-picker .cl-ico-btn').forEach(b => b.classList.toggle('sel', b.dataset.icon===ic));
   const sel = document.getElementById('pt-icon-selected');
   if (sel) { sel.dataset.icon = ic; sel.textContent = ic; }
+  // 仮ピンをリアルタイム更新
+  if (tPin) tPin.setIcon(_makeTempIcon(_curIcon, _curColor));
 }
 function ptSelectColor(val) {
   _curColor = val;
   document.querySelectorAll('#pt-color-picker .cl-col-btn').forEach(b => b.classList.toggle('sel', b.dataset.color===val));
   const sel = document.getElementById('pt-color-selected');
   if (sel) { sel.dataset.color = val; sel.style.background = val==='transparent' ? 'rgba(255,255,255,0.1)' : val; }
+  // 仮ピンをリアルタイム更新
+  if (tPin) tPin.setIcon(_makeTempIcon(_curIcon, _curColor));
 }
 
 // ── ヒートマップ協力トグル ────────────────────
@@ -131,6 +135,15 @@ function _makeIcon(icon, color) {
     className: '', iconSize:[32,32], iconAnchor:[16,32]
   });
 }
+// 仮ピン用（波紋アニメーション付き）
+function _makeTempIcon(icon, color) {
+  const bg = (!color||color==='transparent') ? 'rgba(200,160,32,0.2)' : color;
+  const border = (!color||color==='transparent') ? '2px dashed rgba(200,160,32,0.7)' : '2px solid rgba(255,255,255,0.7)';
+  return L.divIcon({
+    html: `<div class="pt-marker pt-marker-temp" style="background:${bg};border:${border}">${icon||'⛏'}</div>`,
+    className: '', iconSize:[32,32], iconAnchor:[16,32]
+  });
+}
 function addMk(p) {
   const m = L.marker([p.lat,p.lng], {
     icon: _makeIcon(p.icon||PT_DEFAULT_ICON, p.color||PT_DEFAULT_COLOR),
@@ -154,7 +167,7 @@ function _updateMk(p) {
     document.body.appendChild(_lpRipple);
     _lpTimer=setTimeout(()=>{
       _clearLp(); addMode=true;
-      tPin=L.marker([latlng.lat,latlng.lng],{icon:_makeIcon(PT_DEFAULT_ICON,PT_DEFAULT_COLOR),draggable:true,pane:'paneUser'}).addTo(map);
+      tPin=L.marker([latlng.lat,latlng.lng],{icon:_makeTempIcon(_curIcon,_curColor),draggable:true,pane:'paneUser'}).addTo(map);
       document.getElementById('add-banner').classList.add('show');
     },1000);
   }
@@ -241,7 +254,7 @@ function startAddPt(){
   if(typeof drawMode!=='undefined'&&drawMode) return;
   addMode=true;
   const c=gpsLL||map.getCenter();
-  tPin=L.marker([c.lat,c.lng],{icon:_makeIcon(PT_DEFAULT_ICON,PT_DEFAULT_COLOR),draggable:true,pane:'paneUser'}).addTo(map);
+  tPin=L.marker([c.lat,c.lng],{icon:_makeTempIcon(_curIcon,_curColor),draggable:true,pane:'paneUser'}).addTo(map);
   document.getElementById('add-banner').classList.add('show');
 }
 function cancelAdd(){
@@ -255,7 +268,6 @@ function openAddDlg(){
   document.getElementById('pt-name').value='';
   document.getElementById('pt-memo').value='';
   _renderStarUI(0);
-  _curIcon=PT_DEFAULT_ICON; _curColor=PT_DEFAULT_COLOR;
   _renderIconPicker(_curIcon,'pt-icon-picker','pt-icon-selected');
   _renderColorPicker(_curColor,'pt-color-picker','pt-color-selected');
   showDlg('dlg-edit');
