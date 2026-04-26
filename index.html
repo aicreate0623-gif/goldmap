@@ -430,21 +430,13 @@
       <div class="cfg-accordion-body">
         <div class="dl-section">
           <div class="info-box">
-            産総研地質調査総合センターの鉱床・鉱徴地データ。<br>
-            <b>取得</b>ボタンで取得・キャッシュ保持します。再起動後もキャッシュから即時表示されます。<br>
-            GeoJSONファイルの追加インポートも可能。
+            産総研地質調査総合センターの鉱床・鉱徴地データ（組み込み済み）。<br>
+            起動時に自動で読み込まれます。ボタンで即時表示できます。
           </div>
-          <div id="mine-cache-info" class="info-box" style="margin-top:6px;color:var(--txt-sub)">状態: 未読込</div>
           <div id="mine-prog-wrap" style="display:none;margin-top:8px;">
             <div style="font-size:11px;color:var(--txt-sub);margin-bottom:4px;">読込中… <span id="mine-prog-pct">0%</span></div>
             <div class="prog-bar-bg"><div class="prog-bar-fill" id="mine-prog-bar" style="width:0%"></div></div>
           </div>
-          <div class="btn-row" style="margin-top:10px;">
-            <button class="btn blue sm" id="btn-mine-load" onclick="loadMineData(true)">📥 取得</button>
-            <button class="btn sm" onclick="document.getElementById('mine-geojson-impf').click()">➕ GeoJSON追加</button>
-            <button class="btn red sm" onclick="clearMineCache()">🗑 キャッシュ削除</button>
-          </div>
-          <input type="file" id="mine-geojson-impf" accept=".geojson,.json" style="display:none" onchange="importMineGeoJSON(event)">
         </div>
         <div class="dl-section" id="mine-filter-section" style="display:none;">
           <div class="sec-ttl">鉱床フィルター</div>

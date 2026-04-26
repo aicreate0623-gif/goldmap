@@ -51,6 +51,7 @@ async function initMap(){
   checkResume();
   // 産総研レイヤー初期化（キャッシュ確認のみ・自動表示はしない）
   initGsjLayer();
+  loadMineData(); // 起動時にバックグラウンドで描画準備
   // kinno調査記レイヤー初期化（組み込みデータ・即時）
   initKinnoLayer();
   // Wikidataレイヤー初期化（起動時に自動fetch）
