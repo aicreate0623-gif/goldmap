@@ -189,7 +189,20 @@ async function commRefresh(){
       ts: d.data().ts?.toMillis?.() ?? d.data().ts
     }));
     if(newPosts.length === 0){
-      _commToast('最新の状態です');
+      if(latestTs > 0){
+        // キャッシュありで差分0件 → 全削除の可能性あり → 全件クエリで確認
+        let q2 = _db().collection('posts').where('scope', '==', fsScope);
+        if(scope === 'regional') q2 = q2.where('pref', '==', pref);
+        const snap2 = await q2.orderBy('ts', 'desc').limit(limit).get();
+        const allPosts = snap2.docs.map(d => ({
+          id: d.id, ...d.data(),
+          ts: d.data().ts?.toMillis?.() ?? d.data().ts
+        }));
+        _saveCache(scope, pref, allPosts);
+        _commToast(allPosts.length === 0 ? '投稿はありません' : '最新の状態です');
+      } else {
+        _commToast('最新の状態です');
+      }
     } else {
       const merged = _mergePosts(cached, newPosts, limit);
       _saveCache(scope, pref, merged);
