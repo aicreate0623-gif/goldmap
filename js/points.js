@@ -304,19 +304,22 @@ function _setCoordFields(lat, lng, readOnly){
   fLng.readOnly = !!readOnly;
 }
 
-function cancelEdit(){closeOv();if(eid===null)cancelAdd();}
+function cancelEdit(){
+  if(tPin){ map.removeLayer(tPin); tPin=null; }
+  if(eid!==null && _editBackup){
+    const p=pts.find(q=>q.id===eid);
+    if(p && p.mk) p.mk.setOpacity(1);
+  }
+  _editBackup=null;
+  closeOv();
+  if(eid===null) cancelAdd();
+}
 
 function reqSave(){
   const n=document.getElementById('pt-name').value.trim();if(!n){document.getElementById('pt-name').focus();return;}
-  // 緯度経度: 編集時はフィールド値を使用（位置変更対応）、新規はtPin
-  let lat, lng;
-  if(eid!==null){
-    lat=parseFloat(document.getElementById('pt-lat').value);
-    lng=parseFloat(document.getElementById('pt-lng').value);
-    if(isNaN(lat)||isNaN(lng)){showAlert('エラー','緯度・経度が正しくありません');return;}
-  }else{
-    const ll=tPin.getLatLng(); lat=ll.lat; lng=ll.lng;
-  }
+  // 編集・新規ともtPinの位置を使用
+  if(!tPin){showAlert('エラー','ピンが見つかりません');return;}
+  const ll=tPin.getLatLng(); const lat=ll.lat, lng=ll.lng;
   const starsStr=_curStars?'★'.repeat(_curStars):'未評価';
   document.getElementById('save-msg').textContent=`「${n}」[${starsStr}] を\n緯度 ${lat.toFixed(5)}\n経度 ${lng.toFixed(5)}\nに保存しますか？`;
   showDlg('dlg-savecf');
@@ -326,11 +329,13 @@ async function confirmSave(){
   const n=document.getElementById('pt-name').value.trim(),m=document.getElementById('pt-memo').value.trim();
   if(eid!==null){
     const p=pts.find(q=>q.id===eid);
-    // 位置変更があれば座標も更新
-    const newLat=parseFloat(document.getElementById('pt-lat').value);
-    const newLng=parseFloat(document.getElementById('pt-lng').value);
-    if(!isNaN(newLat)&&!isNaN(newLng)){ p.lat=newLat; p.lng=newLng; p.mk.setLatLng([newLat,newLng]); }
+    // tPinの位置を座標として使用
+    if(tPin){ const ll=tPin.getLatLng(); p.lat=ll.lat; p.lng=ll.lng; p.mk.setLatLng([ll.lat,ll.lng]); }
     p.name=n;p.memo=m;p.stars=_curStars;p.icon=_curIcon;p.color=_curColor;
+    // tPin削除・既存マーカーを通常表示に戻す
+    if(tPin){ map.removeLayer(tPin); tPin=null; }
+    if(p.mk) p.mk.setOpacity(1);
+    _editBackup=null;
     _updateMk(p);
   }else{
     if(pts.length>=MAX_PT){showAlert('上限','最大1000件です');cancelAdd();closeOv();return;}
@@ -428,18 +433,35 @@ function openDet(id){
   document.getElementById('det-coord').textContent='📍 '+p.lat.toFixed(5)+', '+p.lng.toFixed(5);
   showDlg('dlg-detail');
 }
+// 編集時のバックアップ（キャンセル用）
+let _editBackup = null;
+
 function editCur(){
-  const p=pts.find(q=>q.id===did);eid=did;
+  const p=pts.find(q=>q.id===did); if(!p) return;
+  eid=did;
+
+  // 元データをバックアップ
+  _editBackup={lat:p.lat,lng:p.lng,name:p.name,memo:p.memo||'',
+    stars:p.stars||0,icon:p.icon||PT_DEFAULT_ICON,color:p.color||PT_DEFAULT_COLOR};
+
+  // 既存マーカーを薄く表示
+  if(p.mk) p.mk.setOpacity(0.3);
+
+  // 新規追加と同じtPinを既存位置に配置
+  _curIcon=p.icon||PT_DEFAULT_ICON; _curColor=p.color||PT_DEFAULT_COLOR;
+  if(tPin){ map.removeLayer(tPin); tPin=null; }
+  tPin=L.marker([p.lat,p.lng],{icon:_makeTempIcon(_curIcon,_curColor),draggable:true,pane:'paneUser'}).addTo(map);
+  tPin.on('drag',()=>{ const ll=tPin.getLatLng(); _setCoordFields(ll.lat,ll.lng,true); });
+
+  // ダイアログに既存情報をセット
   document.getElementById('dlg-edit-ttl').textContent='ポイントを編集';
   document.getElementById('pt-name').value=p.name;
   document.getElementById('pt-memo').value=p.memo||'';
   _renderStarUI(p.stars||0);
-  _curIcon=p.icon||PT_DEFAULT_ICON;_curColor=p.color||PT_DEFAULT_COLOR;
   _renderIconPicker(_curIcon,'pt-icon-picker','pt-icon-selected');
   _renderColorPicker(_curColor,'pt-color-picker','pt-color-selected');
-  // 緯度経度フィールド（編集時: 直接編集可能）
-  _setCoordFields(p.lat, p.lng, false);
-  document.getElementById('pt-move-btn').style.display = '';
+  _setCoordFields(p.lat,p.lng,true);
+  document.getElementById('pt-move-btn').style.display='none';
   showDlg('dlg-edit');
 }
 function reqDel(){
