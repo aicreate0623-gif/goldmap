@@ -51,20 +51,34 @@ function starsToHtml(v) {
 function _renderIconPicker(selected, pickerId, selectedId) {
   const el = document.getElementById(pickerId); if (!el) return;
   el.innerHTML = PT_ICONS.map(ic =>
-    `<button class="cl-ico-btn${ic===selected?' sel':''}" onclick="${pickerId==='pt-icon-picker'?'ptSelectIcon':'impSelectIcon'}('${ic}')" data-icon="${ic}">${ic}</button>`
+    `<button class="cl-ico-btn${ic===selected?' sel':''}" type="button" data-icon="${ic}">${ic}</button>`
   ).join('');
+  el.querySelectorAll('.cl-ico-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ic = btn.dataset.icon;
+      if (pickerId === 'pt-icon-picker') ptSelectIcon(ic);
+      else impSelectIcon(ic);
+    });
+  });
   const sel = document.getElementById(selectedId);
   if (sel) { sel.dataset.icon = selected; sel.textContent = selected; }
 }
+
 function _renderColorPicker(selected, pickerId, selectedId) {
   const el = document.getElementById(pickerId); if (!el) return;
   el.innerHTML = PT_COLORS.map(c =>
-    `<button class="cl-col-btn${c.value===selected?' sel':''}"
-      onclick="${pickerId==='pt-color-picker'?'ptSelectColor':'impSelectColor'}('${c.value}')"
+    `<button class="cl-col-btn${c.value===selected?' sel':''}" type="button"
       data-color="${c.value}"
       style="background:${c.value==='transparent'?'rgba(255,255,255,0.1)':c.value};${c.value==='transparent'?'border:2px dashed rgba(255,255,255,0.4)':''}"
       title="${c.label}"></button>`
   ).join('');
+  el.querySelectorAll('.cl-col-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.color;
+      if (pickerId === 'pt-color-picker') ptSelectColor(val);
+      else impSelectColor(val);
+    });
+  });
   const sel = document.getElementById(selectedId);
   if (sel) {
     sel.dataset.color = selected;
@@ -207,7 +221,11 @@ function renderPtList(){
 }
 function jumpPt(id){
   const p=pts.find(q=>q.id===id);if(!p)return;
-  switchTab('map');map.setView([p.lat,p.lng],15);
+  switchTab('map');
+  setTimeout(()=>{
+    map.invalidateSize({pan:false});
+    map.setView([p.lat,p.lng],15);
+  },320);
 }
 function ptListEdit(id){
   did=id;
