@@ -876,6 +876,9 @@ function _dldClearDraw(){
   if(ok)   ok.disabled = true;
   if(hint) hint.textContent = '地図上をドラッグして範囲を指定してください';
   _dldResetS1Est();
+  // ドラッグモード再開（STEP2のまま）
+  if(!drawMode) _enterDrawMode();
+  _dldWatchDraw();
 }
 
 // ── STEP2: 確定ボタン → STEP3へ ────────────────────────
@@ -1365,4 +1368,4 @@ function toggleCommAccordion(header) {
   }
 }
 
-// 起動
+// 起動
