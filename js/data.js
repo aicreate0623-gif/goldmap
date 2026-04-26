@@ -177,61 +177,199 @@ function toggleWaterLevel(){
     });
   });
 }
-const WIKI_ENDPOINT = 'https://query.wikidata.org/sparql';
-const WIKI_IDB_KEY  = 'wikidata_mines_v1';
-// キャッシュ有効期間: 7日
-const WIKI_TTL_MS   = 7 * 24 * 60 * 60 * 1000;
+// ═══════════════════════════════════════════
+//  Wikidata 日本鉱山 静的データ（180件）
+//  出典: Wikidata (CC0)  https://www.wikidata.org/
+//  取得日: 2025年  日本範囲外(lat:20-50, lng:122-154)除外済み
+// ═══════════════════════════════════════════
+const WIKI_STATIC_DATA = [
+  {qid:'Q4571295',  name:'幌内炭鉱',           lat:43.221, lng:141.909},
+  {qid:'Q5354434',  name:'八戸鉱山',            lat:40.4529,lng:141.538},
+  {qid:'Q6429620',  name:'鴻之舞鉱山',          lat:44.12525,lng:143.352527777},
+  {qid:'Q10868515', name:'下川鉱山',            lat:44.215, lng:142.701},
+  {qid:'Q11060540', name:'幌別鉱山',            lat:42.470777777,lng:141.035194444},
+  {qid:'Q11286851', name:'イトムカ鉱山',        lat:43.64972222,lng:143.23666667},
+  {qid:'Q11358530', name:'上北鉱山',            lat:40.74263889,lng:141.01202778},
+  {qid:'Q11359927', name:'上田銀山',            lat:37.085055555,lng:139.238083333},
+  {qid:'Q11363919', name:'中小坂鉄山',          lat:36.228194,lng:138.768639},
+  {qid:'Q11366862', name:'中竜鉱山',            lat:35.88147,lng:136.58409},
+  {qid:'Q11367890', name:'串木野鉱山',          lat:31.72861111,lng:130.2745},
+  {qid:'Q11368609', name:'丹生鉱山',            lat:34.47141667,lng:136.49052778},
+  {qid:'Q11369449', name:'久根鉱山',            lat:35.08744444,lng:137.83494444},
+  {qid:'Q11391727', name:'八総鉱山',            lat:37.061138888,lng:139.662388888},
+  {qid:'Q11391731', name:'八茎鉱山',            lat:37.164055555,lng:140.917555555},
+  {qid:'Q11430982', name:'多田銀山',            lat:34.895469,lng:135.350725},
+  {qid:'Q11433496', name:'大和水銀鉱山',        lat:34.47725,lng:135.97366667},
+  {qid:'Q11438698', name:'大葛鉱山',            lat:40.13725,lng:140.700666666},
+  {qid:'Q11444497', name:'太良鉱山',            lat:40.384638888,lng:140.318833333},
+  {qid:'Q11456259', name:'富士金山',            lat:35.40011111,lng:138.55122222},
+  {qid:'Q11459448', name:'小坂鉱山',            lat:40.33722222,lng:140.75361111},
+  {qid:'Q11459448', name:'小坂鉱山',            lat:40.34554,   lng:140.75407},
+  {qid:'Q11465126', name:'尾去沢鉱山',          lat:40.183333333,lng:140.75},
+  {qid:'Q11465280', name:'尾平鉱山',            lat:32.857277777,lng:131.388805555},
+  {qid:'Q11465827', name:'山ヶ野金山',          lat:31.917388888,lng:130.623694444},
+  {qid:'Q11467728', name:'山宝鉱山',            lat:34.788055555,lng:133.478055555},
+  {qid:'Q11476115', name:'峰之沢鉱山',          lat:35.00197222,lng:137.84188889},
+  {qid:'Q11479990', name:'市之川鉱山',          lat:33.89166667,lng:133.20666667},
+  {qid:'Q11492383', name:'恵庭鉱山',            lat:42.816639,lng:141.265889},
+  {qid:'Q11492408', name:'恵比寿鉱山',          lat:35.53841667,lng:137.36277778},
+  {qid:'Q11510089', name:'日立鉱山',            lat:36.6312,lng:140.5996},
+  {qid:'Q11512063', name:'明延鉱山',            lat:35.271944444,lng:134.659444444},
+  {qid:'Q11519261', name:'木浦鉱山',            lat:32.827416666,lng:131.550555555},
+  {qid:'Q11529711', name:'松尾鉱山',            lat:39.938138888,lng:140.937711111},
+  {qid:'Q11534959', name:'柵原鉱山',            lat:34.952,lng:134.062},
+  {qid:'Q11542685', name:'横島 (長崎県長崎市)', lat:32.675,lng:129.79611111},
+  {qid:'Q11554465', name:'沼尻鉱山',            lat:37.627972,lng:140.258444},
+  {qid:'Q11563458', name:'湯之奥金山',          lat:35.40416667,lng:138.53055556},
+  {qid:'Q11573299', name:'珊瑠鉱山',            lat:44.385638888,lng:142.642305555},
+  {qid:'Q11577242', name:'田老鉱山',            lat:39.76,lng:141.9305},
+  {qid:'Q11586877', name:'石狩炭田',            lat:43.221,lng:141.909},
+  {qid:'Q11602475', name:'笹ヶ谷鉱山',          lat:34.53561111,lng:131.73627778},
+  {qid:'Q11604119', name:'米子鉱山',            lat:36.569111111,lng:138.409611111},
+  {qid:'Q11605807', name:'細倉鉱山',            lat:38.80805556,lng:140.89972222},
+  {qid:'Q11615333', name:'花岡鉱山',            lat:40.30916667,lng:140.55194444},
+  {qid:'Q11618632', name:'荒川鉱山',            lat:39.641472222,lng:140.420916666},
+  {qid:'Q11618875', name:'荒金鉱山',            lat:35.523888888,lng:134.365277777},
+  {qid:'Q11620166', name:'菱刈鉱山',            lat:32.0125,lng:130.6916},
+  {qid:'Q11620166', name:'菱刈鉱山',            lat:32.0125,lng:130.69388889},
+  {qid:'Q11621753', name:'蓮華鉱山',            lat:36.807305555,lng:137.799972222},
+  {qid:'Q11634209', name:'豊羽鉱山',            lat:42.9792,lng:141.044},
+  {qid:'Q11637574', name:'軽井沢銀山',          lat:37.473861,lng:139.740861},
+  {qid:'Q11641973', name:'遠ヶ根鉱山',          lat:35.55366667,lng:137.36672222},
+  {qid:'Q11645777', name:'野沢鉱山',            lat:43.26669444,lng:142.40269444},
+  {qid:'Q11648140', name:'釜石鉱山',            lat:39.285611,lng:141.714389},
+  {qid:'Q11657209', name:'阿仁鉱山',            lat:39.98459,lng:140.43342},
+  {qid:'Q11671999', name:'高玉金山',            lat:37.488305555,lng:140.303694444},
+  {qid:'Q11678266', name:'黒川金山',            lat:35.79,lng:138.84694444},
+  {qid:'Q11453004', name:'室岩洞',              lat:34.750657,lng:138.766744},
+  {qid:'Q109359187',name:'石切山脈',            lat:36.3749,lng:140.2053},
+  {qid:'Q123118346',name:'泉山磁石場',          lat:33.193888888,lng:129.910277777},
+  {qid:'Q97445875', name:'藪塚石切場跡',        lat:36.368333333,lng:139.323333333},
+  {qid:'Q102387247',name:'Quarry (Iwo Jima)',   lat:24.7715689,lng:141.3231778},
+  {qid:'Q49460392', name:'Q49460392',           lat:33.775,lng:130.951388888},
+  {qid:'Q16976501', name:'釈迦内鉱山',          lat:40.317222222,lng:140.572666666},
+  {qid:'Q16976501', name:'釈迦内鉱山',          lat:40.31831,lng:140.57251},
+  {qid:'Q22125314', name:'白滝鉱山',            lat:33.81916667,lng:133.46666667},
+  {qid:'Q17226552', name:'奈賀野鉱山',          lat:34.834,lng:133.304555555},
+  {qid:'Q17230898', name:'大ヶ生金山',          lat:39.601694444,lng:141.250722222},
+  {qid:'Q17996048', name:'大東鉱山',            lat:35.295333333,lng:132.970527777},
+  {qid:'Q20043544', name:'乙女鉱山',            lat:35.817777777,lng:138.628888888},
+  {qid:'Q21652707', name:'帯江鉱山',            lat:34.61111111,lng:133.80083333},
+  {qid:'Q21655005', name:'八谷鉱山',            lat:37.784472222,lng:140.010861111},
+  {qid:'Q48764861', name:'小樽松倉鉱山',        lat:43.12688889,lng:140.96372222},
+  {qid:'Q49396101', name:'Q49396101',           lat:40.3975,lng:140.715833333},
+  {qid:'Q28059736', name:'Takase mine',         lat:35.0,lng:133.333333333},
+  {qid:'Q28843373', name:'Akagane mine',        lat:39.166666666,lng:141.333333333},
+  {qid:'Q29674025', name:'Johkoku mine',        lat:41.666666666,lng:140.052777777},
+  {qid:'Q30931976', name:'東京炭鉱',            lat:35.823083333,lng:139.285777777},
+  {qid:'Q23935160', name:'河津鉱山',            lat:34.699444444,lng:138.922222222},
+  {qid:'Q23935271', name:'野田玉川鉱山',        lat:40.073333333,lng:141.808333333},
+  {qid:'Q23935699', name:'布賀鉱山',            lat:34.766666666,lng:133.433333333},
+  {qid:'Q24035685', name:'白丸鉱山',            lat:35.808333333,lng:139.125},
+  {qid:'Q24859996', name:'佐々連鉱山',          lat:33.90869444,lng:133.53927778},
+  {qid:'Q26205797', name:'地蔵鉱山',            lat:36.872222222,lng:137.901666666},
+  {qid:'Q49433130', name:'Q49433130',           lat:33.747777777,lng:130.8775},
+  {qid:'Q137925090',name:'Dokatanosawa',        lat:33.73278,lng:135.98278},
+  {qid:'Q137925099',name:'Esashi',              lat:44.932,lng:142.582},
+  {qid:'Q137925117',name:'Hakkinzahia',         lat:42.982,lng:142.199},
+  {qid:'Q137925121',name:'Hassen Deposit',      lat:44.165,lng:142.465},
+  {qid:'Q137925133',name:'Kamikawa',            lat:32.782,lng:131.449},
+  {qid:'Q137925134',name:'Kembuchi',            lat:44.024,lng:142.382},
+  {qid:'Q137925136',name:'Kitano Sawa',         lat:44.165,lng:142.398},
+  {qid:'Q137925154',name:'Monomanai',           lat:44.632,lng:142.198},
+  {qid:'Q137925159',name:'Nakatombetsu Kakuta', lat:44.979,lng:142.357},
+  {qid:'Q137925171',name:'Numata',              lat:43.832,lng:142.032},
+  {qid:'Q137925191',name:'Sado Island',         lat:37.999,lng:138.415},
+  {qid:'Q137925192',name:'Saganoseki refinery', lat:33.2654,lng:131.8489},
+  {qid:'Q137925196',name:'Saru',                lat:42.572,lng:142.287},
+  {qid:'Q137925203',name:'Shirukomanaigawa',    lat:45.015,lng:142.232},
+  {qid:'Q137925211',name:'Toikambetsu Hoshin',  lat:45.073,lng:142.115},
+  {qid:'Q137925212',name:'Toikambetsu Jugosen', lat:44.965,lng:142.115},
+  {qid:'Q137925213',name:'Toikambetsu Nobukanai',lat:44.882,lng:142.082},
+  {qid:'Q137925214',name:'Tombetsu River',      lat:44.915,lng:142.215},
+  {qid:'Q137925225',name:'Utsunaigawa',         lat:45.048,lng:142.248},
+  {qid:'Q137925237',name:'Yubari Gawa',         lat:43.015,lng:141.582},
+  {qid:'Q137938370',name:'Matsuneshiri',        lat:35.16667,lng:132.48333},
+  {qid:'Q137938416',name:'Obirashibe River',    lat:32.842,lng:131.578},
+  {qid:'Q137938448',name:'Shosambetsu',         lat:44.532,lng:141.798},
+  {qid:'Q55521848', name:'竜昇殿鉱山',          lat:44.31183333,lng:143.32069444},
+  {qid:'Q55523351', name:'千野谷黒鉛鉱山',      lat:36.523333333,lng:137.342055555},
+  {qid:'Q64979519', name:'勝負銅山',            lat:34.457166666,lng:133.299},
+  {qid:'Q66486477', name:'Minamichiyoda',       lat:44.5225,lng:141.780833333},
+  {qid:'Q69388358', name:'若松鉱山',            lat:35.092777777,lng:133.208472222},
+  {qid:'Q72988253', name:'北沢浮遊選鉱場',      lat:38.036666666,lng:138.241666666},
+  {qid:'Q75178770', name:'八森銀山',            lat:40.405305555,lng:139.980444444},
+  {qid:'Q83846350', name:'伊佐鉱山',            lat:34.1775,lng:131.224444444},
+  {qid:'Q85881940', name:'津具金山',            lat:35.159722222,lng:137.612777777},
+  {qid:'Q85884178', name:'鍋山鉱山',            lat:35.270555555,lng:132.828888888},
+  {qid:'Q86740300', name:'石見鉱山',            lat:35.1835,lng:132.442972222},
+  {qid:'Q101786384',name:'竹野鉱山',            lat:35.617263888,lng:134.739908333},
+  {qid:'Q105671778',name:'伊豆珪石鉱山',        lat:34.872972222,lng:138.801805555},
+  {qid:'Q105883441',name:'白根金山',            lat:40.247116666,lng:140.73105},
+  {qid:'Q107721275',name:'月布鉱山',            lat:38.376444444,lng:140.109027777},
+  {qid:'Q111103629',name:'赤石鉱山',            lat:31.310472222,lng:130.379272222},
+  {qid:'Q112128000',name:'春日鉱山',            lat:31.269722222,lng:130.258333333},
+  {qid:'Q113381946',name:'小串鉱山',            lat:36.603333333,lng:138.457777777},
+  {qid:'Q113583083',name:'河守鉱山',            lat:35.458333333,lng:135.140277777},
+  {qid:'Q122333023',name:'Kuki Silver Mine',    lat:34.823888888,lng:132.569722222},
+  {qid:'Q135005176',name:'茂倉沢鉱山',          lat:36.43972,lng:139.38306},
+  {qid:'Q135140134',name:'持倉鉱山',            lat:37.674166666,lng:139.349166666},
+  {qid:'Q285468',   name:'端島',               lat:32.627777777,lng:129.738333333},
+  {qid:'Q6845423',  name:'三井三池炭鉱',        lat:33.014,lng:130.456},
+  {qid:'Q7902576',  name:'宇多良炭坑',          lat:24.2,lng:123.48},
+  {qid:'Q11088933', name:'昭和炭鉱',            lat:43.9864,lng:141.9481},
+  {qid:'Q11353799', name:'万字炭鉱',            lat:43.133917,lng:141.991167},
+  {qid:'Q11481590', name:'常磐炭田',            lat:37.0,lng:140.75},
+  {qid:'Q11490835', name:'志免鉱業所',          lat:33.5905,lng:130.48644},
+  {qid:'Q11602981', name:'筑豊炭田',            lat:33.66667,lng:130.75},
+  {qid:'Q11609164', name:'美流渡炭鉱',          lat:43.141222,lng:141.928917},
+  {qid:'Q11659184', name:'雄別炭鉱',            lat:43.2200815,lng:144.0728573},
+  {qid:'Q11669662', name:'高島炭鉱',            lat:32.6595,lng:129.751},
+  {qid:'Q17996339', name:'高窪炭鉱',            lat:35.316027777,lng:132.859527777},
+  {qid:'Q137942968',name:'Taishio Cobalt Mine, Japan',lat:35.165,lng:134.582},
+  {qid:'Q138779766',name:'西牧鉱山',            lat:36.241388888,lng:138.658611111},
+  {qid:'Q11433700', name:'大坂城残石記念公園',  lat:34.53394444,lng:134.24213889},
+  {qid:'Q118129847',name:'吉岡鉱山',            lat:34.865472222,lng:133.457111111},
+  {qid:'Q134727299',name:'草倉銅山',            lat:37.728333333,lng:139.468611111},
+  {qid:'Q134887711',name:'間瀬銅山',            lat:37.720833333,lng:138.798055555},
+  {qid:'Q994193',   name:'別子銅山',            lat:33.865277777,lng:133.328055555},
+  {qid:'Q994193',   name:'別子銅山',            lat:33.865277777,lng:133.328055555},
+  {qid:'Q2797958',  name:'足尾銅山',            lat:36.63333333,lng:139.43972222},
+  {qid:'Q11418228', name:'和銅遺跡',            lat:36.047861111,lng:139.107222222},
+  {qid:'Q11436816', name:'大江山鉱山',          lat:35.480916666,lng:135.095055555},
+  {qid:'Q11465138', name:'尾小屋鉱山',          lat:36.295778,lng:136.538778},
+  {qid:'Q11629056', name:'西浦採銅抗跡',        lat:36.118111111,lng:139.115555555},
+  {qid:'Q11647649', name:'金生山',              lat:35.40194444,lng:136.5775},
+  {qid:'Q11653520', name:'長登銅山',            lat:34.244944,lng:131.336111},
+  {qid:'Q174139',   name:'石見銀山',            lat:35.107222,lng:132.4375},
+  {qid:'Q11248197', name:'佐渡金山',            lat:38.0416,lng:138.256},
+  {qid:'Q11248197', name:'佐渡金山',            lat:38.0416,lng:138.256},
+  {qid:'Q11248197', name:'佐渡金山',            lat:38.0416,lng:138.256},
+  {qid:'Q11658109', name:'院内銀山',            lat:39.0495,lng:140.363666666},
+  {qid:'Q16664574', name:'生野銀山',            lat:35.171678,lng:134.81965},
+  {qid:'Q56871123', name:'延沢銀山',            lat:38.570833333,lng:140.465833333},
+  {qid:'Q3314832',  name:'土肥金山',            lat:34.9082,lng:138.793},
+  {qid:'Q11432297', name:'大仁鉱山',            lat:34.98705556,lng:138.94255556},
+  {qid:'Q11439172', name:'大谷鉱山',            lat:38.81597222,lng:141.52766667},
+  {qid:'Q11439172', name:'大谷鉱山',            lat:38.81597222,lng:141.52766667},
+  {qid:'Q11679452', name:'龕附天正金鉱',        lat:34.905861,lng:138.790028},
+  {qid:'Q28690087', name:'黄金山産金遺跡',      lat:38.55983333,lng:141.13913889},
+  {qid:'Q109943676',name:'お猿畠の大切岸',      lat:35.309055555,lng:139.567305555},
+  {qid:'Q118342381',name:'西三川砂金山',        lat:37.9125965,lng:138.3246014},
+  {qid:'Q11339828', name:'マイントピア別子',    lat:33.901444444,lng:133.3095},
+  {qid:'Q11414532', name:'吉野鉱山',            lat:38.163861111,lng:140.181555555},
+  {qid:'Q11589583', name:'神岡鉱山',            lat:36.34883333,lng:137.29519444},
+  {qid:'Q11609917', name:'群馬鉄山',            lat:36.653083,lng:138.597083},
+  {qid:'Q48746036', name:'静狩金山',            lat:42.599638888,lng:140.459694444},
+  {qid:'Q120713329',name:'Shebunino coal mine', lat:46.436111111,lng:141.861611111},
+  {qid:'Q109362343',name:'北大東島のリン鉱山',  lat:25.953888888,lng:131.2835},
+];
 
 let wikiLayer   = null;
 let wikiVisible = false;
-let wikiFetching = false;
-
-function parseWikiCoord(pointStr){
-  // 例: "Point(137.5 36.5)"
-  const m = pointStr && pointStr.match(/Point\(([0-9.\-]+)\s+([0-9.\-]+)\)/i);
-  if(!m) return null;
-  const lng = parseFloat(m[1]);
-  const lat  = parseFloat(m[2]);
-  if(isNaN(lat)||isNaN(lng)) return null;
-  // 日本の範囲チェック（粗め）
-  if(lat < 20 || lat > 50 || lng < 122 || lng > 154) return null;
-  return {lat, lng};
-}
-
-// ── Wikidataからデータを取得
-async function fetchWikiData(){
-  const url = WIKI_ENDPOINT + '?query=' + encodeURIComponent(WIKI_SPARQL) +
-              '&format=json';
-  const res = await fetch(url, {
-    headers: { 'Accept': 'application/sparql-results+json' }
-  });
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  const rows = json.results && json.results.bindings;
-  if(!rows) throw new Error('レスポンス形式エラー');
-
-  // 重複排除（同一Qidで複数material行の場合あり）
-  const map = new Map();
-  rows.forEach(r => {
-    const qid    = r.item  && r.item.value  ? r.item.value.split('/').pop()  : null;
-    const name   = r.itemLabel && r.itemLabel.value ? r.itemLabel.value : '不明';
-    const coord  = r.coord && r.coord.value ? parseWikiCoord(r.coord.value) : null;
-    const mat    = r.materialLabel && r.materialLabel.value ? r.materialLabel.value : null;
-    if(!qid || !coord) return;
-    if(map.has(qid)){
-      // materialを追記
-      const ex = map.get(qid);
-      if(mat && !ex.materials.includes(mat)) ex.materials.push(mat);
-    } else {
-      map.set(qid, { qid, name, lat: coord.lat, lng: coord.lng, materials: mat ? [mat] : [] });
-    }
-  });
-  return Array.from(map.values());
-}
 
 // ── マーカー生成
 function makeWikiMarker(d){
-  const matStr = d.materials.length ? d.materials.join('・') : '不明';
   const wikiUrl = `https://www.wikidata.org/wiki/${d.qid}`;
   const sz = 12;
   // 紫系六角形（divで擬似表現：回転した正方形＋角丸）
@@ -252,8 +390,6 @@ function makeWikiMarker(d){
       <table style="border-collapse:collapse;width:100%;">
         <tr><td style="color:#555;padding:2px 4px;white-space:nowrap;">名称</td>
             <td style="padding:2px 4px;font-weight:bold;">${d.name}</td></tr>
-        <tr style="background:#f5f0ff;"><td style="color:#555;padding:2px 4px;">産出物</td>
-            <td style="padding:2px 4px;">${matStr}</td></tr>
         <tr><td style="color:#555;padding:2px 4px;">Wikidata</td>
             <td style="padding:2px 4px;">
               <a href="${wikiUrl}" target="_blank" style="color:#7b2fbe;">${d.qid}</a>
@@ -283,72 +419,19 @@ function setWikiStatus(msg, color=''){
   if(el){ el.textContent = msg; el.style.color = color || ''; }
 }
 
-// ── 起動時初期化（IndexedDBキャッシュ確認 → 自動fetch）
-async function initWikiLayer(){
-  // キャッシュチェック
-  if(db){
-    try{
-      const cached = await dbGetMine(WIKI_IDB_KEY);
-      if(cached && cached.data && Date.now() - cached.savedAt < WIKI_TTL_MS){
-        buildWikiLayer(cached.data);
-        // デフォルトOFF: 自動表示しない（ボタンONで表示）
-        wikiVisible = false;
-        setWikiStatus(`✅ ${cached.data.length}件（キャッシュ ${new Date(cached.savedAt).toLocaleDateString('ja-JP')}）`, '#40c870');
-        return;
-      }
-    }catch(e){}
-  }
-  // キャッシュなし or 期限切れ → fetch
-  await fetchAndBuildWiki();
-}
-
-// ── fetchして構築・キャッシュ保存
-async function fetchAndBuildWiki(){
-  if(wikiFetching) return;
-  wikiFetching = true;
-  const btn = document.getElementById('btn-wiki');
-  btn.disabled = true;
-  setWikiStatus('⏳ Wikidataから取得中…', '#f0d020');
-  try{
-    const data = await fetchWikiData();
-    buildWikiLayer(data);
-    // IndexedDBに保存
-    if(db){
-      try{ await dbPutMine(WIKI_IDB_KEY, {data, savedAt: Date.now()}); }catch(e){}
-    }
-    // デフォルトOFF: 自動表示しない
-    wikiVisible = false;
-    setWikiStatus(`✅ ${data.length}件取得完了（地図ボタンでON）`, '#40c870');
-  }catch(e){
-    setWikiStatus(`❌ 取得失敗: ${e.message}`, '#ff5a47');
-    console.warn('Wikidata fetch error:', e);
-  }finally{
-    btn.disabled = false;
-    wikiFetching = false;
-  }
+// ── 起動時初期化（静的データで即構築）
+function initWikiLayer(){
+  buildWikiLayer(WIKI_STATIC_DATA);
+  wikiVisible = false;
+  setWikiStatus(`✅ 組み込み ${WIKI_STATIC_DATA.length}件`, '#40c870');
 }
 
 // ── ON/OFFトグル
 function toggleWikiLayer(){
-  if(!wikiLayer){
-    // まだ取得できていない場合は再fetch
-    fetchAndBuildWiki();
-    return;
-  }
   wikiVisible = !wikiVisible;
   document.getElementById('btn-wiki').classList.toggle('active', wikiVisible);
   if(wikiVisible) wikiLayer.addTo(map);
   else map.removeLayer(wikiLayer);
-}
-
-// ── 手動再取得
-async function reloadWikiData(){
-  // キャッシュ削除後に再fetch
-  if(db){ try{ await dbDelMine(WIKI_IDB_KEY); }catch(e){} }
-  if(wikiLayer){ map.removeLayer(wikiLayer); wikiLayer = null; }
-  wikiVisible = false;
-  document.getElementById('btn-wiki').classList.remove('active');
-  await fetchAndBuildWiki();
 }
 
 // ═══════════════════════════════════════════

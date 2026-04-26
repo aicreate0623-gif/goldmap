@@ -468,14 +468,11 @@
       <div class="cfg-accordion-body">
         <div class="dl-section">
           <div class="info-box">
-            Wikidataに登録された日本国内の鉱山を自動取得。<br>
-            起動時にSPARQLクエリで取得・7日間キャッシュ保持。
+            Wikidataに登録された日本国内の鉱山データ（静的組み込み）。<br>
+            起動時に即座に読み込まれます。
           </div>
           <div id="wiki-status" style="font-size:11px;padding:4px 6px;margin-top:4px;color:var(--txt-sub);">
             ステータス: 確認中…
-          </div>
-          <div class="btn-row" style="margin-top:8px;">
-            <button class="btn sm" onclick="reloadWikiData()">🔄 再取得</button>
           </div>
           <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
             出典: <a href="https://www.wikidata.org/" target="_blank" style="color:#4a90d9">Wikidata</a>（CC0）
