@@ -1092,9 +1092,10 @@
   <div id="dlg-exit">
     <div class="exit-icon">🗺</div>
     <h3>終了してよろしいですか？</h3>
-    <p>ブラウザのタブを閉じてください。</p>
+    <p>PWA・アプリ内ブラウザでは「閉じる」でアプリを終了できます。</p>
     <div class="dlg-btns">
-      <button class="dbtn ok" onclick="closeExitDlg()">キャンセル</button>
+      <button class="dbtn" onclick="closeExitDlg()">キャンセル</button>
+      <button class="dbtn del" onclick="doExitApp()">閉じる</button>
     </div>
   </div>
 </div>
