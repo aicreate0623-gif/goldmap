@@ -360,48 +360,101 @@ function _closeOvKeepEid(){
 
 function startMovePin(){
   const p = pts.find(q=>q.id===eid); if(!p) return;
-  _savedEid = eid;          // eidをバックアップ
-  _closeOvKeepEid();        // eidを保持したままダイアログを閉じる
-  eid = _savedEid;          // 念のため再セット
+  _savedEid = eid;
+  _closeOvKeepEid();
+  eid = _savedEid;
   switchTab('map');
   setTimeout(()=>{
     map.invalidateSize({pan:false});
     map.setView([p.lat, p.lng], Math.max(map.getZoom(), 15));
-    // 既存マーカーを半透明にして仮ピンを配置
     if(p.mk) p.mk.setOpacity(0.3);
+    // draggable:false で生成し、自前タッチ/マウスドラッグで動かす
     _movePin = L.marker([p.lat, p.lng], {
       icon: _makeTempIcon(p.icon||PT_DEFAULT_ICON, p.color||PT_DEFAULT_COLOR),
-      draggable: true,
+      draggable: false,
       pane: 'paneUser'
     }).addTo(map);
-    // モバイルでマーカードラッグと地図ドラッグが競合しないよう制御
-    _movePin.on('dragstart', ()=>{ map.dragging.disable(); });
-    _movePin.on('dragend',   ()=>{ map.dragging.enable(); });
+    _attachMovePinDrag(_movePin);
     document.getElementById('move-banner').classList.add('show');
   }, 320);
+}
+
+// ── 自前ドラッグ実装（touch/mouse両対応・地図ドラッグ共存） ──
+// map.dragging は一切操作しない。
+// ピンDOMへのイベントを stopPropagation で地図に伝播させないだけで競合を防ぐ。
+function _attachMovePinDrag(marker){
+  const el = marker.getElement();
+  if(!el) return;
+  let _dragging = false;
+
+  function _getLL(clientX, clientY){
+    const rect = document.getElementById('map').getBoundingClientRect();
+    return map.containerPointToLatLng(
+      L.point(clientX - rect.left, clientY - rect.top)
+    );
+  }
+
+  // ── touch ──
+  el.addEventListener('touchstart', e=>{
+    if(e.touches.length !== 1) return;
+    e.stopPropagation();
+    _dragging = true;
+  }, {passive:true});
+
+  el.addEventListener('touchmove', e=>{
+    if(!_dragging || e.touches.length !== 1) return;
+    e.preventDefault();      // ピン上のスクロールを止める
+    e.stopPropagation();
+    const t = e.touches[0];
+    marker.setLatLng(_getLL(t.clientX, t.clientY));
+  }, {passive:false});
+
+  el.addEventListener('touchend', e=>{
+    e.stopPropagation();
+    _dragging = false;
+  }, {passive:true});
+
+  el.addEventListener('touchcancel', e=>{
+    e.stopPropagation();
+    _dragging = false;
+  }, {passive:true});
+
+  // ── mouse ──
+  el.addEventListener('mousedown', e=>{
+    e.stopPropagation();
+    _dragging = true;
+    const onMove = ev=>{
+      if(!_dragging) return;
+      marker.setLatLng(_getLL(ev.clientX, ev.clientY));
+    };
+    const onUp = ()=>{
+      _dragging = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
 }
 
 function confirmMovePin(){
   if(!_movePin) return;
   const ll = _movePin.getLatLng();
-  map.dragging.enable(); // 念のため地図ドラッグを復元
   map.removeLayer(_movePin); _movePin = null;
-  eid = _savedEid; // eidを確実に復元
+  eid = _savedEid;
   const p = pts.find(q=>q.id===eid);
   if(p){
     _setCoordFields(ll.lat, ll.lng, false);
     if(p.mk) p.mk.setOpacity(1);
   }
   document.getElementById('move-banner').classList.remove('show');
-  // overlay を開いて dlg-edit を表示（closeOvを経由しない）
   document.getElementById('overlay').classList.add('open');
   document.getElementById('dlg-edit').style.display = 'block';
 }
 
 function cancelMovePin(){
-  map.dragging.enable();
   if(_movePin){ map.removeLayer(_movePin); _movePin = null; }
-  eid = _savedEid; // eidを確実に復元
+  eid = _savedEid;
   const p = pts.find(q=>q.id===eid);
   if(p && p.mk) p.mk.setOpacity(1);
   document.getElementById('move-banner').classList.remove('show');
