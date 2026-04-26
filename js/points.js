@@ -264,19 +264,30 @@ function cancelAdd(){
 let eid=null;
 // ── 追加ダイアログを開く ─────────────────────────────
 function openAddDlg(){
-  eid=null;
-  document.getElementById('dlg-edit-ttl').textContent='ポイントを追加';
-  document.getElementById('pt-name').value='';
-  document.getElementById('pt-memo').value='';
-  _renderStarUI(0);
-  _renderIconPicker(_curIcon,'pt-icon-picker','pt-icon-selected');
-  _renderColorPicker(_curColor,'pt-color-picker','pt-color-selected');
-  // 緯度経度表示（新規: tPinの現在位置・読み取り専用）
+  if(eid !== null && _editBackup){
+    // 編集モード：_editBackupのデータをセット
+    document.getElementById('dlg-edit-ttl').textContent='ポイントを編集';
+    document.getElementById('pt-name').value=_editBackup.name;
+    document.getElementById('pt-memo').value=_editBackup.memo||'';
+    _curIcon=_editBackup.icon; _curColor=_editBackup.color;
+    _renderStarUI(_editBackup.stars||0);
+    _renderIconPicker(_curIcon,'pt-icon-picker','pt-icon-selected');
+    _renderColorPicker(_curColor,'pt-color-picker','pt-color-selected');
+    document.getElementById('pt-move-btn').style.display='';
+  } else {
+    // 新規モード
+    eid=null;
+    document.getElementById('dlg-edit-ttl').textContent='ポイントを追加';
+    document.getElementById('pt-name').value='';
+    document.getElementById('pt-memo').value='';
+    _renderStarUI(0);
+    _renderIconPicker(_curIcon,'pt-icon-picker','pt-icon-selected');
+    _renderColorPicker(_curColor,'pt-color-picker','pt-color-selected');
+    document.getElementById('pt-move-btn').style.display='none';
+  }
   const ll = tPin ? tPin.getLatLng() : map.getCenter();
   _setCoordFields(ll.lat, ll.lng, true);
-  document.getElementById('pt-move-btn').style.display = 'none';
   showDlg('dlg-edit');
-  // tPinドラッグ時にリアルタイム更新
   if(tPin){ tPin.off('drag', _onAddPinDrag); tPin.on('drag', _onAddPinDrag); }
 }
 function _onAddPinDrag(){
@@ -352,39 +363,21 @@ async function confirmSave(){
   savePts();updPtCnt();closeOv();eid=null;
 }
 
-// ── 位置変更モード（編集時: tPinドラッグ） ──────────────
+// ── 位置変更モード（編集時: 新規ルートに統一） ──────────────
 
 function startEditMove(){
   if(!tPin) return;
   // ダイアログを閉じて地図画面へ（eid・tPin・_editBackupはそのまま保持）
+  addMode=true;
   document.getElementById('overlay').classList.remove('open');
   document.getElementById('dlg-edit').style.display = 'none';
   switchTab('map');
   setTimeout(()=>{
     map.invalidateSize({pan:false});
     map.setView(tPin.getLatLng(), Math.max(map.getZoom(), 15));
-    document.getElementById('move-banner').classList.add('show');
+    document.getElementById('add-banner').classList.add('show');
     if(typeof _pushHistory === 'function') _pushHistory();
   }, 320);
-}
-
-function confirmEditMove(){
-  if(!tPin) return;
-  const ll = tPin.getLatLng();
-  _setCoordFields(ll.lat, ll.lng, true);
-  document.getElementById('move-banner').classList.remove('show');
-  document.getElementById('overlay').classList.add('open');
-  document.getElementById('dlg-edit').style.display = 'block';
-}
-
-function cancelEditMove(){
-  if(!_editBackup || !tPin) return;
-  // tPinを元の座標に戻す
-  tPin.setLatLng([_editBackup.lat, _editBackup.lng]);
-  _setCoordFields(_editBackup.lat, _editBackup.lng, true);
-  document.getElementById('move-banner').classList.remove('show');
-  document.getElementById('overlay').classList.add('open');
-  document.getElementById('dlg-edit').style.display = 'block';
 }
 
 // ── 詳細・編集・削除 ─────────────────────────
