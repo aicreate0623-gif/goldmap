@@ -101,8 +101,10 @@ function _buildLayer(set, filterText){
                   (p.note||'').toLowerCase().includes(ft);
       if(!hit) return;
     }
+    const pIcon  = p.icon  || set.icon;
+    const pColor = p.color || set.color;
     const ico = L.divIcon({
-      html: `<div class="cl-marker" style="background:${set.color}">${set.icon}</div>`,
+      html: `<div class="cl-marker" style="background:${pColor}"><span class="cl-marker-ico">${pIcon}</span></div>`,
       className: '', iconSize:[32,32], iconAnchor:[16,32]
     });
     const mk = L.marker([p.lat,p.lng],{icon:ico,pane:'paneUser'});
@@ -113,10 +115,10 @@ function _buildLayer(set, filterText){
   if(set.visible && _clMapShown) lg.addTo(map);
 }
 function _clShowPopup(p, set){
-  // 既存鉱床と同デザインのポップアップ
+  const pIcon = p.icon || set.icon;
   const content = `
     <div class="mine-popup">
-      <div class="mine-popup-name">${set.icon} ${p.name||'（無名）'}</div>
+      <div class="mine-popup-name">${pIcon} ${p.name||'（無名）'}</div>
       ${p.note ? `<div class="mine-popup-note">${p.note}</div>` : ''}
       <div class="mine-popup-meta">${set.name}</div>
     </div>`;
@@ -185,7 +187,7 @@ function _clSetHTML(s){
         ? '<div class="cl-pt-empty">ポイントがありません</div>'
         : s.points.map((p, i) => `
           <div class="cl-pt-row">
-            <span class="cl-pt-icon">${s.icon}</span>
+            <span class="cl-pt-icon" style="background:${p.color||s.color}">${p.icon||s.icon}</span>
             <div class="cl-pt-info">
               <div class="cl-pt-name">${p.name || '（名前なし）'}</div>
               <div class="cl-pt-meta">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.note ? ' · ' + p.note.slice(0,20) + (p.note.length>20?'…':'') : ''}</div>
@@ -280,7 +282,10 @@ function saveClEdit(){
 
   if(_clEditId){
     const s = _clSets.find(s=>s.id===_clEditId);
-    if(s){ s.name=name; s.icon=icon; s.color=color; }
+    if(s){
+      s.name=name; s.icon=icon; s.color=color;
+      if(s.visible) _buildLayer(s); // 地図即時反映
+    }
   } else {
     if(_clSets.length >= CL_MAX_SETS){
       showAlert('上限','セットは最大'+CL_MAX_SETS+'件です');
@@ -420,7 +425,7 @@ function clExport(id){
     features: s.points.map(p=>({
       type: 'Feature',
       geometry: { type:'Point', coordinates:[p.lng,p.lat] },
-      properties: { name:p.name, note:p.note }
+      properties: { name:p.name, note:p.note } // icon/colorは除外
     }))
   };
   const a = document.createElement('a');
@@ -439,6 +444,45 @@ function clTogglePointList(setId) {
   arrow.textContent   = isOpen ? '▶' : '▼';
 }
 
+// ── 個別ポイント編集ダイアログ用ピッカー ────────────────
+function _renderPtIconPicker(selected){
+  const el = document.getElementById('cl-pt-icon-picker');
+  if(!el) return;
+  el.innerHTML = CL_ICONS.map(ic=>
+    `<button class="cl-ico-btn${ic===selected?' sel':''}" onclick="clSelectPtIcon('${ic}')" data-icon="${ic}">${ic}</button>`
+  ).join('');
+  const sel = document.getElementById('cl-pt-icon-selected');
+  if(sel){ sel.dataset.icon = selected; sel.textContent = selected; }
+}
+function clSelectPtIcon(ic){
+  const sel = document.getElementById('cl-pt-icon-selected');
+  if(sel){ sel.dataset.icon = ic; sel.textContent = ic; }
+  document.querySelectorAll('#cl-pt-icon-picker .cl-ico-btn').forEach(b=>{
+    b.classList.toggle('sel', b.dataset.icon===ic);
+  });
+}
+
+function _renderPtColorPicker(selected){
+  const el = document.getElementById('cl-pt-color-picker');
+  if(!el) return;
+  el.innerHTML = CL_COLORS.map(c=>
+    `<button class="cl-col-btn${c.value===selected?' sel':''}"
+      style="background:${c.value}"
+      onclick="clSelectPtColor('${c.value}')"
+      data-color="${c.value}"
+      title="${c.label}"></button>`
+  ).join('');
+  const sel = document.getElementById('cl-pt-color-selected');
+  if(sel){ sel.dataset.color = selected; sel.style.background = selected; }
+}
+function clSelectPtColor(val){
+  const sel = document.getElementById('cl-pt-color-selected');
+  if(sel){ sel.dataset.color = val; sel.style.background = val; }
+  document.querySelectorAll('#cl-pt-color-picker .cl-col-btn').forEach(b=>{
+    b.classList.toggle('sel', b.dataset.color===val);
+  });
+}
+
 // ── 個別ポイント編集ダイアログを開く ───────────────
 let _editingPointSetId  = null;
 let _editingPointIndex  = null;
@@ -454,6 +498,9 @@ function openClPointEdit(setId, idx) {
   document.getElementById('cl-pt-note').value = p.note || '';
   document.getElementById('cl-pt-lat').value  = p.lat;
   document.getElementById('cl-pt-lng').value  = p.lng;
+  // アイコン・色ピッカーをポイント個別値で初期化（未設定ならセットのデフォルト）
+  _renderPtIconPicker(p.icon  || s.icon);
+  _renderPtColorPicker(p.color || s.color);
   showDlg('dlg-cl-point-edit');
 }
 
@@ -465,9 +512,11 @@ async function saveClPointEdit() {
   if (isNaN(lat) || isNaN(lng)) { showAlert('エラー', '緯度・経度は数値で入力してください'); return; }
   s.points[_editingPointIndex] = {
     ...s.points[_editingPointIndex],
-    name: document.getElementById('cl-pt-name').value.trim(),
-    note: document.getElementById('cl-pt-note').value.trim(),
+    name:  document.getElementById('cl-pt-name').value.trim(),
+    note:  document.getElementById('cl-pt-note').value.trim(),
     lat, lng,
+    icon:  document.getElementById('cl-pt-icon-selected').dataset.icon,
+    color: document.getElementById('cl-pt-color-selected').dataset.color,
   };
   await _clSave();
   if (s.visible) _buildLayer(s);
