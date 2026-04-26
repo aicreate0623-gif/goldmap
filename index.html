@@ -177,11 +177,27 @@
           </table>
 
           <p style="margin:0 0 4px;color:var(--txt);font-weight:600;">🔍 フィルター機能</p>
-          <p style="margin:0 0 6px;">セットごとにキーワードで絞り込み表示できます。name・noteを対象に部分一致で検索します。</p>
+          <p style="margin:0 0 6px;">セットごとにキーワードで絞り込み表示できます。名前・メモを対象に部分一致で検索します。組み合わせ検索にも対応しています。</p>
           <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px;">
             <tr style="background:rgba(255,255,255,0.05);">
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">入力例</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山」と入力 → 名前・メモに「金山」を含むポイントだけ地図に表示</td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">通常</td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山」→ 名前・メモに「金山」を含むポイントを表示</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">OR検索 <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">|</code></td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山|銀山」→ 金山 <b>または</b> 銀山を含むポイントを表示</td>
+            </tr>
+            <tr style="background:rgba(255,255,255,0.05);">
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">AND検索 <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">スペース</code></td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山 福島」→ 金山 <b>かつ</b> 福島を含むポイントを表示</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">除外 <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">-</code></td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山 -廃坑」→ 金山を含み、廃坑を<b>含まない</b>ポイントを表示</td>
+            </tr>
+            <tr style="background:rgba(255,255,255,0.05);">
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">組み合わせ</td>
+              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山|銀山 -廃坑」→ 金山を含む <b>または</b>（銀山を含みかつ廃坑を含まない）</td>
             </tr>
             <tr>
               <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">件数表示</td>

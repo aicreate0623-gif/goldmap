@@ -110,16 +110,31 @@ function _hideAllClLayers(){
 }
 
 // ── レイヤー構築 ─────────────────────────────
+function _matchFilter(p, ft){
+  if(!ft) return true;
+  const target = ((p.name||'') + ' ' + (p.note||'')).toLowerCase();
+  // | でOR分割
+  const orGroups = ft.split('|').map(s=>s.trim()).filter(s=>s);
+  return orGroups.some(group=>{
+    // スペースでAND分割
+    const terms = group.split(/\s+/).filter(s=>s);
+    return terms.every(term=>{
+      if(term.startsWith('-')){
+        // 除外
+        const word = term.slice(1);
+        return word ? !target.includes(word) : true;
+      }
+      return target.includes(term);
+    });
+  });
+}
+
 function _buildLayer(set, filterText){
   if(_clLayers[set.id]){ map.removeLayer(_clLayers[set.id]); }
   const lg = L.layerGroup();
   const ft = (filterText || _clFilterMap[set.id] || '').trim().toLowerCase();
   set.points.forEach(p=>{
-    if(ft){
-      const hit = (p.name||'').toLowerCase().includes(ft) ||
-                  (p.note||'').toLowerCase().includes(ft);
-      if(!hit) return;
-    }
+    if(ft && !_matchFilter(p, ft)) return;
     const pIcon  = p.icon  || set.icon;
     const pColor = p.color || set.color;
     const ico = L.divIcon({
@@ -168,9 +183,7 @@ function _clSetHTML(s){
       <span class="cl-set-count">${s.points.length}件${(()=>{
         const ft = (_clFilterMap[s.id]||'').trim().toLowerCase();
         if(!ft) return '';
-        const n = s.points.filter(p=>
-          (p.name||'').toLowerCase().includes(ft)||(p.note||'').toLowerCase().includes(ft)
-        ).length;
+        const n = s.points.filter(p=>_matchFilter(p, ft)).length;
         return ` <span class="cl-filter-count">→ ${n}件</span>`;
       })()}</span>
       <div class="cl-set-actions">
