@@ -257,8 +257,8 @@ function openClAdd(){
   _clEditId = null;
   document.getElementById('cl-dlg-title').textContent = '新規セット追加';
   document.getElementById('cl-dlg-name').value = '';
-  _renderIconPicker(CL_ICONS[0]);
-  _renderColorPicker(CL_COLORS[0].value);
+  _clRenderIconPicker(CL_ICONS[0]);
+  _clRenderColorPicker(CL_COLORS[0].value);
   showDlg('dlg-cl-edit');
 }
 
@@ -269,8 +269,8 @@ function openClEdit(id){
   _clEditId = id;
   document.getElementById('cl-dlg-title').textContent = 'セット編集';
   document.getElementById('cl-dlg-name').value = s.name;
-  _renderIconPicker(s.icon);
-  _renderColorPicker(s.color);
+  _clRenderIconPicker(s.icon);
+  _clRenderColorPicker(s.color);
   showDlg('dlg-cl-edit');
 }
 
@@ -305,7 +305,7 @@ function saveClEdit(){
 }
 
 // ── アイコン・色ピッカー ─────────────────────
-function _renderIconPicker(selected){
+function _clRenderIconPicker(selected){
   const el = document.getElementById('cl-icon-picker');
   if(!el) return;
   el.innerHTML = CL_ICONS.map(ic=>
@@ -325,7 +325,7 @@ function clSelectIcon(ic){
   });
 }
 
-function _renderColorPicker(selected){
+function _clRenderColorPicker(selected){
   const el = document.getElementById('cl-color-picker');
   if(!el) return;
   el.innerHTML = CL_COLORS.map(c=>
