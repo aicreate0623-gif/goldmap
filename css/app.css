@@ -429,6 +429,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 
 /* ━━━ POINT SHEET ━━━ */
 #pt-sheet .sheet-head { padding-bottom: 10px; }
+#pt-sheet .sheet-body { padding: 0 0 calc(var(--tab-h) + 18px); }
 .pt-actions {
   display: flex; gap: 8px; padding: 10px 16px;
   border-bottom: 1px solid rgba(200,170,80,0.1);
