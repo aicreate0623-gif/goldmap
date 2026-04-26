@@ -385,6 +385,8 @@ function startMovePin(){
       draggable: true,
       pane: 'paneUser'
     }).addTo(map);
+    _movePin.on('dragstart', () => map.dragging.disable());
+    _movePin.on('dragend',   () => map.dragging.enable());
     document.getElementById('move-banner').classList.add('show');
     // バックボタン用に履歴を積む
     if(typeof _pushHistory === 'function') _pushHistory();
