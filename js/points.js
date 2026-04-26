@@ -382,7 +382,7 @@ function startMovePin(){
     // 現在地に波紋付き仮ピンを置く
     _movePin = L.marker([p.lat, p.lng], {
       icon: _makeTempIcon(p.icon||PT_DEFAULT_ICON, p.color||PT_DEFAULT_COLOR),
-      draggable: false,
+      draggable: true,
       pane: 'paneUser'
     }).addTo(map);
     document.getElementById('move-banner').classList.add('show');
