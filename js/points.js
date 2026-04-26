@@ -379,9 +379,8 @@ function startMovePin(){
   }, 320);
 }
 
-// ── 自前ドラッグ実装（touch/mouse両対応・地図ドラッグ共存） ──
-// map.dragging は一切操作しない。
-// ピンDOMへのイベントを stopPropagation で地図に伝播させないだけで競合を防ぐ。
+// ── 自前ドラッグ実装（touch/mouse両対応） ──────────
+// ピンをタッチした瞬間だけ map.dragging を止め、離したら戻す。
 function _attachMovePinDrag(marker){
   const el = marker.getElement();
   if(!el) return;
@@ -394,44 +393,40 @@ function _attachMovePinDrag(marker){
     );
   }
 
+  function _endDrag(){
+    if(!_dragging) return;
+    _dragging = false;
+    map.dragging.enable();
+  }
+
   // ── touch ──
+  // touchstart は passive:false で登録し preventDefault でピン以外への伝播を遮断
   el.addEventListener('touchstart', e=>{
     if(e.touches.length !== 1) return;
+    e.preventDefault();
     e.stopPropagation();
     _dragging = true;
-  }, {passive:true});
+    map.dragging.disable();   // ピンを触った瞬間だけ地図ドラッグをブロック
+  }, {passive:false});
 
   el.addEventListener('touchmove', e=>{
     if(!_dragging || e.touches.length !== 1) return;
-    e.preventDefault();      // ピン上のスクロールを止める
+    e.preventDefault();
     e.stopPropagation();
     const t = e.touches[0];
     marker.setLatLng(_getLL(t.clientX, t.clientY));
   }, {passive:false});
 
-  el.addEventListener('touchend', e=>{
-    e.stopPropagation();
-    _dragging = false;
-  }, {passive:true});
-
-  el.addEventListener('touchcancel', e=>{
-    e.stopPropagation();
-    _dragging = false;
-  }, {passive:true});
+  el.addEventListener('touchend',    e=>{ e.stopPropagation(); _endDrag(); }, {passive:true});
+  el.addEventListener('touchcancel', e=>{ e.stopPropagation(); _endDrag(); }, {passive:true});
 
   // ── mouse ──
   el.addEventListener('mousedown', e=>{
     e.stopPropagation();
     _dragging = true;
-    const onMove = ev=>{
-      if(!_dragging) return;
-      marker.setLatLng(_getLL(ev.clientX, ev.clientY));
-    };
-    const onUp = ()=>{
-      _dragging = false;
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup',   onUp);
-    };
+    map.dragging.disable();
+    const onMove = ev=>{ if(_dragging) marker.setLatLng(_getLL(ev.clientX, ev.clientY)); };
+    const onUp   = ()=>{ _endDrag(); document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup',   onUp);
   });
