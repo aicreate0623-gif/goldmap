@@ -258,6 +258,16 @@ function startAddPt(){
   document.getElementById('add-banner').classList.add('show');
 }
 function cancelAdd(){
+  // 編集モード中のキャンセル: 既存マーカーを復元
+  if(eid!==null){
+    const p=pts.find(q=>q.id===eid);
+    if(p && p.mk){
+      p.mk.setOpacity(1);
+      p.mk.options.interactive=true;
+      if(p.mk.getElement()) p.mk.getElement().style.pointerEvents='';
+    }
+    eid=null; _editBackup=null;
+  }
   addMode=false;if(tPin){map.removeLayer(tPin);tPin=null;}
   document.getElementById('add-banner').classList.remove('show');
 }
@@ -308,7 +318,11 @@ function cancelEdit(){
   if(tPin){ map.removeLayer(tPin); tPin=null; }
   if(eid!==null && _editBackup){
     const p=pts.find(q=>q.id===eid);
-    if(p && p.mk) p.mk.setOpacity(1);
+    if(p && p.mk){
+      p.mk.setOpacity(1);
+      p.mk.options.interactive=true;
+      if(p.mk.getElement()) p.mk.getElement().style.pointerEvents='';
+    }
   }
   _editBackup=null;
   addMode=false;
@@ -336,7 +350,11 @@ async function confirmSave(){
     p.name=n;p.memo=m;p.stars=_curStars;p.icon=_curIcon;p.color=_curColor;
     // tPin削除・既存マーカーを通常表示に戻す
     if(tPin){ map.removeLayer(tPin); tPin=null; }
-    if(p.mk) p.mk.setOpacity(1);
+    if(p.mk){
+      p.mk.setOpacity(1);
+      p.mk.options.interactive=true;
+      if(p.mk.getElement()) p.mk.getElement().style.pointerEvents='';
+    }
     _editBackup=null;
     addMode=false;
     document.getElementById('add-banner').classList.remove('show');
@@ -402,8 +420,8 @@ function editCur(){
   _editBackup={lat:p.lat,lng:p.lng,name:p.name,memo:p.memo||'',
     stars:p.stars||0,icon:p.icon||PT_DEFAULT_ICON,color:p.color||PT_DEFAULT_COLOR};
 
-  // 既存マーカーを薄く表示
-  if(p.mk) p.mk.setOpacity(0.3);
+  // 既存マーカーを薄く＋非インタラクティブにしてtPinへのタッチを通す
+  if(p.mk){ p.mk.setOpacity(0.3); p.mk.options.interactive=false; p.mk.getElement()&&(p.mk.getElement().style.pointerEvents='none'); }
 
   // 新規追加と同じtPinを既存位置に配置
   _curIcon=p.icon||PT_DEFAULT_ICON; _curColor=p.color||PT_DEFAULT_COLOR;
