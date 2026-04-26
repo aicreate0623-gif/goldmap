@@ -309,15 +309,18 @@ function _renderIconPicker(selected){
   const el = document.getElementById('cl-icon-picker');
   if(!el) return;
   el.innerHTML = CL_ICONS.map(ic=>
-    `<button class="cl-ico-btn${ic===selected?' sel':''}" onclick="clSelectIcon('${ic}')" data-icon="${ic}">${ic}</button>`
+    `<button class="cl-ico-btn${ic===selected?' sel':''}" type="button" data-icon="${ic}">${ic}</button>`
   ).join('');
+  el.querySelectorAll('.cl-ico-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> clSelectIcon(btn.dataset.icon));
+  });
   document.getElementById('cl-dlg-icon-selected').dataset.icon = selected;
   document.getElementById('cl-dlg-icon-selected').textContent  = selected;
 }
 function clSelectIcon(ic){
   document.getElementById('cl-dlg-icon-selected').dataset.icon = ic;
   document.getElementById('cl-dlg-icon-selected').textContent  = ic;
-  document.querySelectorAll('.cl-ico-btn').forEach(b=>{
+  document.querySelectorAll('#cl-icon-picker .cl-ico-btn').forEach(b=>{
     b.classList.toggle('sel', b.dataset.icon===ic);
   });
 }
@@ -327,18 +330,21 @@ function _renderColorPicker(selected){
   if(!el) return;
   el.innerHTML = CL_COLORS.map(c=>
     `<button class="cl-col-btn${c.value===selected?' sel':''}"
+      type="button"
       style="background:${c.value}"
-      onclick="clSelectColor('${c.value}')"
       data-color="${c.value}"
       title="${c.label}"></button>`
   ).join('');
+  el.querySelectorAll('.cl-col-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> clSelectColor(btn.dataset.color));
+  });
   document.getElementById('cl-dlg-color-selected').dataset.color = selected;
   document.getElementById('cl-dlg-color-selected').style.background = selected;
 }
 function clSelectColor(val){
   document.getElementById('cl-dlg-color-selected').dataset.color = val;
   document.getElementById('cl-dlg-color-selected').style.background = val;
-  document.querySelectorAll('.cl-col-btn').forEach(b=>{
+  document.querySelectorAll('#cl-color-picker .cl-col-btn').forEach(b=>{
     b.classList.toggle('sel', b.dataset.color===val);
   });
 }
@@ -449,8 +455,11 @@ function _renderPtIconPicker(selected){
   const el = document.getElementById('cl-pt-icon-picker');
   if(!el) return;
   el.innerHTML = CL_ICONS.map(ic=>
-    `<button class="cl-ico-btn${ic===selected?' sel':''}" onclick="clSelectPtIcon('${ic}')" data-icon="${ic}">${ic}</button>`
+    `<button class="cl-ico-btn${ic===selected?' sel':''}" type="button" data-icon="${ic}">${ic}</button>`
   ).join('');
+  el.querySelectorAll('.cl-ico-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> clSelectPtIcon(btn.dataset.icon));
+  });
   const sel = document.getElementById('cl-pt-icon-selected');
   if(sel){ sel.dataset.icon = selected; sel.textContent = selected; }
 }
@@ -467,11 +476,14 @@ function _renderPtColorPicker(selected){
   if(!el) return;
   el.innerHTML = CL_COLORS.map(c=>
     `<button class="cl-col-btn${c.value===selected?' sel':''}"
+      type="button"
       style="background:${c.value}"
-      onclick="clSelectPtColor('${c.value}')"
       data-color="${c.value}"
       title="${c.label}"></button>`
   ).join('');
+  el.querySelectorAll('.cl-col-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> clSelectPtColor(btn.dataset.color));
+  });
   const sel = document.getElementById('cl-pt-color-selected');
   if(sel){ sel.dataset.color = selected; sel.style.background = selected; }
 }
