@@ -161,7 +161,18 @@ function _updateMk(p) {
   let _lpTimer=null, _lpRipple=null;
   function _clearLp(){ clearTimeout(_lpTimer); _lpTimer=null; if(_lpRipple){_lpRipple.remove();_lpRipple=null;} }
   function _startLp(x,y,latlng){
-    if(addMode||(typeof drawMode!=='undefined'&&drawMode)||_movePin) return;
+    // movePinモード中は長押しを仮ピン移動として使う（通常の追加モードは起動しない）
+    if(_movePin){
+      _lpRipple=document.createElement('div');
+      _lpRipple.style.cssText=`position:fixed;left:${x-20}px;top:${y-20}px;width:40px;height:40px;border-radius:50%;border:2px solid rgba(0,200,255,0.8);animation:lpRipple 1s ease-out forwards;pointer-events:none;z-index:1001;`;
+      document.body.appendChild(_lpRipple);
+      _lpTimer=setTimeout(()=>{
+        _clearLp();
+        _movePin.setLatLng(latlng);
+      },1000);
+      return;
+    }
+    if(addMode||(typeof drawMode!=='undefined'&&drawMode)) return;
     _lpRipple=document.createElement('div');
     _lpRipple.style.cssText=`position:fixed;left:${x-20}px;top:${y-20}px;width:40px;height:40px;border-radius:50%;border:2px solid rgba(200,170,80,0.8);animation:lpRipple 1s ease-out forwards;pointer-events:none;z-index:1001;`;
     document.body.appendChild(_lpRipple);
@@ -368,71 +379,16 @@ function startMovePin(){
     map.invalidateSize({pan:false});
     map.setView([p.lat, p.lng], Math.max(map.getZoom(), 15));
     if(p.mk) p.mk.setOpacity(0.3);
-    // draggable:false で生成し、自前タッチ/マウスドラッグで動かす
+    // 現在地に波紋付き仮ピンを置く
     _movePin = L.marker([p.lat, p.lng], {
       icon: _makeTempIcon(p.icon||PT_DEFAULT_ICON, p.color||PT_DEFAULT_COLOR),
       draggable: false,
       pane: 'paneUser'
     }).addTo(map);
-    // addTo直後はDOMがまだない。rAFで1フレーム待ってからイベント登録
-    requestAnimationFrame(()=>{
-      _attachMovePinDrag(_movePin);
-    });
     document.getElementById('move-banner').classList.add('show');
+    // バックボタン用に履歴を積む
+    if(typeof _pushHistory === 'function') _pushHistory();
   }, 320);
-}
-
-// ── 自前ドラッグ実装（touch/mouse両対応） ──────────
-// ピンをタッチした瞬間だけ map.dragging を止め、離したら戻す。
-function _attachMovePinDrag(marker){
-  const el = marker.getElement();
-  if(!el) return;
-  let _dragging = false;
-
-  function _getLL(clientX, clientY){
-    const rect = document.getElementById('map').getBoundingClientRect();
-    return map.containerPointToLatLng(
-      L.point(clientX - rect.left, clientY - rect.top)
-    );
-  }
-
-  function _endDrag(){
-    if(!_dragging) return;
-    _dragging = false;
-    map.dragging.enable();
-  }
-
-  // ── touch ──
-  // touchstart は passive:false で登録し preventDefault でピン以外への伝播を遮断
-  el.addEventListener('touchstart', e=>{
-    if(e.touches.length !== 1) return;
-    e.preventDefault();
-    e.stopPropagation();
-    _dragging = true;
-    map.dragging.disable();   // ピンを触った瞬間だけ地図ドラッグをブロック
-  }, {passive:false});
-
-  el.addEventListener('touchmove', e=>{
-    if(!_dragging || e.touches.length !== 1) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const t = e.touches[0];
-    marker.setLatLng(_getLL(t.clientX, t.clientY));
-  }, {passive:false});
-
-  el.addEventListener('touchend',    e=>{ e.stopPropagation(); _endDrag(); }, {passive:true});
-  el.addEventListener('touchcancel', e=>{ e.stopPropagation(); _endDrag(); }, {passive:true});
-
-  // ── mouse ──
-  el.addEventListener('mousedown', e=>{
-    e.stopPropagation();
-    _dragging = true;
-    map.dragging.disable();
-    const onMove = ev=>{ if(_dragging) marker.setLatLng(_getLL(ev.clientX, ev.clientY)); };
-    const onUp   = ()=>{ _endDrag(); document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup',   onUp);
-  });
 }
 
 function confirmMovePin(){

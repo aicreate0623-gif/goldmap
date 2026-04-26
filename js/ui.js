@@ -1296,7 +1296,15 @@ function _pushHistory(){
 }
 
 window.addEventListener('popstate', function(e){
-  // ① overlayダイアログが開いているなら閉じる
+  // ① move-bannerが表示中ならキャンセル処理
+  const mvBanner = document.getElementById('move-banner');
+  if(mvBanner && mvBanner.classList.contains('show')){
+    if(typeof cancelMovePin === 'function') cancelMovePin();
+    _pushHistory();
+    return;
+  }
+
+  // ② overlayダイアログが開いているなら閉じる
   const ov = document.getElementById('overlay');
   if(ov && ov.classList.contains('open')){
     closeOv();
@@ -1404,4 +1412,4 @@ function toggleCommAccordion(header) {
   }
 }
 
-// 起動
+// 起動
