@@ -41,11 +41,18 @@ async function _clLoad(){
   try{
     const d = await dbGetMine(CL_IDB_KEY);
     _clSets = (d && d.sets) ? d.sets : [];
+    // フィルター文字列を復元
+    _clFilterMap = {};
+    _clSets.forEach(s=>{ if(s.filter) _clFilterMap[s.id] = s.filter; });
   }catch(e){ _clSets = []; }
 }
 async function _clSave(){
   if(!db) return;
-  try{ await dbPutMine(CL_IDB_KEY, {sets: _clSets}); }catch(e){}
+  try{
+    // フィルター文字列をセットに埋め込んで保存
+    const sets = _clSets.map(s=>({ ...s, filter: _clFilterMap[s.id] || '' }));
+    await dbPutMine(CL_IDB_KEY, {sets});
+  }catch(e){}
 }
 
 // ── 初期化 ──────────────────────────────────
@@ -235,10 +242,16 @@ function clToggleVisible(id){
 }
 
 // ── フィルター ───────────────────────────────
+let _clFilterSaveTimer = null;
+function _clFilterSaveDebounced(){
+  clearTimeout(_clFilterSaveTimer);
+  _clFilterSaveTimer = setTimeout(()=>_clSave(), 800);
+}
 function clFilter(id, val){
   _clFilterMap[id] = val;
   const s = _clSets.find(s=>s.id===id);
   if(s && s.visible) _buildLayer(s, val);
+  _clFilterSaveDebounced();
   // クリアボタン表示更新
   const card = document.getElementById(`cl-set-${id}`);
   if(card){
@@ -266,6 +279,7 @@ function clFilterClear(id){
   }
   const s = _clSets.find(s=>s.id===id);
   if(s && s.visible) _buildLayer(s, '');
+  _clSave();
 }
 
 // ── 新規セット追加 ───────────────────────────
