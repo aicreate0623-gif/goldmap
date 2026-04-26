@@ -165,7 +165,14 @@ function _clSetHTML(s){
     <div class="cl-set-header">
       <span class="cl-set-icon">${s.icon}</span>
       <span class="cl-set-name">${s.name}</span>
-      <span class="cl-set-count">${s.points.length}件</span>
+      <span class="cl-set-count">${s.points.length}件${(()=>{
+        const ft = (_clFilterMap[s.id]||'').trim().toLowerCase();
+        if(!ft) return '';
+        const n = s.points.filter(p=>
+          (p.name||'').toLowerCase().includes(ft)||(p.note||'').toLowerCase().includes(ft)
+        ).length;
+        return ` <span class="cl-filter-count">→ ${n}件</span>`;
+      })()}</span>
       <div class="cl-set-actions">
         <button class="btn sm" onclick="openClEdit('${s.id}')">✏️</button>
         <button class="btn sm red" onclick="confirmClDelete('${s.id}')">🗑</button>
