@@ -290,18 +290,6 @@
     </div>
   </div>
 
-  <!-- 読込ポイント一覧 -->
-  <div class="cfg-accordion pt-list-accordion" style="margin-top:8px">
-    <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-      <span class="cfg-accordion-title" id="imp-list-accordion-title">📥 読込ポイント（0件）</span>
-      <span class="cfg-accordion-arrow">▶</span>
-    </div>
-    <div class="cfg-accordion-body">
-      <div class="pt-list" id="imp-set-list">
-        <div class="pt-empty">読込ポイントはありません<br>「📥 読込」でGeoJSONを追加できます</div>
-      </div>
-    </div>
-  </div>
   </div><!-- /sheet-body -->
 </div>
 
@@ -834,10 +822,9 @@
       <button class="dbtn del" onclick="confirmDel()">削除する</button>
     </div>
   </div>
+
   <div class="dialog" id="dlg-imp2" style="display:none">
     <h3>📥 ポイントを読み込む</h3>
-    <label>セット名</label>
-    <input type="text" id="imp2-set-name" placeholder="例：〇〇川エリア">
     <label>GeoJSONファイル</label>
     <div class="imp2-file-row">
       <button class="btn sm" onclick="imp2SelectFile()">ファイルを選択</button>
@@ -847,12 +834,12 @@
     <input type="file" id="impf2" accept=".geojson,.json" style="display:none" onchange="imp2OnFile(event)">
     <label>アイコン</label>
     <div class="pt-picker-row">
-      <div class="pt-picker-selected" id="imp2-icon-selected" data-icon="📥">📥</div>
+      <div class="pt-picker-selected" id="imp2-icon-selected" data-icon="⛏">⛏</div>
       <div class="cl-icon-picker" id="imp2-icon-picker"></div>
     </div>
     <label>マーカー色</label>
     <div class="pt-picker-row">
-      <div class="pt-color-preview" id="imp2-color-selected" data-color="#3498db" style="background:#3498db"></div>
+      <div class="pt-color-preview" id="imp2-color-selected" data-color="#c8a020" style="background:#c8a020"></div>
       <div class="cl-color-picker" id="imp2-color-picker"></div>
     </div>
     <div class="dlg-btns">

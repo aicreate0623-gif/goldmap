@@ -186,13 +186,13 @@ function _clSetHTML(s){
       ${s.points.length === 0
         ? '<div class="cl-pt-empty">ポイントがありません</div>'
         : s.points.map((p, i) => `
-          <div class="cl-pt-row">
+          <div class="cl-pt-row" onclick="clJumpToPoint('${s.id}',${i})">
             <span class="cl-pt-icon" style="background:${p.color||s.color}">${p.icon||s.icon}</span>
             <div class="cl-pt-info">
               <div class="cl-pt-name">${p.name || '（名前なし）'}</div>
               <div class="cl-pt-meta">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.note ? ' · ' + p.note.slice(0,20) + (p.note.length>20?'…':'') : ''}</div>
             </div>
-            <div class="cl-pt-row-btns">
+            <div class="cl-pt-row-btns" onclick="event.stopPropagation()">
               <button class="btn sm" onclick="openClPointEdit('${s.id}',${i})">✏️</button>
               <button class="btn sm red" onclick="openClPointDel('${s.id}',${i})">🗑</button>
             </div>
@@ -569,4 +569,22 @@ async function _doClPointDelete() {
   if (list)  list.style.display = 'block';
   if (arrow) arrow.textContent  = '▼';
   closeOv();
+}
+
+// ── 個別ポイント 地図ジャンプ ────────────────────
+function clJumpToPoint(setId, idx) {
+  const s = _clSets.find(s => s.id === setId);
+  if (!s || !s.points[idx]) return;
+  const p = s.points[idx];
+  switchTab('map');
+  setTimeout(() => {
+    map.invalidateSize({pan: false});
+    map.setView([p.lat, p.lng], 15);
+    // セットが非表示なら表示ONにしてポップアップを出す
+    if (!s.visible || !_clMapShown) {
+      _clShowPopup(p, s);
+    } else {
+      _clShowPopup(p, s);
+    }
+  }, 320);
 }

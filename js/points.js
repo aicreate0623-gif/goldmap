@@ -190,7 +190,6 @@ function loadPts(){
     updPtCnt();
   }catch(e){}
   applyContribUI();
-  _loadImportPts();
   if(typeof isPremiumUser==='function'){
     isPremiumUser().then(premium=>{
       const bar=document.getElementById('contrib-bar-wrap');
@@ -201,20 +200,19 @@ function loadPts(){
 function renderPtList(){
   const el=document.getElementById('pt-list');
   if(!pts.length){
-    el.innerHTML='<div class="pt-empty">まだポイントがありません<br>「＋ ポイント追加」で地図上に登録できます</div>';
+    el.innerHTML='<div class="cl-pt-empty">まだポイントがありません<br>「＋ ポイント追加」で地図上に登録できます</div>';
     return;
   }
   el.innerHTML=pts.map(p=>`
-    <div class="pt-row" onclick="jumpPt(${p.id})">
-      <div class="pt-row-ico" style="background:${(!p.color||p.color==='transparent')?'rgba(200,160,32,0.2)':p.color}">${p.icon||'⛏'}</div>
-      <div class="pt-row-body">
-        <div class="pt-row-name">${p.name||'（無名）'}${p.stars?` <span style="font-size:11px;color:var(--gold-lt)">${'★'.repeat(p.stars)}</span>`:''}</div>
-        <div class="pt-row-coord">📍 ${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div>
-        ${p.memo?`<div class="pt-row-memo">${p.memo}</div>`:''}
+    <div class="cl-pt-row" onclick="jumpPt(${p.id})">
+      <span class="cl-pt-icon" style="background:${(!p.color||p.color==='transparent')?'rgba(200,160,32,0.2)':p.color}">${p.icon||'⛏'}</span>
+      <div class="cl-pt-info">
+        <div class="cl-pt-name">${p.name||'（無名）'}${p.stars?`&nbsp;<span style="font-size:10px;color:var(--gold-lt)">${'★'.repeat(p.stars)}</span>`:''}</div>
+        <div class="cl-pt-meta">📍 ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.memo?` · ${p.memo.slice(0,20)}${p.memo.length>20?'…':''}`:''}</div>
       </div>
-      <div class="pt-row-btns" onclick="event.stopPropagation()">
-        <button class="pt-row-edit-btn" onclick="ptListEdit(${p.id})" title="編集">✏️</button>
-        <button class="pt-row-del-btn"  onclick="ptListDel(${p.id})"  title="削除">🗑</button>
+      <div class="cl-pt-row-btns" onclick="event.stopPropagation()">
+        <button class="btn sm" onclick="ptListEdit(${p.id})" title="編集">✏️</button>
+        <button class="btn sm red" onclick="ptListDel(${p.id})" title="削除">🗑</button>
       </div>
     </div>
   `).join('');
@@ -350,147 +348,76 @@ function exportPts(){
   a.download='goldmap.geojson';a.click();
 }
 
-// ════════════════════════════════════════════════
-// 読込ポイント別管理（gm_pts_import）
-// ════════════════════════════════════════════════
-const IMP_STORAGE_KEY='gm_pts_import';
-let _impSets=[];
-let _impNid=1;
-
-function _saveImportPts(){
-  try{
-    localStorage.setItem(IMP_STORAGE_KEY,JSON.stringify(
-      _impSets.map(s=>({
-        id:s.id,name:s.name,icon:s.icon,color:s.color,
-        points:s.points.map(p=>({lat:p.lat,lng:p.lng,name:p.name,note:p.note}))
-      }))
-    ));
-  }catch(e){}
-}
-function _loadImportPts(){
-  try{
-    const d=JSON.parse(localStorage.getItem(IMP_STORAGE_KEY)||'[]');
-    d.forEach(s=>{
-      if(s.id>=_impNid) _impNid=s.id+1;
-      s.points=s.points||[];
-      s.points.forEach(p=>_addImpMk(p,s));
-      _impSets.push(s);
-    });
-  }catch(e){}
-  _renderImpList();
-}
-function _addImpMk(p,set){
-  const bg=(!set.color||set.color==='transparent')?'rgba(100,180,255,0.25)':set.color;
-  const border=(!set.color||set.color==='transparent')?'2px dashed rgba(100,180,255,0.6)':'2px solid rgba(255,255,255,0.5)';
-  const ico=L.divIcon({
-    html:`<div class="pt-marker pt-marker-imp" style="background:${bg};border:${border}">${set.icon||'📥'}</div>`,
-    className:'',iconSize:[28,28],iconAnchor:[14,28]
-  });
-  const mk=L.marker([p.lat,p.lng],{icon:ico,zIndexOffset:50,pane:'paneUser'});
-  mk.bindPopup(`<div style="font-size:13px;font-weight:bold">${set.icon||'📥'} ${p.name||'（無名）'}</div>${p.note?`<div style="font-size:11px;color:#aaa;margin-top:4px">${p.note}</div>`:''}`);
-  mk.addTo(map);p.mk=mk;
-}
-
-// ── 読込ダイアログ ────────────────────────────
-let _impFileData=null;
-let _curImpIcon='📥';
-let _curImpColor='#3498db';
+// ── 読込ダイアログ（GeoJSON → pts に直接追加） ────────────────────────────
+let _impFileData = null;
+let _curImpIcon  = '📥';
+let _curImpColor = '#c8a020';
 
 function openImpDlg(){
-  document.getElementById('imp2-set-name').value='';
-  _impFileData=null;
-  document.getElementById('imp2-file-name').textContent='ファイル未選択';
-  document.getElementById('imp2-count').textContent='';
-  _curImpIcon='📥';_curImpColor='#3498db';
-  _renderIconPicker(_curImpIcon,'imp2-icon-picker','imp2-icon-selected');
-  _renderColorPicker(_curImpColor,'imp2-color-picker','imp2-color-selected');
+  _impFileData = null;
+  document.getElementById('imp2-file-name').textContent = 'ファイル未選択';
+  document.getElementById('imp2-count').textContent = '';
+  _curImpIcon  = PT_DEFAULT_ICON;
+  _curImpColor = PT_DEFAULT_COLOR;
+  _renderIconPicker(_curImpIcon,  'imp2-icon-picker',  'imp2-icon-selected');
+  _renderColorPicker(_curImpColor,'imp2-color-picker', 'imp2-color-selected');
   showDlg('dlg-imp2');
 }
 function impSelectIcon(ic){
-  _curImpIcon=ic;
+  _curImpIcon = ic;
   document.querySelectorAll('#imp2-icon-picker .cl-ico-btn').forEach(b=>b.classList.toggle('sel',b.dataset.icon===ic));
-  const sel=document.getElementById('imp2-icon-selected');
-  if(sel){sel.dataset.icon=ic;sel.textContent=ic;}
+  const sel = document.getElementById('imp2-icon-selected');
+  if(sel){ sel.dataset.icon = ic; sel.textContent = ic; }
 }
 function impSelectColor(val){
-  _curImpColor=val;
+  _curImpColor = val;
   document.querySelectorAll('#imp2-color-picker .cl-col-btn').forEach(b=>b.classList.toggle('sel',b.dataset.color===val));
-  const sel=document.getElementById('imp2-color-selected');
-  if(sel){sel.dataset.color=val;sel.style.background=val==='transparent'?'rgba(255,255,255,0.1)':val;}
+  const sel = document.getElementById('imp2-color-selected');
+  if(sel){ sel.dataset.color = val; sel.style.background = val==='transparent'?'rgba(255,255,255,0.1)':val; }
 }
 function imp2SelectFile(){ document.getElementById('impf2').click(); }
 function imp2OnFile(ev){
-  const f=ev.target.files[0];ev.target.value='';if(!f)return;
-  const r=new FileReader();
-  r.onload=e=>{
+  const f = ev.target.files[0]; ev.target.value = ''; if(!f) return;
+  const r = new FileReader();
+  r.onload = e => {
     try{
-      const j=JSON.parse(e.target.result);
-      if(j.type!=='FeatureCollection') throw 0;
-      const v=j.features.filter(f=>f.type==='Feature'&&f.geometry?.type==='Point'&&typeof f.geometry.coordinates[0]==='number');
-      _impFileData=v;
-      document.getElementById('imp2-file-name').textContent=f.name;
-      document.getElementById('imp2-count').textContent=v.length+'件のポイントが見つかりました';
-    }catch{showAlert('エラー','有効なGeoJSONではありません');}
+      const j = JSON.parse(e.target.result);
+      if(j.type !== 'FeatureCollection') throw 0;
+      const v = j.features.filter(f =>
+        f.type==='Feature' && f.geometry?.type==='Point' &&
+        typeof f.geometry.coordinates[0]==='number'
+      );
+      _impFileData = v;
+      document.getElementById('imp2-file-name').textContent = f.name;
+      document.getElementById('imp2-count').textContent = v.length + '件のポイントが見つかりました';
+    }catch{ showAlert('エラー','有効なGeoJSONではありません'); }
   };
   r.readAsText(f);
 }
-function confirmImp2(){
-  if(!_impFileData||_impFileData.length===0){showAlert('エラー','ファイルを選択してください');return;}
-  const name=document.getElementById('imp2-set-name').value.trim()||'読込データ';
-  const set={
-    id:_impNid++,name,icon:_curImpIcon,color:_curImpColor,
-    points:_impFileData.map(f=>({
-      lat:f.geometry.coordinates[1],lng:f.geometry.coordinates[0],
-      name:f.properties?.name||'',note:f.properties?.memo||f.properties?.note||''
-    }))
-  };
-  set.points.forEach(p=>_addImpMk(p,set));
-  _impSets.push(set);_saveImportPts();_renderImpList();
-  _impFileData=null;closeOv();
-  showAlert('完了',`「${name}」として${set.points.length}件を読み込みました`);
-}
-function _renderImpList(){
-  const el=document.getElementById('imp-set-list');if(!el)return;
-  const ttl=document.getElementById('imp-list-accordion-title');
-  const total=_impSets.reduce((s,x)=>s+x.points.length,0);
-  if(ttl) ttl.textContent=`📥 読込ポイント（${total}件）`;
-  // フロートボタンをデータ有無に応じて表示/非表示
-  const btn=document.getElementById('btn-custom-layer');
-  if(btn) btn.style.display=_impSets.length?'':'none';
-  if(!_impSets.length){
-    el.innerHTML='<div class="pt-empty">読込ポイントはありません<br>「📥 読込」でGeoJSONを追加できます</div>';
-    return;
-  }
-  el.innerHTML=_impSets.map(s=>`
-    <div class="imp-set-row">
-      <div class="imp-set-header">
-        <div class="imp-set-icon" style="background:${(!s.color||s.color==='transparent')?'rgba(100,180,255,0.2)':s.color}">${s.icon||'📥'}</div>
-        <div class="imp-set-info">
-          <div class="imp-set-name">${s.name}</div>
-          <div class="imp-set-count">${s.points.length}件</div>
-        </div>
-        <button class="imp-set-del" onclick="reqDelImpSet(${s.id})">🗑</button>
-      </div>
-    </div>
-  `).join('');
-}
+async function confirmImp2(){
+  if(!_impFileData || _impFileData.length===0){ showAlert('エラー','ファイルを選択してください'); return; }
+  if(pts.length >= MAX_PT){ showAlert('上限','最大1000件です'); return; }
 
-// ── マイMAP一括表示/非表示 ──────────────────
-let _clMapVisible=true;
-function toggleClMapVisible(){
-  _clMapVisible=!_clMapVisible;
-  _impSets.forEach(s=>s.points.forEach(p=>{
-    if(!p.mk) return;
-    if(_clMapVisible) p.mk.addTo(map);
-    else map.removeLayer(p.mk);
-  }));
-  const btn=document.getElementById('btn-custom-layer');
-  if(btn) btn.classList.toggle('active',_clMapVisible);
-}
-function reqDelImpSet(setId){
-  const s=_impSets.find(x=>x.id===setId);if(!s)return;
-  if(!confirm(`「${s.name}」（${s.points.length}件）を削除しますか？`))return;
-  s.points.forEach(p=>{if(p.mk)map.removeLayer(p.mk);});
-  _impSets=_impSets.filter(x=>x.id!==setId);
-  _saveImportPts();_renderImpList();
+  const premium = await isPremiumUser();
+  let added = 0;
+  for(const f of _impFileData){
+    if(pts.length >= MAX_PT) break;
+    if(pts.length >= FREE_POINT_LIMIT && !premium){
+      showPremiumGate('point_limit'); return;
+    }
+    const p = {
+      id:    nid++,
+      lat:   f.geometry.coordinates[1],
+      lng:   f.geometry.coordinates[0],
+      name:  f.properties?.name || '',
+      memo:  f.properties?.memo || f.properties?.note || '',
+      stars: 0,
+      icon:  _curImpIcon,
+      color: _curImpColor,
+    };
+    pts.push(p); addMk(p); added++;
+  }
+  savePts(); updPtCnt();
+  _impFileData = null; closeOv();
+  showAlert('完了', `${added}件のポイントを追加しました`);
 }
