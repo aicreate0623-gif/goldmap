@@ -375,6 +375,7 @@ function startEditMove(){
   setTimeout(()=>{
     map.invalidateSize({pan:false});
     map.setView(tPin.getLatLng(), Math.max(map.getZoom(), 15));
+    tPin.dragging.enable();
     document.getElementById('add-banner').classList.add('show');
     if(typeof _pushHistory === 'function') _pushHistory();
   }, 320);
