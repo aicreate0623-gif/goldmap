@@ -2179,3 +2179,36 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   padding: 8px 10px; font-size: 13px;
   font-family: inherit;
 }
+
+/* ── ポイント編集ダイアログ：コンパクトUI ── */
+.pt-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pt-inline-label {
+  font-size: 12px;
+  color: var(--txt-dim);
+  white-space: nowrap;
+}
+
+/* 緯度経度：横1行 */
+.pt-coord-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pt-coord-field {
+  flex: 1;
+}
+.pt-coord-field label {
+  font-size: 11px;
+  color: var(--txt-dim);
+  margin-bottom: 2px;
+  display: block;
+}
+.pt-coord-field input {
+  width: 100%;
+  box-sizing: border-box;
+}

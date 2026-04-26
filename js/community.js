@@ -78,13 +78,6 @@ function initCommunity(){
   _initGoldDisplay();
   _renderPostsFromCache();
   _initRefreshCooldown();
-  // 認証完了前にタブを開いた場合に備えて再レンダリング
-  if(!firebase.auth().currentUser){
-    const unsubscribe = firebase.auth().onAuthStateChanged(user => {
-      unsubscribe();
-      if(user) _renderPostsFromCache();
-    });
-  }
 }
 
 // ── スコープ・地方・都道府県 ─────────────────
@@ -257,6 +250,7 @@ function _renderPostsFromCache(){
     <button class="comm-react-btn like${likeActive}" onclick="commReact('${p.id}','like')">
       👍 <span id="comm-like-${p.id}">${p.like||0}</span>
     </button>
+    <span class="comm-report-hint">通報既定回数で非表示</span>
     <button class="comm-react-btn report${reportActive}" onclick="commReport('${p.id}')" title="既定回数の通報で非表示になります">
       ！通報する
     </button>
