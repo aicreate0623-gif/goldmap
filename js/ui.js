@@ -787,6 +787,7 @@ function _dldGoStep(step){
     if(drawMode) _stopDraw();
     _drawPending = null;
     _clearDrawPreview();
+    _dldResetS1Est();
     _dldRenderStep(0);
   } else if(step === 2){
     // STEP3→STEP2（戻る）
@@ -844,6 +845,7 @@ function _dldWatchDraw(){
       if(ok)   ok.disabled = false;
       // 簡易容量を表示
       const estEl = document.getElementById('dld-s1-est');
+      const clrBtn = document.getElementById('dld-draw-clear');
       if(estEl){
         const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
         const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
@@ -852,8 +854,28 @@ function _dldWatchDraw(){
         estEl.textContent = `${chk}レイヤー × ${fmt(n)} · 約 ${mbEst(n*chk)} MB`;
         estEl.style.display = '';
       }
+      if(clrBtn) clrBtn.style.display = '';
     }
   }, 150);
+}
+
+// ── STEP2簡易容量・解除ボタンをリセット（共通） ──────────
+function _dldResetS1Est(){
+  const est = document.getElementById('dld-s1-est');
+  const clr = document.getElementById('dld-draw-clear');
+  if(est){ est.style.display = 'none'; est.textContent = ''; }
+  if(clr)  clr.style.display = 'none';
+}
+
+// ── STEP2: 範囲を解除する ────────────────────────────────
+function _dldClearDraw(){
+  _drawPending = null;
+  _clearDrawPreview();
+  const ok   = document.getElementById('dld-draw-ok');
+  const hint = document.getElementById('dld-draw-hint');
+  if(ok)   ok.disabled = true;
+  if(hint) hint.textContent = '地図上をドラッグして範囲を指定してください';
+  _dldResetS1Est();
 }
 
 // ── STEP2: 確定ボタン → STEP3へ ────────────────────────
@@ -871,11 +893,12 @@ function _dldBack(){
   if(drawMode) _stopDraw();
   _drawPending = null;
   _dldBounds   = null;
-  // OKボタンをリセット
+  // OKボタン・ヒント・簡易容量・解除ボタンをリセット
   const ok   = document.getElementById('dld-draw-ok');
   const hint = document.getElementById('dld-draw-hint');
   if(ok)   ok.disabled = true;
   if(hint) hint.textContent = '地図上をドラッグして範囲を指定してください';
+  _dldResetS1Est();
   _dldRenderStep(1);
   // ドラッグモード再開
   if(!drawMode) _enterDrawMode();
