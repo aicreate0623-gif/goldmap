@@ -1257,10 +1257,11 @@ function _openTab(tab){
   ['map','pts','offline','cfg','community'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('active',t===tab);
   });
-  // シートを開く
-  if(tab!=='map' && SHEETS[tab]){
+  // シートを開く / mapタブは地図サイズを再計算
+  if(tab==='map'){
+    setTimeout(()=>map.invalidateSize({pan:false}),320);
+  } else if(SHEETS[tab]){
     document.getElementById(SHEETS[tab]).classList.add('open');
-    // タブ切替時にLeafletサイズ更新
     setTimeout(()=>map.invalidateSize(),300);
   }
 }
