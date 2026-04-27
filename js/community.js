@@ -5,10 +5,12 @@
 //  v2: 通報・自分投稿削除・更新クールダウン
 // ═══════════════════════════════════════════
 
-const COMM_MAX_CHARS     = 200;
-const COMM_REPORT_LIMIT  = 3;
-const COMM_RATE_MS       = 60000;
-const COMM_REFRESH_COOL  = 180000;
+const COMM_MAX_CHARS        = 200;
+const COMM_REPORT_LIMIT     = 3;
+const COMM_RATE_MS          = 60000;
+const COMM_REFRESH_COOL     = 180000;
+const COMM_REPLY_MAX_CHARS  = 200;
+const COMM_REPLY_LIMIT      = 100; // 1スレッド最大返信数
 
 const COMM_NATIONAL_DISPLAY  = 50;
 const COMM_NATIONAL_TRIGGER  = 100;
@@ -252,6 +254,11 @@ function _renderPostsFromCache(){
     const deleteBtn    = isOwn
       ? `<button class="comm-delete-btn" onclick="commDeletePost('${p.id}')" title="削除">🗑</button>`
       : '';
+    const replies      = Array.isArray(p.replies) ? p.replies : [];
+    const replyCount   = replies.length;
+    const replyLabel   = replyCount > 0 ? `💬 ${replyCount}件の返信` : '💬 返信する';
+    // 返信リスト HTML
+    const repliesHtml  = replies.map((rep, idx) => _buildReplyHtml(p.id, rep, idx, uid, reactions)).join('');
     return `<div class="comm-post" data-id="${p.id}">
   <div class="comm-post-header">
     <span class="comm-nick">${_escHtml(p.nick)}</span>
@@ -263,10 +270,22 @@ function _renderPostsFromCache(){
     <button class="comm-react-btn like${likeActive}" onclick="commReact('${p.id}','like')">
       👍 <span id="comm-like-${p.id}">${p.like||0}</span>
     </button>
+    <button class="comm-reply-toggle-btn" onclick="commToggleReply('${p.id}')">
+      ${replyLabel}
+    </button>
     <span class="comm-report-hint">通報既定回数で非表示</span>
     <button class="comm-react-btn report${reportActive}" onclick="commReport('${p.id}')" title="既定回数の通報で非表示になります">
       ！通報する
     </button>
+  </div>
+  <div class="comm-reply-section" id="comm-reply-section-${p.id}" style="display:none">
+    <div class="comm-reply-list" id="comm-reply-list-${p.id}">${repliesHtml}</div>
+    <div class="comm-reply-input-row">
+      <input class="comm-reply-input" id="comm-reply-input-${p.id}"
+        type="text" maxlength="${COMM_REPLY_MAX_CHARS}"
+        placeholder="返信を入力…（${COMM_REPLY_MAX_CHARS}文字以内）">
+      <button class="comm-reply-send-btn" onclick="commSubmitReply('${p.id}')">送信</button>
+    </div>
   </div>
 </div>`;
   }).join('');
@@ -482,6 +501,180 @@ function commShowPremium(){
     '<b>🔓 広告非表示・全機能解放</b><br>　すべてのデータレイヤーを制限なく利用<br><br>' +
     '<span style="font-size:13px;font-weight:700;color:var(--gold);">月額 ¥480 ／ 年額 ¥3,800</span></div>';
   showDlg('dlg-premium-gate');
+}
+
+// ── 返信HTML生成ヘルパー ─────────────────────
+function _buildReplyHtml(postId, rep, idx, uid, reactions){
+  const repKey = `${postId}_r${idx}`;
+  const rr     = reactions[repKey] || {};
+  if((rep.report||0) >= COMM_REPORT_LIMIT){
+    return `<div class="comm-reply-item comm-post-hidden"><span>⚠️ 通報により非表示</span></div>`;
+  }
+  const isOwn     = uid && rep.uid === uid;
+  const deleteBtn = isOwn
+    ? `<button class="comm-reply-delete-btn" onclick="commDeleteReply('${postId}',${idx})" title="削除">🗑</button>`
+    : '';
+  const reportActive = rr.report ? ' active' : '';
+  return `<div class="comm-reply-item">
+  <div class="comm-reply-header">
+    <span class="comm-nick">${_escHtml(rep.nick)}</span>
+    <span class="comm-time">${_formatTime(rep.ts)}</span>
+    ${deleteBtn}
+  </div>
+  <div class="comm-reply-body">${_escHtml(rep.text)}</div>
+  <div class="comm-reply-footer">
+    <button class="comm-react-btn report${reportActive}" onclick="commReportReply('${postId}',${idx})" title="通報">！通報する</button>
+  </div>
+</div>`;
+}
+
+// ── 返信トグル ───────────────────────────────
+function commToggleReply(postId){
+  const sec = document.getElementById(`comm-reply-section-${postId}`);
+  if(!sec) return;
+  const isOpen = sec.style.display !== 'none';
+  sec.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen){
+    const inp = document.getElementById(`comm-reply-input-${postId}`);
+    if(inp) inp.focus();
+  }
+}
+
+// ── 返信投稿 ─────────────────────────────────
+async function commSubmitReply(postId){
+  const user = firebase.auth().currentUser;
+  if(!user){ _commToast('返信にはログインが必要です'); return; }
+
+  // レート制限（親投稿と共有）
+  const lastPost = parseInt(localStorage.getItem(SK_LAST_POST)||'0');
+  const now = Date.now();
+  if(now - lastPost < COMM_RATE_MS){
+    const sec = Math.ceil((COMM_RATE_MS-(now-lastPost))/1000);
+    _commToast(`投稿・返信は1分間に1回までです（あと${sec}秒）`); return;
+  }
+
+  const inp = document.getElementById(`comm-reply-input-${postId}`);
+  if(!inp) return;
+  const text = inp.value.trim();
+  if(!text){ _commToast('返信を入力してください'); return; }
+  if(text.length > COMM_REPLY_MAX_CHARS){ _commToast(`${COMM_REPLY_MAX_CHARS}文字以内で入力してください`); return; }
+
+  const scope  = _commScope, pref = _commPref;
+  const cached = _loadCache(scope, pref);
+  const post   = cached.find(p => p.id === postId);
+  if(!post){ _commToast('投稿が見つかりません'); return; }
+
+  const replies = Array.isArray(post.replies) ? post.replies : [];
+  if(replies.length >= COMM_REPLY_LIMIT){ _commToast('返信が上限に達しています'); return; }
+
+  const nick = (localStorage.getItem(SK_NICKNAME) || '匿名さん').slice(0, 20);
+  const newReply = { nick, text, uid: user.uid, ts: now, report: 0 };
+
+  // キャッシュ即反映
+  post.replies = [...replies, newReply];
+  _saveCache(scope, pref, cached);
+  localStorage.setItem(SK_LAST_POST, now.toString());
+  inp.value = '';
+  _renderPostsFromCache();
+  // 返信欄を再度開く
+  const sec = document.getElementById(`comm-reply-section-${postId}`);
+  if(sec) sec.style.display = 'block';
+
+  try{
+    await _db().collection('posts').doc(postId).update({
+      replies: firebase.firestore.FieldValue.arrayUnion(newReply)
+    });
+    _commToast('返信しました！');
+  } catch(e){
+    // ロールバック
+    post.replies = replies;
+    _saveCache(scope, pref, cached);
+    _renderPostsFromCache();
+    const sec2 = document.getElementById(`comm-reply-section-${postId}`);
+    if(sec2) sec2.style.display = 'block';
+    _commToast('返信に失敗しました');
+    console.error('[comm] reply submit failed', e);
+  }
+}
+
+// ── 返信削除（自分のみ）────────────────────────
+async function commDeleteReply(postId, replyIdx){
+  const user = firebase.auth().currentUser;
+  if(!user) return;
+  if(!confirm('この返信を削除しますか？')) return;
+
+  const scope  = _commScope, pref = _commPref;
+  const cached = _loadCache(scope, pref);
+  const post   = cached.find(p => p.id === postId);
+  if(!post || !Array.isArray(post.replies)) return;
+
+  const target = post.replies[replyIdx];
+  if(!target || target.uid !== user.uid){ _commToast('削除できません'); return; }
+
+  const before = [...post.replies];
+  post.replies = post.replies.filter((_, i) => i !== replyIdx);
+  _saveCache(scope, pref, cached);
+  _renderPostsFromCache();
+  const sec = document.getElementById(`comm-reply-section-${postId}`);
+  if(sec) sec.style.display = 'block';
+
+  try{
+    await _db().collection('posts').doc(postId).update({
+      replies: firebase.firestore.FieldValue.arrayRemove(target)
+    });
+    _commToast('返信を削除しました');
+  } catch(e){
+    post.replies = before;
+    _saveCache(scope, pref, cached);
+    _renderPostsFromCache();
+    const sec2 = document.getElementById(`comm-reply-section-${postId}`);
+    if(sec2) sec2.style.display = 'block';
+    _commToast('削除に失敗しました');
+    console.error('[comm] reply delete failed', e);
+  }
+}
+
+// ── 返信通報 ─────────────────────────────────
+async function commReportReply(postId, replyIdx){
+  const repKey   = `${postId}_r${replyIdx}`;
+  const reactions = _loadReactions();
+  const rr       = reactions[repKey] || {};
+  if(rr.report){ _commToast('すでに通報済みです'); return; }
+  if(!confirm('この返信を通報しますか？\n通報が既定回数に達すると非表示になります。')) return;
+
+  rr.report = true;
+  reactions[repKey] = rr;
+  _saveReactions(reactions);
+
+  const scope  = _commScope, pref = _commPref;
+  const cached = _loadCache(scope, pref);
+  const post   = cached.find(p => p.id === postId);
+  if(post && Array.isArray(post.replies) && post.replies[replyIdx]){
+    post.replies[replyIdx].report = (post.replies[replyIdx].report||0) + 1;
+    _saveCache(scope, pref, cached);
+    _renderPostsFromCache();
+    const sec = document.getElementById(`comm-reply-section-${postId}`);
+    if(sec) sec.style.display = 'block';
+  }
+
+  try{
+    const target = post?.replies?.[replyIdx];
+    if(target){
+      // arrayRemove → arrayUnion で report をインクリメント
+      const updated = { ...target, report: (target.report||0) };
+      await _db().collection('posts').doc(postId).update({
+        replies: firebase.firestore.FieldValue.arrayRemove({ ...updated, report: updated.report - 1 < 0 ? 0 : updated.report - 1 })
+      });
+      await _db().collection('posts').doc(postId).update({
+        replies: firebase.firestore.FieldValue.arrayUnion({ ...updated })
+      });
+    }
+    _commToast('通報しました');
+  } catch(e){
+    rr.report = false; reactions[repKey] = rr; _saveReactions(reactions);
+    _commToast('通報に失敗しました');
+    console.warn('[comm] reply report failed', e);
+  }
 }
 
 // ── ユーティリティ ───────────────────────────

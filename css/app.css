@@ -2325,3 +2325,113 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   width: 100%;
   box-sizing: border-box;
 }
+/* ═══════════════════════════════════════════
+   返信機能 UIスタイル
+═══════════════════════════════════════════ */
+
+/* 返信トグルボタン */
+.comm-reply-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.comm-reply-toggle-btn:active {
+  background: rgba(200,160,60,0.15);
+}
+
+/* 返信セクション全体 */
+.comm-reply-section {
+  margin-top: 6px;
+  border-left: 2px solid rgba(200,160,60,0.3);
+  padding-left: 10px;
+}
+
+/* 返信1件 */
+.comm-reply-item {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.comm-reply-item:last-of-type {
+  border-bottom: none;
+}
+
+/* 返信ヘッダー */
+.comm-reply-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+/* 返信本文 */
+.comm-reply-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--txt);
+  word-break: break-word;
+  margin-bottom: 2px;
+}
+
+/* 返信フッター（通報ボタン行） */
+.comm-reply-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 返信削除ボタン */
+.comm-reply-delete-btn {
+  background: none;
+  border: none;
+  color: var(--txt-dim);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.comm-reply-delete-btn:active { opacity: 1; }
+
+/* 返信入力行 */
+.comm-reply-input-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+.comm-reply-input {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(200,160,60,0.3);
+  border-radius: 8px;
+  color: var(--txt);
+  font-size: 13px;
+  padding: 6px 10px;
+  outline: none;
+  min-width: 0;
+}
+.comm-reply-input:focus {
+  border-color: rgba(200,160,60,0.7);
+}
+.comm-reply-send-btn {
+  background: rgba(200,160,60,0.18);
+  border: 1px solid rgba(200,160,60,0.4);
+  border-radius: 8px;
+  color: var(--gold);
+  font-size: 13px;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.comm-reply-send-btn:active {
+  background: rgba(200,160,60,0.35);
+}
