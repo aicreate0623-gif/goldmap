@@ -2127,6 +2127,54 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 
 /* ── マイMAP 個別ポイント アコーディオン ── */
+/* ── ヘッダー小型表示トグル ── */
+.cl-vis-mini {
+  position: relative;
+  display: flex; align-items: center;
+  width: 52px; height: 22px;
+  border-radius: 11px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
+  cursor: pointer; padding: 0;
+  transition: background .25s, border-color .25s;
+  flex-shrink: 0;
+}
+.cl-vis-mini.on {
+  background: var(--gold);
+  border-color: var(--gold-lt);
+}
+.cl-vis-mini-thumb {
+  position: absolute;
+  left: 2px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.5);
+  transition: left .25s, background .25s;
+  pointer-events: none;
+}
+.cl-vis-mini.on .cl-vis-mini-thumb {
+  left: calc(52px - 20px);
+  background: #fff;
+}
+.cl-vis-mini-lbl {
+  position: absolute;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 9px; font-weight: 700;
+  color: var(--txt-sub);
+  pointer-events: none;
+  transition: opacity .2s;
+}
+.cl-vis-mini.on .cl-vis-mini-lbl { color: rgba(0,0,0,0.7); }
+.cl-set-hd-arrow { font-size: 10px; color: var(--txt-dim); flex-shrink: 0; }
+.cl-filter-badge {
+  font-size: 10px; color: var(--gold);
+  background: rgba(200,170,80,0.12);
+  border-radius: 8px; padding: 1px 5px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.cl-action-btn { flex-shrink: 0; }
+
 .cl-pt-accordion-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 12px;
