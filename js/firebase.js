@@ -248,6 +248,11 @@ async function deleteCoord(fsId) {
 // ─────────────────────────────────────────────────────
 async function fetchHeatPoints() {
   const premium   = await isPremiumUser();
+  // free tier は JS固定データのみのため fetch 不要
+  if (!premium) {
+    console.log('[firebase.js] fetchHeatPoints skip: free tier uses static data only');
+    return;
+  }
   const postCount = await getUserPostCount();
   if (postCount < 1) return;
 
@@ -264,7 +269,7 @@ async function fetchHeatPoints() {
     return;
   }
 
-  const tier = premium ? 'paid' : 'free';
+  const tier = 'paid';
   const fc   = json[tier];
   if (!fc || !Array.isArray(fc.features) || fc.features.length === 0) {
     console.log('[firebase.js] heatmap.json: データなし tier=', tier);

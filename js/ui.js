@@ -279,15 +279,19 @@ function _gridAggregate(rawPts, gridDeg) {
 let _firebaseHeatPts = [];  // [{lat, lng, weight}]
 
 // ── 生データ生成 ─────────────────────────────────────
-function buildHeatPoints() {
+// tier: 'free' → 固定データのみ（GSJ_MINE_DATA + MINES）
+//        'premium' → 固定データ + 投稿データ（_firebaseHeatPts）
+function buildHeatPoints(tier) {
   const pts = [];
   for (const d of GSJ_MINE_DATA) {
     if (d.mat !== 'Au_Ag') continue;
     pts.push([d.lat, d.lng, d.trace ? 0.3 : 0.5]);
   }
   for (const m of MINES) pts.push([m.lat, m.lng, 0.8]);
-  // Firebaseデータを合成（weight値をそのまま使用）
-  for (const p of _firebaseHeatPts) pts.push([p.lat, p.lng, p.weight ?? 1.0]);
+  // premium のみ投稿データを合成
+  if (tier === 'premium') {
+    for (const p of _firebaseHeatPts) pts.push([p.lat, p.lng, p.weight ?? 1.0]);
+  }
   return pts;
 }
 
@@ -340,7 +344,7 @@ function initHeatLayer(tier) {
   heatTier = tier;
   const cfg    = TIER_CFG[tier];
   const params = _heatParams[tier];
-  const raw    = buildHeatPoints();
+  const raw    = buildHeatPoints(tier);
   const pts    = _gridAggregate(raw, cfg.gridDeg);
 
   heatLayer = L.heatLayer(pts, {
