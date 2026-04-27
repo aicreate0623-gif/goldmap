@@ -1549,12 +1549,18 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   align-items: center;
   gap: 6px;
   margin-bottom: 5px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 .comm-nick {
   font-size: 12px;
   font-weight: 700;
   color: var(--gold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex-shrink: 1;
 }
 .comm-tag {
   font-size: 10px;
@@ -2392,6 +2398,8 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   align-items: center;
   gap: 6px;
   margin-bottom: 2px;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 /* 返信本文 */
