@@ -1364,11 +1364,12 @@ document.addEventListener('keydown',e=>{
   const _orig = switchTab;
   switchTab = function(tab){
     if(tab === 'offline'){
-      // offlineタブはプレミアムチェックなしで直接開く
-      // DL操作はタブ内「DL開始」ボタン→openDlDialog()でゲートチェック
-      const wasMap2 = (curTab === 'map');
-      _openTab(tab);
-      if(wasMap2) _pushHistory();
+      isPremiumUser().then(premium=>{
+        if(!premium){ showPremiumGate('offline'); return; }
+        const wasMap2 = (curTab === 'map');
+        _openTab(tab);
+        if(wasMap2) _pushHistory();
+      });
       return;
     }
     if(tab === 'mymap'){
