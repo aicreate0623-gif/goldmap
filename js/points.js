@@ -129,15 +129,12 @@ function onContribToggle() { showDlg(isContribOn()?'dlg-contrib-off':'dlg-contri
 function confirmContribOn() {
   localStorage.setItem(CONTRIB_KEY,'on'); applyContribUI(); closeOv();
   if (pts.length > 0) {
-    let sent = 0;
     pts.forEach(p => {
-      if (p.fsId) { sent++; if (sent===pts.length) showAlert('協力ありがとうございます', pts.length+'件の位置情報を送信しました。'); return; }
+      if (p.fsId) return;
       submitCoord(p.lat, p.lng, p.stars||0, p.name||'', p.memo||'')
-        .then(fsId => { p.fsId=fsId; sent++; if (sent===pts.length) { savePts(); showAlert('協力ありがとうございます', pts.length+'件の位置情報を送信しました。'); } })
-        .catch(e => { sent++; console.warn('[contrib] 送信失敗', e); });
+        .then(fsId => { p.fsId=fsId; savePts(); })
+        .catch(e => { console.warn('[contrib] 送信失敗', e); });
     });
-  } else {
-    showAlert('協力ありがとうございます','次回のポイント保存から位置情報を送信します。');
   }
 }
 function confirmContribOff() { localStorage.setItem(CONTRIB_KEY,'off'); applyContribUI(); closeOv(); }

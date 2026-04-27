@@ -260,14 +260,12 @@ async function deleteCoord(fsId) {
 //   free版 → free（全件グリッドデータ）
 // ─────────────────────────────────────────────────────
 async function fetchHeatPoints() {
-  const premium   = await isPremiumUser();
+  const premium = await isPremiumUser();
   // free tier は JS固定データのみのため fetch 不要
   if (!premium) {
     console.log('[firebase.js] fetchHeatPoints skip: free tier uses static data only');
     return;
   }
-  const postCount = await getUserPostCount();
-  if (postCount < 1) return;
 
   let json;
   try {
