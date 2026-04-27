@@ -1559,10 +1559,6 @@ function toggleGsjLayer(){
   gsjVisible = !gsjVisible;
   const btn = document.getElementById('btn-gsj');
   btn.classList.toggle('active', gsjVisible);
-  // フィルターセクション表示/非表示
-  const filterSec = document.getElementById('mine-filter-section');
-  if(filterSec) filterSec.style.display = gsjVisible ? 'block' : 'none';
-
   if(gsjVisible){
     // レイヤーが既に構築済みなら即表示
     if(gsjLayer){

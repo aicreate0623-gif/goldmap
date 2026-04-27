@@ -430,15 +430,14 @@
       <div class="cfg-accordion-body">
         <div class="dl-section">
           <div class="info-box">
-            産総研地質調査総合センターの鉱床・鉱徴地データ（組み込み済み）。<br>
-            起動時に自動で読み込まれます。ボタンで即時表示できます。
+            産総研地質調査総合センターの鉱床・鉱徴地データ
           </div>
           <div id="mine-prog-wrap" style="display:none;margin-top:8px;">
             <div style="font-size:11px;color:var(--txt-sub);margin-bottom:4px;">読込中… <span id="mine-prog-pct">0%</span></div>
             <div class="prog-bar-bg"><div class="prog-bar-fill" id="mine-prog-bar" style="width:0%"></div></div>
           </div>
         </div>
-        <div class="dl-section" id="mine-filter-section" style="display:none;">
+        <div class="dl-section" id="mine-filter-section">
           <div class="sec-ttl">鉱床フィルター</div>
           <div class="ck-row"><input type="checkbox" id="mf-metal" checked onchange="applyMineFilter()"><label for="mf-metal">🔴 金属鉱物</label></div>
           <div class="ck-row"><input type="checkbox" id="mf-nonmetal" checked onchange="applyMineFilter()"><label for="mf-nonmetal">🟧 非金属鉱物</label></div>
