@@ -570,6 +570,7 @@ function clSelectPtIcon(ic){
   document.querySelectorAll('#cl-pt-icon-picker .cl-ico-btn').forEach(b=>{
     b.classList.toggle('sel', b.dataset.icon===ic);
   });
+  _syncPtPickerPreview();
 }
 
 function _renderPtColorPicker(selected){
@@ -594,6 +595,27 @@ function clSelectPtColor(val){
   document.querySelectorAll('#cl-pt-color-picker .cl-col-btn').forEach(b=>{
     b.classList.toggle('sel', b.dataset.color===val);
   });
+  _syncPtPickerPreview();
+}
+
+// ── ポイント編集ダイアログ：アイコン・色アコーディオン ──
+function clTogglePtPickerAccordion(){
+  const body  = document.getElementById('cl-pt-picker-body');
+  const arrow = document.getElementById('cl-pt-picker-arrow');
+  if(!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if(arrow) arrow.textContent = isOpen ? '▶' : '▼';
+}
+
+// プレビュー同期ヘルパー
+function _syncPtPickerPreview(){
+  const iconEl  = document.getElementById('cl-pt-icon-selected');
+  const colorEl = document.getElementById('cl-pt-color-selected');
+  const iconPrev  = document.getElementById('cl-pt-icon-preview');
+  const colorPrev = document.getElementById('cl-pt-color-preview');
+  if(iconPrev  && iconEl)  iconPrev.textContent = iconEl.dataset.icon || '📍';
+  if(colorPrev && colorEl) colorPrev.style.background = colorEl.dataset.color || '#e74c3c';
 }
 
 // ── 個別ポイント編集ダイアログを開く ───────────────
@@ -614,6 +636,13 @@ function openClPointEdit(setId, idx) {
   // アイコン・色ピッカーをポイント個別値で初期化（未設定ならセットのデフォルト）
   _renderPtIconPicker(p.icon  || s.icon);
   _renderPtColorPicker(p.color || s.color);
+  // アコーディオンをデフォルト閉じにリセット
+  const body  = document.getElementById('cl-pt-picker-body');
+  const arrow = document.getElementById('cl-pt-picker-arrow');
+  if(body)  body.style.display = 'none';
+  if(arrow) arrow.textContent  = '▶';
+  // プレビュー同期
+  _syncPtPickerPreview();
   showDlg('dlg-cl-point-edit');
 }
 
