@@ -1638,21 +1638,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: var(--txt-dim);
 }
 /* 通報ボタン */
-.comm-react-btn.report {
-  border-color: rgba(255,140,0,0.3);
-  color: rgba(255,160,40,0.7);
-  margin-left: auto;
-}
-.comm-report-hint {
-  font-size: 10px;
-  color: var(--txt-dim);
-  white-space: nowrap;
-}
-.comm-react-btn.report.active {
-  background: rgba(255,120,0,0.15);
-  border-color: rgba(255,140,0,0.5);
-  color: #ffaa44;
-}
 
 /* 自分の投稿削除ボタン */
 .comm-delete-btn {
@@ -1663,11 +1648,44 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   cursor: pointer;
   opacity: 0.6;
   padding: 0 2px;
+  color: var(--txt);
   transition: opacity .15s;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
 }
+.comm-delete-btn:hover { opacity: 1; }
 .comm-delete-btn:active { opacity: 1; }
+
+/* 非表示ボタン（🚫） */
+.comm-hide-btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0.5;
+  padding: 0 2px;
+  color: var(--txt);
+  transition: opacity .15s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.comm-hide-btn:hover  { opacity: 1; }
+.comm-hide-btn:active { opacity: 1; }
+
+/* 解除ボタン */
+.comm-unhide-btn {
+  background: none;
+  border: 1px solid rgba(200,160,60,0.4);
+  border-radius: 8px;
+  color: var(--gold);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: background .15s;
+}
+.comm-unhide-btn:active { background: rgba(200,160,60,0.2); }
 
 /* 更新ボタン行 */
 .comm-refresh-row {

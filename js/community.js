@@ -6,7 +6,6 @@
 // ═══════════════════════════════════════════
 
 const COMM_MAX_CHARS        = 200;
-const COMM_REPORT_LIMIT     = 3;
 const COMM_RATE_MS          = 60000;
 const COMM_REFRESH_COOL     = 180000;
 const COMM_REPLY_MAX_CHARS  = 200;
@@ -17,16 +16,19 @@ const COMM_NATIONAL_TRIGGER  = 100;
 const COMM_PREF_DISPLAY      = 10;
 const COMM_PREF_TRIGGER      = 100;
 
-const SK_NICKNAME     = 'comm_nickname';
-const SK_LAST_POST    = 'comm_last_post';
-const SK_LAST_REFRESH = 'comm_last_refresh';
-const SK_REACTIONS    = 'comm_reactions';
-const SK_SCOPE        = 'comm_scope';
-const SK_PREF         = 'comm_pref';
-const SK_REGION       = 'comm_region';
-const SK_GOLD         = 'comm_gold_cache';
-const SK_CACHE_NAT    = 'comm_cache_national';
-const SK_CACHE_PREF   = 'comm_cache_pref_';
+const SK_NICKNAME      = 'comm_nickname';
+const SK_LAST_POST     = 'comm_last_post';
+const SK_LAST_REFRESH  = 'comm_last_refresh';
+const SK_REACTIONS     = 'comm_reactions';
+const SK_SCOPE         = 'comm_scope';
+const SK_PREF          = 'comm_pref';
+const SK_REGION        = 'comm_region';
+const SK_GOLD          = 'comm_gold_cache';
+const SK_CACHE_NAT     = 'comm_cache_national';
+const SK_CACHE_PREF    = 'comm_cache_pref_';
+const SK_HIDDEN        = 'comm_hidden';        // 非表示投稿IDリスト
+const SK_HIDDEN_REPLY  = 'comm_hidden_reply';  // 非表示返信キーリスト
+const SK_NG_UIDS       = 'comm_ng_uids';       // NG uid リスト
 
 const REGION_MAP = {
   '北海道': ['北海道'],
@@ -47,6 +49,59 @@ let _commLoading = false;
 let _refreshCoolTimer = null;
 
 function _db(){ return firebase.firestore(); }
+
+// ── NG・非表示 ───────────────────────────────
+function _loadHidden(){ try{ return JSON.parse(localStorage.getItem(SK_HIDDEN)||'[]'); }catch(e){ return []; } }
+function _saveHidden(list){ localStorage.setItem(SK_HIDDEN, JSON.stringify(list)); }
+function _loadHiddenReply(){ try{ return JSON.parse(localStorage.getItem(SK_HIDDEN_REPLY)||'[]'); }catch(e){ return []; } }
+function _saveHiddenReply(list){ localStorage.setItem(SK_HIDDEN_REPLY, JSON.stringify(list)); }
+function _loadNgUids(){ try{ return JSON.parse(localStorage.getItem(SK_NG_UIDS)||'[]'); }catch(e){ return []; } }
+function _saveNgUids(list){ localStorage.setItem(SK_NG_UIDS, JSON.stringify(list)); }
+
+// 非表示ダイアログ（投稿）
+function commHidePost(postId, uid){
+  if(confirm('この書き込みをどうしますか？\n\n[OK] この書き込みのみ非表示\n[キャンセル] NG登録して非表示（この人の書き込みをすべて非表示）')){
+    // この書き込みのみ非表示
+    const list = _loadHidden();
+    if(!list.includes(postId)){ list.push(postId); _saveHidden(list); }
+  } else {
+    // NG登録（キャンセル押下 = NG登録として扱う）
+    // confirmではOK/キャンセルしか選べないため別途confirm
+    if(!confirm('この投稿者をNG登録しますか？\nこの人の投稿・返信がすべて非表示になります。')) return;
+    const uids = _loadNgUids();
+    if(!uids.includes(uid)){ uids.push(uid); _saveNgUids(uids); }
+  }
+  _renderPostsFromCache();
+}
+
+// 非表示ダイアログ（返信）
+function commHideReply(postId, replyIdx, uid){
+  if(confirm('この返信をどうしますか？\n\n[OK] この返信のみ非表示\n[キャンセル] NG登録して非表示（この人の書き込みをすべて非表示）')){
+    const key = `${postId}_r${replyIdx}`;
+    const list = _loadHiddenReply();
+    if(!list.includes(key)){ list.push(key); _saveHiddenReply(list); }
+  } else {
+    if(!confirm('この投稿者をNG登録しますか？\nこの人の投稿・返信がすべて非表示になります。')) return;
+    const uids = _loadNgUids();
+    if(!uids.includes(uid)){ uids.push(uid); _saveNgUids(uids); }
+  }
+  _renderPostsFromCache();
+}
+
+// 非表示解除（投稿）
+function commUnhidePost(postId){
+  const list = _loadHidden().filter(id => id !== postId);
+  _saveHidden(list);
+  _renderPostsFromCache();
+}
+
+// 非表示解除（返信）
+function commUnhideReply(postId, replyIdx){
+  const key = `${postId}_r${replyIdx}`;
+  const list = _loadHiddenReply().filter(k => k !== key);
+  _saveHiddenReply(list);
+  _renderPostsFromCache();
+}
 
 // ── キャッシュ ──────────────────────────────
 function _loadCache(scope, pref){
@@ -241,35 +296,47 @@ function _mergePosts(cached, newPosts, limit){
 function _renderPostsFromCache(){
   const container = document.getElementById('comm-post-list');
   if(!container) return;
-  const posts     = _loadCache(_commScope, _commPref);
-  const reactions = _loadReactions();
-  const uid       = firebase.auth().currentUser?.uid || null;
+  const posts       = _loadCache(_commScope, _commPref);
+  const reactions   = _loadReactions();
+  const uid         = firebase.auth().currentUser?.uid || null;
+  const hidden      = _loadHidden();
+  const hiddenReply = _loadHiddenReply();
+  const ngUids      = _loadNgUids();
   if(posts.length === 0){
     container.innerHTML = '<div class="comm-empty">まだ投稿がありません。「🔄 更新」で読み込むか、最初の一言をどうぞ！</div>';
     return;
   }
   container.innerHTML = posts.map(p=>{
     const r = reactions[p.id] || {};
-    if((p.report||0) >= COMM_REPORT_LIMIT){
-      return `<div class="comm-post comm-post-hidden"><span>⚠️ 複数の通報により非表示</span></div>`;
+    // NG uid または個別非表示
+    const isNg     = ngUids.includes(p.uid);
+    const isHidden = hidden.includes(p.id);
+    if(isNg || isHidden){
+      return `<div class="comm-post comm-post-hidden">
+  <span>⚠️ 非表示の書き込み</span>
+  <button class="comm-unhide-btn" onclick="commUnhidePost('${p.id}')">解除する</button>
+</div>`;
     }
-    const likeActive   = r.like   ? ' active' : '';
-    const reportActive = r.report ? ' active' : '';
-    const timeStr      = _formatTime(p.ts);
-    const isOwn        = uid && p.uid === uid;
-    const deleteBtn    = isOwn
+    const likeActive = r.like ? ' active' : '';
+    const timeStr    = _formatTime(p.ts);
+    const isOwn      = uid && p.uid === uid;
+    const replies    = Array.isArray(p.replies) ? p.replies : [];
+    const hasReplies = replies.length > 0;
+    // 返信がある場合は削除不可
+    const deleteBtn  = isOwn && !hasReplies
       ? `<button class="comm-delete-btn" onclick="commDeletePost('${p.id}')" title="削除">🗑</button>`
       : '';
-    const replies      = Array.isArray(p.replies) ? p.replies : [];
-    const replyCount   = replies.length;
-    const replyLabel   = replyCount > 0 ? `💬 ${replyCount}件の返信` : '💬 返信する';
-    // 返信リスト HTML
-    const repliesHtml  = replies.map((rep, idx) => _buildReplyHtml(p.id, rep, idx, uid, reactions)).join('');
+    const replyLabel  = hasReplies ? `💬 ${replies.length}件の返信` : '💬 返信する';
+    const repliesHtml = replies.map((rep, idx) => _buildReplyHtml(p.id, rep, idx, uid, hiddenReply, ngUids)).join('');
+    // 自分の投稿には🚫ボタン不要
+    const hideBtn = !isOwn
+      ? `<button class="comm-hide-btn" onclick="commHidePost('${p.id}','${p.uid}')" title="非表示">🚫</button>`
+      : '';
     return `<div class="comm-post" data-id="${p.id}">
   <div class="comm-post-header">
     <span class="comm-nick">${_escHtml(p.nick)}</span>
     <span class="comm-time">${timeStr}</span>
-    ${deleteBtn}
+    ${hideBtn}${deleteBtn}
   </div>
   <div class="comm-post-body">${_escHtml(p.text)}</div>
   <div class="comm-post-footer">
@@ -278,10 +345,6 @@ function _renderPostsFromCache(){
     </button>
     <button class="comm-reply-toggle-btn" onclick="commToggleReply('${p.id}')">
       ${replyLabel}
-    </button>
-    <span class="comm-report-hint">通報既定回数で非表示</span>
-    <button class="comm-react-btn report${reportActive}" onclick="commReport('${p.id}')" title="既定回数の通報で非表示になります">
-      ！通報する
     </button>
   </div>
   <div class="comm-reply-section" id="comm-reply-section-${p.id}" style="display:none">
@@ -347,43 +410,23 @@ async function commSubmit(){
 async function commDeletePost(postId){
   const user = firebase.auth().currentUser;
   if(!user) return;
+  const scope  = _commScope, pref = _commPref;
+  const cached = _loadCache(scope, pref);
+  const post   = cached.find(p => p.id === postId);
+  // 返信がある場合は削除不可
+  if(post && Array.isArray(post.replies) && post.replies.length > 0){
+    _commToast('返信がついた投稿は削除できません');
+    return;
+  }
   if(!confirm('この投稿を削除しますか？')) return;
   try{
     await _db().collection('posts').doc(postId).delete();
-    const scope  = _commScope, pref = _commPref;
-    const cached = _loadCache(scope, pref).filter(p => p.id !== postId);
-    _saveCache(scope, pref, cached);
+    _saveCache(scope, pref, cached.filter(p => p.id !== postId));
     _renderPostsFromCache();
     _commToast('投稿を削除しました');
   } catch(e){
     console.error('[comm] delete failed', e);
     _commToast('削除に失敗しました');
-  }
-}
-
-// ── 通報 ─────────────────────────────────────
-async function commReport(postId){
-  const reactions = _loadReactions();
-  const r = reactions[postId] || {};
-  if(r.report){ _commToast('すでに通報済みです'); return; }
-  if(!confirm('この投稿を通報しますか？\n通報が既定回数に達すると非表示になります。')) return;
-  r.report = true;
-  reactions[postId] = r;
-  _saveReactions(reactions);
-  const scope  = _commScope, pref = _commPref;
-  const cached = _loadCache(scope, pref);
-  const post   = cached.find(p => p.id === postId);
-  if(post){ post.report = (post.report||0)+1; _saveCache(scope,pref,cached); _renderPostsFromCache(); }
-  try{
-    await _db().collection('posts').doc(postId).update({
-      report: firebase.firestore.FieldValue.increment(1)
-    });
-    _commToast('通報しました');
-  } catch(e){
-    r.report = false; reactions[postId] = r; _saveReactions(reactions);
-    if(post){ post.report = Math.max(0,(post.report||1)-1); _saveCache(scope,pref,cached); _renderPostsFromCache(); }
-    _commToast('通報に失敗しました');
-    console.warn('[comm] report failed', e);
   }
 }
 
@@ -409,7 +452,7 @@ async function commReact(postId, type){
   }
 }
 
-// ── バッチ削除（通報済み優先） ───────────────
+// ── バッチ削除（古い順） ─────────────────────
 async function _checkAndBatchDelete(fsScope, pref){
   const trigger = fsScope === 'national' ? COMM_NATIONAL_TRIGGER : COMM_PREF_TRIGGER;
   const display = fsScope === 'national' ? COMM_NATIONAL_DISPLAY : COMM_PREF_DISPLAY;
@@ -417,11 +460,7 @@ async function _checkAndBatchDelete(fsScope, pref){
   if(pref) q = q.where('pref', '==', pref);
   const snap = await q.orderBy('ts', 'asc').limit(trigger).get();
   if(snap.docs.length < trigger) return;
-  const deleteCount = trigger - display;
-  const all      = snap.docs;
-  const reported = all.filter(d => (d.data().report||0) >= COMM_REPORT_LIMIT);
-  const normal   = all.filter(d => (d.data().report||0) <  COMM_REPORT_LIMIT);
-  const toDelete = [...reported, ...normal].slice(0, deleteCount);
+  const toDelete = snap.docs.slice(0, trigger - display);
   const batch = _db().batch();
   toDelete.forEach(doc => batch.delete(doc.ref));
   await batch.commit();
@@ -510,27 +549,30 @@ function commShowPremium(){
 }
 
 // ── 返信HTML生成ヘルパー ─────────────────────
-function _buildReplyHtml(postId, rep, idx, uid, reactions){
-  const repKey = `${postId}_r${idx}`;
-  const rr     = reactions[repKey] || {};
-  if((rep.report||0) >= COMM_REPORT_LIMIT){
-    return `<div class="comm-reply-item comm-post-hidden"><span>⚠️ 通報により非表示</span></div>`;
+function _buildReplyHtml(postId, rep, idx, uid, hiddenReply, ngUids){
+  const key      = `${postId}_r${idx}`;
+  const isNg     = ngUids.includes(rep.uid);
+  const isHidden = hiddenReply.includes(key);
+  if(isNg || isHidden){
+    return `<div class="comm-reply-item comm-post-hidden">
+  <span>⚠️ 非表示の返信</span>
+  <button class="comm-unhide-btn" onclick="commUnhideReply('${postId}',${idx})">解除する</button>
+</div>`;
   }
   const isOwn     = uid && rep.uid === uid;
   const deleteBtn = isOwn
     ? `<button class="comm-reply-delete-btn" onclick="commDeleteReply('${postId}',${idx})" title="削除">🗑</button>`
     : '';
-  const reportActive = rr.report ? ' active' : '';
+  const hideBtn = !isOwn
+    ? `<button class="comm-hide-btn" onclick="commHideReply('${postId}',${idx},'${rep.uid}')" title="非表示">🚫</button>`
+    : '';
   return `<div class="comm-reply-item">
   <div class="comm-reply-header">
     <span class="comm-nick">${_escHtml(rep.nick)}</span>
     <span class="comm-time">${_formatTime(rep.ts)}</span>
-    ${deleteBtn}
+    ${hideBtn}${deleteBtn}
   </div>
   <div class="comm-reply-body">${_escHtml(rep.text)}</div>
-  <div class="comm-reply-footer">
-    <button class="comm-react-btn report${reportActive}" onclick="commReportReply('${postId}',${idx})" title="通報">！通報する</button>
-  </div>
 </div>`;
 }
 
@@ -637,49 +679,6 @@ async function commDeleteReply(postId, replyIdx){
     if(sec2) sec2.style.display = 'block';
     _commToast('削除に失敗しました');
     console.error('[comm] reply delete failed', e);
-  }
-}
-
-// ── 返信通報 ─────────────────────────────────
-async function commReportReply(postId, replyIdx){
-  const repKey   = `${postId}_r${replyIdx}`;
-  const reactions = _loadReactions();
-  const rr       = reactions[repKey] || {};
-  if(rr.report){ _commToast('すでに通報済みです'); return; }
-  if(!confirm('この返信を通報しますか？\n通報が既定回数に達すると非表示になります。')) return;
-
-  rr.report = true;
-  reactions[repKey] = rr;
-  _saveReactions(reactions);
-
-  const scope  = _commScope, pref = _commPref;
-  const cached = _loadCache(scope, pref);
-  const post   = cached.find(p => p.id === postId);
-  if(post && Array.isArray(post.replies) && post.replies[replyIdx]){
-    post.replies[replyIdx].report = (post.replies[replyIdx].report||0) + 1;
-    _saveCache(scope, pref, cached);
-    _renderPostsFromCache();
-    const sec = document.getElementById(`comm-reply-section-${postId}`);
-    if(sec) sec.style.display = 'block';
-  }
-
-  try{
-    const target = post?.replies?.[replyIdx];
-    if(target){
-      // arrayRemove → arrayUnion で report をインクリメント
-      const updated = { ...target, report: (target.report||0) };
-      await _db().collection('posts').doc(postId).update({
-        replies: firebase.firestore.FieldValue.arrayRemove({ ...updated, report: updated.report - 1 < 0 ? 0 : updated.report - 1 })
-      });
-      await _db().collection('posts').doc(postId).update({
-        replies: firebase.firestore.FieldValue.arrayUnion({ ...updated })
-      });
-    }
-    _commToast('通報しました');
-  } catch(e){
-    rr.report = false; reactions[repKey] = rr; _saveReactions(reactions);
-    _commToast('通報に失敗しました');
-    console.warn('[comm] reply report failed', e);
   }
 }
 
