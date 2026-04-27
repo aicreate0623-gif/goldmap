@@ -186,20 +186,14 @@ async function commRefresh(){
       q = q.orderBy('ts', 'desc').limit(limit);
     }
     const snap = await q.get();
-    const newPosts = snap.docs.map(d => ({
-      id: d.id, ...d.data(),
-      ts: d.data().ts?.toMillis?.() ?? d.data().ts
-    }));
+    const newPosts = snap.docs.map(d => _normalizePost(d));
     if(newPosts.length === 0){
       if(latestTs > 0){
         // キャッシュありで差分0件 → 全削除の可能性あり → 全件クエリで確認
         let q2 = _db().collection('posts').where('scope', '==', fsScope);
         if(scope === 'regional') q2 = q2.where('pref', '==', pref);
         const snap2 = await q2.orderBy('ts', 'desc').limit(limit).get();
-        const allPosts = snap2.docs.map(d => ({
-          id: d.id, ...d.data(),
-          ts: d.data().ts?.toMillis?.() ?? d.data().ts
-        }));
+        const allPosts = snap2.docs.map(d => _normalizePost(d));
         _saveCache(scope, pref, allPosts);
         _commToast(allPosts.length === 0 ? '投稿はありません' : '最新の状態です');
       } else {
@@ -224,6 +218,18 @@ async function commRefresh(){
   } finally {
     _commLoading = false;
   }
+}
+function _normalizePost(doc){
+  const d = doc.data();
+  // replies内のtsもTimestamp→ミリ秒に変換
+  const replies = Array.isArray(d.replies)
+    ? d.replies.map(r => ({ ...r, ts: r.ts?.toMillis?.() ?? r.ts ?? Date.now() }))
+    : [];
+  return {
+    id: doc.id, ...d,
+    ts: d.ts?.toMillis?.() ?? d.ts,
+    replies,
+  };
 }
 function _mergePosts(cached, newPosts, limit){
   const map = {};
