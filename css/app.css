@@ -2061,6 +2061,10 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   font-size: 15px; line-height: 1;
 }
 /* 絵文字を正立させる */
+.pt-marker-ico {
+  transform: rotate(45deg);
+  display: inline-block; line-height: 1;
+}
 .pt-marker::after { content: ''; }
 /* ── 仮ピン 波紋アニメーション ── */
 .pt-marker-temp {
@@ -2104,6 +2108,17 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   min-width: 36px; height: 36px;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+/* ── ポイントタブ アコーディオンヘッダープレビュー ── */
+.pt-icon-accordion-preview {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  margin-left: auto; margin-right: 6px;
+}
+.pt-color-dot-preview {
+  display: inline-block;
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.3);
   flex-shrink: 0;
 }
 

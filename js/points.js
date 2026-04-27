@@ -62,6 +62,11 @@ function _renderIconPicker(selected, pickerId, selectedId) {
   });
   const sel = document.getElementById(selectedId);
   if (sel) { sel.dataset.icon = selected; sel.textContent = selected; }
+  // ポイントタブのヘッダープレビュー初期化
+  if (pickerId === 'pt-icon-picker') {
+    const prev = document.getElementById('pt-icon-preview');
+    if (prev) prev.textContent = selected;
+  }
 }
 
 function _renderColorPicker(selected, pickerId, selectedId) {
@@ -84,12 +89,20 @@ function _renderColorPicker(selected, pickerId, selectedId) {
     sel.dataset.color = selected;
     sel.style.background = selected==='transparent' ? 'rgba(255,255,255,0.1)' : selected;
   }
+  // ポイントタブのヘッダープレビュー初期化
+  if (pickerId === 'pt-color-picker') {
+    const dot = document.getElementById('pt-color-preview-dot');
+    if (dot) dot.style.background = selected==='transparent' ? 'rgba(255,255,255,0.2)' : selected;
+  }
 }
 function ptSelectIcon(ic) {
   _curIcon = ic;
   document.querySelectorAll('#pt-icon-picker .cl-ico-btn').forEach(b => b.classList.toggle('sel', b.dataset.icon===ic));
   const sel = document.getElementById('pt-icon-selected');
   if (sel) { sel.dataset.icon = ic; sel.textContent = ic; }
+  // ヘッダープレビュー同期
+  const prev = document.getElementById('pt-icon-preview');
+  if (prev) prev.textContent = ic;
   // 仮ピンをリアルタイム更新
   if (tPin) tPin.setIcon(_makeTempIcon(_curIcon, _curColor));
 }
@@ -98,6 +111,9 @@ function ptSelectColor(val) {
   document.querySelectorAll('#pt-color-picker .cl-col-btn').forEach(b => b.classList.toggle('sel', b.dataset.color===val));
   const sel = document.getElementById('pt-color-selected');
   if (sel) { sel.dataset.color = val; sel.style.background = val==='transparent' ? 'rgba(255,255,255,0.1)' : val; }
+  // ヘッダープレビュー同期
+  const dot = document.getElementById('pt-color-preview-dot');
+  if (dot) dot.style.background = val==='transparent' ? 'rgba(255,255,255,0.2)' : val;
   // 仮ピンをリアルタイム更新
   if (tPin) tPin.setIcon(_makeTempIcon(_curIcon, _curColor));
 }
@@ -131,7 +147,7 @@ function _makeIcon(icon, color) {
   const bg = (!color||color==='transparent') ? 'rgba(200,160,32,0.2)' : color;
   const border = (!color||color==='transparent') ? '2px dashed rgba(200,160,32,0.7)' : '2px solid rgba(255,255,255,0.7)';
   return L.divIcon({
-    html: `<div class="pt-marker" style="background:${bg};border:${border}">${icon||'⛏'}</div>`,
+    html: `<div class="pt-marker" style="background:${bg};border:${border}"><span class="pt-marker-ico">${icon||'⛏'}</span></div>`,
     className: '', iconSize:[32,32], iconAnchor:[16,32]
   });
 }
@@ -140,7 +156,7 @@ function _makeTempIcon(icon, color) {
   const bg = (!color||color==='transparent') ? 'rgba(200,160,32,0.2)' : color;
   const border = (!color||color==='transparent') ? '2px dashed rgba(200,160,32,0.7)' : '2px solid rgba(255,255,255,0.7)';
   return L.divIcon({
-    html: `<div class="pt-marker pt-marker-temp" style="background:${bg};border:${border}">${icon||'⛏'}</div>`,
+    html: `<div class="pt-marker pt-marker-temp" style="background:${bg};border:${border}"><span class="pt-marker-ico">${icon||'⛏'}</span></div>`,
     className: '', iconSize:[32,32], iconAnchor:[16,32]
   });
 }
