@@ -132,7 +132,7 @@ function confirmContribOn() {
     let sent = 0;
     pts.forEach(p => {
       if (p.fsId) { sent++; if (sent===pts.length) showAlert('協力ありがとうございます', pts.length+'件の位置情報を送信しました。'); return; }
-      submitCoord(p.lat, p.lng, p.stars||0)
+      submitCoord(p.lat, p.lng, p.stars||0, p.name||'', p.memo||'')
         .then(fsId => { p.fsId=fsId; sent++; if (sent===pts.length) { savePts(); showAlert('協力ありがとうございます', pts.length+'件の位置情報を送信しました。'); } })
         .catch(e => { sent++; console.warn('[contrib] 送信失敗', e); });
     });
@@ -388,7 +388,7 @@ async function confirmSave(){
       if(!navigator.onLine){
         showAlert('オフライン','ポイントはローカルに保存しましたが、ネットワーク未接続のためヒートマップへの投稿はスキップされました。\n次回オンライン時に再度「ヒートマップに協力」をONにすると送信できます。');
       }else{
-        submitCoord(ll.lat,ll.lng,_curStars)
+        submitCoord(ll.lat,ll.lng,_curStars,n,m)
           .then(fsId=>{p.fsId=fsId;savePts();})
           .catch(e=>console.warn('[points] submitCoord失敗',e));
       }

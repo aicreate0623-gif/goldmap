@@ -218,16 +218,29 @@ function startPurchaseFlow() {
 // ─────────────────────────────────────────────────────
 // 座標を Firestore に投稿
 // ─────────────────────────────────────────────────────
-async function submitCoord(lat, lng, stars) {
+// ── 金関連キーワード判定 ──────────────────────────────
+const GOLD_KEYWORDS = [
+  '金', 'GOLD', 'gold', '砂金', 'ナゲット', '草値引き', 'バンニング',
+  'グレイン', 'スルース', 'ドレッジ', '寄せ場', 'さきん', 'きん',
+  'なげっと', 'くさねびき', 'ぱんにんぐ', 'ぐれいん', 'よせば', 'どれっじ',
+];
+function _isGoldKeyword(name, memo) {
+  const text = (name || '') + ' ' + (memo || '');
+  return GOLD_KEYWORDS.some(kw => text.includes(kw));
+}
+
+async function submitCoord(lat, lng, stars, name, memo) {
   const db  = firebase.firestore();
   const ref = await db.collection('coords').add({
     lat, lng,
-    stars: stars || 0,
-    uid:  window._fbUid || 'anonymous',
-    date: new Date().toISOString().slice(0, 10),
-    ts:   firebase.firestore.FieldValue.serverTimestamp(),
+    stars:  stars || 0,
+    isGold: _isGoldKeyword(name, memo),
+    uid:    window._fbUid || 'anonymous',
+    date:   new Date().toISOString().slice(0, 10),
+    ts:     firebase.firestore.FieldValue.serverTimestamp(),
   });
-  console.log('[firebase.js] submitCoord OK', lat, lng, 'stars=', stars, 'fsId=', ref.id);
+  console.log('[firebase.js] submitCoord OK', lat, lng, 'stars=', stars,
+              'isGold=', _isGoldKeyword(name, memo), 'fsId=', ref.id);
   return ref.id;
 }
 

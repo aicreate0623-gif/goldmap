@@ -36,7 +36,7 @@ GRID_SIZE_PAID = 0.01  # 約1km （有料tier・クラスタ条件あり）
 # ── paidクラスタ条件 ──────────────────────────────────────
 NEIGHBOR_RADIUS = 4    # 自セルから何グリッド以内を近傍とするか（9×9範囲）
 MIN_NEIGHBOR_CELLS = 2 # 近傍範囲内に必要な投稿セル数（自セル除く）
-MIN_AVG_STARS = 1.0    # 近傍範囲内の全投稿の星平均下限
+MIN_AVG_STARS = 0.0    # 星なし投稿も反映（近傍条件は維持）
 
 
 def coord_to_grid(lat, lng, grid_size):
@@ -64,10 +64,11 @@ def fetch_coords_from_firestore():
         if lat is None or lng is None:
             continue
         results.append({
-            'lat':   lat,
-            'lng':   lng,
-            'stars': data.get('stars', 0),  # 未設定は0扱い
-            'date':  data.get('date', ''),  # 将来の鮮度フィルタ用・今回は不使用
+            'lat':    lat,
+            'lng':    lng,
+            'stars':  data.get('stars', 0),   # 未設定は0扱い
+            'isGold': data.get('isGold', False),  # 金キーワードフラグ
+            'date':   data.get('date', ''),    # 将来の鮮度フィルタ用・今回は不使用
         })
     return results
 
@@ -114,14 +115,18 @@ def aggregate_paid(coords, grid_size):
     grid = {}
     for c in coords:
         try:
-            lat   = float(c['lat'])
-            lng   = float(c['lng'])
-            stars = float(c.get('stars', 0))
-            key   = coord_to_grid(lat, lng, grid_size)
+            lat    = float(c['lat'])
+            lng    = float(c['lng'])
+            stars  = float(c.get('stars', 0))
+            is_gold = bool(c.get('isGold', False))
+            key    = coord_to_grid(lat, lng, grid_size)
             if key not in grid:
-                grid[key] = {'count': 0, 'stars_sum': 0.0}
+                grid[key] = {'count': 0, 'stars_sum': 0.0, 'is_gold': False}
             grid[key]['count']     += 1
             grid[key]['stars_sum'] += stars
+            # 1件でも金キーワードがあればセルをisGoldとする
+            if is_gold:
+                grid[key]['is_gold'] = True
         except (KeyError, TypeError, ValueError):
             continue
 
@@ -150,25 +155,28 @@ def aggregate_paid(coords, grid_size):
                 if nb is not None:
                     neighbor_cells.append(nb)
 
-        # 近傍セル数チェック
-        if len(neighbor_cells) < MIN_NEIGHBOR_CELLS:
-            continue
+        # isGoldセルは近傍条件をスキップして通す
+        if not v['is_gold']:
+            # 近傍セル数チェック
+            if len(neighbor_cells) < MIN_NEIGHBOR_CELLS:
+                continue
 
         # 近傍全体（自セル含む）の件数・星合計
         total_count     = v['count'] + sum(nb['count'] for nb in neighbor_cells)
         total_stars_sum = v['stars_sum'] + sum(nb['stars_sum'] for nb in neighbor_cells)
         avg_stars       = total_stars_sum / total_count if total_count > 0 else 0.0
 
-        # 星平均チェック
+        # 星平均チェック（MIN_AVG_STARS=0.0なので実質スキップ）
         if avg_stars < MIN_AVG_STARS:
             continue
 
         filtered.append({
             'lat':       round(ilat * grid_size, 6),
             'lng':       round(ilng * grid_size, 6),
-            'count':     v['count'],          # 自セルの件数
-            'avg_stars': round(avg_stars, 2), # 近傍含む星平均
-            'raw_score': v['count'] * avg_stars,
+            'count':     v['count'],           # 自セルの件数
+            'is_gold':   v['is_gold'],          # 金キーワードフラグ
+            'avg_stars': round(avg_stars, 2),  # 近傍含む星平均
+            'raw_score': v['count'] * max(avg_stars, 0.1),  # 星0でも最低スコア保証
         })
 
     if not filtered:
