@@ -102,6 +102,13 @@ function commUnhidePost(postId){
   _renderPostsFromCache();
 }
 
+// NG解除（uidベース・投稿と返信共通）
+function commUnhideNg(uid){
+  const uids = _loadNgUids().filter(u => u !== uid);
+  _saveNgUids(uids);
+  _renderPostsFromCache();
+}
+
 // 非表示解除（返信）
 function commUnhideReply(postId, replyIdx){
   const key = `${postId}_r${replyIdx}`;
@@ -319,9 +326,12 @@ function _renderPostsFromCache(){
     const isNg     = ngUids.includes(p.uid);
     const isHidden = hidden.includes(p.id);
     if(isNg || isHidden){
+      const unhideBtn = isNg
+        ? `<button class="comm-unhide-btn" onclick="commUnhideNg('${p.uid}')">NG解除</button>`
+        : `<button class="comm-unhide-btn" onclick="commUnhidePost('${p.id}')">非表示解除</button>`;
       return `<div class="comm-post comm-post-hidden">
-  <span>⚠️ 非表示の書き込み</span>
-  <button class="comm-unhide-btn" onclick="commUnhidePost('${p.id}')">解除する</button>
+  <span>⚠️ 非表示の書き込み${isNg ? '（NG登録中）' : ''}</span>
+  ${unhideBtn}
 </div>`;
     }
     const likeActive = r.like ? ' active' : '';
@@ -566,9 +576,12 @@ function _buildReplyHtml(postId, rep, idx, uid, hiddenReply, ngUids){
   const isNg     = ngUids.includes(rep.uid);
   const isHidden = hiddenReply.includes(key);
   if(isNg || isHidden){
+    const unhideBtn = isNg
+      ? `<button class="comm-unhide-btn" onclick="commUnhideNg('${rep.uid}')">NG解除</button>`
+      : `<button class="comm-unhide-btn" onclick="commUnhideReply('${postId}',${idx})">非表示解除</button>`;
     return `<div class="comm-reply-item comm-post-hidden">
-  <span>⚠️ 非表示の返信</span>
-  <button class="comm-unhide-btn" onclick="commUnhideReply('${postId}',${idx})">解除する</button>
+  <span>⚠️ 非表示の返信${isNg ? '（NG登録中）' : ''}</span>
+  ${unhideBtn}
 </div>`;
   }
   const isOwn     = uid && rep.uid === uid;
