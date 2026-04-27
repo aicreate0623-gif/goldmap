@@ -1907,39 +1907,79 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   padding: 10px 12px;
   background: rgba(255,255,255,0.04);
   border-bottom: 1px solid rgba(255,255,255,0.06);
+  user-select: none;
+  transition: background .15s;
 }
+.cl-set-header:hover { background: rgba(255,255,255,0.07); }
+.cl-set-hd-arrow { font-size: 10px; color: var(--txt-dim); flex-shrink: 0; }
 .cl-set-icon { font-size: 18px; flex-shrink: 0; }
-.cl-set-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--txt); }
+.cl-set-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--txt); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cl-set-count {
   font-size: 11px; color: var(--txt-dim);
   background: rgba(255,255,255,0.07);
   border-radius: 10px; padding: 2px 7px;
+  flex-shrink: 0; white-space: nowrap;
 }
 .cl-filter-count {
   color: var(--gold); font-size: 11px;
 }
-.cl-set-actions { display: flex; gap: 5px; flex-shrink: 0; }
-.cl-set-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 
-/* ── 表示チェック行 ── */
-.cl-visible-row {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 12px; color: var(--txt-sub); cursor: pointer;
+/* ── ヘッダー小型表示トグル ── */
+.cl-vis-mini {
+  position: relative;
+  display: flex; align-items: center;
+  width: 52px; height: 22px;
+  border-radius: 11px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
+  cursor: pointer; padding: 0;
+  transition: background .25s, border-color .25s;
+  flex-shrink: 0;
 }
-.cl-visible-row input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; }
+.cl-vis-mini.on {
+  background: var(--gold);
+  border-color: var(--gold-lt);
+}
+.cl-vis-mini-thumb {
+  position: absolute;
+  left: 2px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.5);
+  transition: left .25s, background .25s;
+  pointer-events: none;
+}
+.cl-vis-mini.on .cl-vis-mini-thumb {
+  left: calc(52px - 20px);
+  background: #fff;
+}
+.cl-vis-mini-lbl {
+  position: absolute;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 9px; font-weight: 700;
+  color: var(--txt-sub);
+  pointer-events: none;
+  transition: opacity .2s;
+  letter-spacing: 0;
+}
+.cl-vis-mini.on .cl-vis-mini-lbl { color: rgba(0,0,0,0.7); }
 
-/* ── フィルター行 ── */
+.cl-set-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.cl-set-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+
+/* ── フィルター行（件数・編集・削除を同一行に） ── */
 .cl-filter-row {
   display: flex; align-items: center; gap: 6px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 6px; padding: 5px 8px;
+  border-radius: 6px; padding: 4px 6px;
 }
 .cl-filter-ico { font-size: 13px; flex-shrink: 0; }
 .cl-filter-input {
   flex: 1; background: none; border: none; outline: none;
   font-size: 12px; color: var(--txt);
-  min-width: 0;
+  min-width: 0; width: 60px;
 }
 .cl-filter-input::placeholder { color: var(--txt-dim); }
 .cl-filter-clear {
@@ -1948,6 +1988,13 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   flex-shrink: 0;
 }
 .cl-filter-clear:hover { color: var(--txt); }
+.cl-filter-badge {
+  font-size: 10px; color: var(--gold);
+  background: rgba(200,170,80,0.12);
+  border-radius: 8px; padding: 1px 5px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.cl-action-btn { flex-shrink: 0; }
 
 /* ── インポート/エクスポート行 ── */
 .cl-import-row {

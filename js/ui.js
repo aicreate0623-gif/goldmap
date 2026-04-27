@@ -1371,6 +1371,15 @@ document.addEventListener('keydown',e=>{
       if(wasMap2) _pushHistory();
       return;
     }
+    if(tab === 'mymap'){
+      isPremiumUser().then(premium=>{
+        if(!premium){ showPremiumGate('mymap'); return; }
+        const wasMapM = (curTab === 'map');
+        _orig(tab);
+        if(wasMapM) _pushHistory();
+      });
+      return;
+    }
     const wasMap = (curTab === 'map');
     _orig(tab);
     if(tab === 'community'){

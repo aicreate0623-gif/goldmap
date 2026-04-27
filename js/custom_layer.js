@@ -174,71 +174,81 @@ function _renderClSets(){
 }
 
 function _clSetHTML(s){
-  const ft = _clFilterMap[s.id] || '';
+  const ft = (_clFilterMap[s.id] || '').trim().toLowerCase();
+  const filteredCount = ft ? s.points.filter(p=>_matchFilter(p, ft)).length : null;
+  const countLabel = filteredCount !== null
+    ? `${s.points.length}件 <span class="cl-filter-count">→ ${filteredCount}件</span>`
+    : `${s.points.length}件`;
+
   return `
   <div class="cl-set-card" id="cl-set-${s.id}">
-    <div class="cl-set-header">
+
+    <!-- ① セットヘッダー（タップで設定アコーディオン開閉） -->
+    <div class="cl-set-header" onclick="clToggleSetBody('${s.id}')" style="cursor:pointer">
       <span class="cl-set-icon">${s.icon}</span>
       <span class="cl-set-name">${s.name}</span>
-      <span class="cl-set-count">${s.points.length}件${(()=>{
-        const ft = (_clFilterMap[s.id]||'').trim().toLowerCase();
-        if(!ft) return '';
-        const n = s.points.filter(p=>_matchFilter(p, ft)).length;
-        return ` <span class="cl-filter-count">→ ${n}件</span>`;
-      })()}</span>
-      <div class="cl-set-actions">
-        <button class="btn sm" onclick="openClEdit('${s.id}')">✏️</button>
-        <button class="btn sm red" onclick="confirmClDelete('${s.id}')">🗑</button>
-      </div>
+      <span class="cl-set-count">${countLabel}</span>
+      <span class="cl-set-hd-arrow" id="cl-set-arrow-${s.id}">▶</span>
+      <button class="cl-vis-mini${s.visible?' on':''}" onclick="event.stopPropagation();clToggleVisible('${s.id}')" title="地図に表示">
+        <span class="cl-vis-mini-thumb"></span>
+        <span class="cl-vis-mini-lbl">${s.visible?'表示':'表示'}</span>
+      </button>
     </div>
-    <div class="cl-set-body">
-      <div class="cl-visible-row">
-        <span class="cl-visible-label">地図に表示</span>
-        <button class="contrib-toggle cl-vis-toggle${s.visible?' on':''}" onclick="clToggleVisible('${s.id}')">
-          <span class="contrib-off-lbl">OFF</span>
-          <span class="contrib-thumb"></span>
-          <span class="contrib-on-lbl">ON</span>
-        </button>
-      </div>
+
+    <!-- ② セット設定アコーディオン（デフォルト閉じ） -->
+    <div class="cl-set-body" id="cl-set-body-${s.id}" style="display:none">
+      <!-- フィルター行 + 件数 + 編集 + 削除 -->
       <div class="cl-filter-row">
         <span class="cl-filter-ico">🔍</span>
-        <input class="cl-filter-input" type="text" placeholder="フィルター文字列を入力…"
-          value="${ft}"
+        <input class="cl-filter-input" type="text" placeholder="フィルター…"
+          value="${_clFilterMap[s.id]||''}"
           oninput="clFilter('${s.id}',this.value)">
-        ${ft ? `<button class="cl-filter-clear" onclick="clFilterClear('${s.id}')">✕</button>` : ''}
+        ${(_clFilterMap[s.id]||'') ? `<button class="cl-filter-clear" onclick="clFilterClear('${s.id}')">✕</button>` : ''}
+        ${filteredCount !== null ? `<span class="cl-filter-badge">${filteredCount}件</span>` : ''}
+        <button class="btn sm cl-action-btn" onclick="openClEdit('${s.id}')">✏️</button>
+        <button class="btn sm red cl-action-btn" onclick="confirmClDelete('${s.id}')">🗑</button>
       </div>
+      <!-- インポート/エクスポート -->
       <div class="cl-import-row">
         <button class="btn sm blue" onclick="document.getElementById('cl-imp-${s.id}').click()">📥 追加インポート</button>
-        <button class="btn sm" onclick="clExport('${s.id}')">📤 セットエクスポート</button>
+        <button class="btn sm" onclick="clExport('${s.id}')">📤 エクスポート</button>
         <input type="file" id="cl-imp-${s.id}" accept=".geojson,.json,.csv"
           style="display:none" onchange="clImport('${s.id}',event)">
       </div>
-      <div class="cl-color-dot" style="background:${s.color}" title="${CL_COLORS.find(c=>c.value===s.color)?.label||''}"></div>
     </div>
 
-    <!-- 個別ポイント アコーディオン -->
+    <!-- ③ 個別ポイント アコーディオン（設定と独立・0件時非表示） -->
+    ${s.points.length > 0 ? `
     <div class="cl-pt-accordion-header" onclick="clTogglePointList('${s.id}')" id="cl-pt-acc-${s.id}">
       <span>📍 ${s.points.length}件のポイント</span>
       <span class="cl-pt-acc-arrow" id="cl-pt-arrow-${s.id}">▶</span>
     </div>
     <div class="cl-pt-list" id="cl-pt-list-${s.id}" style="display:none;">
-      ${s.points.length === 0
-        ? '<div class="cl-pt-empty">ポイントがありません</div>'
-        : s.points.map((p, i) => `
-          <div class="cl-pt-row" onclick="clJumpToPoint('${s.id}',${i})">
-            <span class="cl-pt-icon" style="background:${p.color||s.color}">${p.icon||s.icon}</span>
-            <div class="cl-pt-info">
-              <div class="cl-pt-name">${p.name || '（名前なし）'}</div>
-              <div class="cl-pt-meta">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.note ? ' · ' + p.note.slice(0,20) + (p.note.length>20?'…':'') : ''}</div>
-            </div>
-            <div class="cl-pt-row-btns" onclick="event.stopPropagation()">
-              <button class="btn sm" onclick="openClPointEdit('${s.id}',${i})">✏️</button>
-              <button class="btn sm red" onclick="openClPointDel('${s.id}',${i})">🗑</button>
-            </div>
-          </div>`).join('')
-      }
-    </div>
+      ${s.points.map((p, i) => `
+        <div class="cl-pt-row" onclick="clJumpToPoint('${s.id}',${i})">
+          <span class="cl-pt-icon" style="background:${p.color||s.color}">${p.icon||s.icon}</span>
+          <div class="cl-pt-info">
+            <div class="cl-pt-name">${p.name || '（名前なし）'}</div>
+            <div class="cl-pt-meta">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.note ? ' · ' + p.note.slice(0,20) + (p.note.length>20?'…':'') : ''}</div>
+          </div>
+          <div class="cl-pt-row-btns" onclick="event.stopPropagation()">
+            <button class="btn sm" onclick="openClPointEdit('${s.id}',${i})">✏️</button>
+            <button class="btn sm red" onclick="openClPointDel('${s.id}',${i})">🗑</button>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+
   </div>`;
+}
+
+// ── セット設定アコーディオン開閉 ──────────────
+function clToggleSetBody(id){
+  const body  = document.getElementById(`cl-set-body-${id}`);
+  const arrow = document.getElementById(`cl-set-arrow-${id}`);
+  if(!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display  = isOpen ? 'none' : 'block';
+  if(arrow) arrow.textContent = isOpen ? '▶' : '▼';
 }
 
 // ── 表示/非表示トグル ────────────────────────
@@ -248,7 +258,7 @@ function clToggleVisible(id){
   s.visible = !s.visible;
   _clSave();
   // ボタンのon/offクラス更新
-  const btn = document.querySelector(`#cl-set-${id} .cl-vis-toggle`);
+  const btn = document.querySelector(`#cl-set-${id} .cl-vis-mini`);
   if(btn) btn.classList.toggle('on', s.visible);
   if(s.visible){
     if(!_clMapShown){
@@ -286,6 +296,30 @@ function clFilter(id, val){
     } else if(!val && clear){
       clear.remove();
     }
+    // フィルター件数バッジ更新
+    let badge = card.querySelector('.cl-filter-badge');
+    if(val && s){
+      const n = s.points.filter(p=>_matchFilter(p, val.trim().toLowerCase())).length;
+      if(!badge){
+        badge = document.createElement('span');
+        badge.className = 'cl-filter-badge';
+        const clearOrInp = card.querySelector('.cl-filter-clear') || card.querySelector('.cl-filter-input');
+        if(clearOrInp) clearOrInp.after(badge);
+      }
+      badge.textContent = `${n}件`;
+    } else if(badge){
+      badge.remove();
+    }
+    // ヘッダーのカウント表示も更新
+    const countEl = card.querySelector('.cl-set-count');
+    if(countEl && s){
+      if(val){
+        const n = s.points.filter(p=>_matchFilter(p, val.trim().toLowerCase())).length;
+        countEl.innerHTML = `${s.points.length}件 <span class="cl-filter-count">→ ${n}件</span>`;
+      } else {
+        countEl.textContent = `${s.points.length}件`;
+      }
+    }
   }
 }
 function clFilterClear(id){
@@ -296,6 +330,12 @@ function clFilterClear(id){
     if(inp) inp.value='';
     const clear = card.querySelector('.cl-filter-clear');
     if(clear) clear.remove();
+    const badge = card.querySelector('.cl-filter-badge');
+    if(badge) badge.remove();
+    // ヘッダーのカウント表示をリセット
+    const s = _clSets.find(s=>s.id===id);
+    const countEl = card.querySelector('.cl-set-count');
+    if(countEl && s) countEl.textContent = `${s.points.length}件`;
   }
   const s = _clSets.find(s=>s.id===id);
   if(s && s.visible) _buildLayer(s, '');
@@ -414,6 +454,7 @@ function _doClDelete(id){
   delete _clFilterMap[id];
   _clSave();
   _renderClSets();
+  _syncFloatBtn(); // ③ セット削除後のフロートボタン状態を同期
   closeOv();
 }
 
@@ -462,11 +503,21 @@ async function clImport(id, evt){
     }
 
     if(!added.length) throw new Error('有効なポイントが見つかりません');
-    s.points = s.points.concat(added);
+
+    // ⑥ 重複チェック（lat/lng完全一致）
+    const existing = s.points;
+    const deduped = added.filter(np =>
+      !existing.some(ep => ep.lat === np.lat && ep.lng === np.lng)
+    );
+    const dupCount = added.length - deduped.length;
+    if(!deduped.length) throw new Error('すべて重複データのためスキップしました');
+
+    s.points = s.points.concat(deduped);
     await _clSave();
     if(s.visible) _buildLayer(s);
     _renderClSets();
-    showAlert('完了', `${added.length}件を「${s.name}」に追加しました`);
+    const dupMsg = dupCount > 0 ? `（重複${dupCount}件スキップ）` : '';
+    showAlert('完了', `${deduped.length}件を「${s.name}」に追加しました${dupMsg}`);
   }catch(e){
     showAlert('エラー', 'インポートに失敗しました: '+e.message);
   }
@@ -582,12 +633,23 @@ async function saveClPointEdit() {
   };
   await _clSave();
   if (s.visible) _buildLayer(s);
+  // ② 再描画前に開いていたアコーディオン状態を保存
+  const ptListOpen   = document.getElementById(`cl-pt-list-${_editingPointSetId}`)?.style.display !== 'none';
+  const setBodyOpen  = document.getElementById(`cl-set-body-${_editingPointSetId}`)?.style.display !== 'none';
   _renderClSets();
   // 展開状態を復元
-  const list  = document.getElementById(`cl-pt-list-${_editingPointSetId}`);
-  const arrow = document.getElementById(`cl-pt-arrow-${_editingPointSetId}`);
-  if (list)  list.style.display = 'block';
-  if (arrow) arrow.textContent  = '▼';
+  if(ptListOpen){
+    const list  = document.getElementById(`cl-pt-list-${_editingPointSetId}`);
+    const arrow = document.getElementById(`cl-pt-arrow-${_editingPointSetId}`);
+    if(list)  list.style.display = 'block';
+    if(arrow) arrow.textContent  = '▼';
+  }
+  if(setBodyOpen){
+    const body  = document.getElementById(`cl-set-body-${_editingPointSetId}`);
+    const arrow = document.getElementById(`cl-set-arrow-${_editingPointSetId}`);
+    if(body)  body.style.display = 'block';
+    if(arrow) arrow.textContent  = '▼';
+  }
   closeOv();
 }
 
@@ -612,12 +674,23 @@ async function _doClPointDelete() {
   s.points.splice(_deletingPointIndex, 1);
   await _clSave();
   if (s.visible) _buildLayer(s);
+  // ② 再描画前に開いていたアコーディオン状態を保存
+  const ptListOpenD  = document.getElementById(`cl-pt-list-${_deletingPointSetId}`)?.style.display !== 'none';
+  const setBodyOpenD = document.getElementById(`cl-set-body-${_deletingPointSetId}`)?.style.display !== 'none';
   _renderClSets();
   // 展開状態を復元（削除後もリスト表示）
-  const list  = document.getElementById(`cl-pt-list-${_deletingPointSetId}`);
-  const arrow = document.getElementById(`cl-pt-arrow-${_deletingPointSetId}`);
-  if (list)  list.style.display = 'block';
-  if (arrow) arrow.textContent  = '▼';
+  if(ptListOpenD){
+    const list  = document.getElementById(`cl-pt-list-${_deletingPointSetId}`);
+    const arrow = document.getElementById(`cl-pt-arrow-${_deletingPointSetId}`);
+    if(list)  list.style.display = 'block';
+    if(arrow) arrow.textContent  = '▼';
+  }
+  if(setBodyOpenD){
+    const body  = document.getElementById(`cl-set-body-${_deletingPointSetId}`);
+    const arrow = document.getElementById(`cl-set-arrow-${_deletingPointSetId}`);
+    if(body)  body.style.display = 'block';
+    if(arrow) arrow.textContent  = '▼';
+  }
   closeOv();
 }
 
