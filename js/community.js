@@ -41,6 +41,9 @@ const REGION_MAP = {
   '九州・沖縄': ['福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'],
 };
 
+// 非表示モーダル用の一時状態
+let _hideCtx = null; // { type:'post'|'reply', postId, replyIdx, uid }
+
 let _commScope   = localStorage.getItem(SK_SCOPE)  || 'national';
 let _commRegion  = localStorage.getItem(SK_REGION) || '北海道';
 let _commPref    = localStorage.getItem(SK_PREF)   || '';
@@ -60,28 +63,32 @@ function _saveNgUids(list){ localStorage.setItem(SK_NG_UIDS, JSON.stringify(list
 
 // 非表示ダイアログ（投稿）
 function commHidePost(postId, uid){
-  if(confirm('この書き込みをどうしますか？\n\n[OK] この書き込みのみ非表示\n[キャンセル] NG登録して非表示（この人の書き込みをすべて非表示）')){
-    // この書き込みのみ非表示
-    const list = _loadHidden();
-    if(!list.includes(postId)){ list.push(postId); _saveHidden(list); }
-  } else {
-    // NG登録（キャンセル押下 = NG登録として扱う）
-    // confirmではOK/キャンセルしか選べないため別途confirm
-    if(!confirm('この投稿者をNG登録しますか？\nこの人の投稿・返信がすべて非表示になります。')) return;
-    const uids = _loadNgUids();
-    if(!uids.includes(uid)){ uids.push(uid); _saveNgUids(uids); }
-  }
-  _renderPostsFromCache();
+  _hideCtx = { type: 'post', postId, uid };
+  showDlg('dlg-hide-post');
 }
 
 // 非表示ダイアログ（返信）
 function commHideReply(postId, replyIdx, uid){
-  if(confirm('この返信をどうしますか？\n\n[OK] この返信のみ非表示\n[キャンセル] NG登録して非表示（この人の書き込みをすべて非表示）')){
-    const key = `${postId}_r${replyIdx}`;
-    const list = _loadHiddenReply();
-    if(!list.includes(key)){ list.push(key); _saveHiddenReply(list); }
-  } else {
-    if(!confirm('この投稿者をNG登録しますか？\nこの人の投稿・返信がすべて非表示になります。')) return;
+  _hideCtx = { type: 'reply', postId, replyIdx, uid };
+  showDlg('dlg-hide-post');
+}
+
+// 非表示モーダルの確定処理（3ボタン共通）
+function _commHideConfirm(action){
+  if(!_hideCtx){ closeOv(); return; }
+  const { type, postId, replyIdx, uid } = _hideCtx;
+  _hideCtx = null;
+  closeOv();
+  if(action === 'single'){
+    if(type === 'post'){
+      const list = _loadHidden();
+      if(!list.includes(postId)){ list.push(postId); _saveHidden(list); }
+    } else {
+      const key = `${postId}_r${replyIdx}`;
+      const list = _loadHiddenReply();
+      if(!list.includes(key)){ list.push(key); _saveHiddenReply(list); }
+    }
+  } else if(action === 'ng'){
     const uids = _loadNgUids();
     if(!uids.includes(uid)){ uids.push(uid); _saveNgUids(uids); }
   }
@@ -236,7 +243,7 @@ async function commRefresh(){
     // 差分取得：キャッシュがある場合のみ ts フィルターを追加
     // ※ latestTs-1ms で境界値漏れを防ぐ
     if(latestTs > 0){
-      q = q.orderBy('ts', 'desc').where('ts', '>', new Date(latestTs - 1)).limit(limit);
+      q = q.where('ts', '>', new Date(latestTs - 1)).orderBy('ts', 'desc').limit(limit);
     } else {
       q = q.orderBy('ts', 'desc').limit(limit);
     }
@@ -336,7 +343,7 @@ function _renderPostsFromCache(){
   <div class="comm-post-header">
     <span class="comm-nick">${_escHtml(p.nick)}</span>
     <span class="comm-time">${timeStr}</span>
-    ${hideBtn}${deleteBtn}
+    <div class="comm-post-actions">${hideBtn}${deleteBtn}</div>
   </div>
   <div class="comm-post-body">${_escHtml(p.text)}</div>
   <div class="comm-post-footer">
@@ -432,6 +439,9 @@ async function commDeletePost(postId){
 
 // ── likeリアクション ─────────────────────────
 async function commReact(postId, type){
+  // 連打防止
+  const btn = document.querySelector(`.comm-react-btn.${type}[onclick="commReact('${postId}','${type}')"]`);
+  if(btn) btn.disabled = true;
   const reactions = _loadReactions();
   const r = reactions[postId] || {};
   const isOn = !!r[type]; const delta = isOn ? -1 : 1;
@@ -449,6 +459,8 @@ async function commReact(postId, type){
     if(post){ post[type] = Math.max(0,(post[type]||0)-delta); _saveCache(scope,pref,cached); _renderPostsFromCache(); }
     _commToast('操作に失敗しました');
     console.warn('[comm] react failed', e);
+  } finally {
+    if(btn) btn.disabled = false;
   }
 }
 
@@ -570,7 +582,7 @@ function _buildReplyHtml(postId, rep, idx, uid, hiddenReply, ngUids){
   <div class="comm-reply-header">
     <span class="comm-nick">${_escHtml(rep.nick)}</span>
     <span class="comm-time">${_formatTime(rep.ts)}</span>
-    ${hideBtn}${deleteBtn}
+    <div class="comm-post-actions">${hideBtn}${deleteBtn}</div>
   </div>
   <div class="comm-reply-body">${_escHtml(rep.text)}</div>
 </div>`;
@@ -692,6 +704,10 @@ function _formatTime(ts){
   if(diff < 3600000)  return Math.floor(diff/60000)+'分前';
   if(diff < 86400000) return Math.floor(diff/3600000)+'時間前';
   const d = new Date(ts);
+  const now = new Date();
+  if(d.getFullYear() !== now.getFullYear()){
+    return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+  }
   return `${d.getMonth()+1}/${d.getDate()}`;
 }
 let _toastTimer = null;

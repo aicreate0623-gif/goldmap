@@ -962,6 +962,17 @@
     </div>
   </div>
 
+  <!-- 非表示モーダル（投稿・返信共通） -->
+  <div class="dialog" id="dlg-hide-post" style="display:none">
+    <h3>🚫 この書き込みについて</h3>
+    <p class="dlg-msg" style="font-size:12px;">どちらの操作を行いますか？</p>
+    <div class="dlg-btns" style="flex-direction:column;gap:8px;">
+      <button class="dbtn" onclick="_commHideConfirm('single')">この投稿だけ非表示</button>
+      <button class="dbtn del" onclick="_commHideConfirm('ng')">この人をNG登録（全投稿を非表示）</button>
+      <button class="dbtn" onclick="closeOv()">キャンセル</button>
+    </div>
+  </div>
+
   <div class="dialog" id="dlg-premium-gate" style="display:none">
     <div class="premium-gate-icon" id="premium-gate-icon">🔒</div>
     <h3 id="premium-gate-title">プレミアム機能</h3>

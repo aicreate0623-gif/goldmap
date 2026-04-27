@@ -1641,7 +1641,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 
 /* 自分の投稿削除ボタン */
 .comm-delete-btn {
-  margin-left: auto;
   background: none;
   border: none;
   font-size: 14px;
@@ -1668,10 +1667,18 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   transition: opacity .15s;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
-  margin-left: auto;
 }
 .comm-hide-btn:hover  { opacity: 1; }
 .comm-hide-btn:active { opacity: 1; }
+
+/* 投稿ヘッダー右端ボタンまとめラッパー */
+.comm-post-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
 
 /* 解除ボタン */
 .comm-unhide-btn {
