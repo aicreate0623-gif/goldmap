@@ -448,10 +448,11 @@ async function commDeletePost(postId){
 }
 
 // ── likeリアクション ─────────────────────────
+const _reactingSet = new Set(); // 連打防止フラグ
 async function commReact(postId, type){
-  // 連打防止
-  const btn = document.querySelector(`.comm-react-btn.${type}[onclick="commReact('${postId}','${type}')"]`);
-  if(btn) btn.disabled = true;
+  const key = `${postId}_${type}`;
+  if(_reactingSet.has(key)) return; // 処理中は弾く
+  _reactingSet.add(key);
   const reactions = _loadReactions();
   const r = reactions[postId] || {};
   const isOn = !!r[type]; const delta = isOn ? -1 : 1;
@@ -470,7 +471,7 @@ async function commReact(postId, type){
     _commToast('操作に失敗しました');
     console.warn('[comm] react failed', e);
   } finally {
-    if(btn) btn.disabled = false;
+    _reactingSet.delete(key);
   }
 }
 
