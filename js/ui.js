@@ -409,33 +409,56 @@ function toggleHeatFree() {
 
 // ── プレミアム版 ON/OFF ──────────────────────────────
 async function toggleHeatPremium() {
+  // 既にPRO起動中 → OFF
   if(heatTier === 'premium'){
     _heatAllOff();
     return;
   }
-  const ok = await isPremiumUser();
-  if(!ok){
-    showPremiumGate('heatmap_pro');
+
+  const premium = await isPremiumUser();
+
+  // ① プレミアム課金済み → そのままPRO起動（スルー）
+  if(premium){
+    _startHeatPro();
     return;
   }
-  // contrib OFFチェック
-  if(!isContribOn()){
-    showPremiumGate('heatmap_pro_no_post');
+
+  // ② contrib解放フラグあり（ポイント1件以上+contrib ON済み）→ PRO起動（スルー）
+  if(localStorage.getItem('gm_contrib_unlocked') === '1'){
+    _startHeatPro();
     return;
   }
-  // ローカルポイント1件以上チェック
-  if(pts.length < 1){
-    showPremiumGate('heatmap_pro_no_post');
-    return;
-  }
+
+  // ③ フラグなし → 設定タブに飛び、アコーディオンを開く
+  _openContribAccordion();
+}
+
+// ── PRO起動（内部） ───────────────────────────────────
+function _startHeatPro() {
   _closeFreeHeat();
   heatTier = 'premium';
   document.getElementById('btn-heat-premium').classList.add('active');
   _applyHeatParamsSaved('premium');
   _renderHeatPanel('premium');
-  // パネルは自動で開かない（調整ボタンから手動で開く）
   _showHeatAdjBtn(true);
   initHeatLayer('premium');
+}
+
+// ── 設定タブのcontribアコーディオンを開く ─────────────
+function _openContribAccordion() {
+  switchTab('cfg');
+  setTimeout(() => {
+    const acc = document.getElementById('contrib-accordion');
+    if (!acc) return;
+    const body  = acc.querySelector('.cfg-accordion-body');
+    const arrow = acc.querySelector('.cfg-accordion-arrow');
+    if (body && !body.classList.contains('open')) {
+      body.classList.add('open');
+      if (arrow) arrow.textContent = '▼';
+    }
+    // スクロールして見せる
+    acc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 350);
 }
 
 // ── 内部: 全OFF ──────────────────────────────────────
@@ -1424,6 +1447,24 @@ function toggleCommAccordion(header) {
     body.classList.add('open');
     if (arrow) arrow.textContent = '▼';
   }
+}
+
+// ═══════════════════════════════════════════
+//  トースト通知
+// ═══════════════════════════════════════════
+let _toastTimer = null;
+function showToast(msg, duration) {
+  duration = duration || 2000;
+  let el = document.getElementById('gm-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'gm-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.classList.remove('show'); }, duration);
 }
 
 // 起動

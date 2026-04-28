@@ -229,15 +229,23 @@ function _isGoldKeyword(name, memo) {
   return GOLD_KEYWORDS.some(kw => text.includes(kw));
 }
 
+// ── 品質スコア判定（3段階）────────────────────────
+function _calcQuality(stars, name, memo) {
+  if ((stars || 0) >= 2 && (memo || '').trim().length > 0) return 'HIGH';
+  if ((stars || 0) >= 1 || ((name || '').trim().length > 0 && name !== 'ポイント')) return 'MID';
+  return 'LOW';
+}
+
 async function submitCoord(lat, lng, stars, name, memo) {
   const db  = firebase.firestore();
   const ref = await db.collection('coords').add({
     lat, lng,
-    stars:  stars || 0,
-    isGold: _isGoldKeyword(name, memo),
-    uid:    window._fbUid || 'anonymous',
-    date:   new Date().toISOString().slice(0, 10),
-    ts:     firebase.firestore.FieldValue.serverTimestamp(),
+    stars:   stars || 0,
+    isGold:  _isGoldKeyword(name, memo),
+    quality: _calcQuality(stars, name, memo),
+    uid:     window._fbUid || 'anonymous',
+    date:    new Date().toISOString().slice(0, 10),
+    ts:      firebase.firestore.FieldValue.serverTimestamp(),
   });
   console.log('[firebase.js] submitCoord OK', lat, lng, 'stars=', stars,
               'isGold=', _isGoldKeyword(name, memo), 'fsId=', ref.id);
@@ -264,6 +272,11 @@ async function fetchHeatPoints() {
   // free tier は JS固定データのみのため fetch 不要
   if (!premium) {
     console.log('[firebase.js] fetchHeatPoints skip: free tier uses static data only');
+    return;
+  }
+  // contrib解放フラグチェック（プレミアムは免除）
+  if (!_getCachedPremium() && localStorage.getItem('gm_contrib_unlocked') !== '1') {
+    console.log('[firebase.js] fetchHeatPoints skip: contrib_unlocked flag not set');
     return;
   }
 

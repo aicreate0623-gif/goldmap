@@ -2468,3 +2468,28 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .comm-reply-send-btn:active {
   background: rgba(200,160,60,0.35);
 }
+/* ═══════════════════════════════════════════
+   トースト通知
+   ═══════════════════════════════════════════ */
+#gm-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(30, 25, 10, 0.92);
+  color: var(--txt);
+  border: 1px solid rgba(200,170,80,0.35);
+  border-radius: 20px;
+  padding: 9px 20px;
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 9999;
+  backdrop-filter: blur(8px);
+}
+#gm-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

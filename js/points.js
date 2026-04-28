@@ -119,25 +119,98 @@ function ptSelectColor(val) {
 }
 
 // ── ヒートマップ協力トグル ────────────────────
-const CONTRIB_KEY = 'gm_contrib';
+const CONTRIB_KEY    = 'gm_contrib';
+const UNLOCKED_KEY   = 'gm_contrib_unlocked';
+const PENDING_KEY    = 'gm_pending_coords';
+
 function isContribOn() { return localStorage.getItem(CONTRIB_KEY)==='on'; }
-function applyContribUI() {
-  const btn = document.getElementById('contrib-toggle'); if (!btn) return;
-  btn.classList.toggle('on', isContribOn());
+
+// ── 解放フラグ判定・更新（剥奪なし）────────────
+function _updateUnlockFlag() {
+  if (localStorage.getItem(UNLOCKED_KEY) === '1') return; // 既に解放済みなら何もしない
+  if (isContribOn() && pts.length >= 1) {
+    localStorage.setItem(UNLOCKED_KEY, '1');
+    console.log('[points] contrib_unlocked フラグON');
+  }
 }
+
+// 設定タブのアコーディオン contrib-toggle UI 同期
+function applyContribUI() {
+  const btn = document.getElementById('contrib-toggle-cfg'); if (!btn) return;
+  const on = isContribOn();
+  btn.classList.toggle('on', on);
+  const lbl = document.getElementById('contrib-status-lbl');
+  if (lbl) lbl.textContent = on ? '現在: ON ✅' : '現在: OFF';
+}
+
 function onContribToggle() { showDlg(isContribOn()?'dlg-contrib-off':'dlg-contrib-on'); }
+
 function confirmContribOn() {
   localStorage.setItem(CONTRIB_KEY,'on'); applyContribUI(); closeOv();
+  _updateUnlockFlag();
   if (pts.length > 0) {
     pts.forEach(p => {
       if (p.fsId) return;
-      submitCoord(p.lat, p.lng, p.stars||0, p.name||'', p.memo||'')
-        .then(fsId => { p.fsId=fsId; savePts(); })
-        .catch(e => { console.warn('[contrib] 送信失敗', e); });
+      _submitOrPending(p);
     });
   }
 }
 function confirmContribOff() { localStorage.setItem(CONTRIB_KEY,'off'); applyContribUI(); closeOv(); }
+
+// ── pending（オフライン保留）管理 ───────────────
+function _getPending() {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch(e) { return []; }
+}
+function _savePending(arr) {
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify(arr)); } catch(e) {}
+}
+function _addPending(lat, lng, stars, name, memo) {
+  const arr = _getPending();
+  arr.push({ lat, lng, stars, name, memo, ts: Date.now() });
+  _savePending(arr);
+}
+
+// 投稿 or pending追加
+function _submitOrPending(p) {
+  if (!navigator.onLine) {
+    _addPending(p.lat, p.lng, p.stars||0, p.name||'', p.memo||'');
+    showToast('📶 オフライン保存 → 次回自動送信', 3000);
+    return;
+  }
+  submitCoord(p.lat, p.lng, p.stars||0, p.name||'', p.memo||'')
+    .then(fsId => { p.fsId = fsId; savePts(); showToast('✅ ヒートマップに投稿しました', 2000); })
+    .catch(e => {
+      console.warn('[points] submitCoord失敗', e);
+      _addPending(p.lat, p.lng, p.stars||0, p.name||'', p.memo||'');
+      showToast('📶 オフライン保存 → 次回自動送信', 3000);
+    });
+}
+
+// オフラインpendingを自動flush
+async function flushPending() {
+  if (!navigator.onLine) return;
+  const arr = _getPending();
+  if (arr.length === 0) return;
+  let sent = 0;
+  const failed = [];
+  for (const item of arr) {
+    try {
+      await submitCoord(item.lat, item.lng, item.stars||0, item.name||'', item.memo||'');
+      sent++;
+    } catch(e) {
+      failed.push(item);
+    }
+  }
+  _savePending(failed);
+  if (sent > 0) showToast(`✅ ${sent}件を自動送信しました`, 3000);
+  console.log('[points] flushPending sent=', sent, 'failed=', failed.length);
+}
+
+// onlineイベントで自動flush
+window.addEventListener('online', () => {
+  console.log('[points] オンライン復帰 → pending flush');
+  flushPending();
+});
 
 // ── マーカー生成 ─────────────────────────────
 function _makeIcon(icon, color) {
@@ -216,12 +289,8 @@ function loadPts(){
     updPtCnt();
   }catch(e){}
   applyContribUI();
-  if(typeof isPremiumUser==='function'){
-    isPremiumUser().then(premium=>{
-      const bar=document.getElementById('contrib-bar-wrap');
-      if(bar) bar.style.display=premium?'':'none';
-    });
-  }
+  _updateUnlockFlag(); // 起動時フラグ判定
+  flushPending();      // 起動時pending flush
 }
 function renderPtList(){
   const el=document.getElementById('pt-list');
@@ -382,16 +451,10 @@ async function confirmSave(){
     const p={id:nid++,lat:ll.lat,lng:ll.lng,name:n,memo:m,stars:_curStars,icon:_curIcon,color:_curColor};
     pts.push(p);addMk(p);cancelAdd();
     if(isContribOn()){
-      if(!navigator.onLine){
-        showAlert('オフライン','ポイントはローカルに保存しましたが、ネットワーク未接続のためヒートマップへの投稿はスキップされました。\n次回オンライン時に再度「ヒートマップに協力」をONにすると送信できます。');
-      }else{
-        submitCoord(ll.lat,ll.lng,_curStars,n,m)
-          .then(fsId=>{p.fsId=fsId;savePts();})
-          .catch(e=>console.warn('[points] submitCoord失敗',e));
-      }
+      _submitOrPending(p);
     }
   }
-  savePts();updPtCnt();closeOv();eid=null;
+  savePts(); _updateUnlockFlag(); updPtCnt(); closeOv(); eid=null;
 }
 
 // ── 位置変更モード（編集時: 新規ルートに統一） ──────────────
@@ -464,10 +527,11 @@ async function confirmDel(){
     if(p.fsId) deleteCoord(p.fsId).catch(e=>console.warn('[points] deleteCoord失敗',e));
     pts.splice(i,1);
   }
-  savePts();updPtCnt();closeOv();
-  if(heatTier==='premium'){
-    const postCount=await getUserPostCount();
-    if(postCount<1){_heatAllOff();showPremiumGate('heatmap_pro_revoked');}
+  savePts(); updPtCnt(); closeOv();
+  // ローカル件数で判定（剥奪なし・フラグは消さない）
+  if(heatTier==='premium' && pts.length < 1){
+    _heatAllOff();
+    showPremiumGate('heatmap_pro_revoked');
   }
 }
 

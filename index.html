@@ -228,22 +228,6 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
 
-  <!-- ⑦ ヒートマップ協力欄：プレミアム限定・初期非表示 -->
-  <div class="contrib-bar" id="contrib-bar-wrap" style="display:none">
-    <div class="contrib-bar-left">
-      <span class="contrib-icon">🗺️</span>
-      <div class="contrib-label">
-        <span class="contrib-title">ヒートマップに協力</span>
-        <span class="contrib-sub">位置情報を匿名で提供</span>
-      </div>
-    </div>
-    <button class="contrib-toggle" id="contrib-toggle" onclick="onContribToggle()">
-      <span class="contrib-off-lbl">OFF</span>
-      <span class="contrib-thumb"></span>
-      <span class="contrib-on-lbl">ON</span>
-    </button>
-  </div>
-
   <div class="pt-actions">
     <button class="btn accent" onclick="startAddPt(); switchTab('map')">＋ ポイント追加</button>
     <button class="btn sm" onclick="exportPts()">📤 書出</button>
@@ -416,6 +400,38 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
+    <!-- 🗺️ ヒートマップ投稿 アコーディオン -->
+    <div class="cfg-accordion" id="contrib-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">🗺️ ヒートマップ投稿</span>
+        <span class="cfg-accordion-sub">砂金分布の精度向上に協力</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <div style="padding:4px 0 8px;">
+          <div style="font-size:12px;color:var(--txt-sub);line-height:1.8;margin-bottom:12px;">
+            <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">📍 協力すると</p>
+            <p style="margin:0 0 10px;">ポイントを1件以上登録してONにすると、位置情報を匿名で提供できます。収集データは砂金分布ヒートマップの精度向上に活用されます。</p>
+            <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🔒 プライバシーについて</p>
+            <p style="margin:0 0 6px;">収集する情報：緯度・経度・採取評価のみ。個人を特定する情報は一切収集しません。</p>
+            <p style="margin:0 0 10px;color:rgba(200,170,80,0.7);font-size:11px;">※ 座標は約2〜3kmランダムにずらして公開されます（プライバシー保護）</p>
+          </div>
+          <!-- contrib トグル -->
+          <div class="cfg-row" style="align-items:center;">
+            <div>
+              <div class="cfg-label">投稿協力</div>
+              <div class="cfg-sub" id="contrib-status-lbl">現在: OFF</div>
+            </div>
+            <button class="contrib-toggle" id="contrib-toggle-cfg" onclick="onContribToggle()">
+              <span class="contrib-off-lbl">OFF</span>
+              <span class="contrib-thumb"></span>
+              <span class="contrib-on-lbl">ON</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ① 熊出没情報 -->
     <div class="settings-section" id="bear-settings-section"></div>
 
