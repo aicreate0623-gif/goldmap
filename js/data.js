@@ -1499,6 +1499,8 @@ function initGsjLayer(){
 
 
 async function loadMineData(fromButton=false){
+  // フィルター状態を復元（初回のみ有効・既にチェックされていれば上書きしない）
+  _restoreMineFilter();
   const progWrap = document.getElementById('mine-prog-wrap');
   const progBar  = document.getElementById('mine-prog-bar');
   const progPct  = document.getElementById('mine-prog-pct');
@@ -1550,9 +1552,28 @@ async function loadMineData(fromButton=false){
 }
 
 function applyMineFilter(){
-  if(!gsjVisible || !gsjLayer) return;
-  // フィルター変更時はレイヤーを再構築
-  loadMineData();
+  // フィルター状態をlocalStorageに保存
+  const state = {
+    metal:    document.getElementById('mf-metal').checked,
+    nonmetal: document.getElementById('mf-nonmetal').checked,
+    fuel:     document.getElementById('mf-fuel').checked,
+    trace:    document.getElementById('mf-trace').checked,
+  };
+  localStorage.setItem('gm_mine_filter', JSON.stringify(state));
+  // 表示中のときのみ再構築（非表示中は次回表示時に反映される）
+  if(gsjVisible) loadMineData();
+}
+
+function _restoreMineFilter(){
+  try {
+    const s = JSON.parse(localStorage.getItem('gm_mine_filter'));
+    if(!s) return;
+    const el = id => document.getElementById(id);
+    if(el('mf-metal'))    el('mf-metal').checked    = s.metal    !== false;
+    if(el('mf-nonmetal')) el('mf-nonmetal').checked = s.nonmetal !== false;
+    if(el('mf-fuel'))     el('mf-fuel').checked     = s.fuel     !== false;
+    if(el('mf-trace'))    el('mf-trace').checked    = s.trace    !== false;
+  } catch(e){}
 }
 
 function toggleGsjLayer(){

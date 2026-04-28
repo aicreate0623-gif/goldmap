@@ -555,11 +555,8 @@
       <div class="cfg-accordion-body">
         <div class="dl-section">
           <div class="info-box">
-            kinno lab.（金野実）氏による鉱山調査記の位置プロット。<br>
-            組み込み済み（215地点）。地図ボタン「📌調査記」でON/OFF。
-          </div>
-          <div class="btn-row" style="margin-top:8px;">
-            <button class="btn blue sm" onclick="toggleKinnoLayer(); switchTab('map')">🗺 地図に表示</button>
+            kinno lab.（金野実）氏による鉱山調査記の位置プロット（215地点・組み込み済み）。<br>
+            地図画面の「📌調査記」ボタンでON/OFFできます。
           </div>
           <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
             出典: <a href="https://kinno-homepage.sakura.ne.jp/kinno_mineral.html" target="_blank" style="color:#4a90d9">kinno-homepage.sakura.ne.jp</a>
@@ -639,10 +636,6 @@
       </div>
     </div>
 
-    </div>
-</div>
-
-  
     <!-- 免責事項 -->
     <div class="cfg-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
@@ -718,7 +711,6 @@
           <li>誹謗中傷・荒らし・スパム行為は禁止です</li>
           <li>違法・危険行為を助長する投稿は禁止です</li>
           <li>投稿・返信・更新は<b>3分間に1回</b>までです</li>
-          <li>更新は全国・都道府県の<b>表示中の板のみ</b>更新されます</li>
           <li>不快な書き込みは🚫ボタンで非表示にできます</li>
           <li>仕様上、返信への返信はできません</li>
           <li>返信がついた投稿は削除できません</li>
@@ -755,8 +747,7 @@
             oninput="_updateCharCount()"></textarea>
           <div class="comm-form-footer">
             <span id="comm-char-count" class="comm-char-count">0/200</span>
-            <span id="comm-post-countdown" class="comm-post-countdown" style="display:none"></span>
-            <button class="btn accent comm-submit-btn" id="comm-submit-btn" onclick="commSubmit()">投稿する</button>
+            <button class="btn accent comm-submit-btn" onclick="commSubmit()">投稿する</button>
           </div>
         </div>
 
