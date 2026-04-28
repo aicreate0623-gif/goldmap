@@ -407,34 +407,69 @@ function toggleHeatFree() {
   initHeatLayer('free');
 }
 
-// ── プレミアム版 ON/OFF ──────────────────────────────
+// ── 分布PRO フロートボタン → 全ての入り口 ──────────────
 async function toggleHeatPremium() {
-  // 既にPRO起動中 → OFF
-  if(heatTier === 'premium'){
+  // 既にPRO起動中なら→OFFにする
+  if (heatTier === 'premium') {
     _heatAllOff();
     return;
   }
-
-  const premium = await isPremiumUser();
-
-  // ① プレミアム課金済み → そのままPRO起動（スルー）
-  if(premium){
-    _startHeatPro();
-    return;
-  }
-
-  // ② contrib解放フラグあり（ポイント1件以上+contrib ON済み）→ PRO起動（スルー）
-  if(localStorage.getItem('gm_contrib_unlocked') === '1'){
-    _startHeatPro();
-    return;
-  }
-
-  // ③ フラグなし → 設定タブに飛び、アコーディオンを開く
-  _openContribAccordion();
+  await openHeatProGate();
 }
 
-// ── PRO起動（内部） ───────────────────────────────────
-function _startHeatPro() {
+async function openHeatProGate() {
+  const premium  = await isPremiumUser();
+  const contribOn = isContribOn();
+  const hasPts   = (typeof pts !== 'undefined') && pts.length >= 1;
+
+  const icon  = document.getElementById('heatpro-gate-icon');
+  const title = document.getElementById('heatpro-gate-title');
+  const body  = document.getElementById('heatpro-gate-body');
+  const btns  = document.getElementById('heatpro-gate-btns');
+
+  const CLOSE_BTN = '<button class="dbtn" onclick="closeOv()">閉じる</button>';
+  const TO_SETTINGS_BTN =
+    '<button class="dbtn ok" onclick="closeOv();switchTab(\'settings\');setTimeout(()=>{const a=document.getElementById(\'contrib-accordion\');if(a){const h=a.querySelector(\'.cfg-accordion-header\');if(h&&!a.classList.contains(\'open\'))h.click();}},150)">設定で投稿ONにする →</button>';
+
+  // ── ① 非プレミアム（投稿ON/OFF・ポイント問わず）──────
+  if (!premium) {
+    icon.textContent  = '🔒';
+    title.textContent = '分布PROはプレミアム限定です';
+    body.innerHTML =
+      '<p>匿名投稿を元に集計しAIによってつくられた高精度ヒートマップです。</p>' +
+      '<p>分布PROはプレミアム会員専用コンテンツになります。</p>';
+    btns.innerHTML =
+      CLOSE_BTN +
+      '<button class="dbtn ok premium-cta" onclick="closeOv();startPurchaseFlow()">プレミアムへアップグレード</button>';
+    showDlg('dlg-heatpro-gate');
+    return;
+  }
+
+  // ── ② プレミアム・投稿OFF ────────────────────────────
+  if (!contribOn) {
+    icon.textContent  = '📍';
+    title.textContent = '投稿をONにして下さい';
+    body.innerHTML =
+      '<p>ご利用いただくには投稿を1件以上して頂く必要があります。</p>' +
+      '<p>ぜひ、投稿をONにしてヒートマップ作製にご協力頂き、高精度のヒートマップPROをご利用ください。</p>';
+    btns.innerHTML = CLOSE_BTN + TO_SETTINGS_BTN;
+    showDlg('dlg-heatpro-gate');
+    return;
+  }
+
+  // ── ③ プレミアム・投稿ON・ポイント0件 ───────────────
+  if (!hasPts) {
+    icon.textContent  = '📍';
+    title.textContent = 'ポイントを登録してください';
+    body.innerHTML =
+      '<p>ポイントを1件以上登録することで分布PROをご使用いただけます。</p>';
+    btns.innerHTML = CLOSE_BTN;
+    showDlg('dlg-heatpro-gate');
+    return;
+  }
+
+  // ── ④ プレミアム・投稿ON・ポイント1件以上 → PRO起動 ──
+  closeOv();
   _closeFreeHeat();
   heatTier = 'premium';
   document.getElementById('btn-heat-premium').classList.add('active');
@@ -442,23 +477,6 @@ function _startHeatPro() {
   _renderHeatPanel('premium');
   _showHeatAdjBtn(true);
   initHeatLayer('premium');
-}
-
-// ── 設定タブのcontribアコーディオンを開く ─────────────
-function _openContribAccordion() {
-  switchTab('cfg');
-  setTimeout(() => {
-    const acc = document.getElementById('contrib-accordion');
-    if (!acc) return;
-    const body  = acc.querySelector('.cfg-accordion-body');
-    const arrow = acc.querySelector('.cfg-accordion-arrow');
-    if (body && !body.classList.contains('open')) {
-      body.classList.add('open');
-      if (arrow) arrow.textContent = '▼';
-    }
-    // スクロールして見せる
-    acc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 350);
 }
 
 // ── 内部: 全OFF ──────────────────────────────────────
@@ -1447,28 +1465,6 @@ function toggleCommAccordion(header) {
     body.classList.add('open');
     if (arrow) arrow.textContent = '▼';
   }
-}
-
-// ═══════════════════════════════════════════
-//  トースト通知
-// ═══════════════════════════════════════════
-let _toastTimer = null;
-function showToast(msg, duration, type) {
-  duration = duration || 2000;
-  let el = document.getElementById('gm-toast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'gm-toast';
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.classList.remove('show', 'error');
-  if (type === 'error') el.classList.add('error');
-  // 再フロー強制（連続呼び出し時のアニメーションリセット）
-  void el.offsetWidth;
-  el.classList.add('show');
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => { el.classList.remove('show', 'error'); }, duration);
 }
 
 // 起動

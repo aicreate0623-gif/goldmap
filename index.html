@@ -410,11 +410,14 @@
       <div class="cfg-accordion-body">
         <div style="padding:4px 0 8px;">
           <div style="font-size:12px;color:var(--txt-sub);line-height:1.8;margin-bottom:12px;">
-            <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">📍 協力すると</p>
-            <p style="margin:0 0 10px;">ポイントを1件以上登録してONにすると、位置情報を匿名で提供できます。収集データは砂金分布ヒートマップの精度向上に活用されます。</p>
+            <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🔥 分布PRO とは</p>
+            <p style="margin:0 0 10px;">匿名投稿を元に集計しAIによってつくられた高精度ヒートマップです。</p>
+            <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">📋 ご利用条件</p>
+            <p style="margin:0 0 4px;">・プレミアム会員であること</p>
+            <p style="margin:0 0 10px;">・投稿をONにして1件以上ポイントを登録していること</p>
             <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🔒 プライバシーについて</p>
-            <p style="margin:0 0 6px;">収集する情報：緯度・経度・採取評価のみ。個人を特定する情報は一切収集しません。</p>
-            <p style="margin:0 0 10px;color:rgba(200,170,80,0.7);font-size:11px;">※ 座標は数kmランダムにずらして公開されます（プライバシー保護）</p>
+            <p style="margin:0 0 4px;">座標は数kmランダムにずらして公開されます。</p>
+            <p style="margin:0 0 10px;">個人を特定する情報は一切収集しません。</p>
           </div>
           <!-- contrib トグル -->
           <div class="cfg-row" style="align-items:center;">
@@ -986,6 +989,14 @@
       <button class="dbtn del" onclick="_commHideConfirm('ng')">この人をNG登録（全投稿を非表示）</button>
       <button class="dbtn" onclick="closeOv()">キャンセル</button>
     </div>
+  </div>
+
+  <!-- 分布PRO 入り口ダイアログ -->
+  <div class="dialog" id="dlg-heatpro-gate" style="display:none">
+    <div class="heatpro-gate-icon" id="heatpro-gate-icon">🔥</div>
+    <h3 id="heatpro-gate-title"></h3>
+    <div class="dlg-msg heatpro-gate-body" id="heatpro-gate-body"></div>
+    <div class="dlg-btns" id="heatpro-gate-btns"></div>
   </div>
 
   <div class="dialog" id="dlg-premium-gate" style="display:none">
