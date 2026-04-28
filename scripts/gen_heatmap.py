@@ -23,7 +23,9 @@ gen_heatmap.py  Firestore 投稿座標 → data/heatmap.json 生成
 """
 
 import json
+import math
 import os
+import random
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -33,6 +35,21 @@ OUTPUT_PATH = Path(__file__).parent.parent / 'data' / 'heatmap.json'
 GRID_SIZE_FREE = 0.1   # 約10km（無料tier・フィルターなし）
 GRID_SIZE_PAID = 0.01  # 約1km （有料tier・クラスタ条件あり）
 
+# ── 座標ジッター設定（プライバシー保護）────────────────────
+JITTER_MIN_KM = 2.0   # 最小オフセット距離（km）
+JITTER_MAX_KM = 3.0   # 最大オフセット距離（km）
+
+def apply_jitter(lat, lng):
+    """
+    座標に JITTER_MIN_KM〜JITTER_MAX_KM のランダムオフセットをかける。
+    方向はランダム（0〜360°）、距離は一様乱数。
+    1°≈111kmとして度単位に変換。緯度方向のlng補正あり。
+    """
+    dist_km  = random.uniform(JITTER_MIN_KM, JITTER_MAX_KM)
+    angle    = random.uniform(0, 2 * math.pi)
+    d_lat    = (dist_km / 111.0) * math.cos(angle)
+    d_lng    = (dist_km / (111.0 * math.cos(math.radians(lat)))) * math.sin(angle)
+    return round(lat + d_lat, 6), round(lng + d_lng, 6)
 # ── paidクラスタ条件 ──────────────────────────────────────
 NEIGHBOR_RADIUS = 4    # 自セルから何グリッド以内を近傍とするか（9×9範囲）
 MIN_NEIGHBOR_CELLS = 2 # 近傍範囲内に必要な投稿セル数（自セル除く）
@@ -196,15 +213,17 @@ def aggregate_paid(coords, grid_size):
     return sorted(result, key=lambda x: -x['weight'])
 
 
-def build_geojson(points):
-    features = [
-        {
+def build_geojson(points, jitter=False):
+    features = []
+    for p in points:
+        lat, lng = p['lat'], p['lng']
+        if jitter:
+            lat, lng = apply_jitter(lat, lng)
+        features.append({
             'type': 'Feature',
-            'geometry': {'type': 'Point', 'coordinates': [p['lng'], p['lat']]},
+            'geometry': {'type': 'Point', 'coordinates': [lng, lat]},
             'properties': {k: v for k, v in p.items() if k not in ('lat', 'lng')},
-        }
-        for p in points
-    ]
+        })
     return {'type': 'FeatureCollection', 'features': features}
 
 
@@ -229,7 +248,7 @@ def main():
         'cluster_min_neighbor_cells': MIN_NEIGHBOR_CELLS,
         'cluster_min_avg_stars':     MIN_AVG_STARS,
         'free': build_geojson(points_free),
-        'paid': build_geojson(points_paid),
+        'paid': build_geojson(points_paid, jitter=True),
     }
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

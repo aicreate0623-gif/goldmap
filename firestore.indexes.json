@@ -1,0 +1,89 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "scope",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "pref",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ts",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "scope",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "pref",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ts",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "scope",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ts",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "scope",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ts",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    }
+  ],
+  "fieldOverrides": []
+}
