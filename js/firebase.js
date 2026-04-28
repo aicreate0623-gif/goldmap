@@ -322,9 +322,10 @@ async function _checkSubmitFilter(lat, lng, name, memo) {
 
 // ── 金関連キーワード判定 ──────────────────────────────
 const GOLD_KEYWORDS = [
-  '金', 'GOLD', 'gold', '砂金', 'ナゲット', '草値引き', 'バンニング',
+  '金', 'GOLD', 'gold', '砂金', 'ナゲット', '草根引き', 'パンニング',
   'グレイン', 'スルース', 'ドレッジ', '寄せ場', 'さきん', 'きん',
   'なげっと', 'くさねびき', 'ぱんにんぐ', 'ぐれいん', 'よせば', 'どれっじ',
+  '草ねびき', '草根びき',
 ];
 function _isGoldKeyword(name, memo) {
   const text = (name || '') + ' ' + (memo || '');
@@ -387,11 +388,14 @@ async function deleteCoord(fsId) {
 // ─────────────────────────────────────────────────────
 async function fetchHeatPoints() {
   const premium = await isPremiumUser();
-  const contribUnlocked = localStorage.getItem('gm_contrib_unlocked') === '1';
-
-  // contrib解放フラグなし → staticのみ
-  if (!premium && !contribUnlocked) {
-    console.log('[firebase.js] fetchHeatPoints skip: no contrib_unlocked flag');
+  // free tier は JS固定データのみのため fetch 不要
+  if (!premium) {
+    console.log('[firebase.js] fetchHeatPoints skip: free tier uses static data only');
+    return;
+  }
+  // contrib解放フラグチェック（プレミアムは免除）
+  if (!_getCachedPremium() && localStorage.getItem('gm_contrib_unlocked') !== '1') {
+    console.log('[firebase.js] fetchHeatPoints skip: contrib_unlocked flag not set');
     return;
   }
 
@@ -408,8 +412,7 @@ async function fetchHeatPoints() {
     return;
   }
 
-  // プレミアム → paid（isGold厳選）、contrib解放フラグあり非プレミアム → free（全件）
-  const tier = premium ? 'paid' : 'free';
+  const tier = 'paid';
   const fc   = json[tier];
   if (!fc || !Array.isArray(fc.features) || fc.features.length === 0) {
     console.log('[firebase.js] heatmap.json: データなし tier=', tier);
