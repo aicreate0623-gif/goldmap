@@ -728,7 +728,7 @@ function _formatTime(ts){
   }
   return `${d.getMonth()+1}/${d.getDate()}`;
 }
-let _toastTimer = null;
+// _toastTimer は ui.js で宣言済み
 function _commToast(msg){
   let el = document.getElementById('comm-toast');
   if(!el){
