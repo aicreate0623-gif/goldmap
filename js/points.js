@@ -143,7 +143,10 @@ function applyContribUI() {
   if (lbl) lbl.textContent = on ? '現在: ON ✅' : '現在: OFF';
 }
 
-function onContribToggle() { showDlg(isContribOn()?'dlg-contrib-off':'dlg-contrib-on'); }
+function onContribToggle() {
+  if (isContribOn()) { showDlg('dlg-contrib-off'); return; }
+  confirmContribOn();
+}
 
 function confirmContribOn() {
   localStorage.setItem(CONTRIB_KEY,'on'); applyContribUI(); closeOv();
