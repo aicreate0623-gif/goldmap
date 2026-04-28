@@ -149,7 +149,8 @@ function onContribToggle() {
 }
 
 function confirmContribOn() {
-  localStorage.setItem(CONTRIB_KEY,'on'); applyContribUI(); closeOv();
+  localStorage.setItem(CONTRIB_KEY,'on'); applyContribUI();
+  if (document.getElementById('overlay').classList.contains('open')) closeOv();
   _updateUnlockFlag();
   if (pts.length > 0) {
     pts.forEach(p => {
