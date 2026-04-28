@@ -118,9 +118,6 @@ function _bearPopupHtml(r) {
   const placeLabel = r.place || "場所不明";
   const detailHtml = r.detail
     ? `<p class="bear-popup__detail">${_escHtml(r.detail)}</p>` : "";
-  const sourceHtml = r.source_url
-    ? `<a class="bear-popup__link" href="${_escHtml(r.source_url)}" target="_blank" rel="noopener">出典</a>` : "";
-
   return `
     <div class="bear-popup">
       <div class="bear-popup__header">
@@ -131,7 +128,6 @@ function _bearPopupHtml(r) {
       <div class="bear-popup__date">${_escHtml(dateLabel)}</div>
       <div class="bear-popup__place">${_escHtml(placeLabel)}</div>
       ${detailHtml}
-      ${sourceHtml}
     </div>`;
 }
 
