@@ -201,20 +201,30 @@ function _initRefreshCooldown(){
   if(remaining > 0) _startRefreshCooldown(remaining);
 }
 function _startRefreshCooldown(ms){
-  const btn = document.getElementById('comm-refresh-btn');
+  const btn      = document.getElementById('comm-refresh-btn');
+  const submitBtn= document.getElementById('comm-submit-btn');
+  const countdown= document.getElementById('comm-post-countdown');
   if(!btn) return;
   btn.disabled = true;
+  if(submitBtn) submitBtn.disabled = true;
+  if(countdown){ countdown.style.display = ''; }
   clearInterval(_refreshCoolTimer);
   let remaining = Math.ceil(ms / 1000);
-  btn.textContent = `🔄 更新（${remaining}秒）`;
+  const _fmt = s => `🔄 更新（${s}秒）`;
+  const _fmtCD = s => `あと${s}秒`;
+  btn.textContent = _fmt(remaining);
+  if(countdown) countdown.textContent = _fmtCD(remaining);
   _refreshCoolTimer = setInterval(()=>{
     remaining--;
     if(remaining <= 0){
       clearInterval(_refreshCoolTimer);
       btn.disabled = false;
       btn.textContent = '🔄 更新';
+      if(submitBtn){ submitBtn.disabled = false; }
+      if(countdown){ countdown.style.display = 'none'; countdown.textContent = ''; }
     } else {
-      btn.textContent = `🔄 更新（${remaining}秒）`;
+      btn.textContent = _fmt(remaining);
+      if(countdown) countdown.textContent = _fmtCD(remaining);
     }
   }, 1000);
 }

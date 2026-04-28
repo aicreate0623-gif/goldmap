@@ -718,6 +718,7 @@
           <li>誹謗中傷・荒らし・スパム行為は禁止です</li>
           <li>違法・危険行為を助長する投稿は禁止です</li>
           <li>投稿・返信・更新は<b>3分間に1回</b>までです</li>
+          <li>更新は全国・都道府県の<b>表示中の板のみ</b>更新されます</li>
           <li>不快な書き込みは🚫ボタンで非表示にできます</li>
           <li>仕様上、返信への返信はできません</li>
           <li>返信がついた投稿は削除できません</li>
@@ -754,7 +755,8 @@
             oninput="_updateCharCount()"></textarea>
           <div class="comm-form-footer">
             <span id="comm-char-count" class="comm-char-count">0/200</span>
-            <button class="btn accent comm-submit-btn" onclick="commSubmit()">投稿する</button>
+            <span id="comm-post-countdown" class="comm-post-countdown" style="display:none"></span>
+            <button class="btn accent comm-submit-btn" id="comm-submit-btn" onclick="commSubmit()">投稿する</button>
           </div>
         </div>
 

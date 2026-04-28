@@ -1546,6 +1546,11 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: var(--txt-sub);
 }
 .comm-submit-btn { min-width: 80px; }
+.comm-post-countdown {
+  font-size: 11px;
+  color: var(--txt-sub);
+  white-space: nowrap;
+}
 
 /* 投稿一覧 */
 .comm-post-list {
