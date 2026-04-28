@@ -1546,11 +1546,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: var(--txt-sub);
 }
 .comm-submit-btn { min-width: 80px; }
-.comm-post-countdown {
-  font-size: 11px;
-  color: var(--txt-sub);
-  white-space: nowrap;
-}
 
 /* 投稿一覧 */
 .comm-post-list {
@@ -2273,6 +2268,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 .cl-pt-row:hover, .cl-pt-row:active { background: rgba(200,170,80,0.07); }
 .cl-pt-row:last-child { border-bottom: none; }
+.cl-pt-row--filtered-out { opacity: 0.25; pointer-events: none; }
 .cl-pt-icon {
   font-size: 14px; flex-shrink: 0;
   width: 26px; height: 26px; border-radius: 50%;

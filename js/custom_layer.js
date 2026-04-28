@@ -224,8 +224,11 @@ function _clSetHTML(s){
       <span class="cl-pt-acc-arrow" id="cl-pt-arrow-${s.id}">▶</span>
     </div>
     <div class="cl-pt-list" id="cl-pt-list-${s.id}" style="display:none;">
-      ${s.points.map((p, i) => `
-        <div class="cl-pt-row" onclick="clJumpToPoint('${s.id}',${i})">
+      ${s.points.map((p, i) => {
+        const ft = (_clFilterMap[s.id] || '').trim().toLowerCase();
+        const filtered = ft && !_matchFilter(p, ft);
+        return `
+        <div class="cl-pt-row${filtered ? ' cl-pt-row--filtered-out' : ''}" onclick="clJumpToPoint('${s.id}',${i})">
           <span class="cl-pt-icon" style="background:${p.color||s.color}">${p.icon||s.icon}</span>
           <div class="cl-pt-info">
             <div class="cl-pt-name">${p.name || '（名前なし）'}</div>
@@ -235,7 +238,8 @@ function _clSetHTML(s){
             <button class="btn sm" onclick="openClPointEdit('${s.id}',${i})">✏️</button>
             <button class="btn sm red" onclick="openClPointDel('${s.id}',${i})">🗑</button>
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>` : ''}
 
   </div>`;
@@ -310,9 +314,19 @@ function clFilter(id, val){
     } else if(badge){
       badge.remove();
     }
+    // ポイント行のグレーアウトをリアルタイム更新
+    const ptList = card.querySelector(`#cl-pt-list-${id}`);
+    if(ptList && s){
+      const ft = val.trim().toLowerCase();
+      ptList.querySelectorAll('.cl-pt-row').forEach((row, i) => {
+        const p = s.points[i];
+        if(!p) return;
+        const out = ft && !_matchFilter(p, ft);
+        row.classList.toggle('cl-pt-row--filtered-out', out);
+      });
+    }
     // ヘッダーのカウント表示も更新
     const countEl = card.querySelector('.cl-set-count');
-    if(countEl && s){
       if(val){
         const n = s.points.filter(p=>_matchFilter(p, val.trim().toLowerCase())).length;
         countEl.innerHTML = `${s.points.length}件 <span class="cl-filter-count">→ ${n}件</span>`;
@@ -332,6 +346,9 @@ function clFilterClear(id){
     if(clear) clear.remove();
     const badge = card.querySelector('.cl-filter-badge');
     if(badge) badge.remove();
+    // ポイント行のグレーアウト解除
+    const ptList = card.querySelector(`#cl-pt-list-${id}`);
+    if(ptList) ptList.querySelectorAll('.cl-pt-row--filtered-out').forEach(row => row.classList.remove('cl-pt-row--filtered-out'));
     // ヘッダーのカウント表示をリセット
     const s = _clSets.find(s=>s.id===id);
     const countEl = card.querySelector('.cl-set-count');
