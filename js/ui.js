@@ -1035,12 +1035,12 @@ function _dldStartDl(){
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!_dldBounds){    showAlert('エラー','範囲が選択されていません'); return; }
 
-  // ── サイズ上限チェック（100MB超はブロック）──────────────
+  // ── サイズ上限チェック（100MB超はブロック・80MB超は警告）──
   {
     const zmin2 = parseInt(document.getElementById('dlg-det-zmin').value);
     const zmax2 = parseInt(document.getElementById('dlg-det-zmax').value);
     const estTiles = cntTiles(_dldBounds, zmin2, zmax2) * layers.length;
-    const estBytes = estTiles * 20 * 1024; // mbEst基準: 1枚=20KB
+    const estBytes = estTiles * 20 * 1024; // 1枚=20KB
     const chk = (typeof checkDlSizeLimit === 'function') ? checkDlSizeLimit(estBytes) : {ok:true,warn:false,msg:''};
     if(!chk.ok){ showAlert('サイズ超過', chk.msg); return; }
     if(chk.warn && !confirm(chk.msg + '\n\n続行しますか？')) return;
@@ -1276,6 +1276,14 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     document.getElementById('resume-banner').classList.remove('show');
     log('✅ 完了！ '+fmt(done)+'枚保存（失敗: '+fail+'）');
     if(typeof _dldShowDone==='function') _dldShowDone(false);
+    // セッション保存（一覧に表示するため）
+    if(typeof saveDlSession==='function' && done>0){
+      const _tileKeys = tasks.map(t=>tileKey(t.lk,t.z,t.x,t.y));
+      const _center   = (typeof map!=='undefined') ? [map.getCenter().lat,map.getCenter().lng] : [35,136];
+      const _zoom     = (typeof map!=='undefined') ? map.getZoom() : zmax;
+      const _label    = `${layers.join('・')} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
+      await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:done*20*1024, srcKeys:layers});
+    }
   } else {
     log('⏸ 停止しました。続きから再開できます。');
     checkResume(); // バナー更新
@@ -1289,13 +1297,8 @@ function stopDl(){dlStop=true;}
 // ═══════════════════════════════════════════
 //  キャッシュ情報
 // ═══════════════════════════════════════════
-async function refreshCache(){
-  if(!db){document.getElementById('cache-info').textContent='IndexedDB 未対応';return;}
-  const n=await dbCnt();
-  const txt=fmt(n)+'（約 '+mbEst(n)+' MB）';
-  document.getElementById('cache-info').textContent=txt;
-  document.getElementById('sb-cache').textContent='💾 '+txt;
-}
+// refreshCache は cache.js の完全版（renderSessionList含む）を使用
+// ここでは上書きしない
 async function clearCache(){
   if(!confirm('キャッシュを全て削除しますか？'))return;
   await dbClr(); refreshCache(); showAlert('完了','キャッシュを削除しました');
