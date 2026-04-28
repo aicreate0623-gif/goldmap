@@ -1035,6 +1035,17 @@ function _dldStartDl(){
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!_dldBounds){    showAlert('エラー','範囲が選択されていません'); return; }
 
+  // ── サイズ上限チェック（100MB超はブロック）──────────────
+  {
+    const zmin2 = parseInt(document.getElementById('dlg-det-zmin').value);
+    const zmax2 = parseInt(document.getElementById('dlg-det-zmax').value);
+    const estTiles = cntTiles(_dldBounds, zmin2, zmax2) * layers.length;
+    const estBytes = estTiles * 20 * 1024; // mbEst基準: 1枚=20KB
+    const chk = (typeof checkDlSizeLimit === 'function') ? checkDlSizeLimit(estBytes) : {ok:true,warn:false,msg:''};
+    if(!chk.ok){ showAlert('サイズ超過', chk.msg); return; }
+    if(chk.warn && !confirm(chk.msg + '\n\n続行しますか？')) return;
+  }
+
   // ダミーIDに同期（既存startDl()が参照するため）
   layers.forEach(k=>{
     const dst = document.getElementById('ck-'+k);
