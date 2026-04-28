@@ -389,7 +389,7 @@ async function commSubmit(){
   const now = Date.now();
   if(now - lastPost < COMM_RATE_MS){
     const sec = Math.ceil((COMM_RATE_MS-(now-lastPost))/1000);
-    _commToast(`投稿は1分間に1回までです（あと${sec}秒）`); return;
+    _commToast(`投稿と更新から3分間は新たに投稿できません（あと${sec}秒）`); return;
   }
   const user = firebase.auth().currentUser;
   if(!user){ _commToast('投稿にはログインが必要です'); return; }
@@ -626,7 +626,7 @@ async function commSubmitReply(postId){
   const now = Date.now();
   if(now - lastPost < COMM_RATE_MS){
     const sec = Math.ceil((COMM_RATE_MS-(now-lastPost))/1000);
-    _commToast(`投稿・返信は1分間に1回までです（あと${sec}秒）`); return;
+    _commToast(`投稿と更新から3分間は新たに投稿できません（あと${sec}秒）`); return;
   }
 
   const inp = document.getElementById(`comm-reply-input-${postId}`);
@@ -649,7 +649,6 @@ async function commSubmitReply(postId){
   // キャッシュ即反映
   post.replies = [...replies, newReply];
   _saveCache(scope, pref, cached);
-  localStorage.setItem(SK_LAST_POST, now.toString());
   inp.value = '';
   _renderPostsFromCache();
   // 返信欄を再度開く
@@ -660,6 +659,8 @@ async function commSubmitReply(postId){
     await _db().collection('posts').doc(postId).update({
       replies: firebase.firestore.FieldValue.arrayUnion(newReply)
     });
+    // 成功時のみクールダウン記録
+    localStorage.setItem(SK_LAST_POST, now.toString());
     localStorage.setItem(SK_LAST_REFRESH, now.toString());
     _startRefreshCooldown(COMM_REFRESH_COOL);
     _commToast('返信しました！');
@@ -728,7 +729,7 @@ function _formatTime(ts){
   }
   return `${d.getMonth()+1}/${d.getDate()}`;
 }
-// _toastTimer は ui.js で宣言済み
+let _toastTimer = null;
 function _commToast(msg){
   let el = document.getElementById('comm-toast');
   if(!el){
