@@ -20,7 +20,8 @@ const BEAR_HEAT_OPTIONS = {
   blur:      22,
   maxZoom:   13,
   max:       1.0,
-  gradient:  { 0.2: "#fffb00", 0.5: "#ff8800", 0.8: "#ff2200", 1.0: "#8b0000" },
+  pane:      'paneBearHeat',
+  gradient:  { 0.2: "#9c27b0", 0.5: "#e91e8c", 0.8: "#f44336", 1.0: "#8b0000" },
 };
 
 // KML 対応県マスタ（県セレクタ用）

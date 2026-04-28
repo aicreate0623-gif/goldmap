@@ -12,6 +12,8 @@ async function initMap(){
   // Leafletデフォルト: tilePane=200, shadowPane=500, overlayPane=400, markerPane=600, popupPane=700
   map.createPane('paneGeo');  // 地質図タイル（ベースの上・マーカーの下）
   map.getPane('paneGeo').style.zIndex = 450;
+  map.createPane('paneBearHeat'); // 熊ヒートマップ（地質図の上・砂金の下）
+  map.getPane('paneBearHeat').style.zIndex = 459;
   map.createPane('paneHeat'); // ヒートマップ（地質図の上・マーカーの下）
   map.getPane('paneHeat').style.zIndex = 460;
   map.createPane('paneGsj');   // 鉱床・鉱徴地マーカー（地質図の上）
