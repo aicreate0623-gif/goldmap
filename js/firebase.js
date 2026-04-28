@@ -387,14 +387,11 @@ async function deleteCoord(fsId) {
 // ─────────────────────────────────────────────────────
 async function fetchHeatPoints() {
   const premium = await isPremiumUser();
-  // free tier は JS固定データのみのため fetch 不要
-  if (!premium) {
-    console.log('[firebase.js] fetchHeatPoints skip: free tier uses static data only');
-    return;
-  }
-  // contrib解放フラグチェック（プレミアムは免除）
-  if (!_getCachedPremium() && localStorage.getItem('gm_contrib_unlocked') !== '1') {
-    console.log('[firebase.js] fetchHeatPoints skip: contrib_unlocked flag not set');
+  const contribUnlocked = localStorage.getItem('gm_contrib_unlocked') === '1';
+
+  // contrib解放フラグなし → staticのみ
+  if (!premium && !contribUnlocked) {
+    console.log('[firebase.js] fetchHeatPoints skip: no contrib_unlocked flag');
     return;
   }
 
@@ -411,7 +408,8 @@ async function fetchHeatPoints() {
     return;
   }
 
-  const tier = 'paid';
+  // プレミアム → paid（isGold厳選）、contrib解放フラグあり非プレミアム → free（全件）
+  const tier = premium ? 'paid' : 'free';
   const fc   = json[tier];
   if (!fc || !Array.isArray(fc.features) || fc.features.length === 0) {
     console.log('[firebase.js] heatmap.json: データなし tier=', tier);

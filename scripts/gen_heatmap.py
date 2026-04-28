@@ -172,7 +172,7 @@ def aggregate_paid(coords, grid_size):
                 if nb is not None:
                     neighbor_cells.append(nb)
 
-        # isGoldセルは近傍条件をスキップして通す
+        # isGoldセルは近傍条件をスキップして通す（孤立OK）
         if not v['is_gold']:
             # 近傍セル数チェック
             if len(neighbor_cells) < MIN_NEIGHBOR_CELLS:
@@ -183,7 +183,7 @@ def aggregate_paid(coords, grid_size):
         total_stars_sum = v['stars_sum'] + sum(nb['stars_sum'] for nb in neighbor_cells)
         avg_stars       = total_stars_sum / total_count if total_count > 0 else 0.0
 
-        # 星平均チェック（MIN_AVG_STARS=0.0なので実質スキップ）
+        # 星平均チェック
         if avg_stars < MIN_AVG_STARS:
             continue
 
