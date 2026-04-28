@@ -36,13 +36,17 @@ service cloud.firestore {
     }
 
     // ── posts コレクション ───────────────────────────────
-    //   既存ルール維持（今回対象外）
-    //   読み書き: 制限なし（別途管理予定）
+    //   read   : 全員OK
+    //   create : 認証済み・uid一致必須
+    //   delete : 本人（uid一致）のみ
+    //   update : 認証済みのみ（like・返信追加・返信削除のため他人も可）
     match /posts/{docId} {
-      allow read, write: if true;
-    }
-    match /posts/{docId}/{sub=**} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+      allow update: if request.auth != null;
     }
 
     // ── その他のコレクション ─────────────────────────────
