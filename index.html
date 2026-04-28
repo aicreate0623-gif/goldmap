@@ -315,6 +315,23 @@
   </div>
   <div class="sheet-body">
 
+    <!-- ━━━ ご利用上のルール ━━━ -->
+    <div class="offline-rules-box">
+      <div class="offline-rules-title">📋 ご利用上のルール</div>
+      <ul class="offline-rules-list">
+        <li>🔄 <b>古いエリアから自動削除されます</b><br>
+          容量が不足すると、最後に使用した日時が古いエリアから順に削除されます。大切なエリアは定期的に地図を開いて「最終使用日」を更新してください。</li>
+        <li>📦 <b>1回のDL上限は100MB</b><br>
+          通信量・サーバー負荷の観点から1回のダウンロードは100MBまでに制限されています。広いエリアはエリアを分割して複数回DLしてください。</li>
+        <li>💾 <b>キャッシュ上限はデフォルト400MB</b><br>
+          設定から最大2GBまで拡張できます。上限を超えた分は古いエリアが自動削除されます。</li>
+        <li>📶 <b>WiFi環境でのDLを推奨</b><br>
+          モバイル通信では通信量に注意してください。容量確認後にDLを開始してください。</li>
+        <li>⚠️ <b>削除の取り消しはできません</b><br>
+          エリア削除・全削除は確認ダイアログを経ても元に戻すことができません。</li>
+      </ul>
+    </div>
+
     <!-- DL開始ボタン -->
     <div class="dl-start-wrap">
       <button class="btn accent dl-start-btn" onclick="openDlDialog()">
@@ -333,13 +350,14 @@
       </div>
     </div>
 
-    <!-- キャッシュ管理（設定タブから移動） -->
+    <!-- キャッシュ管理 -->
     <div class="cfg-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
         <span class="cfg-accordion-title">💾 地図キャッシュ管理</span>
         <span class="cfg-accordion-arrow">▶</span>
       </div>
       <div class="cfg-accordion-body">
+        <!-- 使用量 -->
         <div class="cfg-row">
           <div>
             <div class="cfg-label">キャッシュ容量</div>
@@ -347,13 +365,50 @@
           </div>
           <button class="btn sm" onclick="refreshCache()">更新</button>
         </div>
+        <!-- 使用量バー -->
+        <div class="sess-usage-bar-bg">
+          <div class="sess-usage-bar-fill" id="sess-usage-bar-fill"></div>
+        </div>
+        <div class="sess-usage-info" id="sess-usage-info">—</div>
+
+        <!-- キャッシュ上限スライダー -->
+        <div class="cfg-row" style="margin-top:12px;align-items:center;">
+          <div>
+            <div class="cfg-label">キャッシュ上限</div>
+            <div class="cfg-sub">200MB〜2GB（デフォルト400MB）</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:80px;">
+            <span id="cache-limit-val" style="font-size:13px;color:var(--gold,#c8a84b);font-weight:700;">400MB</span>
+            <input type="range" id="cache-limit-slider" min="0" max="4" step="1" value="1"
+              style="width:80px;accent-color:var(--gold,#c8a84b);">
+          </div>
+        </div>
+        <div class="cfg-sub" style="font-size:11px;color:#ff9944;margin:2px 0 10px;">
+          ⚠️ 上限を超えると古いエリアから自動削除されます
+        </div>
+
+        <!-- 全削除 -->
         <div class="cfg-row">
           <div>
-            <div class="cfg-label">キャッシュ削除</div>
+            <div class="cfg-label">キャッシュ全削除</div>
             <div class="cfg-sub">保存済み地図タイルを全て削除します</div>
           </div>
-          <button class="btn sm red" onclick="clearCache()">全削除</button>
+          <button class="btn sm red" onclick="clearCacheWithConfirm()">全削除</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ━━━ 保存済みエリア一覧 ━━━ -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">📂 保存済みオフラインエリア</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <div class="cfg-sub" style="margin-bottom:8px;font-size:11px;">
+          タップすると地図がそのエリアに移動します。最終使用日が更新されます。
+        </div>
+        <div id="session-list"><div class="sess-empty">読み込み中…</div></div>
       </div>
     </div>
 
@@ -1170,5 +1225,16 @@
   <script src="js/community.js"></script>
   <script src="js/custom_layer.js"></script>
   <script src="js/app.js"></script>
+  <script>
+    // キャッシュ上限スライダー・セッション一覧初期化
+    // （openDB完了後に呼ばれるよう DOMContentLoaded で遅延）
+    document.addEventListener('DOMContentLoaded', ()=>{
+      // map.js の initMap() が openDB を呼ぶため、少し待つ
+      setTimeout(()=>{
+        if(typeof initCacheSlider === 'function') initCacheSlider();
+        if(typeof renderSessionList === 'function') renderSessionList();
+      }, 800);
+    });
+  </script>
 </body>
 </html>
