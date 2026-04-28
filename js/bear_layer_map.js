@@ -270,7 +270,20 @@ function isBearLayerVisible() {
 /** 県フィルタを変更してピンを再描画する（ヒートマップは全県固定） */
 function setBearPrefFilter(prefValue) {
   bearFilteredPref = prefValue;
-  _renderBearPins();
+
+  // bearVisible に関わらずカウントバッジだけは常に更新する
+  const kmlSet = _kmlPrefSet();
+  let records = bearPinsData;
+  if (prefValue === BEAR_PREF_ALL_VALUE) {
+    records = records.filter(r => kmlSet.has(r.pref));
+  } else {
+    records = records.filter(r => r.pref === prefValue);
+  }
+  const counter = document.getElementById('bear-count-badge');
+  if (counter) counter.textContent = `直近${records.length}件`;
+
+  // 表示中のときのみピンを再描画
+  if (bearVisible) _renderBearPins();
 }
 
 function getBearPrefFilter()  { return bearFilteredPref; }
