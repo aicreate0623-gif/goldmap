@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════
 
 const COMM_MAX_CHARS        = 200;
-const COMM_RATE_MS          = 60000;
+const COMM_RATE_MS          = 180000;
 const COMM_REFRESH_COOL     = 180000;
 const COMM_REPLY_MAX_CHARS  = 200;
 const COMM_REPLY_LIMIT      = 100; // 1スレッド最大返信数
@@ -410,9 +410,11 @@ async function commSubmit(){
     const cached = _loadCache(_commScope, _commPref);
     _saveCache(_commScope, _commPref, [localPost, ...cached].slice(0, limit));
     localStorage.setItem(SK_LAST_POST, now.toString());
+    localStorage.setItem(SK_LAST_REFRESH, now.toString());
     textEl.value = ''; _updateCharCount();
     _renderPostsFromCache();
     _commToast('投稿しました！');
+    _startRefreshCooldown(COMM_REFRESH_COOL);
     _checkAndBatchDelete(fsScope, fsScope === 'pref' ? _commPref : null)
       .catch(e => console.warn('[comm] batch delete failed', e));
   } catch(e){
@@ -658,6 +660,8 @@ async function commSubmitReply(postId){
     await _db().collection('posts').doc(postId).update({
       replies: firebase.firestore.FieldValue.arrayUnion(newReply)
     });
+    localStorage.setItem(SK_LAST_REFRESH, now.toString());
+    _startRefreshCooldown(COMM_REFRESH_COOL);
     _commToast('返信しました！');
   } catch(e){
     // ロールバック
@@ -724,7 +728,7 @@ function _formatTime(ts){
   }
   return `${d.getMonth()+1}/${d.getDate()}`;
 }
-// _toastTimer は ui.js で宣言済み
+let _toastTimer = null;
 function _commToast(msg){
   let el = document.getElementById('comm-toast');
   if(!el){
