@@ -1028,7 +1028,7 @@ function _dldUpdEst(){
 }
 
 // ── STEP3: DL開始 → STEP4へ ──────────────────────────
-function _dldStartDl(){
+async function _dldStartDl(){
   const layers = ['std','photo','topo'].filter(k=>
     document.getElementById('dlg-ck-'+k)?.checked
   );
@@ -1042,8 +1042,18 @@ function _dldStartDl(){
     const estTiles = cntTiles(_dldBounds, zmin2, zmax2) * layers.length;
     const estBytes = estTiles * 20 * 1024; // 1枚=20KB
     const chk = (typeof checkDlSizeLimit === 'function') ? checkDlSizeLimit(estBytes) : {ok:true,warn:false,msg:''};
-    if(!chk.ok){ showAlert('サイズ超過', chk.msg); return; }
-    if(chk.warn && !confirm(chk.msg + '\n\n続行しますか？')) return;
+    if(!chk.ok){
+      const mb = (estBytes/1024/1024).toFixed(0);
+      showConfirmDialog(
+        `❌ 推定サイズ ${mb}MB は1回のDL上限（100MB）を超えています。\n\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`,
+        '設定を見直す', '設定を見直す'
+      );
+      return;
+    }
+    if(chk.warn){
+      const ok = await showConfirmDialog(chk.msg + '\n\n続行しますか？', '続行する', 'キャンセル');
+      if(!ok) return;
+    }
   }
 
   // ダミーIDに同期（既存startDl()が参照するため）
