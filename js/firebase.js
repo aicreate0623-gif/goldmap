@@ -387,17 +387,8 @@ async function deleteCoord(fsId) {
 //   free版 → free（全件グリッドデータ）
 // ─────────────────────────────────────────────────────
 async function fetchHeatPoints() {
-  const premium = await isPremiumUser();
-  // free tier は JS固定データのみのため fetch 不要
-  if (!premium) {
-    console.log('[firebase.js] fetchHeatPoints skip: free tier uses static data only');
-    return;
-  }
-  // contrib解放フラグチェック（プレミアムは免除）
-  if (!_getCachedPremium() && localStorage.getItem('gm_contrib_unlocked') !== '1') {
-    console.log('[firebase.js] fetchHeatPoints skip: contrib_unlocked flag not set');
-    return;
-  }
+  // PRO起動済みのプレミアムユーザーのみ呼ばれる想定
+  // （openHeatProGate()の④から呼ばれる）
 
   let json;
   try {

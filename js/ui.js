@@ -477,6 +477,10 @@ async function openHeatProGate() {
   _renderHeatPanel('premium');
   _showHeatAdjBtn(true);
   initHeatLayer('premium');
+  // heatmap.json未取得の場合のみfetch（重複取得防止）
+  if (_firebaseHeatPts.length === 0) {
+    fetchHeatPoints().catch(e => console.warn('[heatpro] fetchHeatPoints失敗', e));
+  }
 }
 
 // ── 内部: 全OFF ──────────────────────────────────────
