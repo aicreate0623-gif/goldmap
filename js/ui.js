@@ -1453,7 +1453,7 @@ function toggleCommAccordion(header) {
 //  トースト通知
 // ═══════════════════════════════════════════
 let _toastTimer = null;
-function showToast(msg, duration) {
+function showToast(msg, duration, type) {
   duration = duration || 2000;
   let el = document.getElementById('gm-toast');
   if (!el) {
@@ -1462,9 +1462,13 @@ function showToast(msg, duration) {
     document.body.appendChild(el);
   }
   el.textContent = msg;
+  el.classList.remove('show', 'error');
+  if (type === 'error') el.classList.add('error');
+  // 再フロー強制（連続呼び出し時のアニメーションリセット）
+  void el.offsetWidth;
   el.classList.add('show');
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => { el.classList.remove('show'); }, duration);
+  _toastTimer = setTimeout(() => { el.classList.remove('show', 'error'); }, duration);
 }
 
 // 起動

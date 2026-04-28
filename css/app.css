@@ -2493,3 +2493,8 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+#gm-toast.error {
+  background: rgba(40, 15, 15, 0.95);
+  border-color: rgba(255, 100, 100, 0.5);
+  color: #ffaaaa;
+}

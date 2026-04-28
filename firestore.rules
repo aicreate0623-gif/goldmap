@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── coords コレクション ──────────────────────────────
+    //   書き込み: 認証済みユーザーのみ
+    //   lat/lng: number型のみ許可
+    //   uid: 本人のuidのみ
+    match /coords/{docId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.lat is number
+        && request.resource.data.lng is number
+        && request.resource.data.lat >= 20 && request.resource.data.lat <= 46
+        && request.resource.data.lng >= 122 && request.resource.data.lng <= 154;
+      allow delete: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ── banned_words コレクション ────────────────────────
+    //   読み取り: 全員OK
+    //   書き込み: 全員NG（Firebaseコンソールからのみ編集）
+    match /banned_words/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ── users コレクション ───────────────────────────────
+    //   読み取り: 本人のみ
+    //   書き込み: 本人のみ
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // ── posts コレクション ───────────────────────────────
+    //   既存ルール維持（今回対象外）
+    //   読み書き: 制限なし（別途管理予定）
+    match /posts/{docId} {
+      allow read, write: if true;
+    }
+    match /posts/{docId}/{sub=**} {
+      allow read, write: if true;
+    }
+
+    // ── その他のコレクション ─────────────────────────────
+    //   明示的に許可していないものは全てブロック
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

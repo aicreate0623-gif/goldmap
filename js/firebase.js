@@ -218,6 +218,108 @@ function startPurchaseFlow() {
 // ─────────────────────────────────────────────────────
 // 座標を Firestore に投稿
 // ─────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
+// 禁止ワード管理
+//   Firestoreの banned_words コレクションから取得
+//   { word: string, matchType: 'exact'|'contains' }
+//   取得結果は localStorage に1時間キャッシュ
+// ─────────────────────────────────────────────────────
+const _SK_BANNED      = 'gm_banned_words';
+const _SK_BANNED_TS   = 'gm_banned_words_ts';
+const _BANNED_TTL     = 60 * 60 * 1000; // 1時間
+
+let _bannedWords = null; // メモリキャッシュ
+
+async function _loadBannedWords() {
+  // メモリキャッシュあり
+  if (_bannedWords !== null) return _bannedWords;
+
+  // localStorageキャッシュが有効期限内
+  const cachedTs = parseInt(localStorage.getItem(_SK_BANNED_TS) || '0', 10);
+  if (Date.now() - cachedTs < _BANNED_TTL) {
+    try {
+      _bannedWords = JSON.parse(localStorage.getItem(_SK_BANNED) || '[]');
+      return _bannedWords;
+    } catch(e) {}
+  }
+
+  // Firestoreから取得
+  try {
+    const snap = await firebase.firestore().collection('banned_words').get();
+    _bannedWords = snap.docs.map(d => ({
+      word:      (d.data().word || '').toLowerCase(),
+      matchType: d.data().matchType || 'contains',
+    })).filter(b => b.word.length > 0);
+    localStorage.setItem(_SK_BANNED, JSON.stringify(_bannedWords));
+    localStorage.setItem(_SK_BANNED_TS, String(Date.now()));
+    console.log('[firebase.js] banned_words loaded:', _bannedWords.length, '件');
+  } catch(e) {
+    console.warn('[firebase.js] banned_words 取得失敗', e);
+    _bannedWords = [];
+  }
+  return _bannedWords;
+}
+
+function _hasBannedWord(name, memo) {
+  if (!_bannedWords || _bannedWords.length === 0) return false;
+  const text = ((name || '') + ' ' + (memo || '')).toLowerCase();
+  return _bannedWords.some(b => {
+    if (b.matchType === 'exact') return text.split(/\s+/).includes(b.word);
+    return text.includes(b.word); // contains（部分一致）
+  });
+}
+
+// ─────────────────────────────────────────────────────
+// 投稿フィルター
+//   戻り値: { ok: true } or { ok: false, msg: string, silent: boolean }
+// ─────────────────────────────────────────────────────
+const _SK_LAST_SUBMIT    = 'gm_last_submit';    // { ts, lat, lng }
+const SUBMIT_INTERVAL_MS = 60 * 1000;           // 60秒
+const SUBMIT_MIN_DIST_M  = 100;                 // 100m
+
+// 2点間の距離(m) ハバーサイン簡易版
+function _distanceM(lat1, lng1, lat2, lng2) {
+  const R   = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a   = Math.sin(dLat/2)**2 +
+              Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+async function _checkSubmitFilter(lat, lng, name, memo) {
+  // ① 日本国内座標チェック
+  if (lat < 20 || lat > 46 || lng < 122 || lng > 154) {
+    return { ok: false, msg: '📍 この座標は対応エリア外です（日本国内のみ）', silent: false };
+  }
+
+  // ② 短時間連投チェック
+  try {
+    const last = JSON.parse(localStorage.getItem(_SK_LAST_SUBMIT) || 'null');
+    if (last && (Date.now() - last.ts) < SUBMIT_INTERVAL_MS) {
+      const remain = Math.ceil((SUBMIT_INTERVAL_MS - (Date.now() - last.ts)) / 1000);
+      return { ok: false, msg: `⏱ 連続投稿はしばらくお待ちください（あと約${remain}秒）`, silent: false };
+    }
+  } catch(e) {}
+
+  // ③ 同一座標連投チェック
+  try {
+    const last = JSON.parse(localStorage.getItem(_SK_LAST_SUBMIT) || 'null');
+    if (last && _distanceM(lat, lng, last.lat, last.lng) < SUBMIT_MIN_DIST_M) {
+      return { ok: false, msg: '📍 近くに既に投稿があります（100m以内）', silent: false };
+    }
+  } catch(e) {}
+
+  // ④ 禁止ワードチェック
+  await _loadBannedWords();
+  if (_hasBannedWord(name, memo)) {
+    console.warn('[firebase.js] banned_word hit → silent drop');
+    return { ok: false, msg: '', silent: true }; // 静かに無視
+  }
+
+  return { ok: true };
+}
+
 // ── 金関連キーワード判定 ──────────────────────────────
 const GOLD_KEYWORDS = [
   '金', 'GOLD', 'gold', '砂金', 'ナゲット', '草値引き', 'バンニング',
@@ -237,6 +339,16 @@ function _calcQuality(stars, name, memo) {
 }
 
 async function submitCoord(lat, lng, stars, name, memo) {
+  // ── 投稿フィルター ──────────────────────────────────
+  const check = await _checkSubmitFilter(lat, lng, name, memo);
+  if (!check.ok) {
+    if (!check.silent && check.msg) {
+      if (typeof showToast === 'function') showToast(check.msg, 3000, 'error');
+    }
+    // silentの場合は成功に見せるためfsIdの代わりにnullを返す
+    return check.silent ? null : Promise.reject(new Error(check.msg));
+  }
+
   const db  = firebase.firestore();
   const ref = await db.collection('coords').add({
     lat, lng,
@@ -247,6 +359,12 @@ async function submitCoord(lat, lng, stars, name, memo) {
     date:    new Date().toISOString().slice(0, 10),
     ts:      firebase.firestore.FieldValue.serverTimestamp(),
   });
+
+  // 最終投稿記録を更新
+  try {
+    localStorage.setItem(_SK_LAST_SUBMIT, JSON.stringify({ ts: Date.now(), lat, lng }));
+  } catch(e) {}
+
   console.log('[firebase.js] submitCoord OK', lat, lng, 'stars=', stars,
               'isGold=', _isGoldKeyword(name, memo), 'fsId=', ref.id);
   return ref.id;
