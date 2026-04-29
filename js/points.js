@@ -185,6 +185,9 @@ function _submitOrPending(p) {
     .then(fsId => { p.fsId = fsId; savePts(); showToast('✅ ヒートマップに投稿しました', 2000); })
     .catch(e => {
       console.warn('[points] submitCoord失敗', e);
+      // レート制限・座標エラーはfirebase.js側でトースト済み、pending不要
+      const msg = e && e.message ? e.message : '';
+      if (msg.indexOf('⏱') === 0 || msg.indexOf('📍') === 0) return;
       _addPending(p.lat, p.lng, p.stars||0, p.name||'', p.memo||'');
       showToast('📶 オフライン保存 → 次回自動送信', 3000);
     });
