@@ -258,9 +258,8 @@ async function commRefresh(){
     q = q.orderBy('ts', 'desc').limit(limit);
     const snap = await q.get();
     const fetchedPosts = snap.docs.map(d => _normalizePost(d));
-    // IDベースでマージ → Firestoreが正とみなし上書き
-    const merged = _mergePosts(cached, fetchedPosts, limit);
-    _saveCache(scope, pref, merged);
+    // Firestoreを正として直接上書き（削除・更新も反映）
+    _saveCache(scope, pref, fetchedPosts);
     const newCount = fetchedPosts.filter(fp => !cached.some(cp => cp.id === fp.id)).length;
     _commToast(newCount > 0 ? `${newCount}件の新着を取得しました` : '最新の状態です');
     _renderPostsFromCache();
