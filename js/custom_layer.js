@@ -327,6 +327,7 @@ function clFilter(id, val){
     }
     // ヘッダーのカウント表示も更新
     const countEl = card.querySelector('.cl-set-count');
+    if(countEl){
       if(val){
         const n = s.points.filter(p=>_matchFilter(p, val.trim().toLowerCase())).length;
         countEl.innerHTML = `${s.points.length}件 <span class="cl-filter-count">→ ${n}件</span>`;
