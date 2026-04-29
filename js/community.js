@@ -332,6 +332,8 @@ function _renderPostsFromCache(){
   }
   container.innerHTML = posts.map(p=>{
     const r = reactions[p.id] || {};
+    // Firestore側soft delete\uff08全員非表示\uff09
+    if(p.hidden === true) return null;
     // NG uid または個別非表示
     const isNg     = ngUids.includes(p.uid);
     const isHidden = hidden.includes(p.id);
@@ -349,9 +351,11 @@ function _renderPostsFromCache(){
     const isOwn      = uid && p.uid === uid;
     const replies    = Array.isArray(p.replies) ? p.replies : [];
     const hasReplies = replies.length > 0;
-    // 返信がある場合は削除不可
-    const deleteBtn  = isOwn && !hasReplies
-      ? `<button class="comm-delete-btn" onclick="commDeletePost('${p.id}')" title="削除">🗑</button>`
+    // 返信なし→物理削除、返信あり→全員非表示\uff08soft delete\uff09
+    const deleteBtn = isOwn
+      ? hasReplies
+        ? `<button class="comm-delete-btn" onclick="commSoftDeletePost('${p.id}')" title="非表示にする">🗑</button>`
+        : `<button class="comm-delete-btn" onclick="commDeletePost('${p.id}')" title="削除">🗑</button>`
       : '';
     const replyLabel  = hasReplies ? `💬 ${replies.length}件の返信` : '💬 返信する';
     const repliesHtml = replies.map((rep, idx) => _buildReplyHtml(p.id, rep, idx, uid, hiddenReply, ngUids)).join('');
@@ -436,6 +440,27 @@ async function commSubmit(){
 }
 
 // ── 自分の投稿削除 ───────────────────────────
+// 返信ありの自分投稿を全員非表示（Firestoreにhidden:true）
+async function commSoftDeletePost(postId){
+  const user = firebase.auth().currentUser;
+  if(!user) return;
+  const scope = _commScope, pref = _commPref;
+  const cached = _loadCache(scope, pref);
+  const post = cached.find(p => p.id === postId);
+  if(!post || post.uid !== user.uid){ _commToast('操作できません'); return; }
+  if(!confirm('この投稿を非表示にしますか？返信を含むすべてのユーザーから見えなくなります。')) return;
+  try{
+    await _db().collection('posts').doc(postId).update({ hidden: true });
+    post.hidden = true;
+    _saveCache(scope, pref, cached);
+    _renderPostsFromCache();
+    _commToast('投稿を非表示にしました');
+  } catch(e){
+    console.error('[comm] soft delete failed', e);
+    _commToast('操作に失敗しました');
+  }
+}
+
 async function commDeletePost(postId){
   const user = firebase.auth().currentUser;
   if(!user) return;
@@ -495,11 +520,14 @@ async function _checkAndBatchDelete(fsScope, pref){
   if(pref) q = q.where('pref', '==', pref);
   const snap = await q.orderBy('ts', 'asc').limit(trigger).get();
   if(snap.docs.length < trigger) return;
-  const toDelete = snap.docs.slice(0, trigger - display);
+  // hidden:true を優先削除対象に並べ替え
+  const hiddenDocs  = snap.docs.filter(d => d.data().hidden === true);
+  const normalDocs  = snap.docs.filter(d => !d.data().hidden);
+  const toDelete = [...hiddenDocs, ...normalDocs].slice(0, trigger - display);
   const batch = _db().batch();
   toDelete.forEach(doc => batch.delete(doc.ref));
   await batch.commit();
-  console.log(`[comm] batch deleted ${toDelete.length} posts (scope:${fsScope} pref:${pref||'-'})`);
+  console.log(`[comm] batch deleted ${toDelete.length} posts (hidden:${hiddenDocs.length} scope:${fsScope} pref:${pref||'-'})`);
 }
 
 // ── ニックネーム・文字数 ─────────────────────
