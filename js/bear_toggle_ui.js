@@ -73,21 +73,17 @@ function initBearToggle() {
   section.innerHTML = `
     <!-- アコーディオンヘッダー -->
     <div class="bear-accordion-header" id="bear-accordion-header" onclick="toggleBearAccordion()">
-      <div class="bear-accordion-left">
-        <span class="bear-accordion-icon">🐻</span>
-        <div class="bear-accordion-text">
-          <div class="bear-accordion-title">
-            熊出没情報
-            <span class="bear-kml-chip">✅ KMLデータ</span>
-          </div>
-          <div class="bear-accordion-sub">生息域ヒートマップ＋直近90日ピン</div>
-        </div>
-      </div>
+      <span class="bear-accordion-icon">🐻</span>
+      <span class="bear-accordion-title">熊出没情報</span>
+      <span class="bear-kml-chip">✅ KMLデータ</span>
       <span class="bear-accordion-arrow" id="bear-accordion-arrow">▶</span>
     </div>
 
     <!-- 展開パネル（初期: 開いた状態） -->
     <div id="bear-detail-panel" class="bear-detail-panel-closed">
+
+      <!-- 説明文 -->
+      <p class="bear-description">公開データや行政公式マップ等から取得しています。生息域を示す事が基本ベースでリアルタイムで更新されない地域もあります。</p>
 
       <!-- 県セレクタ -->
       <div class="bear-pref-selector-wrap">

@@ -596,18 +596,16 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 /* ━━━ 熊アコーディオン ━━━ */
 .bear-accordion-header {
   display: flex; align-items: center; gap: 8px;
-  padding: 8px 4px;
+  padding: 12px 4px;
   cursor: pointer; user-select: none;
   border-bottom: 1px solid rgba(255,255,255,0.07);
   transition: background .15s; border-radius: 6px;
 }
 .bear-accordion-header:active { background: rgba(255,255,255,0.05); }
-.bear-accordion-left { display: flex; align-items: center; gap: 8px; }
-.bear-accordion-icon { font-size: 16px; }
-.bear-accordion-text { display: flex; flex-direction: column; gap: 1px; }
-.bear-accordion-title { font-size: 12px; font-weight: 700; color: var(--txt); }
-.bear-accordion-sub   { font-size: 10px; color: var(--txt-dim); }
-.bear-accordion-arrow { font-size: 11px; color: var(--txt-dim); flex-shrink: 0; }
+.bear-accordion-icon { font-size: 16px; flex-shrink: 0; }
+.bear-accordion-title { flex: 1; font-size: 13px; font-weight: 700; color: var(--txt); }
+.bear-accordion-arrow { font-size: 11px; color: var(--txt-dim); flex-shrink: 0; margin-left: auto; }
+.bear-description { font-size: 11px; color: var(--txt-sub); line-height: 1.7; margin: 8px 0 12px; }
 .bear-detail-panel-open   { display: block; }
 .bear-detail-panel-closed { display: none; }
 
