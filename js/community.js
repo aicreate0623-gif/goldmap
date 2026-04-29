@@ -202,7 +202,7 @@ function _initRefreshCooldown(){
 }
 function _startRefreshCooldown(ms){
   const btn      = document.getElementById('comm-refresh-btn');
-  const submitBtn= document.getElementById('comm-submit-btn');
+  const submitBtn= document.querySelector('.comm-submit-btn');  // class統一
   const countdown= document.getElementById('comm-post-countdown');
   if(!btn) return;
   btn.disabled = true;
@@ -220,7 +220,8 @@ function _startRefreshCooldown(ms){
       clearInterval(_refreshCoolTimer);
       btn.disabled = false;
       btn.textContent = '🔄 更新';
-      if(submitBtn){ submitBtn.disabled = false; }
+      const sb = document.querySelector('.comm-submit-btn');  // 再取得（DOM再描画対応）
+      if(sb) sb.disabled = false;
       if(countdown){ countdown.style.display = 'none'; countdown.textContent = ''; }
     } else {
       btn.textContent = _fmt(remaining);
@@ -243,46 +244,25 @@ async function commRefresh(){
   const btn = document.getElementById('comm-refresh-btn');
   if(btn){ btn.disabled = true; btn.textContent = '取得中…'; }
   try{
-    const scope    = _commScope;
-    const pref     = _commPref;
-    const cached   = _loadCache(scope, pref);
-    const latestTs = _getLatestTs(cached);
-    const limit    = scope === 'national' ? COMM_NATIONAL_DISPLAY : COMM_PREF_DISPLAY;
+    const scope  = _commScope;
+    const pref   = _commPref;
+    const cached = _loadCache(scope, pref);
+    const limit  = scope === 'national' ? COMM_NATIONAL_DISPLAY : COMM_PREF_DISPLAY;
     // ── クエリ構築 ──────────────────────────────────
-    // Firestoreの複合インデックス要件：
-    //   national: (scope ASC, ts DESC)
-    //   pref    : (scope ASC, pref ASC, ts DESC)
-    // 差分取得時は where('ts','>') を追加するが、
-    // orderBy('ts') は必ず最後に置き単一フィールドで完結させる。
+    // 常にフル取得（orderBy + limit）でIDマージ。
+    // 差分取得のtsフィルターはサーバー時刻とのズレで誤動作するため廃止。
+    // クエリ本数は最大1本で現状以下。
     const fsScope = scope === 'national' ? 'national' : 'pref';
     let q = _db().collection('posts').where('scope', '==', fsScope);
     if(scope === 'regional') q = q.where('pref', '==', pref);
-    // 差分取得：キャッシュがある場合のみ ts フィルターを追加
-    // ※ latestTs-1ms で境界値漏れを防ぐ
-    if(latestTs > 0){
-      q = q.where('ts', '>', new Date(latestTs - 1)).orderBy('ts', 'desc').limit(limit);
-    } else {
-      q = q.orderBy('ts', 'desc').limit(limit);
-    }
+    q = q.orderBy('ts', 'desc').limit(limit);
     const snap = await q.get();
-    const newPosts = snap.docs.map(d => _normalizePost(d));
-    if(newPosts.length === 0){
-      if(latestTs > 0){
-        // キャッシュありで差分0件 → 全削除の可能性あり → 全件クエリで確認
-        let q2 = _db().collection('posts').where('scope', '==', fsScope);
-        if(scope === 'regional') q2 = q2.where('pref', '==', pref);
-        const snap2 = await q2.orderBy('ts', 'desc').limit(limit).get();
-        const allPosts = snap2.docs.map(d => _normalizePost(d));
-        _saveCache(scope, pref, allPosts);
-        _commToast(allPosts.length === 0 ? '投稿はありません' : '最新の状態です');
-      } else {
-        _commToast('最新の状態です');
-      }
-    } else {
-      const merged = _mergePosts(cached, newPosts, limit);
-      _saveCache(scope, pref, merged);
-      _commToast(`${newPosts.length}件の新着を取得しました`);
-    }
+    const fetchedPosts = snap.docs.map(d => _normalizePost(d));
+    // IDベースでマージ → Firestoreが正とみなし上書き
+    const merged = _mergePosts(cached, fetchedPosts, limit);
+    _saveCache(scope, pref, merged);
+    const newCount = fetchedPosts.filter(fp => !cached.some(cp => cp.id === fp.id)).length;
+    _commToast(newCount > 0 ? `${newCount}件の新着を取得しました` : '最新の状態です');
     _renderPostsFromCache();
     localStorage.setItem(SK_LAST_REFRESH, Date.now().toString());
     _startRefreshCooldown(COMM_REFRESH_COOL);
@@ -293,6 +273,7 @@ async function commRefresh(){
     } else {
       _commToast('取得に失敗しました。通信を確認してください。');
     }
+    // エラー時のみボタンを手動で戻す（正常時は_startRefreshCooldownが管理）
     if(btn){ btn.disabled = false; btn.textContent = '🔄 更新'; }
   } finally {
     _commLoading = false;
