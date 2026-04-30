@@ -1072,29 +1072,13 @@ async function _dldStartDl(){
     if(_dldCheckSize(_dldBounds, zmax2, layers.length)) return;
   }
 
-  // ダミーIDに同期（既存startDl()が参照するため）
-  layers.forEach(k=>{
-    const dst = document.getElementById('ck-'+k);
-    if(dst) dst.checked = true;
-  });
-  ['std','photo','topo'].filter(k=>!layers.includes(k)).forEach(k=>{
-    const dst = document.getElementById('ck-'+k);
-    if(dst) dst.checked = false;
-  });
-
   const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
   const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
-  const setOpt = (id, val) => {
-    const el = document.getElementById(id);
-    if(el) [...el.options].forEach(o=>{ o.selected = (o.value===String(val)); });
-  };
-  setOpt('det-zmin', zmin);
-  setOpt('det-zmax', zmax);
 
-  // detRectに確定してDL開始
+  // detRectに確定してDL開始（runDlを直接呼びダミー要素への依存を排除）
   detRect = _dldBounds;
   _dldRenderStep(3);
-  startDl('detail');
+  await runDl('detail', detRect, zmin, zmax, layers, 0);
 }
 
 // ── STEP3: ダイアログ内バーに進捗同期 ─────────────────
@@ -1222,22 +1206,23 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
   // resumeの境界情報
   const boundsData=mode==='base'?null:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
 
-  let done=startIdx, fail=0;
+  let done=startIdx, fail=0, realBytes=0;
   const log=msg=>{const el=document.getElementById('dl-log');el.textContent=msg+'\n'+el.textContent;el.textContent=el.textContent.split('\n').slice(0,40).join('\n');};
 
   const tick=()=>{
     const pct=total>0?Math.round(done/total*100):0;
+    const mbReal=(realBytes/1024/1024).toFixed(0)+' MB';
     document.getElementById('pg-done').textContent=fmt(done);
     document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-done));
-    document.getElementById('pg-mb').textContent=mbEst(done)+' MB';
+    document.getElementById('pg-mb').textContent=mbReal;
     document.getElementById('pg-bar').style.width=pct+'%';
     // ミラーバー同期（オフラインタブ内）
     const _pbd=document.getElementById('dl-pb-done'); if(_pbd) _pbd.textContent=fmt(done);
     const _pbt=document.getElementById('dl-pb-tot');  if(_pbt) _pbt.textContent=fmt(total);
-    const _pbm=document.getElementById('dl-pb-mb');   if(_pbm) _pbm.textContent=mbEst(done)+' MB';
+    const _pbm=document.getElementById('dl-pb-mb');   if(_pbm) _pbm.textContent=mbReal;
     const _pbb=document.getElementById('dl-pb-bar');  if(_pbb) _pbb.style.width=pct+'%';
     // DLダイアログ内バー同期
-    if(typeof _dldSyncProgress==='function') _dldSyncProgress(done,total,mbEst(done));
+    if(typeof _dldSyncProgress==='function') _dldSyncProgress(done,total,mbReal);
     // DLダイアログ内ログミラー
     const _dlog=document.getElementById('dld-log');
     if(_dlog&&done%200===0){
@@ -1264,10 +1249,10 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
               if(c){done++;tick();return;} // 既存キャッシュはスキップ
               return fetch(url2,{signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined})
                 .then(r=>r.ok?r.arrayBuffer():null)
-                .then(buf=>{if(buf)return dbPut(k,buf).then(()=>{done++;tick();});else{fail++;tick();}});
+                .then(buf=>{if(buf)return dbPut(k,buf).then(()=>{done++;realBytes+=buf.byteLength;tick();});else{fail++;tick();}});
             }).catch(()=>{fail++;tick();})
           :fetch(url2).then(r=>r.ok?r.arrayBuffer():null)
-            .then(buf=>{if(buf){done++;tick();}else{fail++;tick();}})
+            .then(buf=>{if(buf){done++;realBytes+=buf.byteLength;tick();}else{fail++;tick();}})
             .catch(()=>{fail++;tick();});
 
         promise.finally(()=>{
@@ -1308,7 +1293,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
       const _center   = (typeof map!=='undefined') ? [map.getCenter().lat,map.getCenter().lng] : [35,136];
       const _zoom     = (typeof map!=='undefined') ? map.getZoom() : zmax;
       const _label    = `${layers.join('・')} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
-      await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:done*20*1024, srcKeys:layers});
+      await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers});
     }
   } else {
     log('⏸ 停止しました。続きから再開できます。');
