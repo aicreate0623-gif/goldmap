@@ -727,13 +727,18 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
       return;
     }
 
-    // 全ズームがdone（ADP_SCAN_ZMINからADP_SCAN_ZMAXまで）かどうか判定
+    // スキャン範囲内で「未(none)」または「一部(partial)」のズームが1つでもあれば未DL扱い
+    // total===0（セッション範囲外）のズームは無視する
     let allDone = true;
+    let hasAnyTile = false; // タイルが存在するズームが1つでもあるか
     for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
       const pz = lkData.perZoom[z];
       if(!pz || pz.total === 0) continue; // タイルが存在しないズームは無視
+      hasAnyTile = true;
       if(pz.status !== 'done'){ allDone = false; break; }
     }
+    // タイルが1枚もスキャンできなかった場合は「未」として扱う（スキャン失敗保険）
+    if(!hasAnyTile) allDone = false;
 
     if(allDone){
       ck.disabled = true;
