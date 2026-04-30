@@ -2656,3 +2656,62 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   transition: background .2s;
 }
 .sess-del-btn:active { background: rgba(255,60,60,0.35); }
+
+/* ═══════════════════════════════════════════
+   返信ツリー（3階層対応）
+═══════════════════════════════════════════ */
+
+/* 階層インデント・縦線 */
+.comm-reply-depth-0 {
+  border-left: 2px solid rgba(200,160,60,0.35);
+  padding-left: 10px;
+  margin-left: 0;
+}
+.comm-reply-depth-1 {
+  border-left: 2px solid rgba(200,160,60,0.22);
+  padding-left: 10px;
+  margin-left: 12px;
+  margin-top: 4px;
+}
+.comm-reply-depth-2 {
+  border-left: 2px solid rgba(200,160,60,0.12);
+  padding-left: 10px;
+  margin-left: 12px;
+  margin-top: 4px;
+}
+
+/* サブ返信セクション */
+.comm-sub-reply-section {
+  margin-top: 4px;
+}
+.comm-sub-reply-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 返信メタ行（↩返信ボタン） */
+.comm-reply-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  min-height: 20px;
+}
+
+/* サブ返信トグルボタン */
+.comm-sub-reply-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 1px 4px;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+  border-radius: 4px;
+}
+.comm-sub-reply-toggle-btn:active {
+  opacity: 1;
+  background: rgba(200,160,60,0.12);
+}

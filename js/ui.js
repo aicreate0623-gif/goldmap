@@ -1500,3 +1500,25 @@ function toggleCommAccordion(header) {
 }
 
 // 起動
+// ═══════════════════════════════════════════
+//  汎用トースト（points.js等から使用）
+// ═══════════════════════════════════════════
+let _showToastTimer = null;
+function showToast(msg, duration) {
+  duration = duration || 2500;
+  let el = document.getElementById('ui-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ui-toast';
+    el.style.cssText =
+      'position:fixed;bottom:calc(var(--tab-h, 56px) + 60px);left:50%;transform:translateX(-50%);' +
+      'background:rgba(30,20,10,0.92);border:1px solid var(--gold);color:var(--txt);' +
+      'padding:8px 18px;border-radius:20px;font-size:12px;z-index:2000;pointer-events:none;' +
+      'white-space:nowrap;backdrop-filter:blur(8px);opacity:0;transition:opacity 0.2s;';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(_showToastTimer);
+  _showToastTimer = setTimeout(() => { el.style.opacity = '0'; }, duration);
+}

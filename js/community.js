@@ -8,13 +8,14 @@
 const COMM_MAX_CHARS        = 200;
 const COMM_RATE_MS          = 180000;
 const COMM_REFRESH_COOL     = 180000;
-const COMM_REPLY_MAX_CHARS  = 200;
-const COMM_REPLY_LIMIT      = 100; // 1スレッド最大返信数
+const COMM_REPLY_MAX_CHARS    = 200; // 1階層目返信
+const COMM_SUBREPLY_MAX_CHARS = 100; // 2・3階層目返信
+const COMM_REPLY_LIMIT        = 100; // 1スレッド最大返信数
 
-const COMM_NATIONAL_DISPLAY  = 50;
-const COMM_NATIONAL_TRIGGER  = 100;
+const COMM_NATIONAL_DISPLAY  = 30;
+const COMM_NATIONAL_TRIGGER  = 50;
 const COMM_PREF_DISPLAY      = 10;
-const COMM_PREF_TRIGGER      = 100;
+const COMM_PREF_TRIGGER      = 20;
 
 const SK_NICKNAME      = 'comm_nickname';
 const SK_LAST_POST     = 'comm_last_post';
@@ -42,7 +43,7 @@ const REGION_MAP = {
 };
 
 // 非表示モーダル用の一時状態
-let _hideCtx = null; // { type:'post'|'reply', postId, replyIdx, uid }
+let _hideCtx = null; // { type:'post'|'reply', postId, path:[], uid }
 
 let _commScope   = localStorage.getItem(SK_SCOPE)  || 'national';
 let _commRegion  = localStorage.getItem(SK_REGION) || '北海道';
@@ -68,15 +69,15 @@ function commHidePost(postId, uid){
 }
 
 // 非表示ダイアログ（返信）
-function commHideReply(postId, replyIdx, uid){
-  _hideCtx = { type: 'reply', postId, replyIdx, uid };
+function commHideReply(postId, path, uid){
+  _hideCtx = { type: 'reply', postId, path, uid };
   showDlg('dlg-hide-post');
 }
 
 // 非表示モーダルの確定処理（3ボタン共通）
 function _commHideConfirm(action){
   if(!_hideCtx){ closeOv(); return; }
-  const { type, postId, replyIdx, uid } = _hideCtx;
+  const { type, postId, path, uid } = _hideCtx;
   _hideCtx = null;
   closeOv();
   if(action === 'single'){
@@ -84,7 +85,8 @@ function _commHideConfirm(action){
       const list = _loadHidden();
       if(!list.includes(postId)){ list.push(postId); _saveHidden(list); }
     } else {
-      const key = `${postId}_r${replyIdx}`;
+      const pathArr = Array.isArray(path) ? path : [path];
+      const key = `${postId}_r${pathArr.join('_')}`;
       const list = _loadHiddenReply();
       if(!list.includes(key)){ list.push(key); _saveHiddenReply(list); }
     }
@@ -110,8 +112,9 @@ function commUnhideNg(uid){
 }
 
 // 非表示解除（返信）
-function commUnhideReply(postId, replyIdx){
-  const key = `${postId}_r${replyIdx}`;
+function commUnhideReply(postId, path){
+  const pathArr = Array.isArray(path) ? path : [path];
+  const key = `${postId}_r${pathArr.join('_')}`;
   const list = _loadHiddenReply().filter(k => k !== key);
   _saveHiddenReply(list);
   _renderPostsFromCache();
@@ -331,14 +334,8 @@ function _renderPostsFromCache(){
     const isOwn      = uid && p.uid === uid;
     const replies    = Array.isArray(p.replies) ? p.replies : [];
     const hasReplies = replies.length > 0;
-    // 返信なし→物理削除、返信あり→全員非表示\uff08soft delete\uff09
-    const deleteBtn = isOwn
-      ? hasReplies
-        ? `<button class="comm-delete-btn" onclick="commSoftDeletePost('${p.id}')" title="非表示にする">🗑</button>`
-        : `<button class="comm-delete-btn" onclick="commDeletePost('${p.id}')" title="削除">🗑</button>`
-      : '';
     const replyLabel  = hasReplies ? `💬 ${replies.length}件の返信` : '💬 返信する';
-    const repliesHtml = replies.map((rep, idx) => _buildReplyHtml(p.id, rep, idx, uid, hiddenReply, ngUids)).join('');
+    const repliesHtml = replies.map((rep, idx) => _buildReplyHtml(p.id, rep, [idx], uid, hiddenReply, ngUids, 0)).join('');
     // 自分の投稿には🚫ボタン不要
     const hideBtn = !isOwn
       ? `<button class="comm-hide-btn" onclick="commHidePost('${p.id}','${p.uid}')" title="非表示">🚫</button>`
@@ -347,7 +344,7 @@ function _renderPostsFromCache(){
   <div class="comm-post-header">
     <span class="comm-nick">${_escHtml(p.nick)}</span>
     <span class="comm-time">${timeStr}</span>
-    <div class="comm-post-actions">${hideBtn}${deleteBtn}</div>
+    <div class="comm-post-actions">${hideBtn}</div>
   </div>
   <div class="comm-post-body">${_escHtml(p.text)}</div>
   <div class="comm-post-footer">
@@ -419,50 +416,6 @@ async function commSubmit(){
   }
 }
 
-// ── 自分の投稿削除 ───────────────────────────
-// 返信ありの自分投稿を全員非表示（Firestoreにhidden:true）
-async function commSoftDeletePost(postId){
-  const user = firebase.auth().currentUser;
-  if(!user) return;
-  const scope = _commScope, pref = _commPref;
-  const cached = _loadCache(scope, pref);
-  const post = cached.find(p => p.id === postId);
-  if(!post || post.uid !== user.uid){ _commToast('操作できません'); return; }
-  if(!confirm('この投稿を非表示にしますか？返信を含むすべてのユーザーから見えなくなります。')) return;
-  try{
-    await _db().collection('posts').doc(postId).update({ hidden: true });
-    post.hidden = true;
-    _saveCache(scope, pref, cached);
-    _renderPostsFromCache();
-    _commToast('投稿を非表示にしました');
-  } catch(e){
-    console.error('[comm] soft delete failed', e);
-    _commToast('操作に失敗しました');
-  }
-}
-
-async function commDeletePost(postId){
-  const user = firebase.auth().currentUser;
-  if(!user) return;
-  const scope  = _commScope, pref = _commPref;
-  const cached = _loadCache(scope, pref);
-  const post   = cached.find(p => p.id === postId);
-  // 返信がある場合は削除不可
-  if(post && Array.isArray(post.replies) && post.replies.length > 0){
-    _commToast('返信がついた投稿は削除できません');
-    return;
-  }
-  if(!confirm('この投稿を削除しますか？')) return;
-  try{
-    await _db().collection('posts').doc(postId).delete();
-    _saveCache(scope, pref, cached.filter(p => p.id !== postId));
-    _renderPostsFromCache();
-    _commToast('投稿を削除しました');
-  } catch(e){
-    console.error('[comm] delete failed', e);
-    _commToast('削除に失敗しました');
-  }
-}
 
 // ── likeリアクション ─────────────────────────
 const _reactingSet = new Set(); // 連打防止フラグ
@@ -591,38 +544,115 @@ function commShowPremium(){
   showDlg('dlg-premium-gate');
 }
 
-// ── 返信HTML生成ヘルパー ─────────────────────
-function _buildReplyHtml(postId, rep, idx, uid, hiddenReply, ngUids){
-  const key      = `${postId}_r${idx}`;
+// ── ツリーユーティリティ ────────────────────
+function _getReplyByPath(replies, path){
+  let cur = replies;
+  let obj = null;
+  for(const idx of path){
+    if(!Array.isArray(cur) || idx >= cur.length) return null;
+    obj = cur[idx];
+    cur = Array.isArray(obj.replies) ? obj.replies : [];
+  }
+  return obj;
+}
+function _addReplyAtPath(replies, parentPath, newReply){
+  const cloned = JSON.parse(JSON.stringify(replies));
+  if(parentPath.length === 0){ cloned.push(newReply); return cloned; }
+  let cur = cloned;
+  for(let i = 0; i < parentPath.length; i++){
+    const idx = parentPath[i];
+    if(!Array.isArray(cur) || idx >= cur.length) return replies;
+    if(i === parentPath.length - 1){
+      if(!Array.isArray(cur[idx].replies)) cur[idx].replies = [];
+      cur[idx].replies.push(newReply);
+      return cloned;
+    }
+    cur = Array.isArray(cur[idx].replies) ? cur[idx].replies : [];
+  }
+  return cloned;
+}
+function _removeReplyAtPath(replies, path){
+  const cloned = JSON.parse(JSON.stringify(replies));
+  if(path.length === 1){ cloned.splice(path[0], 1); return cloned; }
+  let cur = cloned;
+  for(let i = 0; i < path.length - 1; i++){
+    const idx = path[i];
+    if(!Array.isArray(cur) || idx >= cur.length) return replies;
+    if(i === path.length - 2){
+      if(Array.isArray(cur[idx].replies)) cur[idx].replies.splice(path[path.length-1], 1);
+      return cloned;
+    }
+    cur = Array.isArray(cur[idx].replies) ? cur[idx].replies : [];
+  }
+  return cloned;
+}
+
+// ── 返信HTML生成（3階層ツリー対応）────────────
+// path: インデックス配列 [0] / [0,1] / [0,1,2]
+// depth: 0=1階層 1=2階層 2=3階層
+function _buildReplyHtml(postId, rep, path, uid, hiddenReply, ngUids, depth){
+  depth = depth || 0;
+  const pathArr  = Array.isArray(path) ? path : [path];
+  const pathJson = JSON.stringify(pathArr);
+  const key      = `${postId}_r${pathArr.join('_')}`;
   const isNg     = ngUids.includes(rep.uid);
   const isHidden = hiddenReply.includes(key);
+
   if(isNg || isHidden){
     const unhideBtn = isNg
       ? `<button class="comm-unhide-btn" onclick="commUnhideNg('${rep.uid}')">NG解除</button>`
-      : `<button class="comm-unhide-btn" onclick="commUnhideReply('${postId}',${idx})">非表示解除</button>`;
-    return `<div class="comm-reply-item comm-post-hidden">
-  <span>⚠️ 非表示の返信${isNg ? '（NG登録中）' : ''}</span>
-  ${unhideBtn}
+      : `<button class="comm-unhide-btn" onclick="commUnhideReply('${postId}',${pathJson})">非表示解除</button>`;
+    return `<div class="comm-reply-item comm-reply-depth-${depth} comm-post-hidden">
+  <span>⚠️ 非表示の返信${isNg ? '（NG登録中）' : ''}</span>${unhideBtn}
 </div>`;
   }
+
   const isOwn     = uid && rep.uid === uid;
   const deleteBtn = isOwn
-    ? `<button class="comm-reply-delete-btn" onclick="commDeleteReply('${postId}',${idx})" title="削除">🗑</button>`
+    ? `<button class="comm-reply-delete-btn" onclick="commDeleteReply('${postId}',${pathJson})" title="削除">🗑</button>`
     : '';
   const hideBtn = !isOwn
-    ? `<button class="comm-hide-btn" onclick="commHideReply('${postId}',${idx},'${rep.uid}')" title="非表示">🚫</button>`
+    ? `<button class="comm-hide-btn" onclick="commHideReply('${postId}',${pathJson},'${rep.uid}')" title="非表示">🚫</button>`
     : '';
-  return `<div class="comm-reply-item">
+
+  // 子返信
+  const subReplies    = Array.isArray(rep.replies) ? rep.replies : [];
+  const hasSubReplies = subReplies.length > 0;
+  const subSectionId  = `comm-sub-${postId}-${pathArr.join('-')}`;
+  const subInputId    = `comm-sub-input-${postId}-${pathArr.join('-')}`;
+
+  // 3階層目は返信ボタンなし
+  const maxChars   = depth === 0 ? COMM_REPLY_MAX_CHARS : COMM_SUBREPLY_MAX_CHARS;
+  const replyBtnHtml = depth < 2
+    ? `<button class="comm-sub-reply-toggle-btn" onclick="commToggleSubReply('${postId}',${pathJson})">${hasSubReplies ? `💬 ${subReplies.length}件` : '↩ 返信'}</button>`
+    : '';
+
+  // 子返信HTML（再帰）
+  const subListHtml = subReplies.map((sr, si) =>
+    _buildReplyHtml(postId, sr, [...pathArr, si], uid, hiddenReply, ngUids, depth + 1)
+  ).join('');
+
+  const subSectionHtml = depth < 2 ? `
+  <div class="comm-sub-reply-section" id="${subSectionId}" style="display:none">
+    <div class="comm-sub-reply-list">${subListHtml}</div>
+    <div class="comm-reply-input-row">
+      <input class="comm-reply-input" id="${subInputId}" type="text" maxlength="${maxChars}" placeholder="返信…（${maxChars}文字以内）">
+      <button class="comm-reply-send-btn" onclick="commSubmitSubReply('${postId}',${pathJson})">送信</button>
+    </div>
+  </div>` : (hasSubReplies ? `<div class="comm-sub-reply-section" style="display:none"><div class="comm-sub-reply-list">${subListHtml}</div></div>` : '');
+
+  return `<div class="comm-reply-item comm-reply-depth-${depth}">
   <div class="comm-reply-header">
     <span class="comm-nick">${_escHtml(rep.nick)}</span>
     <span class="comm-time">${_formatTime(rep.ts)}</span>
-    <div class="comm-post-actions">${hideBtn}${deleteBtn}</div>
+    <div class="comm-post-actions">${hideBtn}</div>
   </div>
   <div class="comm-reply-body">${_escHtml(rep.text)}</div>
+  <div class="comm-reply-meta">${replyBtnHtml}</div>${subSectionHtml}
 </div>`;
 }
 
-// ── 返信トグル ───────────────────────────────
+// ── 返信トグル（1階層目）────────────────────
 function commToggleReply(postId){
   const sec = document.getElementById(`comm-reply-section-${postId}`);
   if(!sec) return;
@@ -634,18 +664,36 @@ function commToggleReply(postId){
   }
 }
 
-// ── 返信投稿 ─────────────────────────────────
-async function commSubmitReply(postId){
-  const user = firebase.auth().currentUser;
-  if(!user){ _commToast('返信にはログインが必要です'); return; }
+// ── サブ返信トグル（2・3階層目）──────────────
+function commToggleSubReply(postId, path){
+  const key = Array.isArray(path) ? path.join('-') : String(path);
+  const sec = document.getElementById(`comm-sub-${postId}-${key}`);
+  if(!sec) return;
+  const isOpen = sec.style.display !== 'none';
+  sec.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen){
+    const inp = document.getElementById(`comm-sub-input-${postId}-${key}`);
+    if(inp) inp.focus();
+  }
+}
 
-  // レート制限（親投稿と共有）
+// ── レート制限チェック共通 ──────────────────
+function _checkReplyRateLimit(){
   const lastPost = parseInt(localStorage.getItem(SK_LAST_POST)||'0');
   const now = Date.now();
   if(now - lastPost < COMM_RATE_MS){
     const sec = Math.ceil((COMM_RATE_MS-(now-lastPost))/1000);
-    _commToast(`投稿と更新から3分間は新たに投稿できません（あと${sec}秒）`); return;
+    _commToast(`投稿と更新から3分間は新たに投稿できません（あと${sec}秒）`);
+    return false;
   }
+  return true;
+}
+
+// ── 返信投稿（1階層目）──────────────────────
+async function commSubmitReply(postId){
+  const user = firebase.auth().currentUser;
+  if(!user){ _commToast('返信にはログインが必要です'); return; }
+  if(!_checkReplyRateLimit()) return;
 
   const inp = document.getElementById(`comm-reply-input-${postId}`);
   if(!inp) return;
@@ -661,30 +709,26 @@ async function commSubmitReply(postId){
   const replies = Array.isArray(post.replies) ? post.replies : [];
   if(replies.length >= COMM_REPLY_LIMIT){ _commToast('返信が上限に達しています'); return; }
 
-  const nick = (localStorage.getItem(SK_NICKNAME) || '匿名さん').slice(0, 20);
-  const newReply = { nick, text, uid: user.uid, ts: now, report: 0 };
+  const now      = Date.now();
+  const nick     = (localStorage.getItem(SK_NICKNAME) || '匿名さん').slice(0, 20);
+  const newReply = { nick, text, uid: user.uid, ts: now, report: 0, replies: [] };
+  const before   = JSON.parse(JSON.stringify(replies));
 
-  // キャッシュ即反映
-  post.replies = [...replies, newReply];
+  post.replies = _addReplyAtPath(replies, [], newReply);
   _saveCache(scope, pref, cached);
   inp.value = '';
   _renderPostsFromCache();
-  // 返信欄を再度開く
   const sec = document.getElementById(`comm-reply-section-${postId}`);
   if(sec) sec.style.display = 'block';
 
   try{
-    await _db().collection('posts').doc(postId).update({
-      replies: firebase.firestore.FieldValue.arrayUnion(newReply)
-    });
-    // 成功時のみクールダウン記録
+    await _db().collection('posts').doc(postId).update({ replies: post.replies });
     localStorage.setItem(SK_LAST_POST, now.toString());
     localStorage.setItem(SK_LAST_REFRESH, now.toString());
     _startRefreshCooldown(COMM_REFRESH_COOL);
     _commToast('返信しました！');
   } catch(e){
-    // ロールバック
-    post.replies = replies;
+    post.replies = before;
     _saveCache(scope, pref, cached);
     _renderPostsFromCache();
     const sec2 = document.getElementById(`comm-reply-section-${postId}`);
@@ -694,8 +738,57 @@ async function commSubmitReply(postId){
   }
 }
 
-// ── 返信削除（自分のみ）────────────────────────
-async function commDeleteReply(postId, replyIdx){
+// ── サブ返信投稿（2・3階層目）────────────────
+async function commSubmitSubReply(postId, parentPath){
+  const user = firebase.auth().currentUser;
+  if(!user){ _commToast('返信にはログインが必要です'); return; }
+  if(!_checkReplyRateLimit()) return;
+
+  const key = Array.isArray(parentPath) ? parentPath.join('-') : String(parentPath);
+  const inp = document.getElementById(`comm-sub-input-${postId}-${key}`);
+  if(!inp) return;
+  const text = inp.value.trim();
+  if(!text){ _commToast('返信を入力してください'); return; }
+  if(text.length > COMM_SUBREPLY_MAX_CHARS){ _commToast(`${COMM_SUBREPLY_MAX_CHARS}文字以内で入力してください`); return; }
+
+  const scope  = _commScope, pref = _commPref;
+  const cached = _loadCache(scope, pref);
+  const post   = cached.find(p => p.id === postId);
+  if(!post){ _commToast('投稿が見つかりません'); return; }
+
+  const replies = Array.isArray(post.replies) ? post.replies : [];
+  const now     = Date.now();
+  const nick    = (localStorage.getItem(SK_NICKNAME) || '匿名さん').slice(0, 20);
+  const newReply = { nick, text, uid: user.uid, ts: now, report: 0 };
+  const before   = JSON.parse(JSON.stringify(replies));
+
+  const newReplies = _addReplyAtPath(replies, parentPath, newReply);
+  post.replies = newReplies;
+  _saveCache(scope, pref, cached);
+  inp.value = '';
+  _renderPostsFromCache();
+  const sec = document.getElementById(`comm-sub-${postId}-${key}`);
+  if(sec) sec.style.display = 'block';
+
+  try{
+    await _db().collection('posts').doc(postId).update({ replies: newReplies });
+    localStorage.setItem(SK_LAST_POST, now.toString());
+    localStorage.setItem(SK_LAST_REFRESH, now.toString());
+    _startRefreshCooldown(COMM_REFRESH_COOL);
+    _commToast('返信しました！');
+  } catch(e){
+    post.replies = before;
+    _saveCache(scope, pref, cached);
+    _renderPostsFromCache();
+    const sec2 = document.getElementById(`comm-sub-${postId}-${key}`);
+    if(sec2) sec2.style.display = 'block';
+    _commToast('返信に失敗しました');
+    console.error('[comm] sub reply submit failed', e);
+  }
+}
+
+// ── 返信削除（全階層対応・自分のみ）────────────
+async function commDeleteReply(postId, path){
   const user = firebase.auth().currentUser;
   if(!user) return;
   if(!confirm('この返信を削除しますか？')) return;
@@ -705,27 +798,31 @@ async function commDeleteReply(postId, replyIdx){
   const post   = cached.find(p => p.id === postId);
   if(!post || !Array.isArray(post.replies)) return;
 
-  const target = post.replies[replyIdx];
+  const pathArr = Array.isArray(path) ? path : [path];
+  const target  = _getReplyByPath(post.replies, pathArr);
   if(!target || target.uid !== user.uid){ _commToast('削除できません'); return; }
 
-  const before = [...post.replies];
-  post.replies = post.replies.filter((_, i) => i !== replyIdx);
+  const before     = JSON.parse(JSON.stringify(post.replies));
+  const newReplies = _removeReplyAtPath(post.replies, pathArr);
+  post.replies     = newReplies;
   _saveCache(scope, pref, cached);
   _renderPostsFromCache();
-  const sec = document.getElementById(`comm-reply-section-${postId}`);
+
+  // 親セクションを開いたまま維持
+  const parentKey = pathArr.slice(0, -1).join('-');
+  const sec = pathArr.length === 1
+    ? document.getElementById(`comm-reply-section-${postId}`)
+    : document.getElementById(`comm-sub-${postId}-${parentKey}`);
   if(sec) sec.style.display = 'block';
 
   try{
-    await _db().collection('posts').doc(postId).update({
-      replies: firebase.firestore.FieldValue.arrayRemove(target)
-    });
+    await _db().collection('posts').doc(postId).update({ replies: newReplies });
     _commToast('返信を削除しました');
   } catch(e){
     post.replies = before;
     _saveCache(scope, pref, cached);
     _renderPostsFromCache();
-    const sec2 = document.getElementById(`comm-reply-section-${postId}`);
-    if(sec2) sec2.style.display = 'block';
+    if(sec) sec.style.display = 'block';
     _commToast('削除に失敗しました');
     console.error('[comm] reply delete failed', e);
   }
