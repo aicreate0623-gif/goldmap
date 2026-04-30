@@ -165,7 +165,7 @@ async function evictIfNeeded(incomingSize){
 
 /**
  * DLセッションを保存する。
- * @param {object} opts - {label, center, zoom, tileKeys, totalSize, srcKeys}
+ * @param {object} opts - {label, center, zoom, tileKeys, totalSize, srcKeys, bounds, zmin, zmax}
  */
 async function saveDlSession(opts){
   const id = 'sess_' + Date.now();
@@ -179,6 +179,9 @@ async function saveDlSession(opts){
     tileKeys:  opts.tileKeys  || [],
     totalSize: opts.totalSize || 0,
     srcKeys:   opts.srcKeys   || [],
+    bounds:    opts.bounds    || null,
+    zmin:      opts.zmin      || 11,
+    zmax:      opts.zmax      || 15,
   };
   await dbPutSess(id, sess);
   return sess;
@@ -275,6 +278,9 @@ async function renderSessionList(){
     return;
   }
 
+  const ALL_LAYERS = ['std','photo','topo'];
+  const LAYER_LABEL = {std:'地理院地図', photo:'航空写真', topo:'地形図'};
+
   const sorted = [...sessions].sort((a,b)=>b.lastUsed - a.lastUsed);
   container.innerHTML = sorted.map(s=>{
     const mb   = ((s.totalSize||0)/1024/1024).toFixed(1);
@@ -283,6 +289,10 @@ async function renderSessionList(){
     const lat  = s.center?.[0]?.toFixed(4)||'—';
     const lng  = s.center?.[1]?.toFixed(4)||'—';
     const srcs = (s.srcKeys||[]).join('・')||'—';
+    const hasBounds = !!s.bounds;
+    const addDlBtn = hasBounds
+      ? `<button class="sess-adddl-btn" onclick="openAddLayerPanel('${s.id}')">＋</button>`
+      : '';
     return `
     <div class="sess-card" id="sc-${s.id}">
       <div class="sess-map-thumb" onclick="jumpToSession('${s.id}')">
@@ -295,7 +305,29 @@ async function renderSessionList(){
         <div class="sess-meta">DL: ${date}</div>
         <div class="sess-meta">最終使用: ${used}</div>
       </div>
-      <button class="sess-del-btn" onclick="deleteSessionWithConfirm('${s.id}')">🗑</button>
+      <div class="sess-btns">
+        ${addDlBtn}
+        <button class="sess-del-btn" onclick="deleteSessionWithConfirm('${s.id}')">🗑</button>
+      </div>
+    </div>
+    <div class="sess-adddl-panel" id="adp-${s.id}" style="display:none">
+      <div class="adp-title">追加ダウンロード — レイヤー選択</div>
+      <div class="adp-layers">
+        ${ALL_LAYERS.map(lk=>{
+          const done = (s.srcKeys||[]).includes(lk);
+          return `<label class="adp-layer${done?' adp-layer--done':''}">
+            <input type="checkbox" class="adp-ck" data-sess="${s.id}" data-lk="${lk}"
+              ${done?'disabled checked':''} onchange="updAddLayerEst('${s.id}')">
+            <span class="adp-lk-name">${LAYER_LABEL[lk]}</span>
+            <span class="adp-lk-badge">${done?'✅ 済':'未'}</span>
+          </label>`;
+        }).join('')}
+      </div>
+      <div class="adp-est" id="adp-est-${s.id}">レイヤーを選択してください</div>
+      <div class="adp-footer">
+        <button class="btn sm" onclick="closeAddLayerPanel('${s.id}')">キャンセル</button>
+        <button class="btn accent" id="adp-btn-${s.id}" onclick="startAddLayerDl('${s.id}')" disabled>▶ DL開始</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -410,4 +442,75 @@ async function refreshCache(){
     if(sb) sb.textContent = `キャッシュ: ${mb}MB`;
     await renderSessionList();
   } catch(e){ el.textContent = '取得失敗'; }
+}
+
+// ═══════════════════════════════════════════
+//  追加レイヤーDLパネル
+// ═══════════════════════════════════════════
+function openAddLayerPanel(sessId){
+  document.querySelectorAll('.sess-adddl-panel').forEach(p=>p.style.display='none');
+  const panel = document.getElementById('adp-'+sessId);
+  if(panel) panel.style.display='block';
+  updAddLayerEst(sessId);
+}
+
+function closeAddLayerPanel(sessId){
+  const panel = document.getElementById('adp-'+sessId);
+  if(panel) panel.style.display='none';
+}
+
+async function updAddLayerEst(sessId){
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(!sess||!sess.bounds) return;
+  const selected = [...document.querySelectorAll(`.adp-ck[data-sess="${sessId}"]:not(:disabled):checked`)]
+    .map(el=>el.dataset.lk);
+  const estEl = document.getElementById('adp-est-'+sessId);
+  const btn   = document.getElementById('adp-btn-'+sessId);
+  if(!selected.length){
+    if(estEl) estEl.textContent = 'レイヤーを選択してください';
+    if(btn)   btn.disabled = true;
+    return;
+  }
+  const b = sess.bounds;
+  const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
+  const tiles  = (typeof cntTiles==='function') ? cntTiles(bounds, sess.zmin||11, sess.zmax||15) : 0;
+  const mb     = (typeof mbEstLayers==='function') ? mbEstLayers(tiles, selected) : '—';
+  const overLimit = (typeof estBytesLayers==='function')
+    ? estBytesLayers(tiles, selected) > DL_SESSION_MAX : false;
+  if(estEl){
+    estEl.textContent = `約 ${mb} MB（${selected.length}レイヤー）`;
+    estEl.style.color = overLimit ? 'var(--red,#ff6b6b)' : '';
+  }
+  if(btn) btn.disabled = overLimit;
+  if(overLimit && estEl){
+    estEl.textContent += ' — 100MB超過：ズームを下げてください';
+  }
+}
+
+async function startAddLayerDl(sessId){
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(!sess||!sess.bounds){ showAlert('エラー','範囲情報がありません'); return; }
+  const selected = [...document.querySelectorAll(`.adp-ck[data-sess="${sessId}"]:not(:disabled):checked`)]
+    .map(el=>el.dataset.lk);
+  if(!selected.length){ showAlert('エラー','レイヤーを選択してください'); return; }
+
+  closeAddLayerPanel(sessId);
+  const b = sess.bounds;
+  const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
+
+  // runDlを呼び出してDL（完了後にセッション更新）
+  if(typeof runDl !== 'function'){ showAlert('エラー','DL機能が読み込まれていません'); return; }
+  const origSave = window.saveDlSession;
+  // 一時的にsaveDlSessionをフック → addLayersToSessionに差し替え
+  window.saveDlSession = async (opts)=>{
+    window.saveDlSession = origSave;
+    if(typeof addLayersToSession==='function'){
+      await addLayersToSession(sessId, selected, opts.tileKeys||[], opts.totalSize||0);
+    }
+    await refreshCache();
+  };
+  await runDl('detail', bounds, sess.zmin||11, sess.zmax||15, selected, 0);
+  // フックが未発火の場合（done=0）も元に戻す
+  window.saveDlSession = origSave;
+  await refreshCache();
 }

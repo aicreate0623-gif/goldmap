@@ -644,7 +644,18 @@ function ckLayers(){
   return ['std','photo','topo'].filter(k=>document.getElementById(prefix+k)?.checked);
 }
 function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M枚';if(n>=1e3)return Math.round(n/1e3)+'K枚';return n+'枚';}
-function mbEst(n){return(n*20/1024).toFixed(0);}
+// レイヤー別1枚あたりKB係数（photo=20KB、その他=10KB）
+const LAYER_KB = {std:10, photo:20, topo:10};
+function mbEst(n, lk){ const kb = (lk && LAYER_KB[lk]) || 10; return (n*kb/1024).toFixed(0); }
+// レイヤー配列を考慮した合計MB推定
+function mbEstLayers(tileCount, layers){
+  const b = layers.reduce((s,lk)=>s+(LAYER_KB[lk]||10)*1024*tileCount, 0);
+  return (b/1024/1024).toFixed(0);
+}
+// 推定バイト数（レイヤー配列対応）
+function estBytesLayers(tileCount, layers){
+  return layers.reduce((s,lk)=>s+(LAYER_KB[lk]||10)*1024*tileCount, 0);
+}
 
 function updBaseEst(){
   const zmax=parseInt(document.getElementById('base-zmax').value);
@@ -900,8 +911,9 @@ function _dldWatchDraw(){
       _dldSyncAndCalc();
       // 100MB超過チェック（超過時は範囲リセットして再ドラッグ待ち）
       const zmax     = document.getElementById('s1-zmax')?.value || '15';
-      const chkCount = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked).length || 1;
-      if(_dldCheckSize(_drawPending, zmax, chkCount)){
+      const chkLayers2 = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
+      const layersForCheck = chkLayers2.length ? chkLayers2 : ['std'];
+      if(_dldCheckSize(_drawPending, zmax, layersForCheck)){
         _drawPending = null;
         _clearDrawPreview();
         _dldResetS1Est();
@@ -955,26 +967,28 @@ function _dldSyncAndCalc(){
   const zmin = 11; // 最小ズームはZ11固定
   const zmax = parseInt(s1zmax?.value || '15');
   const base = cntTiles(_drawPending, zmin, zmax);
-  const chkCount = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked).length;
-  if(!chkCount){
+  const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
+  if(!chkLayers.length){
     tot.textContent = 'レイヤーを1つ以上選択してください';
     tot.style.color = 'var(--txt-dim)';
     return;
   }
-  const total = base * chkCount;
-  tot.textContent = `${chkCount}レイヤー · Z11〜Z${zmax} · 約 ${mbEst(total)} MB（${fmt(total)}）`;
+  const mb = mbEstLayers(base, chkLayers);
+  tot.textContent = `${chkLayers.length}レイヤー · Z11〜Z${zmax} · 約 ${mb} MB（${fmt(base * chkLayers.length)}）`;
   tot.style.color = '';
 }
 
 // ── 100MB超過チェック共通（true=超過） ──────────────────────
-function _dldCheckSize(bounds, zmaxVal, layerCount){
+// layers: 文字列配列['std','photo',...] または件数(後方互換)
+function _dldCheckSize(bounds, zmaxVal, layers){
   if(!bounds) return false;
   const zmin = 11;
   const zmax = parseInt(zmaxVal) || 15;
-  const cnt  = layerCount || 1;
-  const estBytes = cntTiles(bounds, zmin, zmax) * cnt * 20 * 1024;
-  if(estBytes > DL_SESSION_MAX){
-    const mb = (estBytes / 1024 / 1024).toFixed(0);
+  const layerArr = Array.isArray(layers) ? layers : Array(layers||1).fill('std');
+  const tiles = cntTiles(bounds, zmin, zmax);
+  const eb = estBytesLayers(tiles, layerArr);
+  if(eb > DL_SESSION_MAX){
+    const mb = (eb / 1024 / 1024).toFixed(0);
     showAlert('⚠️ サイズ超過',
       `推定サイズ ${mb}MB は1回のDL上限（100MB）を超えています。\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`);
     return true;
@@ -1000,8 +1014,8 @@ function _dldClearDraw(){
 function _dldConfirmDraw(){
   if(!_drawPending) return;
   const zmax     = document.getElementById('s1-zmax')?.value || '15';
-  const chkCount = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked).length || 1;
-  if(_dldCheckSize(_drawPending, zmax, chkCount)) return;
+  const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
+  if(_dldCheckSize(_drawPending, zmax, chkLayers.length ? chkLayers : ['std'])) return;
   _dldBounds   = _drawPending;
   _drawPending = null;
   _showDrawPreview(_dldBounds);
@@ -1035,23 +1049,24 @@ function _dldUpdEst(){
     document.getElementById('dld-est').innerHTML = '— 範囲が選択されていません —';
     return;
   }
-  const base = cntTiles(bounds, zmin, zmax); // 1レイヤー分のタイル数
+  const base = cntTiles(bounds, zmin, zmax);
   let rows = '';
-  let total = 0;
+  const checkedLayers = [];
   ['std','photo','topo'].forEach(k=>{
     const ck = document.getElementById('dlg-ck-'+k);
     const checked = ck?.checked;
-    if(checked) total += base;
+    if(checked) checkedLayers.push(k);
     rows += `<div class="dld-est-row${checked ? '' : ' dld-est-row--off'}">
       <span class="dld-est-lbl">${_DLD_LAYER_LABEL[k]}</span>
       <span class="dld-est-val">${checked
-        ? `約 <b>${mbEst(base)} MB</b>（${fmt(base)}）`
+        ? `約 <b>${mbEst(base, k)} MB</b>（${fmt(base)}）`
         : '<span class="dld-est-off">0 MB</span>'}</span>
     </div>`;
   });
+  const totalMb = mbEstLayers(base, checkedLayers);
   rows += `<div class="dld-est-row dld-est-total">
     <span class="dld-est-lbl">合計</span>
-    <span class="dld-est-val">約 <b>${mbEst(total)} MB</b>（${fmt(total)}）</span>
+    <span class="dld-est-val">約 <b>${totalMb} MB</b>（${fmt(base * checkedLayers.length)}）</span>
   </div>`;
   document.getElementById('dld-est').innerHTML =
     `<div class="dld-est-range">Z${zmin}〜Z${zmax}</div>${rows}`;
@@ -1067,9 +1082,8 @@ async function _dldStartDl(){
 
   // ── サイズ上限チェック（100MB超はブロック）──
   {
-    const zmin2 = parseInt(document.getElementById('dlg-det-zmin').value);
     const zmax2 = parseInt(document.getElementById('dlg-det-zmax').value);
-    if(_dldCheckSize(_dldBounds, zmax2, layers.length)) return;
+    if(_dldCheckSize(_dldBounds, zmax2, layers)) return;
   }
 
   const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
@@ -1293,7 +1307,8 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
       const _center   = (typeof map!=='undefined') ? [map.getCenter().lat,map.getCenter().lng] : [35,136];
       const _zoom     = (typeof map!=='undefined') ? map.getZoom() : zmax;
       const _label    = `${layers.join('・')} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
-      await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers});
+      const _bounds   = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
+      await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax});
     }
   } else {
     log('⏸ 停止しました。続きから再開できます。');
@@ -1304,6 +1319,22 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
 }
 
 function stopDl(){dlStop=true;}
+
+// ═══════════════════════════════════════════
+//  追加レイヤーDL完了後にセッションを更新
+// ═══════════════════════════════════════════
+async function addLayersToSession(sessId, newLayers, newTileKeys, addedBytes){
+  try {
+    const sess = await dbGetSess(sessId);
+    if(!sess) return;
+    sess.srcKeys   = [...new Set([...(sess.srcKeys||[]), ...newLayers])];
+    sess.tileKeys  = [...new Set([...(sess.tileKeys||[]), ...newTileKeys])];
+    sess.totalSize = (sess.totalSize||0) + addedBytes;
+    sess.lastUsed  = Date.now();
+    sess.label     = `${sess.srcKeys.join('・')} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
+    await dbPutSess(sessId, sess);
+  } catch(e){ console.error('addLayersToSession error', e); }
+}
 
 // ═══════════════════════════════════════════
 //  キャッシュ情報

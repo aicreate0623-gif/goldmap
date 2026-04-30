@@ -2715,3 +2715,74 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   opacity: 1;
   background: rgba(200,160,60,0.12);
 }
+
+/* ═══════════════════════════════════════════
+   追加レイヤーDLパネル
+═══════════════════════════════════════════ */
+.sess-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.sess-adddl-btn {
+  background: rgba(200,168,75,0.15);
+  border: 1px solid rgba(200,168,75,0.4);
+  color: var(--gold, #c8a84b);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .2s;
+}
+.sess-adddl-btn:active { background: rgba(200,168,75,0.3); }
+.sess-adddl-panel {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--gold, #c8a84b);
+  border-radius: var(--radius-md);
+  padding: 14px 12px 12px;
+  margin: -4px 0 8px;
+}
+.adp-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold, #c8a84b);
+  margin-bottom: 10px;
+  letter-spacing: .03em;
+}
+.adp-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.adp-layer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--txt);
+  cursor: pointer;
+}
+.adp-layer--done {
+  color: var(--txt-sub);
+  cursor: default;
+}
+.adp-lk-name { flex: 1; }
+.adp-lk-badge {
+  font-size: 11px;
+  color: var(--txt-sub);
+}
+.adp-layer--done .adp-lk-badge { color: #4caf50; }
+.adp-est {
+  font-size: 12px;
+  color: var(--txt-sub);
+  margin-bottom: 10px;
+  min-height: 16px;
+}
+.adp-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
