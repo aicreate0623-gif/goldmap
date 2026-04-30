@@ -1044,9 +1044,9 @@ async function _dldStartDl(){
     const chk = (typeof checkDlSizeLimit === 'function') ? checkDlSizeLimit(estBytes) : {ok:true,warn:false,msg:''};
     if(!chk.ok){
       const mb = (estBytes/1024/1024).toFixed(0);
-      showConfirmDialog(
-        `❌ 推定サイズ ${mb}MB は1回のDL上限（100MB）を超えています。\n\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`,
-        '設定を見直す', '設定を見直す'
+      showAlert(
+        '⚠️ サイズ超過',
+        `推定サイズ ${mb}MB は1回のDL上限（100MB）を超えています。\n\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`
       );
       return;
     }
