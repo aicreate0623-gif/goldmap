@@ -171,17 +171,19 @@ async function saveDlSession(opts){
   const id = 'sess_' + Date.now();
   const sess = {
     id,
-    label:     opts.label     || '名称未設定',
-    center:    opts.center    || [35.0, 136.0],
-    zoom:      opts.zoom      || 14,
-    createdAt: Date.now(),
-    lastUsed:  Date.now(),
-    tileKeys:  opts.tileKeys  || [],
-    totalSize: opts.totalSize || 0,
-    srcKeys:   opts.srcKeys   || [],
-    bounds:    opts.bounds    || null,
-    zmin:      opts.zmin      || 11,
-    zmax:      opts.zmax      || 15,
+    label:         opts.label         || '名称未設定',
+    center:        opts.center        || [35.0, 136.0],
+    zoom:          opts.zoom          || 14,
+    createdAt:     Date.now(),
+    lastUsed:      Date.now(),
+    tileKeys:      opts.tileKeys      || [],
+    totalSize:     opts.totalSize     || 0,
+    srcKeys:       opts.srcKeys       || [],
+    bounds:        opts.bounds        || null,
+    zmin:          opts.zmin          || 11,
+    zmax:          opts.zmax          || 15,
+    pendingChunks: opts.pendingChunks || null, // 分割DL残チャンク [{zmin,zmax},...]
+    pendingZmin:   opts.pendingZmin   || null, // 次チャンクの開始zmin（表示用）
   };
   await dbPutSess(id, sess);
   return sess;
@@ -293,6 +295,9 @@ async function renderSessionList(){
     const addDlBtn = hasBounds
       ? `<button class="sess-adddl-btn" onclick="openAddLayerPanel('${s.id}')">＋</button>`
       : '';
+    const contBtn = (s.pendingChunks && s.pendingChunks.length)
+      ? `<button class="sess-cont-btn" onclick="continueChunkedDl('${s.id}')" title="続き（Z${s.pendingZmin}〜）をDL">続き▶</button>`
+      : '';
     return `
     <div class="sess-card" id="sc-${s.id}">
       <div class="sess-map-thumb" onclick="jumpToSession('${s.id}')">
@@ -306,6 +311,7 @@ async function renderSessionList(){
         <div class="sess-meta">最終使用: ${used}</div>
       </div>
       <div class="sess-btns">
+        ${contBtn}
         ${addDlBtn}
         <button class="sess-del-btn" onclick="deleteSessionWithConfirm('${s.id}')">🗑</button>
       </div>
@@ -803,4 +809,39 @@ function _adpShowDone(sessId){
     };
     panel.appendChild(closeBtn);
   }
+}
+
+// ═══════════════════════════════════════════
+//  分割DL: セッションカードの「続き」ボタンから再開
+// ═══════════════════════════════════════════
+async function continueChunkedDl(sessId){
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(!sess){ showAlert('エラー','セッションが見つかりません'); return; }
+  if(!sess.pendingChunks || !sess.pendingChunks.length){
+    showAlert('情報','続きのDLはありません');
+    return;
+  }
+  if(!sess.bounds){ showAlert('エラー','範囲情報がありません'); return; }
+
+  const b = sess.bounds;
+  const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
+  const layers = sess.srcKeys || ['std'];
+  const chunks = sess.pendingChunks;
+
+  // ui.js の _runChunkedDl を呼ぶ（ダイアログ経由せず直接実行）
+  if(typeof _runChunkedDl !== 'function'){
+    showAlert('エラー','DL機能が読み込まれていません'); return;
+  }
+  // オフラインタブを開いてDL開始
+  if(typeof switchTab === 'function') switchTab('offline');
+
+  // DLダイアログが存在すればSTEP3（進捗）に切り替え
+  const dlg = document.getElementById('dl-dialog');
+  if(dlg && dlg.style.display !== 'none'){
+    if(typeof _dldRenderStep === 'function') _dldRenderStep(3);
+    if(typeof _dldInjectChunkLabel === 'function') _dldInjectChunkLabel(chunks.length);
+  }
+
+  await _runChunkedDl(bounds, layers, chunks, 0, sessId);
+  await refreshCache();
 }

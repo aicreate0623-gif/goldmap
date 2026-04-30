@@ -2835,3 +2835,35 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ═══════════════════════════════════════════
+   分割DL: 続きボタン / チャンクラベル
+   ═══════════════════════════════════════════ */
+.sess-cont-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--gold, #c8a84b);
+  background: rgba(200, 168, 75, 0.15);
+  color: var(--gold, #c8a84b);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.sess-cont-btn:hover {
+  background: rgba(200, 168, 75, 0.30);
+}
+
+/* DLダイアログ内チャンク進捗ラベル */
+.dld-chunk-label {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold, #c8a84b);
+  padding: 6px 0 2px;
+  letter-spacing: 0.05em;
+}
