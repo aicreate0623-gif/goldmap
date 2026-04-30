@@ -1294,7 +1294,7 @@ async function resumeDl(){
     bounds=L.latLngBounds([s.bounds.s,s.bounds.w],[s.bounds.n,s.bounds.e]);
     detRect=bounds; showRect();
   }
-  await runDl(s.mode, bounds, s.zmin, s.zmax, layers, s.taskIndex);
+  await runDl(s.mode, bounds, s.zmin, s.zmax, layers, 0);
 }
 
 // ═══════════════════════════════════════════
@@ -1413,7 +1413,8 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
   // キャッシュ済みをスキップしたfetch対象タスクのみに絞る
   const cachedCount = tasks.filter(t=>cachedSet.has(tileKey(t.lk,t.z,t.x,t.y))).length;
   const fetchTasks  = tasks.filter(t=>!cachedSet.has(tileKey(t.lk,t.z,t.x,t.y)));
-  // total は全タスク数（進捗表示の分母）、done はキャッシュ済み分から開始
+  // total は全タスク数（進捗表示の分母）
+  // done 初期値はキャッシュ済み数のみ（startIdxと合算しない）
   const total = tasks.length;
 
   dlRun=true; dlStop=false;
@@ -1429,7 +1430,8 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
   if(DB2) DB2.disabled=true;
 
   // 統計リセット（キャッシュ済み分を done の初期値に）
-  const _initDone = startIdx + cachedCount;
+  // startIdx はレジューム時のプログレスバー表示開始位置にのみ使用
+  const _initDone = cachedCount;
   document.getElementById('pg-tot').textContent=total.toLocaleString();
   document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-_initDone));
   document.getElementById('pg-done').textContent=_initDone.toLocaleString();
@@ -1465,10 +1467,9 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     }
   };
 
-  // fetchTasks のみをキューに積む（キャッシュ済みは事前除外済み）
-  // startIdx はレジューム用オフセット。fetchTasks はキャッシュ済み除外後なので
-  // startIdx が指定されている場合は fetchTasks 内でのオフセットとして扱う。
-  const q = fetchTasks.slice(Math.max(0, startIdx - cachedCount));
+  // fetchTasks のみをキューに積む（cachedSet除外済みなので重複DLなし）
+  // startIdx オフセットは cachedSet による除外で代替するため不要
+  const q = fetchTasks.slice(0);
   let active=0;
 
   await new Promise(resolve=>{
