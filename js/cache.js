@@ -334,11 +334,13 @@ async function renderSessionList(){
       <div class="adp-layers">
         ${ALL_LAYERS.map(lk=>{
           const done = (s.srcKeys||[]).includes(lk);
+          // 未DLレイヤーもスキャン完了まで disabled（⏳）で初期化
+          // スキャン後に _updateAdpCheckboxes が正しい状態に更新する
           return `<label class="adp-layer${done?' adp-layer--done':''}">
             <input type="checkbox" class="adp-ck" data-sess="${s.id}" data-lk="${lk}"
-              ${done?'disabled checked':''} onchange="updAddLayerEst('${s.id}')">
+              ${done?'disabled checked':'disabled'} onchange="updAddLayerEst('${s.id}')">
             <span class="adp-lk-name">${LAYER_LABEL[lk]}</span>
-            <span class="adp-lk-badge">${done?'✅ 済':'未'}</span>
+            <span class="adp-lk-badge">${done?'✅ 済':'⏳'}</span>
             <div class="adp-zoom-status" id="adp-zstatus-${s.id}-${lk}">⏳</div>
           </label>`;
         }).join('')}
@@ -601,6 +603,8 @@ async function openAddLayerPanel(sessId){
     const scanResult = await _scanAdpTiles(sess);
     _renderAdpZoomStatus(sessId, sess, scanResult);
     _renderAdpZoomHint(sessId, scanResult);
+    _updateAdpCheckboxes(sessId, sess, scanResult);  // ①チェックボックス状態を確定
+    _setAdpZoomDefaults(sessId, scanResult);          // ②ズームデフォルト値を自動セット
   }
   await updAddLayerEst(sessId);
 }
@@ -689,20 +693,92 @@ function _renderAdpZoomStatus(sessId, sess, scanResult){
 }
 
 /**
- * スキャン結果を元にチェックボックスの有効/無効を更新。
- * 全ズームが済み(done)のレイヤーはdisabledにする。
+ * スキャン結果を元にチェックボックスの有効/無効・バッジを更新。
+ * - srcKeysに含まれるレイヤー（DL済み）: disabled + checked + ✅ 済
+ * - 全ズームが done のレイヤー          : disabled + checked + ✅ 済
+ * - 未DL・partialのレイヤー            : enabled  + unchecked + 未
  */
 function _updateAdpCheckboxes(sessId, sess, scanResult){
   const ALL_LAYERS = ['std','photo','topo'];
   ALL_LAYERS.forEach(lk => {
     const ck = document.querySelector(`.adp-ck[data-sess="${sessId}"][data-lk="${lk}"]`);
     if(!ck) return;
-    const lkData = scanResult[lk];
-    if(!lkData) return;
-    // 元々DL済みレイヤー(srcKeys)はそのままdisabled
+
+    const badgeEl = ck.parentElement?.querySelector('.adp-lk-badge');
+    const labelEl = ck.parentElement;
+
+    // srcKeysに含まれる = セッション当初からDL済み → 変更不要（HTML生成時にdisabled checked済み）
     const alreadyInSess = (sess.srcKeys||[]).includes(lk);
     if(alreadyInSess) return;
+
+    // スキャン結果が取れなかった場合はenabledに戻して「未」表示
+    const lkData = scanResult[lk];
+    if(!lkData || !lkData.perZoom){
+      ck.disabled = false;
+      ck.checked  = false;
+      if(badgeEl) badgeEl.textContent = '未';
+      return;
+    }
+
+    // 全ズームがdone（ADP_SCAN_ZMINからADP_SCAN_ZMAXまで）かどうか判定
+    let allDone = true;
+    for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
+      const pz = lkData.perZoom[z];
+      if(!pz || pz.total === 0) continue; // タイルが存在しないズームは無視
+      if(pz.status !== 'done'){ allDone = false; break; }
+    }
+
+    if(allDone){
+      ck.disabled = true;
+      ck.checked  = true;
+      if(badgeEl) badgeEl.textContent = '✅ 済';
+      if(labelEl) labelEl.classList.add('adp-layer--done');
+    } else {
+      ck.disabled = false;
+      ck.checked  = false;
+      if(badgeEl) badgeEl.textContent = '未';
+      if(labelEl) labelEl.classList.remove('adp-layer--done');
+    }
   });
+}
+
+/**
+ * スキャン結果からズームデフォルト値を自動セット。
+ * - 「未(none)」が最初に現れる最小ズーム → zmin
+ * - 「未(none)」が最後に現れる最大ズーム → zmax
+ * - 未が全くなければ Z10〜Z15
+ */
+function _setAdpZoomDefaults(sessId, scanResult){
+  const zminEl = document.getElementById(`adp-zmin-${sessId}`);
+  const zmaxEl = document.getElementById(`adp-zmax-${sessId}`);
+  if(!zminEl || !zmaxEl) return;
+
+  const ALL_LAYERS = ['std','photo','topo'];
+  let firstNone = null;
+  let lastNone  = null;
+
+  for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
+    // いずれかのレイヤーで「未」があればそのズームを候補とする
+    const hasNone = ALL_LAYERS.some(lk => {
+      const pz = scanResult[lk]?.perZoom?.[z];
+      return pz && pz.total > 0 && pz.status === 'none';
+    });
+    if(hasNone){
+      if(firstNone === null) firstNone = z;
+      lastNone = z;
+    }
+  }
+
+  const defaultZmin = firstNone !== null ? firstNone : 10;
+  const defaultZmax = lastNone  !== null ? lastNone  : 15;
+
+  // selectの選択肢の中で最近い値を選ぶ
+  const _setSelect = (el, val) => {
+    const opt = [...el.options].find(o => parseInt(o.value) === val);
+    if(opt) el.value = String(val);
+  };
+  _setSelect(zminEl, defaultZmin);
+  _setSelect(zmaxEl, Math.max(defaultZmin, defaultZmax));
 }
 
 async function updAddLayerEst(sessId){
