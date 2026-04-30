@@ -668,7 +668,10 @@ function _filterDoneZoomsFromSelect(sessId, sess, scanResult){
 
 function closeAddLayerPanel(sessId){
   const panel = document.getElementById('adp-'+sessId);
-  if(panel) panel.style.display='none';
+  if(panel){
+    panel.style.display='none';
+    delete panel.dataset.adpDone; // 次回オープン用にフラグリセット
+  }
   delete _adpScanCache[sessId];
 }
 
@@ -823,6 +826,8 @@ async function startAddLayerDl(sessId){
   };
   await runDl('detail', bounds, zmin, zmax, selected, 0);
   window.saveDlSession = origSave;
+  // saveDlSessionが呼ばれなかった場合（done===0等）も完了UIを確実に出す
+  _adpShowDone(sessId);
   await refreshCache();
 }
 
@@ -886,6 +891,9 @@ function _adpMirrorDlProgress(sessId){
 function _adpShowDone(sessId){
   const panel = document.getElementById('adp-'+sessId);
   if(!panel) return;
+  // 二重呼び出し防止（saveDlSessionフックと runDl完了後の両方から呼ばれる場合）
+  if(panel.dataset.adpDone === '1') return;
+  panel.dataset.adpDone = '1';
   const prog = document.getElementById(`adp-prog-${sessId}`);
   if(prog){
     const bar = document.getElementById(`adp-pbar-${sessId}`);

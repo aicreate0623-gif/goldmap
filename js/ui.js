@@ -1050,17 +1050,23 @@ async function _runChunkedDl(bounds, layers, chunks, chunkIndex, sessId){
         if(typeof addLayersToSession === 'function'){
           await addLayersToSession(savedSessId, opts.srcKeys||[], opts.tileKeys||[], opts.totalSize||0);
         }
-        // pendingChunks を更新
+        // pendingChunks と zmax を更新
         const s = await dbGetSess(savedSessId).catch(()=>null);
         if(s){
           s.pendingChunks = remainingChunks.length ? remainingChunks : null;
           s.pendingZmin   = remainingChunks.length ? remainingChunks[0].zmin : null;
+          // 全チャンク完了時は zmax を全体の最大値に更新
+          s.zmax = Math.max(s.zmax || 0, chunks[chunks.length - 1].zmax);
           await dbPutSess(savedSessId, s);
         }
       } else {
         // 1回目: 通常保存 + pendingChunks を付加
+        // zmax は全チャンクの最大値（チャンク分割前の元の値）で上書き
+        const fullZmax = chunks[chunks.length - 1].zmax;
         const s = await origSave({
           ...opts,
+          zmin:          chunks[0].zmin,
+          zmax:          fullZmax,
           pendingChunks: remainingChunks.length ? remainingChunks : null,
           pendingZmin:   remainingChunks.length ? remainingChunks[0].zmin : null,
         });
