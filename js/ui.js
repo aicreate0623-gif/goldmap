@@ -892,16 +892,27 @@ function _dldWatchDraw(){
     if(_dldStep !== 1){ clearInterval(timer); return; }
     if(_drawPending){
       clearInterval(timer);
-      const hint = document.getElementById('dld-draw-hint');
-      const ok   = document.getElementById('dld-draw-ok');
-      if(hint) hint.textContent = '範囲が選択されました。概算を確認して確定してください';
-      if(ok)   ok.disabled = false;
       // 概算計算機を表示・初期計算
       const calcEl = document.getElementById('dld-s1-est');
       const clrBtn = document.getElementById('dld-draw-clear');
       if(calcEl) calcEl.style.display = '';
       if(clrBtn) clrBtn.style.display = '';
       _dldSyncAndCalc();
+      // 100MB超過チェック（超過時は範囲リセットして再ドラッグ待ち）
+      const zmax     = document.getElementById('s1-zmax')?.value || '15';
+      const chkCount = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked).length || 1;
+      if(_dldCheckSize(_drawPending, zmax, chkCount)){
+        _drawPending = null;
+        _clearDrawPreview();
+        _dldResetS1Est();
+        if(!drawMode) _enterDrawMode();
+        _dldWatchDraw();
+        return;
+      }
+      const hint = document.getElementById('dld-draw-hint');
+      const ok   = document.getElementById('dld-draw-ok');
+      if(hint) hint.textContent = '範囲が選択されました。概算を確認して確定してください';
+      if(ok)   ok.disabled = false;
     }
   }, 150);
 }
@@ -955,6 +966,22 @@ function _dldSyncAndCalc(){
   tot.style.color = '';
 }
 
+// ── 100MB超過チェック共通（true=超過） ──────────────────────
+function _dldCheckSize(bounds, zmaxVal, layerCount){
+  if(!bounds) return false;
+  const zmin = 11;
+  const zmax = parseInt(zmaxVal) || 15;
+  const cnt  = layerCount || 1;
+  const estBytes = cntTiles(bounds, zmin, zmax) * cnt * 20 * 1024;
+  if(estBytes > DL_SESSION_MAX){
+    const mb = (estBytes / 1024 / 1024).toFixed(0);
+    showAlert('⚠️ サイズ超過',
+      `推定サイズ ${mb}MB は1回のDL上限（100MB）を超えています。\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`);
+    return true;
+  }
+  return false;
+}
+
 // ── STEP2: 範囲を解除する ────────────────────────────────
 function _dldClearDraw(){
   _drawPending = null;
@@ -972,6 +999,9 @@ function _dldClearDraw(){
 // ── STEP2: 確定ボタン → STEP3へ ────────────────────────
 function _dldConfirmDraw(){
   if(!_drawPending) return;
+  const zmax     = document.getElementById('s1-zmax')?.value || '15';
+  const chkCount = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked).length || 1;
+  if(_dldCheckSize(_drawPending, zmax, chkCount)) return;
   _dldBounds   = _drawPending;
   _drawPending = null;
   _showDrawPreview(_dldBounds);
@@ -1035,25 +1065,11 @@ async function _dldStartDl(){
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!_dldBounds){    showAlert('エラー','範囲が選択されていません'); return; }
 
-  // ── サイズ上限チェック（100MB超はブロック・80MB超は警告）──
+  // ── サイズ上限チェック（100MB超はブロック）──
   {
     const zmin2 = parseInt(document.getElementById('dlg-det-zmin').value);
     const zmax2 = parseInt(document.getElementById('dlg-det-zmax').value);
-    const estTiles = cntTiles(_dldBounds, zmin2, zmax2) * layers.length;
-    const estBytes = estTiles * 20 * 1024; // 1枚=20KB
-    const chk = (typeof checkDlSizeLimit === 'function') ? checkDlSizeLimit(estBytes) : {ok:true,warn:false,msg:''};
-    if(!chk.ok){
-      const mb = (estBytes/1024/1024).toFixed(0);
-      showAlert(
-        '⚠️ サイズ超過',
-        `推定サイズ ${mb}MB は1回のDL上限（100MB）を超えています。\n\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`
-      );
-      return;
-    }
-    if(chk.warn){
-      const ok = await showConfirmDialog(chk.msg + '\n\n続行しますか？', '続行する', 'キャンセル');
-      if(!ok) return;
-    }
+    if(_dldCheckSize(_dldBounds, zmax2, layers.length)) return;
   }
 
   // ダミーIDに同期（既存startDl()が参照するため）
