@@ -975,7 +975,7 @@ function _dldSyncAndCalc(){
   // 合計容量を計算して表示
   const tot = document.getElementById('dld-s1-total');
   if(!tot || !_drawPending) return;
-  const zmin = 11; // 最小ズームはZ11固定
+  const zmin = 10; // 最小ズームはZ10固定
   const zmax = parseInt(s1zmax?.value || '15');
   const base = cntTiles(_drawPending, zmin, zmax);
   const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
@@ -985,7 +985,7 @@ function _dldSyncAndCalc(){
     return;
   }
   const mb = mbEstLayers(base, chkLayers);
-  tot.textContent = `${chkLayers.length}レイヤー · Z11〜Z${zmax} · 約 ${mb} MB（${fmt(base * chkLayers.length)}）`;
+  tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB（${fmt(base * chkLayers.length)}）`;
   tot.style.color = '';
 }
 
@@ -995,7 +995,7 @@ function _dldSyncAndCalc(){
 //    STEP2（ドラッグ直後）の再ドラッグ要求にのみ使う。
 function _dldCheckSize(bounds, zmaxVal, layers){
   if(!bounds) return false;
-  const zmin = 11;
+  const zmin = 10;
   const zmax = parseInt(zmaxVal) || 15;
   const layerArr = Array.isArray(layers) ? layers : Array(layers||1).fill('std');
   const tiles = cntTiles(bounds, zmin, zmax);
@@ -1011,7 +1011,7 @@ function _dldCheckSize(bounds, zmaxVal, layers){
 
 // ── 分割計画を立てる ────────────────────────────────────────
 // bounds/zmin/zmaxを受け取り、各100MB以内のチャンク配列を返す
-// 例: [{zmin:11,zmax:13}, {zmin:14,zmax:14}, {zmin:15,zmax:15}]
+// 例: [{zmin:10,zmax:13}, {zmin:14,zmax:14}, {zmin:15,zmax:15}]
 function _calcChunks(bounds, zmin, zmax, layers){
   const chunks = [];
   let curZmin = zmin;
@@ -1298,6 +1298,77 @@ async function resumeDl(){
 }
 
 // ═══════════════════════════════════════════
+//  DLプログレスダイアログ制御
+// ═══════════════════════════════════════════
+
+/** ダイアログを開いてDL開始状態にリセット */
+function dlprogOpen(subText){
+  const ov = document.getElementById('dl-prog-overlay');
+  if(ov) ov.style.display = 'flex';
+  _dlprogSetPhase('running');
+  _dlprogSub(subText || '');
+  _dlprogLog('');
+}
+
+/** ダイアログを閉じる（中断保存・完了） */
+function dlprogClose(){
+  const ov = document.getElementById('dl-prog-overlay');
+  if(ov) ov.style.display = 'none';
+  checkResume();
+}
+
+/** 停止後フェーズ: 続き or 中断保存 を表示 */
+function dlprogStopped(){
+  _dlprogSetPhase('stopped');
+}
+
+/** 完了フェーズ */
+function dlprogDone(){
+  _dlprogSetPhase('done');
+}
+
+/** 続きをDL（停止後から再開） */
+async function dlprogResume(){
+  _dlprogSetPhase('running');
+  await resumeDl();
+}
+
+/** プログレス数値・バー更新 */
+function dlprogUpdate(done, total, mb){
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  const _e = id => document.getElementById(id);
+  if(_e('dlprog-done')) _e('dlprog-done').textContent = done.toLocaleString();
+  if(_e('dlprog-tot'))  _e('dlprog-tot').textContent  = total.toLocaleString();
+  if(_e('dlprog-bar'))  _e('dlprog-bar').style.width  = pct + '%';
+  if(_e('dlprog-pct'))  _e('dlprog-pct').textContent  = pct + '%';
+  if(_e('dlprog-mb'))   _e('dlprog-mb').textContent   = mb;
+}
+
+/** サブタイトル（レイヤー名・ズーム範囲）更新 */
+function _dlprogSub(text){
+  const el = document.getElementById('dlprog-sub');
+  if(el) el.textContent = text;
+}
+
+/** ログ追記 */
+function _dlprogLog(msg){
+  const el = document.getElementById('dlprog-log');
+  if(!el) return;
+  if(msg === '') { el.textContent = ''; return; }
+  el.textContent = msg + '\n' + el.textContent;
+  el.textContent = el.textContent.split('\n').slice(0, 30).join('\n');
+}
+
+/** フェーズ切替: 'running' | 'stopped' | 'done' */
+function _dlprogSetPhase(phase){
+  const ids = ['running','stopped','done'];
+  ids.forEach(p => {
+    const el = document.getElementById('dlprog-btns-' + p);
+    if(el) el.style.display = p === phase ? 'flex' : 'none';
+  });
+}
+
+// ═══════════════════════════════════════════
 //  ダウンロードエンジン
 // ═══════════════════════════════════════════
 let dlRun=false, dlStop=false;
@@ -1347,11 +1418,11 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
 
   dlRun=true; dlStop=false;
   document.getElementById('prog-section').classList.add('show');
-  // 進捗バー表示（オフラインタブ）
-  const _cfgEl = document.getElementById('cfg-dl-progress-bar');
-  if(_cfgEl) _cfgEl.style.display='block';
+  // DLプログレスダイアログを開く
+  const _subText = `${layers.join(' · ')}  Z${zmin}〜Z${zmax}`;
+  dlprogOpen(_subText);
 
-  // ボタン切替
+  // ボタン切替（ベース/詳細タブ内）
   const SB=mode==='base'?document.getElementById('btn-stpbase'):document.getElementById('btn-stpdet');
   const DB2=mode==='base'?document.getElementById('btn-dlbase'):document.getElementById('btn-dldet');
   if(SB)  SB.style.display='block';
@@ -1369,16 +1440,21 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
   const boundsData=mode==='base'?null:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
 
   let done=_initDone, fail=0, realBytes=0;
-  const log=msg=>{const el=document.getElementById('dl-log');el.textContent=msg+'\n'+el.textContent;el.textContent=el.textContent.split('\n').slice(0,40).join('\n');};
+  const log=msg=>{
+    const el=document.getElementById('dl-log');
+    if(el){el.textContent=msg+'\n'+el.textContent;el.textContent=el.textContent.split('\n').slice(0,40).join('\n');}
+    _dlprogLog(msg);
+  };
 
   const tick=()=>{
     const processed=done+fail;
-    const pct=total>0?Math.round(processed/total*100):0;
     const mbReal=(realBytes/1024/1024).toFixed(0)+' MB';
     document.getElementById('pg-done').textContent=done.toLocaleString();
     document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-processed));
     document.getElementById('pg-mb').textContent=mbReal;
-    document.getElementById('pg-bar').style.width=pct+'%';
+    document.getElementById('pg-bar').style.width=(total>0?Math.round(processed/total*100):0)+'%';
+    // DLプログレスダイアログ更新
+    dlprogUpdate(done, total, mbReal);
     // DLダイアログ内バー同期
     if(typeof _dldSyncProgress==='function') _dldSyncProgress(done,total,mbReal);
     // DLダイアログ内ログミラー
@@ -1434,14 +1510,12 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
   });
 
   dlRun=false; if(SB) SB.style.display='none'; if(DB2) DB2.disabled=false;
-  // 進捗バー非表示
-  const _cfgElEnd = document.getElementById('cfg-dl-progress-bar');
-  if(_cfgElEnd) _cfgElEnd.style.display='none';
   if(!dlStop){
     // 完了したらレジューム削除
     deleteResume();
     document.getElementById('resume-banner').classList.remove('show');
     log('✅ 完了！ '+fmt(done)+'枚保存（失敗: '+fail+'）');
+    dlprogDone();
     if(typeof _dldShowDone==='function') _dldShowDone(false);
     // セッション保存（一覧に表示するため）
     if(typeof saveDlSession==='function' && done>0){
@@ -1454,7 +1528,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     }
   } else {
     log('⏸ 停止しました。続きから再開できます。');
-    checkResume(); // バナー更新
+    dlprogStopped();
     if(typeof _dldShowDone==='function') _dldShowDone(true);
   }
   refreshCache();

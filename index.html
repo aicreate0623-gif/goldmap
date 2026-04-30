@@ -452,7 +452,7 @@
     </div>
 
     <!-- DL進捗ログ（DL中のみ表示） -->
-    <div id="cfg-dl-progress-bar" class="dl-progress-bar dl-progress-bar--cfg" style="display:none">
+    <div id="cfg-dl-progress-bar" class="dl-progress-bar dl-progress-bar--cfg" style="display:none!important;visibility:hidden">
       <div class="dl-pb-row">
         <span class="dl-pb-label">DL進捗</span>
         <span class="dl-pb-nums"><span id="pg-done">0</span> / <span id="pg-tot">—</span> 枚</span>
@@ -1163,7 +1163,8 @@
     <div class="sl2-row">
       <label>最小ズーム</label>
       <select id="dlg-det-zmin" onchange="_dldUpdEst()">
-        <option value="11" selected>Z11</option>
+        <option value="10" selected>Z10</option>
+        <option value="11">Z11</option>
         <option value="12">Z12</option>
         <option value="13">Z13</option>
       </select>
@@ -1208,6 +1209,45 @@
     </div>
   </div>
 
+</div>
+
+<!-- ══ DLプログレスダイアログ ══ -->
+<div id="dl-prog-overlay" style="display:none">
+  <div id="dl-prog-dialog">
+    <div class="dlprog-header">
+      <span class="dlprog-icon">⬇</span>
+      <span class="dlprog-title" id="dlprog-title">ダウンロード中</span>
+    </div>
+    <div class="dlprog-sub" id="dlprog-sub">準備中…</div>
+
+    <div class="dlprog-bar-wrap">
+      <div class="dlprog-bar-bg">
+        <div class="dlprog-bar-fill" id="dlprog-bar" style="width:0%"></div>
+      </div>
+      <span class="dlprog-pct" id="dlprog-pct">0%</span>
+    </div>
+
+    <div class="dlprog-stats">
+      <span id="dlprog-done">0</span> / <span id="dlprog-tot">—</span> 枚
+      <span class="dlprog-mb" id="dlprog-mb">0 MB</span>
+    </div>
+
+    <div class="dlprog-log" id="dlprog-log"></div>
+
+    <!-- 通常: 停止ボタン -->
+    <div class="dlprog-btns" id="dlprog-btns-running">
+      <button class="btn red" onclick="stopDl()">■ 停止</button>
+    </div>
+    <!-- 停止後: 続き or 中断保存 -->
+    <div class="dlprog-btns" id="dlprog-btns-stopped" style="display:none">
+      <button class="btn accent" onclick="dlprogResume()">▶ 続きをDL</button>
+      <button class="btn sm"     onclick="dlprogClose()">⏹ 中断して保存</button>
+    </div>
+    <!-- 完了後 -->
+    <div class="dlprog-btns" id="dlprog-btns-done" style="display:none">
+      <button class="btn accent" onclick="dlprogClose()">✅ 完了・閉じる</button>
+    </div>
+  </div>
 </div>
 
 <div id="exit-overlay" style="

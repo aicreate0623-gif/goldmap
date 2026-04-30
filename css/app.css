@@ -3052,3 +3052,99 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   background: rgba(255,80,80,0.15);
   color: #ff5555;
 }
+
+/* ══ DLプログレスダイアログ ══ */
+#dl-prog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8500;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#dl-prog-dialog {
+  background: var(--panel, #111928);
+  border: 1px solid rgba(74,142,232,0.35);
+  border-radius: 14px;
+  padding: 20px 20px 16px;
+  width: min(88vw, 360px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+}
+.dlprog-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dlprog-icon {
+  font-size: 18px;
+}
+.dlprog-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--txt);
+}
+.dlprog-sub {
+  font-size: 11px;
+  color: var(--txt-sub);
+  line-height: 1.5;
+  min-height: 16px;
+}
+.dlprog-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dlprog-bar-bg {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.dlprog-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #a06010, #e8c040);
+  transition: width .25s;
+}
+.dlprog-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold, #c8a84b);
+  min-width: 36px;
+  text-align: right;
+}
+.dlprog-stats {
+  font-size: 12px;
+  color: var(--txt);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dlprog-mb {
+  margin-left: auto;
+  color: var(--txt-sub);
+  font-size: 11px;
+}
+.dlprog-log {
+  font-size: 10px;
+  color: var(--txt-dim, #556);
+  max-height: 64px;
+  overflow-y: auto;
+  line-height: 1.7;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  padding: 4px 8px;
+  white-space: pre-wrap;
+}
+.dlprog-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
