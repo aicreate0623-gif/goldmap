@@ -336,7 +336,7 @@ async function renderSessionList(){
           const done = (s.srcKeys||[]).includes(lk);
           return `<label class="adp-layer${done?' adp-layer--done':''}">
             <input type="checkbox" class="adp-ck" data-sess="${s.id}" data-lk="${lk}"
-              ${done?'disabled checked':''} onchange="updAddLayerEst('${s.id}')">
+              ${done?'disabled checked':''} onchange="_refreshAdpZoomSelect('${s.id}'); updAddLayerEst('${s.id}')">
             <span class="adp-lk-name">${LAYER_LABEL[lk]}</span>
             <span class="adp-lk-badge">${done?'✅ 済':'未'}</span>
             <div class="adp-zoom-status" id="adp-zstatus-${s.id}-${lk}">⏳</div>
@@ -619,10 +619,10 @@ function _filterDoneZoomsFromSelect(sessId, sess, scanResult){
   const hintEl  = document.getElementById(`adp-zhint-${sessId}`);
   if(!zminSel || !zmaxSel) return;
 
-  // 現在チェック中（disabled含む）のレイヤーを取得
+  // 現在有効でチェック中（disabled除外）のレイヤーを取得
   const checkedLayers = ['std','photo','topo'].filter(lk=>{
     const ck = document.querySelector(`.adp-ck[data-sess="${sessId}"][data-lk="${lk}"]`);
-    return ck && ck.checked;
+    return ck && ck.checked && !ck.disabled;
   });
   // チェックなしの場合は全レイヤーで判定
   const targetLayers = checkedLayers.length ? checkedLayers : ['std','photo','topo'];
@@ -688,6 +688,17 @@ function _filterDoneZoomsFromSelect(sessId, sess, scanResult){
   } else {
     if(hintEl) hintEl.textContent = '';
   }
+}
+
+/**
+ * チェックボックス変更時にキャッシュ済みscanResultでズームselectを再描画する。
+ */
+function _refreshAdpZoomSelect(sessId){
+  const sess = _adpScanCache[sessId] ? {id:sessId, bounds:null} : null;
+  const scanResult = _adpScanCache[sessId];
+  if(!scanResult) return; // スキャン前は何もしない
+  // boundsはscanResultから不要（_filterDoneZoomsはsessを使わない）
+  _filterDoneZoomsFromSelect(sessId, null, scanResult);
 }
 
 function closeAddLayerPanel(sessId){
