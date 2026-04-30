@@ -336,7 +336,7 @@ async function renderSessionList(){
           const done = (s.srcKeys||[]).includes(lk);
           return `<label class="adp-layer${done?' adp-layer--done':''}">
             <input type="checkbox" class="adp-ck" data-sess="${s.id}" data-lk="${lk}"
-              ${done?'disabled checked':''} onchange="_refreshAdpZoomSelect('${s.id}'); updAddLayerEst('${s.id}')">
+              ${done?'disabled checked':''} onchange="updAddLayerEst('${s.id}')">
             <span class="adp-lk-name">${LAYER_LABEL[lk]}</span>
             <span class="adp-lk-badge">${done?'✅ 済':'未'}</span>
             <div class="adp-zoom-status" id="adp-zstatus-${s.id}-${lk}">⏳</div>
@@ -600,9 +600,7 @@ async function openAddLayerPanel(sessId){
   if(sess){
     const scanResult = await _scanAdpTiles(sess);
     _renderAdpZoomStatus(sessId, sess, scanResult);
-    _updateAdpCheckboxes(sessId, sess, scanResult);
-    // ── ズーム選択肢から「全レイヤーで済み」のズームを除外 ──
-    _filterDoneZoomsFromSelect(sessId, sess, scanResult);
+    _renderAdpZoomHint(sessId, scanResult);
   }
   await updAddLayerEst(sessId);
 }
@@ -613,35 +611,19 @@ async function openAddLayerPanel(sessId){
  * デフォルト値を未DLの最小/最大ズームに設定する。
  * 判定は「チェック中のレイヤーが全て done」かつ「タイルが存在するズーム」のみ。
  */
-function _filterDoneZoomsFromSelect(sessId, sess, scanResult){
-  const zminSel = document.getElementById(`adp-zmin-${sessId}`);
-  const zmaxSel = document.getElementById(`adp-zmax-${sessId}`);
-  const hintEl  = document.getElementById(`adp-zhint-${sessId}`);
-  if(!zminSel || !zmaxSel) return;
+/**
+ * スキャン結果を元に、済みズームをヒントテキストで表示する。
+ * ズームselectは常にZ5〜Z18全表示。
+ */
+function _renderAdpZoomHint(sessId, scanResult){
+  const hintEl = document.getElementById(`adp-zhint-${sessId}`);
+  if(!hintEl) return;
 
-  // 現在有効でチェック中（disabled除外）のレイヤーを取得
-  const checkedLayers = ['std','photo','topo'].filter(lk=>{
-    const ck = document.querySelector(`.adp-ck[data-sess="${sessId}"][data-lk="${lk}"]`);
-    return ck && ck.checked && !ck.disabled;
-  });
-  // チェックなしの場合は全レイヤーで判定
-  const targetLayers = checkedLayers.length ? checkedLayers : ['std','photo','topo'];
-
-  // ADP_SCAN_ZMIN〜ADP_SCAN_ZMAXの全ズームを評価
-  const doneZooms  = new Set(); // 済みズーム
-  const validZooms = [];        // タイルが存在するズーム（選択肢に出す候補）
-
+  // 全レイヤーでdoneなズームを収集
+  const doneZooms = new Set();
+  const ALL_LAYERS = ['std','photo','topo'];
   for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
-    // いずれかのレイヤーでタイルが存在するズームを valid とする
-    const hasAnyTile = targetLayers.some(lk=>{
-      const d = scanResult[lk];
-      return d && d.perZoom && (d.perZoom[z]?.total || 0) > 0;
-    });
-    if(!hasAnyTile) continue;
-    validZooms.push(z);
-
-    // チェック中レイヤーが全て done → 済み
-    const allDone = targetLayers.every(lk=>{
+    const allDone = ALL_LAYERS.every(lk => {
       const d = scanResult[lk];
       if(!d || !d.perZoom) return false;
       return d.perZoom[z]?.status === 'done';
@@ -649,56 +631,9 @@ function _filterDoneZoomsFromSelect(sessId, sess, scanResult){
     if(allDone) doneZooms.add(z);
   }
 
-  // 未DLズーム（validZooms から doneZooms を除いたもの）
-  const available = validZooms.filter(z=>!doneZooms.has(z));
-
-  if(!available.length && validZooms.length){
-    // 全ズーム済み: selectをdisabledに
-    zminSel.innerHTML = `<option>済</option>`;
-    zmaxSel.innerHTML = `<option>済</option>`;
-    zminSel.disabled = true;
-    zmaxSel.disabled = true;
-    if(hintEl) hintEl.textContent = '（全ズーム取得済み）';
-    return;
-  }
-
-  if(!available.length){
-    // タイル自体が存在しない（boundsが小さすぎ等）
-    zminSel.innerHTML = `<option>—</option>`;
-    zmaxSel.innerHTML = `<option>—</option>`;
-    zminSel.disabled = true;
-    zmaxSel.disabled = true;
-    if(hintEl) hintEl.textContent = '';
-    return;
-  }
-
-  const mkOpts = (sel, defaultVal) => {
-    sel.innerHTML = available.map(z=>
-      `<option value="${z}"${z===defaultVal?' selected':''}>Z${z}</option>`
-    ).join('');
-    sel.disabled = false;
-  };
-  mkOpts(zminSel, available[0]);
-  mkOpts(zmaxSel, available[available.length - 1]);
-
-  // 済みズームがあればヒント表示
-  if(doneZooms.size){
-    const doneList = [...doneZooms].sort((a,b)=>a-b).map(z=>`Z${z}`).join('・');
-    if(hintEl) hintEl.textContent = `（${doneList} 取得済み）`;
-  } else {
-    if(hintEl) hintEl.textContent = '';
-  }
-}
-
-/**
- * チェックボックス変更時にキャッシュ済みscanResultでズームselectを再描画する。
- */
-function _refreshAdpZoomSelect(sessId){
-  const sess = _adpScanCache[sessId] ? {id:sessId, bounds:null} : null;
-  const scanResult = _adpScanCache[sessId];
-  if(!scanResult) return; // スキャン前は何もしない
-  // boundsはscanResultから不要（_filterDoneZoomsはsessを使わない）
-  _filterDoneZoomsFromSelect(sessId, null, scanResult);
+  if(!doneZooms.size){ hintEl.textContent = ''; return; }
+  const list = [...doneZooms].sort((a,b)=>a-b).map(z=>`Z${z}`).join('・');
+  hintEl.textContent = `（${list} 取得済み）`;
 }
 
 function closeAddLayerPanel(sessId){
@@ -767,14 +702,6 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
     // 元々DL済みレイヤー(srcKeys)はそのままdisabled
     const alreadyInSess = (sess.srcKeys||[]).includes(lk);
     if(alreadyInSess) return;
-    // スキャン結果で全済みならdisabledに変更
-    if(lkData.cached >= lkData.total && lkData.total > 0){
-      ck.disabled = true;
-      ck.checked  = true;
-      const badge = ck.closest('label')?.querySelector('.adp-lk-badge');
-      if(badge) badge.textContent = '✅ 済';
-      ck.closest('label')?.classList.add('adp-layer--done');
-    }
   });
 }
 
