@@ -321,13 +321,13 @@ async function renderSessionList(){
       <div class="adp-zoom-row">
         <span class="adp-zoom-label">ズーム:</span>
         <select class="adp-zsel" id="adp-zmin-${s.id}" onchange="updAddLayerEst('${s.id}')">
-          ${Array.from({length:(s.zmax||15)-(s.zmin||11)+1},(_,i)=>(s.zmin||11)+i)
-            .map(z=>`<option value="${z}"${z===(s.zmin||11)?' selected':''}">Z${z}</option>`).join('')}
+          ${Array.from({length:14},(_,i)=>i+5)
+            .map(z=>`<option value="${z}">Z${z}</option>`).join('')}
         </select>
         <span class="adp-zoom-sep">〜</span>
         <select class="adp-zsel" id="adp-zmax-${s.id}" onchange="updAddLayerEst('${s.id}')">
-          ${Array.from({length:(s.zmax||15)-(s.zmin||11)+1},(_,i)=>(s.zmin||11)+i)
-            .map(z=>`<option value="${z}"${z===(s.zmax||15)?' selected':''}">Z${z}</option>`).join('')}
+          ${Array.from({length:14},(_,i)=>i+5)
+            .map(z=>`<option value="${z}">Z${z}</option>`).join('')}
         </select>
         <span class="adp-zoom-hint" id="adp-zhint-${s.id}"></span>
       </div>
@@ -486,8 +486,12 @@ async function refreshCache(){
 // パネルごとのIDBスキャン結果キャッシュ: sessId → {lk → {total,cached,perZoom}}
 const _adpScanCache = {};
 
+// 追加DLパネルでスキャンするズーム範囲（IDB実在タイルを漏れなく検知するため広めに設定）
+const ADP_SCAN_ZMIN = 5;
+const ADP_SCAN_ZMAX = 18;
+
 /**
- * セッションのzmin〜zmaxについて各レイヤーの
+ * ADP_SCAN_ZMIN〜ADP_SCAN_ZMAXの全ズームについて各レイヤーの
  * 総タイル数・既存タイル数をIndexedDBから計算してキャッシュする。
  */
 async function _scanAdpTiles(sess){
@@ -500,8 +504,6 @@ async function _scanAdpTiles(sess){
   }
 
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
-  const zmin = sess.zmin || 11;
-  const zmax = sess.zmax || 15;
   const ALL_LAYERS = ['std','photo','topo'];
   const result = {};
 
@@ -509,7 +511,7 @@ async function _scanAdpTiles(sess){
     let totalAll = 0, cachedAll = 0;
     const perZoom = {};
 
-    for(let z = zmin; z <= zmax; z++){
+    for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
       const tileCount = cntTiles(bounds, z, z);
       totalAll += tileCount;
 
@@ -519,7 +521,6 @@ async function _scanAdpTiles(sess){
       } catch(e){ zCached = 0; }
       cachedAll += zCached;
 
-      // 3段階: 0→未、全数→済、途中→一部
       const status = zCached === 0 ? 'none'
                    : zCached >= tileCount ? 'done'
                    : 'partial';
@@ -607,9 +608,10 @@ async function openAddLayerPanel(sessId){
 }
 
 /**
- * スキャン結果を元に、全レイヤーで done のズームを
+ * スキャン結果を元に、選択中レイヤーで done のズームを
  * adp-zmin / adp-zmax の選択肢から除去し、
  * デフォルト値を未DLの最小/最大ズームに設定する。
+ * 判定は「チェック中のレイヤーが全て done」かつ「タイルが存在するズーム」のみ。
  */
 function _filterDoneZoomsFromSelect(sessId, sess, scanResult){
   const zminSel = document.getElementById(`adp-zmin-${sessId}`);
@@ -617,34 +619,56 @@ function _filterDoneZoomsFromSelect(sessId, sess, scanResult){
   const hintEl  = document.getElementById(`adp-zhint-${sessId}`);
   if(!zminSel || !zmaxSel) return;
 
-  const zmin = sess.zmin || 11;
-  const zmax = sess.zmax || 15;
-  const ALL_LAYERS = ['std','photo','topo'];
+  // 現在チェック中（disabled含む）のレイヤーを取得
+  const checkedLayers = ['std','photo','topo'].filter(lk=>{
+    const ck = document.querySelector(`.adp-ck[data-sess="${sessId}"][data-lk="${lk}"]`);
+    return ck && ck.checked;
+  });
+  // チェックなしの場合は全レイヤーで判定
+  const targetLayers = checkedLayers.length ? checkedLayers : ['std','photo','topo'];
 
-  // ズームごとに「全レイヤーで done」かを判定
-  const doneZooms = new Set();
-  for(let z = zmin; z <= zmax; z++){
-    const allDone = ALL_LAYERS.every(lk=>{
-      const lkData = scanResult[lk];
-      if(!lkData || !lkData.perZoom) return false;
-      return lkData.perZoom[z]?.status === 'done';
+  // ADP_SCAN_ZMIN〜ADP_SCAN_ZMAXの全ズームを評価
+  const doneZooms  = new Set(); // 済みズーム
+  const validZooms = [];        // タイルが存在するズーム（選択肢に出す候補）
+
+  for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
+    // いずれかのレイヤーでタイルが存在するズームを valid とする
+    const hasAnyTile = targetLayers.some(lk=>{
+      const d = scanResult[lk];
+      return d && d.perZoom && (d.perZoom[z]?.total || 0) > 0;
+    });
+    if(!hasAnyTile) continue;
+    validZooms.push(z);
+
+    // チェック中レイヤーが全て done → 済み
+    const allDone = targetLayers.every(lk=>{
+      const d = scanResult[lk];
+      if(!d || !d.perZoom) return false;
+      return d.perZoom[z]?.status === 'done';
     });
     if(allDone) doneZooms.add(z);
   }
 
-  // selectの選択肢を再構築（全済みズームを除外）
-  const available = [];
-  for(let z = zmin; z <= zmax; z++){
-    if(!doneZooms.has(z)) available.push(z);
-  }
+  // 未DLズーム（validZooms から doneZooms を除いたもの）
+  const available = validZooms.filter(z=>!doneZooms.has(z));
 
-  if(!available.length){
+  if(!available.length && validZooms.length){
     // 全ズーム済み: selectをdisabledに
     zminSel.innerHTML = `<option>済</option>`;
     zmaxSel.innerHTML = `<option>済</option>`;
     zminSel.disabled = true;
     zmaxSel.disabled = true;
     if(hintEl) hintEl.textContent = '（全ズーム取得済み）';
+    return;
+  }
+
+  if(!available.length){
+    // タイル自体が存在しない（boundsが小さすぎ等）
+    zminSel.innerHTML = `<option>—</option>`;
+    zmaxSel.innerHTML = `<option>—</option>`;
+    zminSel.disabled = true;
+    zmaxSel.disabled = true;
+    if(hintEl) hintEl.textContent = '';
     return;
   }
 
@@ -659,7 +683,7 @@ function _filterDoneZoomsFromSelect(sessId, sess, scanResult){
 
   // 済みズームがあればヒント表示
   if(doneZooms.size){
-    const doneList = [...doneZooms].map(z=>`Z${z}`).join('・');
+    const doneList = [...doneZooms].sort((a,b)=>a-b).map(z=>`Z${z}`).join('・');
     if(hintEl) hintEl.textContent = `（${doneList} 取得済み）`;
   } else {
     if(hintEl) hintEl.textContent = '';
@@ -679,8 +703,6 @@ function closeAddLayerPanel(sessId){
  * ズーム別DL状態をパネルに描画する。
  */
 function _renderAdpZoomStatus(sessId, sess, scanResult){
-  const zmin = sess.zmin || 11;
-  const zmax = sess.zmax || 15;
   const ALL_LAYERS = ['std','photo','topo'];
 
   ALL_LAYERS.forEach(lk => {
@@ -689,22 +711,32 @@ function _renderAdpZoomStatus(sessId, sess, scanResult){
     const lkData = scanResult[lk];
     if(!lkData || !lkData.perZoom){ statusEl.textContent = ''; return; }
 
+    // タイルが実在するズームのみ表示（ADP_SCAN_ZMIN〜ADP_SCAN_ZMAX）
+    const validZooms = [];
+    for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
+      if((lkData.perZoom[z]?.total || 0) > 0) validZooms.push(z);
+    }
+    if(!validZooms.length){ statusEl.textContent = ''; return; }
+
     // 連続する同状態をグループ化
     const parts = [];
-    let groupStart = zmin, groupStatus = lkData.perZoom[zmin]?.status || 'none';
-    for(let z = zmin + 1; z <= zmax; z++){
+    let groupStart = validZooms[0], groupStatus = lkData.perZoom[validZooms[0]]?.status || 'none';
+    for(let i = 1; i < validZooms.length; i++){
+      const z = validZooms[i];
       const st = lkData.perZoom[z]?.status || 'none';
-      if(st !== groupStatus){
-        parts.push({ zs: groupStart, ze: z - 1, status: groupStatus });
-        groupStart = z; groupStatus = st;
+      // ズームが連続しているかつ同じ状態かをチェック
+      if(st === groupStatus && z === validZooms[i-1] + 1){
+        continue;
       }
+      parts.push({ zs: groupStart, ze: validZooms[i-1], status: groupStatus });
+      groupStart = z; groupStatus = st;
     }
-    parts.push({ zs: groupStart, ze: zmax, status: groupStatus });
+    parts.push({ zs: groupStart, ze: validZooms[validZooms.length-1], status: groupStatus });
 
     const STATUS_LABEL = { done: '✅済', partial: '⚠一部', none: '未' };
     const STATUS_COLOR = { done: '#4caf50', partial: '#ffaa00', none: '#888' };
     statusEl.innerHTML = parts.map(p => {
-      const zLabel = p.zs === p.ze ? `z${p.zs}` : `z${p.zs}-${p.ze}`;
+      const zLabel = p.zs === p.ze ? `Z${p.zs}` : `Z${p.zs}-${p.ze}`;
       return `<span style="color:${STATUS_COLOR[p.status]};margin-right:6px">${zLabel}: ${STATUS_LABEL[p.status]}</span>`;
     }).join('');
   });
