@@ -644,64 +644,24 @@ function ckLayers(){
   return ['std','photo','topo'].filter(k=>document.getElementById(prefix+k)?.checked);
 }
 function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M枚';if(n>=1e3)return Math.round(n/1e3)+'K枚';return n+'枚';}
-// レイヤー別1枚あたりKB係数（photo=20KB、その他=10KB）
-const LAYER_KB = {std:7, photo:20, topo:7};
-function mbEst(n, lk){ const kb = (lk && LAYER_KB[lk]) || 7; return (n*kb/1024).toFixed(0); }
+// レイヤー別1枚あたりKB係数（実測値ベース）
+// std: 地理院地図PNG ≈ 10KB、photo: 航空写真JPEG ≈ 18KB、topo: OpenTopoMap PNG ≈ 3KB
+const LAYER_KB = {std:10, photo:18, topo:3};
+function mbEst(n, lk){ const kb = (lk && LAYER_KB[lk]) || 10; return (n*kb/1024).toFixed(0); }
 // レイヤー配列を考慮した合計MB推定
 function mbEstLayers(tileCount, layers){
-  const b = layers.reduce((s,lk)=>s+(LAYER_KB[lk]||7)*1024*tileCount, 0);
+  const b = layers.reduce((s,lk)=>s+(LAYER_KB[lk]||10)*1024*tileCount, 0);
   return (b/1024/1024).toFixed(0);
 }
 // 推定バイト数（レイヤー配列対応）
 function estBytesLayers(tileCount, layers){
-  return layers.reduce((s,lk)=>s+(LAYER_KB[lk]||7)*1024*tileCount, 0);
+  return layers.reduce((s,lk)=>s+(LAYER_KB[lk]||10)*1024*tileCount, 0);
 }
 
 function updBaseEst(){
   const zmax=parseInt(document.getElementById('base-zmax').value);
   const L2=ckLayers().length||1, n=cntTiles(JAPAN,5,zmax)*L2;
   document.getElementById('base-est').innerHTML=`Z5〜Z${zmax}、<b>${fmt(n)}</b>（約 <b>${mbEst(n)} MB</b>）<br><span style="font-size:10px;color:#907030">※ Z10全国は約3万枚×レイヤー数</span>`;
-}
-
-// ─── 全国ベースマップDL（Z5〜Z9）───────────────────────────
-const BASE_N_ZMIN = 5;
-const BASE_N_ZMAX = 9;
-
-/** レイヤーチェックボックスの変化に応じて容量推定を更新 */
-function updBaseNDlEst(){
-  const layers = ['std','photo','topo'].filter(k => document.getElementById('base-ck-'+k)?.checked);
-  const estEl  = document.getElementById('base-n-est');
-  const btn    = document.getElementById('base-n-dl-btn');
-  if(!estEl) return;
-  if(!layers.length){
-    estEl.textContent = 'レイヤーを1つ以上選択してください';
-    if(btn) btn.disabled = true;
-    return;
-  }
-  const n   = cntTiles(JAPAN, BASE_N_ZMIN, BASE_N_ZMAX);
-  const mb  = mbEstLayers(n, layers);
-  const tot = fmt(n * layers.length);
-  estEl.innerHTML = `Z${BASE_N_ZMIN}〜Z${BASE_N_ZMAX}・${layers.length}レイヤー&nbsp;／&nbsp;<b>${tot}</b>（約 <b>${mb} MB</b>）`;
-  if(btn) btn.disabled = false;
-}
-
-/** 全国ベースマップ（Z5〜Z9）のDLを開始する */
-async function startBaseNDl(){
-  const layers = ['std','photo','topo'].filter(k => document.getElementById('base-ck-'+k)?.checked);
-  if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
-
-  const ok = await showConfirmDialog(
-    `🗾 全国ベースマップ（Z${BASE_N_ZMIN}〜Z${BASE_N_ZMAX}）をDLします。\nレイヤー: ${layers.map(k=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[k]||k)).join('・')}\n\nWiFi環境での実行を推奨します。`,
-    'DL開始', 'キャンセル'
-  );
-  if(!ok) return;
-
-  // オフラインタブに切り替えてDL進捗を表示
-  if(typeof switchTab === 'function') switchTab('offline');
-
-  const chunks = _calcChunks(JAPAN, BASE_N_ZMIN, BASE_N_ZMAX, layers);
-  await _runChunkedDl(JAPAN, layers, chunks, 0, null);
-  await refreshCache();
 }
 function updDetEst(){
   const btn=document.getElementById('btn-dldet');
