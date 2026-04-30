@@ -662,6 +662,47 @@ function updBaseEst(){
   const L2=ckLayers().length||1, n=cntTiles(JAPAN,5,zmax)*L2;
   document.getElementById('base-est').innerHTML=`Z5〜Z${zmax}、<b>${fmt(n)}</b>（約 <b>${mbEst(n)} MB</b>）<br><span style="font-size:10px;color:#907030">※ Z10全国は約3万枚×レイヤー数</span>`;
 }
+
+// ─── 全国ベースマップDL（Z5〜Z9）───────────────────────────
+const BASE_N_ZMIN = 5;
+const BASE_N_ZMAX = 9;
+
+/** レイヤーチェックボックスの変化に応じて容量推定を更新 */
+function updBaseNDlEst(){
+  const layers = ['std','photo','topo'].filter(k => document.getElementById('base-ck-'+k)?.checked);
+  const estEl  = document.getElementById('base-n-est');
+  const btn    = document.getElementById('base-n-dl-btn');
+  if(!estEl) return;
+  if(!layers.length){
+    estEl.textContent = 'レイヤーを1つ以上選択してください';
+    if(btn) btn.disabled = true;
+    return;
+  }
+  const n   = cntTiles(JAPAN, BASE_N_ZMIN, BASE_N_ZMAX);
+  const mb  = mbEstLayers(n, layers);
+  const tot = fmt(n * layers.length);
+  estEl.innerHTML = `Z${BASE_N_ZMIN}〜Z${BASE_N_ZMAX}・${layers.length}レイヤー&nbsp;／&nbsp;<b>${tot}</b>（約 <b>${mb} MB</b>）`;
+  if(btn) btn.disabled = false;
+}
+
+/** 全国ベースマップ（Z5〜Z9）のDLを開始する */
+async function startBaseNDl(){
+  const layers = ['std','photo','topo'].filter(k => document.getElementById('base-ck-'+k)?.checked);
+  if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
+
+  const ok = await showConfirmDialog(
+    `🗾 全国ベースマップ（Z${BASE_N_ZMIN}〜Z${BASE_N_ZMAX}）をDLします。\nレイヤー: ${layers.map(k=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[k]||k)).join('・')}\n\nWiFi環境での実行を推奨します。`,
+    'DL開始', 'キャンセル'
+  );
+  if(!ok) return;
+
+  // オフラインタブに切り替えてDL進捗を表示
+  if(typeof switchTab === 'function') switchTab('offline');
+
+  const chunks = _calcChunks(JAPAN, BASE_N_ZMIN, BASE_N_ZMAX, layers);
+  await _runChunkedDl(JAPAN, layers, chunks, 0, null);
+  await refreshCache();
+}
 function updDetEst(){
   const btn=document.getElementById('btn-dldet');
   if(!detRect){document.getElementById('det-est').textContent='— 範囲を選択してください —';btn.disabled=true;return;}
@@ -910,7 +951,7 @@ function _dldWatchDraw(){
       if(clrBtn) clrBtn.style.display = '';
       _dldSyncAndCalc();
       // 100MB超過チェック（超過時は範囲リセットして再ドラッグ待ち）
-      const zmax     = document.getElementById('s1-zmax')?.value || '16';
+      const zmax     = document.getElementById('s1-zmax')?.value || '15';
       const chkLayers2 = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
       const layersForCheck = chkLayers2.length ? chkLayers2 : ['std'];
       if(_dldCheckSize(_drawPending, zmax, layersForCheck)){
@@ -964,8 +1005,8 @@ function _dldSyncAndCalc(){
   // 合計容量を計算して表示
   const tot = document.getElementById('dld-s1-total');
   if(!tot || !_drawPending) return;
-  const zmin = 10; // 最小ズームはZ10固定
-  const zmax = parseInt(s1zmax?.value || '16');
+  const zmin = 11; // 最小ズームはZ11固定
+  const zmax = parseInt(s1zmax?.value || '15');
   const base = cntTiles(_drawPending, zmin, zmax);
   const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
   if(!chkLayers.length){
@@ -984,8 +1025,8 @@ function _dldSyncAndCalc(){
 //    STEP2（ドラッグ直後）の再ドラッグ要求にのみ使う。
 function _dldCheckSize(bounds, zmaxVal, layers){
   if(!bounds) return false;
-  const zmin = 10;
-  const zmax = parseInt(zmaxVal) || 16;
+  const zmin = 11;
+  const zmax = parseInt(zmaxVal) || 15;
   const layerArr = Array.isArray(layers) ? layers : Array(layers||1).fill('std');
   const tiles = cntTiles(bounds, zmin, zmax);
   const eb = estBytesLayers(tiles, layerArr);
@@ -1116,7 +1157,7 @@ function _dldClearDraw(){
 // ── STEP2: 確定ボタン → STEP3へ ────────────────────────
 function _dldConfirmDraw(){
   if(!_drawPending) return;
-  const zmax     = document.getElementById('s1-zmax')?.value || '16';
+  const zmax     = document.getElementById('s1-zmax')?.value || '15';
   const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
   if(_dldCheckSize(_drawPending, zmax, chkLayers.length ? chkLayers : ['std'])) return;
   _dldBounds   = _drawPending;

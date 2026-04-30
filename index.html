@@ -332,6 +332,42 @@
       </ul>
     </div>
 
+    <!-- ━━━ 全国ベースマップDL（Z5〜Z9） ━━━ -->
+    <div class="cfg-accordion" id="base-dl-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this); updBaseNDlEst()">
+        <span class="cfg-accordion-title">🗾 全国ベースマップ DL（Z5〜Z9）</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <p class="base-dl-desc">日本全土のZ5〜Z9タイルを一括DLします。オフライン時に広域の地図表示が可能になります。</p>
+
+        <div class="base-dl-zoom-badge">ズーム固定: Z5〜Z9</div>
+
+        <div class="base-dl-section-ttl">レイヤー選択</div>
+        <div class="base-dl-ck-group">
+          <label class="base-dl-ck">
+            <input type="checkbox" id="base-ck-std" checked onchange="updBaseNDlEst()">
+            <span>地理院地図</span>
+          </label>
+          <label class="base-dl-ck">
+            <input type="checkbox" id="base-ck-photo" onchange="updBaseNDlEst()">
+            <span>航空写真</span>
+          </label>
+          <label class="base-dl-ck">
+            <input type="checkbox" id="base-ck-topo" onchange="updBaseNDlEst()">
+            <span>地形図</span>
+          </label>
+        </div>
+
+        <div class="base-dl-est" id="base-n-est">— MB</div>
+        <div class="base-dl-warn">⚠️ WiFi環境を推奨します</div>
+
+        <button class="btn accent base-dl-btn" id="base-n-dl-btn" onclick="startBaseNDl()">
+          ⬇ 全国ベース DL 開始
+        </button>
+      </div>
+    </div>
+
     <!-- DL開始ボタン -->
     <div class="dl-start-wrap">
       <button class="btn accent dl-start-btn" onclick="openDlDialog()">
@@ -430,8 +466,8 @@
     <input type="checkbox" id="ck-photo"           style="display:none">
     <input type="checkbox" id="ck-topo"            style="display:none">
     <select id="base-zmax" style="display:none"><option value="10" selected>Z10</option></select>
-    <select id="det-zmin"  style="display:none"><option value="10" selected>Z10</option></select>
-    <select id="det-zmax"  style="display:none"><option value="16" selected>Z16</option></select>
+    <select id="det-zmin"  style="display:none"><option value="11" selected>Z11</option></select>
+    <select id="det-zmax"  style="display:none"><option value="15" selected>Z15</option></select>
     <div id="dl-progress-bar" style="display:none">
       <span id="dl-pb-done">0</span><span id="dl-pb-tot">0</span>
       <span id="dl-pb-mb">0</span>
@@ -1104,13 +1140,11 @@
       <div class="dld-s1-calc-row">
         <span class="dld-s1-calc-lbl">最大ズーム</span>
         <select id="s1-zmax" class="dld-s1-zmax-sel" onchange="_dldSyncAndCalc()">
-          <option value="10">Z10</option>
-          <option value="11">Z11</option>
           <option value="12">Z12</option>
           <option value="13">Z13</option>
           <option value="14">Z14</option>
-          <option value="15">Z15</option>
-          <option value="16" selected>Z16</option>
+          <option value="15" selected>Z15</option>
+          <option value="16">Z16</option>
           <option value="17">Z17</option>
           <option value="18">Z18</option>
         </select>
@@ -1147,16 +1181,18 @@
     <div class="sl2-row">
       <label>最小ズーム</label>
       <select id="dlg-det-zmin" onchange="_dldUpdEst()">
-        <option value="10" selected>Z10</option>
+        <option value="11" selected>Z11</option>
+        <option value="12">Z12</option>
+        <option value="13">Z13</option>
       </select>
     </div>
     <div class="sl2-row">
       <label>最大ズーム</label>
       <select id="dlg-det-zmax" onchange="_dldUpdEst()">
-        <option value="10">Z10</option><option value="11">Z11</option>
         <option value="12">Z12</option><option value="13">Z13</option>
-        <option value="14">Z14</option><option value="15">Z15</option>
-        <option value="16" selected>Z16</option>
+        <option value="14">Z14</option><option value="15" selected>Z15</option>
+        <option value="16">Z16</option><option value="17">Z17</option>
+        <option value="18">Z18</option>
       </select>
     </div>
 

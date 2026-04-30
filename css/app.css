@@ -2951,3 +2951,76 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 @keyframes adp-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ━━━ 全国ベースマップDL（Z5〜Z9）セクション ━━━ */
+#base-dl-accordion {
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.base-dl-desc {
+  font-size: 12px;
+  color: var(--txt-sub);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.base-dl-zoom-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+  background: var(--gold-bg);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  margin-bottom: 12px;
+}
+.base-dl-section-ttl {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--txt-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.base-dl-ck-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.base-dl-ck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--txt);
+  cursor: pointer;
+}
+.base-dl-ck input[type="checkbox"] {
+  accent-color: var(--gold);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.base-dl-est {
+  font-size: 13px;
+  color: var(--txt-sub);
+  background: rgba(200,170,80,0.06);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+.base-dl-est b { color: var(--gold); }
+.base-dl-warn {
+  font-size: 11px;
+  color: #ff9944;
+  margin-bottom: 12px;
+}
+.base-dl-btn {
+  width: 100%;
+  padding: 13px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+}
