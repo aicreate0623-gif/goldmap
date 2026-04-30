@@ -910,7 +910,7 @@ function _dldWatchDraw(){
       if(clrBtn) clrBtn.style.display = '';
       _dldSyncAndCalc();
       // 100MB超過チェック（超過時は範囲リセットして再ドラッグ待ち）
-      const zmax     = document.getElementById('s1-zmax')?.value || '15';
+      const zmax     = document.getElementById('s1-zmax')?.value || '16';
       const chkLayers2 = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
       const layersForCheck = chkLayers2.length ? chkLayers2 : ['std'];
       if(_dldCheckSize(_drawPending, zmax, layersForCheck)){
@@ -964,8 +964,8 @@ function _dldSyncAndCalc(){
   // 合計容量を計算して表示
   const tot = document.getElementById('dld-s1-total');
   if(!tot || !_drawPending) return;
-  const zmin = 11; // 最小ズームはZ11固定
-  const zmax = parseInt(s1zmax?.value || '15');
+  const zmin = 10; // 最小ズームはZ10固定
+  const zmax = parseInt(s1zmax?.value || '16');
   const base = cntTiles(_drawPending, zmin, zmax);
   const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
   if(!chkLayers.length){
@@ -984,8 +984,8 @@ function _dldSyncAndCalc(){
 //    STEP2（ドラッグ直後）の再ドラッグ要求にのみ使う。
 function _dldCheckSize(bounds, zmaxVal, layers){
   if(!bounds) return false;
-  const zmin = 11;
-  const zmax = parseInt(zmaxVal) || 15;
+  const zmin = 10;
+  const zmax = parseInt(zmaxVal) || 16;
   const layerArr = Array.isArray(layers) ? layers : Array(layers||1).fill('std');
   const tiles = cntTiles(bounds, zmin, zmax);
   const eb = estBytesLayers(tiles, layerArr);
@@ -1116,7 +1116,7 @@ function _dldClearDraw(){
 // ── STEP2: 確定ボタン → STEP3へ ────────────────────────
 function _dldConfirmDraw(){
   if(!_drawPending) return;
-  const zmax     = document.getElementById('s1-zmax')?.value || '15';
+  const zmax     = document.getElementById('s1-zmax')?.value || '16';
   const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
   if(_dldCheckSize(_drawPending, zmax, chkLayers.length ? chkLayers : ['std'])) return;
   _dldBounds   = _drawPending;

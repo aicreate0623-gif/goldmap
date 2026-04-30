@@ -180,8 +180,8 @@ async function saveDlSession(opts){
     totalSize:     opts.totalSize     || 0,
     srcKeys:       opts.srcKeys       || [],
     bounds:        opts.bounds        || null,
-    zmin:          opts.zmin          || 11,
-    zmax:          opts.zmax          || 15,
+    zmin:          opts.zmin          || 10,
+    zmax:          opts.zmax          || 16,
     pendingChunks: opts.pendingChunks || null, // 分割DL残チャンク [{zmin,zmax},...]
     pendingZmin:   opts.pendingZmin   || null, // 次チャンクの開始zmin（表示用）
   };
@@ -796,10 +796,8 @@ async function updAddLayerEst(sessId){
 
   const b = sess.bounds;
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
-  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 11;
-  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 15;
-
-  // スピナー表示
+  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 10;
+  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 16;
   if(estEl) estEl.innerHTML = '<span class="adp-spinner"></span><span class="adp-est-scanning">計算中...</span>';
   if(btn) btn.disabled = true;
 
@@ -855,8 +853,8 @@ async function startAddLayerDl(sessId){
   const b = sess.bounds;
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
   // ズームselectの値を優先（なければセッション値）
-  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 11;
-  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 15;
+  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 10;
+  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 16;
 
   // パネルをDL中UIに切り替え（パネルは閉じない）
   _adpShowProgress(sessId, selected);
