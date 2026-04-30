@@ -658,10 +658,6 @@ function commToggleReply(postId){
   if(!sec) return;
   const isOpen = sec.style.display !== 'none';
   sec.style.display = isOpen ? 'none' : 'block';
-  if(!isOpen){
-    const inp = document.getElementById(`comm-reply-input-${postId}`);
-    if(inp) inp.focus();
-  }
 }
 
 // ── サブ返信トグル（2・3階層目）──────────────
@@ -671,10 +667,6 @@ function commToggleSubReply(postId, path){
   if(!sec) return;
   const isOpen = sec.style.display !== 'none';
   sec.style.display = isOpen ? 'none' : 'block';
-  if(!isOpen){
-    const inp = document.getElementById(`comm-sub-input-${postId}-${key}`);
-    if(inp) inp.focus();
-  }
 }
 
 // ── レート制限チェック共通 ──────────────────
