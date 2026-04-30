@@ -2867,3 +2867,43 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   padding: 6px 0 2px;
   letter-spacing: 0.05em;
 }
+
+/* ═══════════════════════════════════════════
+   追加DLパネル: ズーム選択行
+   ═══════════════════════════════════════════ */
+.adp-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-wrap: wrap;
+}
+.adp-zoom-label {
+  font-size: 11px;
+  color: var(--txt-sub, #aaa);
+  white-space: nowrap;
+}
+.adp-zsel {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: var(--txt, #e0e0e0);
+  font-size: 12px;
+  padding: 3px 6px;
+  cursor: pointer;
+  min-width: 52px;
+}
+.adp-zsel:focus {
+  outline: none;
+  border-color: var(--gold, #c8a84b);
+}
+.adp-zoom-sep {
+  font-size: 11px;
+  color: var(--txt-dim, #888);
+}
+.adp-zoom-hint {
+  font-size: 10px;
+  color: var(--txt-dim, #888);
+  margin-left: 2px;
+}

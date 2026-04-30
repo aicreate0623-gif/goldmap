@@ -1311,7 +1311,37 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     const y0=lat2y(bounds.getNorth(),z),y1=lat2y(bounds.getSouth(),z);
     for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++) tasks.push({lk,z,x,y});
   }
-  const total=tasks.length;
+
+  // ── キャッシュ済みキーを一括取得してSetを構築 ──────────────
+  // dbGet を1件ずつ叩く代わりに prefix スキャンで一括取得。
+  // 数万件でも数十ms・RAM消費も最小限（キーのみ保持）。
+  let cachedSet = new Set();
+  if(db){
+    try{
+      // 対象レイヤー×ズームの prefix を列挙してキーを収集
+      for(const lk of layers){
+        for(let z=zmin;z<=zmax;z++){
+          const prefix = `${lk}/${z}/`;
+          const keys = await new Promise((res,rej)=>{
+            const tx=db.transaction(ST,'readonly');
+            const req=tx.objectStore(ST).openKeyCursor(
+              IDBKeyRange.bound(prefix, prefix+'\uffff', false, false)
+            );
+            const buf=[];
+            req.onsuccess=e=>{const c=e.target.result;if(c){buf.push(c.key);c.continue();}else res(buf);};
+            req.onerror=e=>rej(e);
+          });
+          keys.forEach(k=>cachedSet.add(k));
+        }
+      }
+    }catch(e){ cachedSet=new Set(); } // 失敗時はフォールバック（全件fetch）
+  }
+
+  // キャッシュ済みをスキップしたfetch対象タスクのみに絞る
+  const cachedCount = tasks.filter(t=>cachedSet.has(tileKey(t.lk,t.z,t.x,t.y))).length;
+  const fetchTasks  = tasks.filter(t=>!cachedSet.has(tileKey(t.lk,t.z,t.x,t.y)));
+  // total は全タスク数（進捗表示の分母）、done はキャッシュ済み分から開始
+  const total = tasks.length;
 
   dlRun=true; dlStop=false;
   document.getElementById('prog-section').classList.add('show');
@@ -1326,17 +1356,18 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
   const DB2=mode==='base'?document.getElementById('btn-dlbase'):document.getElementById('btn-dldet');
   SB.style.display='block'; DB2.disabled=true;
 
-  // 統計リセット
+  // 統計リセット（キャッシュ済み分を done の初期値に）
+  const _initDone = startIdx + cachedCount;
   document.getElementById('pg-tot').textContent=fmt(total);
-  document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-startIdx));
-  document.getElementById('pg-done').textContent=fmt(startIdx);
-  document.getElementById('pg-bar').style.width=(total>0?Math.round(startIdx/total*100):0)+'%';
+  document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-_initDone));
+  document.getElementById('pg-done').textContent=fmt(_initDone);
+  document.getElementById('pg-bar').style.width=(total>0?Math.round(_initDone/total*100):0)+'%';
   document.getElementById('dl-log').textContent='';
 
   // resumeの境界情報
   const boundsData=mode==='base'?null:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
 
-  let done=startIdx, fail=0, realBytes=0;
+  let done=_initDone, fail=0, realBytes=0;
   const log=msg=>{const el=document.getElementById('dl-log');el.textContent=msg+'\n'+el.textContent;el.textContent=el.textContent.split('\n').slice(0,40).join('\n');};
 
   const tick=()=>{
@@ -1361,9 +1392,11 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     }
   };
 
-  // startIdx以降のキュー（方式B: dbGetで重複スキップ）
-  const q=tasks.slice(startIdx);
-  let active=0, qIdx=startIdx;
+  // fetchTasks のみをキューに積む（キャッシュ済みは事前除外済み）
+  // startIdx はレジューム用オフセット。fetchTasks はキャッシュ済み除外後なので
+  // startIdx が指定されている場合は fetchTasks 内でのオフセットとして扱う。
+  const q = fetchTasks.slice(Math.max(0, startIdx - cachedCount));
+  let active=0;
 
   await new Promise(resolve=>{
     const next=()=>{
@@ -1371,19 +1404,17 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
       while(active<CONCUR&&q.length){
         active++;
         const t=q.shift();
-        const curIdx=qIdx++;
         const k=tileKey(t.lk,t.z,t.x,t.y);
         const url2=tileURL(t.lk,t.z,t.x,t.y);
         const promise=db
-          ?dbGet(k).then(c=>{
-              if(c){done++;tick();return;} // 既存キャッシュはスキップ
-              return fetch(url2,{signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined})
-                .then(r=>r.ok?r.arrayBuffer():null)
-                .then(buf=>{if(buf)return dbPut(k,buf).then(()=>{done++;realBytes+=buf.byteLength;tick();});else{fail++;tick();}});
-            }).catch(()=>{fail++;tick();})
-          :fetch(url2).then(r=>r.ok?r.arrayBuffer():null)
-            .then(buf=>{if(buf){done++;realBytes+=buf.byteLength;tick();}else{fail++;tick();}})
-            .catch(()=>{fail++;tick();});
+          ?fetch(url2,{signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined})
+              .then(r=>r.ok?r.arrayBuffer():null)
+              .then(buf=>{if(buf)return dbPut(k,buf).then(()=>{done++;realBytes+=buf.byteLength;tick();});else{fail++;tick();}})
+              .catch(()=>{fail++;tick();})
+          :fetch(url2)
+              .then(r=>r.ok?r.arrayBuffer():null)
+              .then(buf=>{if(buf){done++;realBytes+=buf.byteLength;tick();}else{fail++;tick();}})
+              .catch(()=>{fail++;tick();});
 
         promise.finally(()=>{
           active--;

@@ -318,6 +318,19 @@ async function renderSessionList(){
     </div>
     <div class="sess-adddl-panel" id="adp-${s.id}" style="display:none">
       <div class="adp-title">追加ダウンロード — レイヤー選択</div>
+      <div class="adp-zoom-row">
+        <span class="adp-zoom-label">ズーム:</span>
+        <select class="adp-zsel" id="adp-zmin-${s.id}" onchange="updAddLayerEst('${s.id}')">
+          ${Array.from({length:(s.zmax||15)-(s.zmin||11)+1},(_,i)=>(s.zmin||11)+i)
+            .map(z=>`<option value="${z}"${z===(s.zmin||11)?' selected':''}">Z${z}</option>`).join('')}
+        </select>
+        <span class="adp-zoom-sep">〜</span>
+        <select class="adp-zsel" id="adp-zmax-${s.id}" onchange="updAddLayerEst('${s.id}')">
+          ${Array.from({length:(s.zmax||15)-(s.zmin||11)+1},(_,i)=>(s.zmin||11)+i)
+            .map(z=>`<option value="${z}"${z===(s.zmax||15)?' selected':''}">Z${z}</option>`).join('')}
+        </select>
+        <span class="adp-zoom-hint" id="adp-zhint-${s.id}"></span>
+      </div>
       <div class="adp-layers">
         ${ALL_LAYERS.map(lk=>{
           const done = (s.srcKeys||[]).includes(lk);
@@ -571,10 +584,71 @@ async function openAddLayerPanel(sessId){
   if(sess){
     const scanResult = await _scanAdpTiles(sess);
     _renderAdpZoomStatus(sessId, sess, scanResult);
-    // チェックボックスを正味未DL数で再評価
     _updateAdpCheckboxes(sessId, sess, scanResult);
+    // ── ズーム選択肢から「全レイヤーで済み」のズームを除外 ──
+    _filterDoneZoomsFromSelect(sessId, sess, scanResult);
   }
   await updAddLayerEst(sessId);
+}
+
+/**
+ * スキャン結果を元に、全レイヤーで done のズームを
+ * adp-zmin / adp-zmax の選択肢から除去し、
+ * デフォルト値を未DLの最小/最大ズームに設定する。
+ */
+function _filterDoneZoomsFromSelect(sessId, sess, scanResult){
+  const zminSel = document.getElementById(`adp-zmin-${sessId}`);
+  const zmaxSel = document.getElementById(`adp-zmax-${sessId}`);
+  const hintEl  = document.getElementById(`adp-zhint-${sessId}`);
+  if(!zminSel || !zmaxSel) return;
+
+  const zmin = sess.zmin || 11;
+  const zmax = sess.zmax || 15;
+  const ALL_LAYERS = ['std','photo','topo'];
+
+  // ズームごとに「全レイヤーで done」かを判定
+  const doneZooms = new Set();
+  for(let z = zmin; z <= zmax; z++){
+    const allDone = ALL_LAYERS.every(lk=>{
+      const lkData = scanResult[lk];
+      if(!lkData || !lkData.perZoom) return false;
+      return lkData.perZoom[z]?.status === 'done';
+    });
+    if(allDone) doneZooms.add(z);
+  }
+
+  // selectの選択肢を再構築（全済みズームを除外）
+  const available = [];
+  for(let z = zmin; z <= zmax; z++){
+    if(!doneZooms.has(z)) available.push(z);
+  }
+
+  if(!available.length){
+    // 全ズーム済み: selectをdisabledに
+    zminSel.innerHTML = `<option>済</option>`;
+    zmaxSel.innerHTML = `<option>済</option>`;
+    zminSel.disabled = true;
+    zmaxSel.disabled = true;
+    if(hintEl) hintEl.textContent = '（全ズーム取得済み）';
+    return;
+  }
+
+  const mkOpts = (sel, defaultVal) => {
+    sel.innerHTML = available.map(z=>
+      `<option value="${z}"${z===defaultVal?' selected':''}>Z${z}</option>`
+    ).join('');
+    sel.disabled = false;
+  };
+  mkOpts(zminSel, available[0]);
+  mkOpts(zmaxSel, available[available.length - 1]);
+
+  // 済みズームがあればヒント表示
+  if(doneZooms.size){
+    const doneList = [...doneZooms].map(z=>`Z${z}`).join('・');
+    if(hintEl) hintEl.textContent = `（${doneList} 取得済み）`;
+  } else {
+    if(hintEl) hintEl.textContent = '';
+  }
 }
 
 function closeAddLayerPanel(sessId){
@@ -658,8 +732,9 @@ async function updAddLayerEst(sessId){
 
   const b = sess.bounds;
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
-  const zmin = sess.zmin || 11;
-  const zmax = sess.zmax || 15;
+  // ズームselectの値を使用（なければセッション値にフォールバック）
+  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 11;
+  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 15;
   const total = (typeof cntTiles === 'function') ? cntTiles(bounds, zmin, zmax) : 0;
 
   // スキャンキャッシュを使って正味追加バイト数を計算
@@ -669,11 +744,17 @@ async function updAddLayerEst(sessId){
     for(const lk of selected){
       const lkData = scanResult[lk];
       const kb = (typeof LAYER_KB !== 'undefined' && LAYER_KB[lk]) || 7;
-      const alreadyCached = lkData ? (lkData.cached || 0) : 0;
-      netBytes += Math.max(0, total - alreadyCached) * kb * 1024;
+      // ズーム選択範囲内のキャッシュ済み枚数を集計
+      let alreadyCached = 0;
+      if(lkData && lkData.perZoom){
+        for(let z = zmin; z <= zmax; z++){
+          alreadyCached += lkData.perZoom[z]?.cached || 0;
+        }
+      }
+      const totalInRange = (typeof cntTiles === 'function') ? cntTiles(bounds, zmin, zmax) : total;
+      netBytes += Math.max(0, totalInRange - alreadyCached) * kb * 1024;
     }
   } else {
-    // スキャン未完了フォールバック
     netBytes = (typeof estBytesLayers === 'function') ? estBytesLayers(total, selected) : 0;
   }
 
@@ -681,9 +762,9 @@ async function updAddLayerEst(sessId){
   const overLimit = netBytes > DL_SESSION_MAX;
 
   if(estEl){
-    estEl.textContent = `正味追加: 約 ${netMb} MB（${selected.length}レイヤー）`;
+    estEl.textContent = `正味追加: 約 ${netMb} MB（Z${zmin}〜Z${zmax} · ${selected.length}レイヤー）`;
     estEl.style.color = overLimit ? 'var(--red,#ff6b6b)' : '';
-    if(overLimit) estEl.textContent += ' — 100MB超過：ズームを下げてください';
+    if(overLimit) estEl.textContent += ' — 100MB超過';
   }
   if(btn) btn.disabled = overLimit || netBytes === 0;
 }
@@ -699,6 +780,9 @@ async function startAddLayerDl(sessId){
 
   const b = sess.bounds;
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
+  // ズームselectの値を優先（なければセッション値）
+  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 11;
+  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 15;
 
   // パネルをDL中UIに切り替え（パネルは閉じない）
   _adpShowProgress(sessId, selected);
@@ -712,7 +796,7 @@ async function startAddLayerDl(sessId){
     _adpShowDone(sessId);
     await refreshCache();
   };
-  await runDl('detail', bounds, sess.zmin||11, sess.zmax||15, selected, 0);
+  await runDl('detail', bounds, zmin, zmax, selected, 0);
   window.saveDlSession = origSave;
   await refreshCache();
 }
