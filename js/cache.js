@@ -714,16 +714,19 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
     const badgeEl = ck.parentElement?.querySelector('.adp-lk-badge');
     const labelEl = ck.parentElement;
 
-    // srcKeysに含まれる = セッション当初からDL済み → 変更不要（HTML生成時にdisabled checked済み）
-    const alreadyInSess = (sess.srcKeys||[]).includes(lk);
-    if(alreadyInSess) return;
+    // srcKeysに含まれていてもズームが未DLの場合があるため早期returnしない
+    // → スキャン結果で allDone を判定して状態を上書きする
 
-    // スキャン結果が取れなかった場合はenabledに戻して「未」表示
+    // スキャン結果が取れなかった場合
     const lkData = scanResult[lk];
     if(!lkData || !lkData.perZoom){
-      ck.disabled = false;
-      ck.checked  = false;
-      if(badgeEl) badgeEl.textContent = '未';
+      // srcKeysに含まれる = 一度DL済みなので済み表示のまま
+      const alreadyInSess = (sess.srcKeys||[]).includes(lk);
+      if(!alreadyInSess){
+        ck.disabled = false;
+        ck.checked  = false;
+        if(badgeEl) badgeEl.textContent = '未';
+      }
       return;
     }
 
