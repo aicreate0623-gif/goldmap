@@ -180,8 +180,8 @@ async function saveDlSession(opts){
     totalSize:     opts.totalSize     || 0,
     srcKeys:       opts.srcKeys       || [],
     bounds:        opts.bounds        || null,
-    zmin:          opts.zmin          || 10,
-    zmax:          opts.zmax          || 16,
+    zmin:          opts.zmin          || 11,
+    zmax:          opts.zmax          || 15,
     pendingChunks: opts.pendingChunks || null, // 分割DL残チャンク [{zmin,zmax},...]
     pendingZmin:   opts.pendingZmin   || null, // 次チャンクの開始zmin（表示用）
   };
@@ -320,12 +320,12 @@ async function renderSessionList(){
       <div class="adp-title">追加ダウンロード — レイヤー選択</div>
       <div class="adp-zoom-row">
         <span class="adp-zoom-label">ズーム:</span>
-        <select class="adp-zsel" id="adp-zmin-${s.id}" onchange="updAddLayerEst('${s.id}')">
+        <select class="adp-zsel" id="adp-zmin-${s.id}" onchange="onAdpZoomChange('${s.id}')">
           ${Array.from({length:14},(_,i)=>i+5)
             .map(z=>`<option value="${z}">Z${z}</option>`).join('')}
         </select>
         <span class="adp-zoom-sep">〜</span>
-        <select class="adp-zsel" id="adp-zmax-${s.id}" onchange="updAddLayerEst('${s.id}')">
+        <select class="adp-zsel" id="adp-zmax-${s.id}" onchange="onAdpZoomChange('${s.id}')">
           ${Array.from({length:14},(_,i)=>i+5)
             .map(z=>`<option value="${z}">Z${z}</option>`).join('')}
         </select>
@@ -603,8 +603,8 @@ async function openAddLayerPanel(sessId){
     const scanResult = await _scanAdpTiles(sess);
     _renderAdpZoomStatus(sessId, sess, scanResult);
     _renderAdpZoomHint(sessId, scanResult);
-    _updateAdpCheckboxes(sessId, sess, scanResult);  // ①チェックボックス状態を確定
-    _setAdpZoomDefaults(sessId, scanResult);          // ②ズームデフォルト値を自動セット
+    _setAdpZoomDefaults(sessId, scanResult);          // ①ズームデフォルト値を先にセット
+    _updateAdpCheckboxes(sessId, sess, scanResult);  // ②正しいズーム範囲でチェックボックスを判定
   }
   await updAddLayerEst(sessId);
 }
@@ -694,22 +694,31 @@ function _renderAdpZoomStatus(sessId, sess, scanResult){
 
 /**
  * スキャン結果を元にチェックボックスの有効/無効・バッジを更新。
- * - srcKeysに含まれるレイヤー（DL済み）: disabled + checked + ✅ 済
- * - 全ズームが done のレイヤー          : disabled + checked + ✅ 済
- * - 未DL・partialのレイヤー            : enabled  + unchecked + 未
+ *
+ * 判定基準：adp-zmin〜adp-zmax で選択されているズーム範囲内に
+ * 「done でないズーム（未 or partial）」が1つでもあれば enabled+unchecked。
+ * 選択ズーム範囲内が全て done であれば disabled+checked（✅ 済）。
+ *
+ * srcKeys の有無だけで済み判定しない（ズームの一部未DLを見逃すバグを修正）。
+ *
+ * - 選択ズーム範囲内が全て done : disabled + checked + ✅ 済
+ * - 未DL・partial が1つでもある : enabled  + unchecked + 未DL or ⚠一部
  */
 function _updateAdpCheckboxes(sessId, sess, scanResult){
   const ALL_LAYERS = ['std','photo','topo'];
+
+  // 現在のadp zmin/zmax selectの値を取得（まだ設定前の場合はADP_SCAN全域で判定）
+  const zminEl = document.getElementById(`adp-zmin-${sessId}`);
+  const zmaxEl = document.getElementById(`adp-zmax-${sessId}`);
+  const evalZmin = zminEl ? (parseInt(zminEl.value) || ADP_SCAN_ZMIN) : ADP_SCAN_ZMIN;
+  const evalZmax = zmaxEl ? (parseInt(zmaxEl.value) || ADP_SCAN_ZMAX) : ADP_SCAN_ZMAX;
+
   ALL_LAYERS.forEach(lk => {
     const ck = document.querySelector(`.adp-ck[data-sess="${sessId}"][data-lk="${lk}"]`);
     if(!ck) return;
 
     const badgeEl = ck.parentElement?.querySelector('.adp-lk-badge');
     const labelEl = ck.parentElement;
-
-    // srcKeysに含まれる = セッション当初からDL済み → 変更不要（HTML生成時にdisabled checked済み）
-    const alreadyInSess = (sess.srcKeys||[]).includes(lk);
-    if(alreadyInSess) return;
 
     // スキャン結果が取れなかった場合はenabledに戻して「未」表示
     const lkData = scanResult[lk];
@@ -720,13 +729,20 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
       return;
     }
 
-    // 全ズームがdone（ADP_SCAN_ZMINからADP_SCAN_ZMAXまで）かどうか判定
+    // 選択ズーム範囲内で「タイルが存在するズームが全て done」かどうか判定
+    // タイルが1枚も存在しないズームは無視（bounds外や低ズームで発生）
+    // タイルが存在するズームが1つもなければ「未DL」扱い（スキャン不備を安全側に倒す）
     let allDone = true;
-    for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
+    let hasTiles = false;
+    for(let z = evalZmin; z <= evalZmax; z++){
       const pz = lkData.perZoom[z];
-      if(!pz || pz.total === 0) continue; // タイルが存在しないズームは無視
+      if(!pz || pz.total === 0) continue; // このズームはbounds内にタイルなし→スキップ
+      hasTiles = true;
       if(pz.status !== 'done'){ allDone = false; break; }
     }
+
+    // タイルが1枚も存在しないズーム範囲 → 安全のため未DL扱い
+    if(!hasTiles) allDone = false;
 
     if(allDone){
       ck.disabled = true;
@@ -781,6 +797,18 @@ function _setAdpZoomDefaults(sessId, scanResult){
   _setSelect(zmaxEl, Math.max(defaultZmin, defaultZmax));
 }
 
+/**
+ * adp-zmin / adp-zmax の onchange ハンドラ。
+ * ズーム範囲変更時にチェックボックスの済み判定を再評価してから容量推定を更新する。
+ */
+async function onAdpZoomChange(sessId){
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(!sess) return;
+  const cached = _adpScanCache[sessId];
+  if(cached) _updateAdpCheckboxes(sessId, sess, cached);
+  await updAddLayerEst(sessId);
+}
+
 async function updAddLayerEst(sessId){
   const sess = await dbGetSess(sessId).catch(()=>null);
   if(!sess||!sess.bounds) return;
@@ -796,8 +824,10 @@ async function updAddLayerEst(sessId){
 
   const b = sess.bounds;
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
-  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 10;
-  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 16;
+  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 11;
+  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 15;
+
+  // スピナー表示
   if(estEl) estEl.innerHTML = '<span class="adp-spinner"></span><span class="adp-est-scanning">計算中...</span>';
   if(btn) btn.disabled = true;
 
@@ -853,8 +883,8 @@ async function startAddLayerDl(sessId){
   const b = sess.bounds;
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
   // ズームselectの値を優先（なければセッション値）
-  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 10;
-  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 16;
+  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 11;
+  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 15;
 
   // パネルをDL中UIに切り替え（パネルは閉じない）
   _adpShowProgress(sessId, selected);
