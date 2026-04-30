@@ -646,7 +646,8 @@ function ckLayers(){
 function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M枚';if(n>=1e3)return Math.round(n/1e3)+'K枚';return n+'枚';}
 // レイヤー別1枚あたりKB係数（実測値ベース）
 // std: 地理院地図PNG ≈ 10KB、photo: 航空写真JPEG ≈ 18KB、topo: OpenTopoMap PNG ≈ 3KB
-const LAYER_KB = {std:10, photo:18, topo:3};
+// 1枚あたりKB係数（実測値ベース: 地理院2460枚/25.8MB・航空2499枚/66.8MB・地形図2848枚/33.8MB）
+const LAYER_KB = {std:11, photo:28, topo:12};
 function mbEst(n, lk){ const kb = (lk && LAYER_KB[lk]) || 10; return (n*kb/1024).toFixed(0); }
 // レイヤー配列を考慮した合計MB推定
 function mbEstLayers(tileCount, layers){
