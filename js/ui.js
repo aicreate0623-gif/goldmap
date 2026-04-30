@@ -1232,8 +1232,8 @@ function _dldInjectChunkLabel(total){
 function _dldSyncProgress(done, total, mb){
   const pct = total>0 ? Math.round(done/total*100) : 0;
   const el = id => document.getElementById(id);
-  if(el('dld-pb-done')) el('dld-pb-done').textContent = fmt(done);
-  if(el('dld-pb-tot'))  el('dld-pb-tot').textContent  = fmt(total);
+  if(el('dld-pb-done')) el('dld-pb-done').textContent = done.toLocaleString();
+  if(el('dld-pb-tot'))  el('dld-pb-tot').textContent  = total.toLocaleString();
   if(el('dld-pb-bar'))  el('dld-pb-bar').style.width  = pct+'%';
   if(el('dld-pb-mb'))   el('dld-pb-mb').textContent   = mb+' MB';
   // ダイアログ内ログミラー（200枚ごと）
@@ -1359,9 +1359,9 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
 
   // 統計リセット（キャッシュ済み分を done の初期値に）
   const _initDone = startIdx + cachedCount;
-  document.getElementById('pg-tot').textContent=fmt(total);
+  document.getElementById('pg-tot').textContent=total.toLocaleString();
   document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-_initDone));
-  document.getElementById('pg-done').textContent=fmt(_initDone);
+  document.getElementById('pg-done').textContent=_initDone.toLocaleString();
   document.getElementById('pg-bar').style.width=(total>0?Math.round(_initDone/total*100):0)+'%';
   document.getElementById('dl-log').textContent='';
 
@@ -1375,7 +1375,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     const processed=done+fail;
     const pct=total>0?Math.round(processed/total*100):0;
     const mbReal=(realBytes/1024/1024).toFixed(0)+' MB';
-    document.getElementById('pg-done').textContent=fmt(done);
+    document.getElementById('pg-done').textContent=done.toLocaleString();
     document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-processed));
     document.getElementById('pg-mb').textContent=mbReal;
     document.getElementById('pg-bar').style.width=pct+'%';
