@@ -320,6 +320,7 @@ async function renderSessionList(){
               ${done?'disabled checked':''} onchange="updAddLayerEst('${s.id}')">
             <span class="adp-lk-name">${LAYER_LABEL[lk]}</span>
             <span class="adp-lk-badge">${done?'✅ 済':'未'}</span>
+            <div class="adp-zoom-status" id="adp-zstatus-${s.id}-${lk}">⏳</div>
           </label>`;
         }).join('')}
       </div>
@@ -447,16 +448,193 @@ async function refreshCache(){
 // ═══════════════════════════════════════════
 //  追加レイヤーDLパネル
 // ═══════════════════════════════════════════
-function openAddLayerPanel(sessId){
+
+// パネルごとのIDBスキャン結果キャッシュ: sessId → {lk → {total,cached,perZoom}}
+const _adpScanCache = {};
+
+/**
+ * セッションのzmin〜zmaxについて各レイヤーの
+ * 総タイル数・既存タイル数をIndexedDBから計算してキャッシュする。
+ */
+async function _scanAdpTiles(sess){
+  if(_adpScanCache[sess.id]) return _adpScanCache[sess.id];
+
+  const b = sess.bounds;
+  if(!b || typeof cntTiles !== 'function'){
+    _adpScanCache[sess.id] = {};
+    return {};
+  }
+
+  const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
+  const zmin = sess.zmin || 11;
+  const zmax = sess.zmax || 15;
+  const ALL_LAYERS = ['std','photo','topo'];
+  const result = {};
+
+  for(const lk of ALL_LAYERS){
+    let totalAll = 0, cachedAll = 0;
+    const perZoom = {};
+
+    for(let z = zmin; z <= zmax; z++){
+      const tileCount = cntTiles(bounds, z, z);
+      totalAll += tileCount;
+
+      let zCached = 0;
+      try {
+        zCached = await _countCachedTilesForZoom(lk, z, bounds);
+      } catch(e){ zCached = 0; }
+      cachedAll += zCached;
+
+      // 3段階: 0→未、全数→済、途中→一部
+      const status = zCached === 0 ? 'none'
+                   : zCached >= tileCount ? 'done'
+                   : 'partial';
+      perZoom[z] = { total: tileCount, cached: zCached, status };
+    }
+
+    result[lk] = { total: totalAll, cached: cachedAll, perZoom };
+  }
+
+  _adpScanCache[sess.id] = result;
+  return result;
+}
+
+/**
+ * 指定レイヤー・ズームのbounds内タイルについてIDB存在数を返す。
+ */
+async function _countCachedTilesForZoom(lk, z, bounds){
+  const tiles = _tilesInBounds(bounds, z);
+  if(!tiles.length) return 0;
+
+  const prefix = `${lk}/${z}/`;
+  const allKeys = await new Promise((res, rej)=>{
+    const tx = db.transaction(ST, 'readonly');
+    const store = tx.objectStore(ST);
+    const keys = [];
+    const range = IDBKeyRange.bound(prefix, prefix + '\uffff', false, false);
+    const req = store.openKeyCursor(range);
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if(cursor){ keys.push(cursor.key); cursor.continue(); }
+      else res(keys);
+    };
+    req.onerror = e => rej(e);
+  });
+
+  const keySet = new Set(allKeys);
+  let count = 0;
+  for(const [x, y] of tiles){
+    if(keySet.has(`${lk}/${z}/${x}/${y}`)) count++;
+  }
+  return count;
+}
+
+/**
+ * bounds内のズームzのタイル座標 [x,y][] を返す。
+ */
+function _tilesInBounds(bounds, z){
+  const n = bounds.getNorth(), s = bounds.getSouth();
+  const w = bounds.getWest(),  e = bounds.getEast();
+  const lat2tile = lat => Math.floor(
+    (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI)
+    / 2 * Math.pow(2, z)
+  );
+  const lng2tile = lng => Math.floor((lng + 180) / 360 * Math.pow(2, z));
+  const xMin = lng2tile(w), xMax = lng2tile(e);
+  const yMin = lat2tile(n), yMax = lat2tile(s);
+  const tiles = [];
+  for(let x = xMin; x <= xMax; x++)
+    for(let y = yMin; y <= yMax; y++)
+      tiles.push([x, y]);
+  return tiles;
+}
+
+async function openAddLayerPanel(sessId){
   document.querySelectorAll('.sess-adddl-panel').forEach(p=>p.style.display='none');
   const panel = document.getElementById('adp-'+sessId);
-  if(panel) panel.style.display='block';
-  updAddLayerEst(sessId);
+  if(!panel) return;
+
+  // スキャン中表示
+  const estEl = document.getElementById('adp-est-'+sessId);
+  if(estEl) estEl.textContent = '⏳ DL状態を確認中…';
+
+  panel.style.display = 'block';
+
+  // IDBスキャン
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(sess){
+    const scanResult = await _scanAdpTiles(sess);
+    _renderAdpZoomStatus(sessId, sess, scanResult);
+    // チェックボックスを正味未DL数で再評価
+    _updateAdpCheckboxes(sessId, sess, scanResult);
+  }
+  await updAddLayerEst(sessId);
 }
 
 function closeAddLayerPanel(sessId){
   const panel = document.getElementById('adp-'+sessId);
   if(panel) panel.style.display='none';
+  delete _adpScanCache[sessId];
+}
+
+/**
+ * ズーム別DL状態をパネルに描画する。
+ */
+function _renderAdpZoomStatus(sessId, sess, scanResult){
+  const zmin = sess.zmin || 11;
+  const zmax = sess.zmax || 15;
+  const ALL_LAYERS = ['std','photo','topo'];
+
+  ALL_LAYERS.forEach(lk => {
+    const statusEl = document.getElementById(`adp-zstatus-${sessId}-${lk}`);
+    if(!statusEl) return;
+    const lkData = scanResult[lk];
+    if(!lkData || !lkData.perZoom){ statusEl.textContent = ''; return; }
+
+    // 連続する同状態をグループ化
+    const parts = [];
+    let groupStart = zmin, groupStatus = lkData.perZoom[zmin]?.status || 'none';
+    for(let z = zmin + 1; z <= zmax; z++){
+      const st = lkData.perZoom[z]?.status || 'none';
+      if(st !== groupStatus){
+        parts.push({ zs: groupStart, ze: z - 1, status: groupStatus });
+        groupStart = z; groupStatus = st;
+      }
+    }
+    parts.push({ zs: groupStart, ze: zmax, status: groupStatus });
+
+    const STATUS_LABEL = { done: '✅済', partial: '⚠一部', none: '未' };
+    const STATUS_COLOR = { done: '#4caf50', partial: '#ffaa00', none: '#888' };
+    statusEl.innerHTML = parts.map(p => {
+      const zLabel = p.zs === p.ze ? `z${p.zs}` : `z${p.zs}-${p.ze}`;
+      return `<span style="color:${STATUS_COLOR[p.status]};margin-right:6px">${zLabel}: ${STATUS_LABEL[p.status]}</span>`;
+    }).join('');
+  });
+}
+
+/**
+ * スキャン結果を元にチェックボックスの有効/無効を更新。
+ * 全ズームが済み(done)のレイヤーはdisabledにする。
+ */
+function _updateAdpCheckboxes(sessId, sess, scanResult){
+  const ALL_LAYERS = ['std','photo','topo'];
+  ALL_LAYERS.forEach(lk => {
+    const ck = document.querySelector(`.adp-ck[data-sess="${sessId}"][data-lk="${lk}"]`);
+    if(!ck) return;
+    const lkData = scanResult[lk];
+    if(!lkData) return;
+    // 元々DL済みレイヤー(srcKeys)はそのままdisabled
+    const alreadyInSess = (sess.srcKeys||[]).includes(lk);
+    if(alreadyInSess) return;
+    // スキャン結果で全済みならdisabledに変更
+    if(lkData.cached >= lkData.total && lkData.total > 0){
+      ck.disabled = true;
+      ck.checked  = true;
+      const badge = ck.closest('label')?.querySelector('.adp-lk-badge');
+      if(badge) badge.textContent = '✅ 済';
+      ck.closest('label')?.classList.add('adp-layer--done');
+    }
+  });
 }
 
 async function updAddLayerEst(sessId){
@@ -471,20 +649,37 @@ async function updAddLayerEst(sessId){
     if(btn)   btn.disabled = true;
     return;
   }
+
   const b = sess.bounds;
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
-  const tiles  = (typeof cntTiles==='function') ? cntTiles(bounds, sess.zmin||11, sess.zmax||15) : 0;
-  const mb     = (typeof mbEstLayers==='function') ? mbEstLayers(tiles, selected) : '—';
-  const overLimit = (typeof estBytesLayers==='function')
-    ? estBytesLayers(tiles, selected) > DL_SESSION_MAX : false;
+  const zmin = sess.zmin || 11;
+  const zmax = sess.zmax || 15;
+  const total = (typeof cntTiles === 'function') ? cntTiles(bounds, zmin, zmax) : 0;
+
+  // スキャンキャッシュを使って正味追加バイト数を計算
+  const scanResult = _adpScanCache[sessId];
+  let netBytes = 0;
+  if(scanResult){
+    for(const lk of selected){
+      const lkData = scanResult[lk];
+      const kb = (typeof LAYER_KB !== 'undefined' && LAYER_KB[lk]) || 7;
+      const alreadyCached = lkData ? (lkData.cached || 0) : 0;
+      netBytes += Math.max(0, total - alreadyCached) * kb * 1024;
+    }
+  } else {
+    // スキャン未完了フォールバック
+    netBytes = (typeof estBytesLayers === 'function') ? estBytesLayers(total, selected) : 0;
+  }
+
+  const netMb = (netBytes / 1024 / 1024).toFixed(0);
+  const overLimit = netBytes > DL_SESSION_MAX;
+
   if(estEl){
-    estEl.textContent = `約 ${mb} MB（${selected.length}レイヤー）`;
+    estEl.textContent = `正味追加: 約 ${netMb} MB（${selected.length}レイヤー）`;
     estEl.style.color = overLimit ? 'var(--red,#ff6b6b)' : '';
+    if(overLimit) estEl.textContent += ' — 100MB超過：ズームを下げてください';
   }
-  if(btn) btn.disabled = overLimit;
-  if(overLimit && estEl){
-    estEl.textContent += ' — 100MB超過：ズームを下げてください';
-  }
+  if(btn) btn.disabled = overLimit || netBytes === 0;
 }
 
 async function startAddLayerDl(sessId){
@@ -494,23 +689,118 @@ async function startAddLayerDl(sessId){
     .map(el=>el.dataset.lk);
   if(!selected.length){ showAlert('エラー','レイヤーを選択してください'); return; }
 
-  closeAddLayerPanel(sessId);
+  if(typeof runDl !== 'function'){ showAlert('エラー','DL機能が読み込まれていません'); return; }
+
   const b = sess.bounds;
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
 
-  // runDlを呼び出してDL（完了後にセッション更新）
-  if(typeof runDl !== 'function'){ showAlert('エラー','DL機能が読み込まれていません'); return; }
+  // パネルをDL中UIに切り替え（パネルは閉じない）
+  _adpShowProgress(sessId, selected);
+
   const origSave = window.saveDlSession;
-  // 一時的にsaveDlSessionをフック → addLayersToSessionに差し替え
   window.saveDlSession = async (opts)=>{
     window.saveDlSession = origSave;
     if(typeof addLayersToSession==='function'){
       await addLayersToSession(sessId, selected, opts.tileKeys||[], opts.totalSize||0);
     }
+    _adpShowDone(sessId);
     await refreshCache();
   };
   await runDl('detail', bounds, sess.zmin||11, sess.zmax||15, selected, 0);
-  // フックが未発火の場合（done=0）も元に戻す
   window.saveDlSession = origSave;
   await refreshCache();
+}
+
+/**
+ * 追加DLパネルをDL中モードに切り替える。
+ * ui.js の _dldLog / _dldProg を監視して進捗を表示する。
+ */
+function _adpShowProgress(sessId, layers){
+  const panel = document.getElementById('adp-'+sessId);
+  if(!panel) return;
+
+  // 選択UI → プログレスUIに差し替え
+  const layerNames = layers.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+  panel.querySelector('.adp-layers').style.display = 'none';
+  panel.querySelector('.adp-footer').style.display = 'none';
+
+  let prog = document.getElementById(`adp-prog-${sessId}`);
+  if(!prog){
+    prog = document.createElement('div');
+    prog.id = `adp-prog-${sessId}`;
+    prog.className = 'adp-progress-area';
+    panel.appendChild(prog);
+  }
+  prog.style.display = 'block';
+  prog.innerHTML = `
+    <div class="adp-prog-label">⬇ DL中: ${layerNames}</div>
+    <div class="adp-prog-bar-wrap">
+      <div class="adp-prog-bar" id="adp-pbar-${sessId}" style="width:0%"></div>
+    </div>
+    <div class="adp-prog-count" id="adp-pcnt-${sessId}">0 / —</div>
+    <div class="adp-prog-log"  id="adp-plog-${sessId}"></div>
+  `;
+
+  // ui.jsのdl-logとdl-progを監視してミラーする（MutationObserver）
+  _adpMirrorDlProgress(sessId);
+}
+
+function _adpMirrorDlProgress(sessId){
+  const srcLog  = document.getElementById('dl-log');
+  const srcProg = document.getElementById('dl-prog');
+  const dstCnt  = document.getElementById(`adp-pcnt-${sessId}`);
+  const dstBar  = document.getElementById(`adp-pbar-${sessId}`);
+  const dstLog  = document.getElementById(`adp-plog-${sessId}`);
+
+  if(!srcLog && !srcProg) return;
+
+  // インターバルポーリング（軽量・シンプル）
+  const timer = setInterval(()=>{
+    if(!document.getElementById(`adp-prog-${sessId}`)){ clearInterval(timer); return; }
+    if(srcProg){
+      const val = srcProg.value || 0;
+      const max = srcProg.max   || 1;
+      const pct = Math.round(val / max * 100);
+      if(dstBar) dstBar.style.width = pct + '%';
+      if(dstCnt) dstCnt.textContent = `${val} / ${max}（${pct}%）`;
+    }
+    if(srcLog && dstLog){
+      const last = srcLog.lastElementChild;
+      if(last) dstLog.textContent = last.textContent;
+    }
+  }, 300);
+}
+
+function _adpShowDone(sessId){
+  const panel = document.getElementById('adp-'+sessId);
+  if(!panel) return;
+  const prog = document.getElementById(`adp-prog-${sessId}`);
+  if(prog){
+    const bar = document.getElementById(`adp-pbar-${sessId}`);
+    if(bar){ bar.style.width = '100%'; bar.style.background = '#4caf50'; }
+    const cnt = document.getElementById(`adp-pcnt-${sessId}`);
+    if(cnt) cnt.textContent = '✅ DL完了';
+    const log = document.getElementById(`adp-plog-${sessId}`);
+    if(log) log.textContent = '';
+  }
+  // 閉じるボタンを表示
+  let closeBtn = document.getElementById(`adp-close-${sessId}`);
+  if(!closeBtn){
+    closeBtn = document.createElement('button');
+    closeBtn.id = `adp-close-${sessId}`;
+    closeBtn.className = 'btn accent';
+    closeBtn.style.cssText = 'margin-top:10px;width:100%';
+    closeBtn.textContent = '閉じる';
+    closeBtn.onclick = ()=>{
+      closeAddLayerPanel(sessId);
+      // プログレスエリアをリセット（次回オープン用）
+      const p = document.getElementById(`adp-prog-${sessId}`);
+      if(p) p.remove();
+      const lays = panel.querySelector('.adp-layers');
+      const foot = panel.querySelector('.adp-footer');
+      if(lays) lays.style.display = '';
+      if(foot) foot.style.display = '';
+    };
+    panel.appendChild(closeBtn);
+  }
 }

@@ -645,16 +645,16 @@ function ckLayers(){
 }
 function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M枚';if(n>=1e3)return Math.round(n/1e3)+'K枚';return n+'枚';}
 // レイヤー別1枚あたりKB係数（photo=20KB、その他=10KB）
-const LAYER_KB = {std:10, photo:20, topo:10};
-function mbEst(n, lk){ const kb = (lk && LAYER_KB[lk]) || 10; return (n*kb/1024).toFixed(0); }
+const LAYER_KB = {std:7, photo:20, topo:7};
+function mbEst(n, lk){ const kb = (lk && LAYER_KB[lk]) || 7; return (n*kb/1024).toFixed(0); }
 // レイヤー配列を考慮した合計MB推定
 function mbEstLayers(tileCount, layers){
-  const b = layers.reduce((s,lk)=>s+(LAYER_KB[lk]||10)*1024*tileCount, 0);
+  const b = layers.reduce((s,lk)=>s+(LAYER_KB[lk]||7)*1024*tileCount, 0);
   return (b/1024/1024).toFixed(0);
 }
 // 推定バイト数（レイヤー配列対応）
 function estBytesLayers(tileCount, layers){
-  return layers.reduce((s,lk)=>s+(LAYER_KB[lk]||10)*1024*tileCount, 0);
+  return layers.reduce((s,lk)=>s+(LAYER_KB[lk]||7)*1024*tileCount, 0);
 }
 
 function updBaseEst(){
