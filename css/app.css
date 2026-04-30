@@ -2907,3 +2907,47 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: var(--txt-dim, #888);
   margin-left: 2px;
 }
+
+/* ── 追加DL: 推定表示・スピナー ───────────────── */
+.adp-est {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 34px;
+  justify-content: center;
+}
+.adp-est-line {
+  display: block;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.adp-est-net {
+  color: var(--gold, #c8aa50);
+  font-weight: 600;
+}
+.adp-est-over {
+  color: var(--red, #ff5a47) !important;
+}
+.adp-est-total {
+  color: var(--txt-dim, rgba(244,240,232,0.45));
+}
+.adp-est-scanning {
+  font-size: 11px;
+  color: var(--txt-sub, rgba(244,240,232,0.52));
+  vertical-align: middle;
+}
+/* くるくるスピナー */
+.adp-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(200,170,80,0.25);
+  border-top-color: var(--gold, #c8aa50);
+  border-radius: 50%;
+  animation: adp-spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+@keyframes adp-spin {
+  to { transform: rotate(360deg); }
+}

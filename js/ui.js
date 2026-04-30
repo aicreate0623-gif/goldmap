@@ -1371,10 +1371,11 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
   const log=msg=>{const el=document.getElementById('dl-log');el.textContent=msg+'\n'+el.textContent;el.textContent=el.textContent.split('\n').slice(0,40).join('\n');};
 
   const tick=()=>{
-    const pct=total>0?Math.round(done/total*100):0;
+    const processed=done+fail;
+    const pct=total>0?Math.round(processed/total*100):0;
     const mbReal=(realBytes/1024/1024).toFixed(0)+' MB';
     document.getElementById('pg-done').textContent=fmt(done);
-    document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-done));
+    document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-processed));
     document.getElementById('pg-mb').textContent=mbReal;
     document.getElementById('pg-bar').style.width=pct+'%';
     // ミラーバー同期（オフラインタブ内）

@@ -356,6 +356,9 @@ function _esc(s){
   return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// セッション範囲矩形を管理するグローバル変数
+let _sessRectLayer = null;
+
 /** セッション中心にジャンプしlastUsedを更新 */
 async function jumpToSession(id){
   const sess = await dbGetSess(id).catch(()=>null);
@@ -363,6 +366,18 @@ async function jumpToSession(id){
   if(typeof map !== 'undefined'){
     map.setView(sess.center, sess.zoom||14);
     if(typeof switchTab==='function') switchTab('map');
+
+    // 既存の矩形を削除
+    if(_sessRectLayer){ map.removeLayer(_sessRectLayer); _sessRectLayer=null; }
+
+    // bounds があれば矩形を描画
+    if(sess.bounds){
+      const b = sess.bounds;
+      _sessRectLayer = L.rectangle(
+        [[b.s, b.w],[b.n, b.e]],
+        { color:'#c8aa50', weight:2, opacity:0.9, fillColor:'#c8aa50', fillOpacity:0.08, dashArray:'6 4' }
+      ).addTo(map);
+    }
   }
   await touchSession(id);
   await renderSessionList();
@@ -725,46 +740,56 @@ async function updAddLayerEst(sessId){
   const estEl = document.getElementById('adp-est-'+sessId);
   const btn   = document.getElementById('adp-btn-'+sessId);
   if(!selected.length){
-    if(estEl) estEl.textContent = 'レイヤーを選択してください';
+    if(estEl) estEl.innerHTML = '<span class="adp-est-line">レイヤーを選択してください</span>';
     if(btn)   btn.disabled = true;
     return;
   }
 
   const b = sess.bounds;
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
-  // ズームselectの値を使用（なければセッション値にフォールバック）
   const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 11;
   const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 15;
-  const total = (typeof cntTiles === 'function') ? cntTiles(bounds, zmin, zmax) : 0;
 
-  // スキャンキャッシュを使って正味追加バイト数を計算
-  const scanResult = _adpScanCache[sessId];
-  let netBytes = 0;
-  if(scanResult){
+  // スピナー表示
+  if(estEl) estEl.innerHTML = '<span class="adp-spinner"></span><span class="adp-est-scanning">計算中...</span>';
+  if(btn) btn.disabled = true;
+
+  // IDBスキャンで正確なキャッシュ済み数を取得
+  let netTiles = 0, totalTiles = 0;
+  try {
     for(const lk of selected){
-      const lkData = scanResult[lk];
       const kb = (typeof LAYER_KB !== 'undefined' && LAYER_KB[lk]) || 7;
-      // ズーム選択範囲内のキャッシュ済み枚数を集計
-      let alreadyCached = 0;
-      if(lkData && lkData.perZoom){
-        for(let z = zmin; z <= zmax; z++){
-          alreadyCached += lkData.perZoom[z]?.cached || 0;
-        }
+      for(let z = zmin; z <= zmax; z++){
+        const tileCount = (typeof cntTiles === 'function') ? cntTiles(bounds, z, z) : 0;
+        totalTiles += tileCount;
+        let cached = 0;
+        try { cached = await _countCachedTilesForZoom(lk, z, bounds); } catch(e){}
+        netTiles += Math.max(0, tileCount - cached);
       }
-      const totalInRange = (typeof cntTiles === 'function') ? cntTiles(bounds, zmin, zmax) : total;
-      netBytes += Math.max(0, totalInRange - alreadyCached) * kb * 1024;
     }
-  } else {
-    netBytes = (typeof estBytesLayers === 'function') ? estBytesLayers(total, selected) : 0;
-  }
+  } catch(e){ netTiles = 0; }
 
-  const netMb = (netBytes / 1024 / 1024).toFixed(0);
-  const overLimit = netBytes > DL_SESSION_MAX;
+  const avgKb = (()=>{
+    if(typeof LAYER_KB === 'undefined') return 7;
+    let sum = 0;
+    selected.forEach(lk => sum += (LAYER_KB[lk]||7));
+    return sum / selected.length;
+  })();
+
+  const netBytes   = netTiles   * avgKb * 1024;
+  const totalBytes = totalTiles * avgKb * 1024;
+  const netMb      = (netBytes   / 1024 / 1024).toFixed(0);
+  const totalMb    = (totalBytes / 1024 / 1024).toFixed(0);
+  const overLimit  = netBytes > DL_SESSION_MAX;
 
   if(estEl){
-    estEl.textContent = `正味追加: 約 ${netMb} MB（Z${zmin}〜Z${zmax} · ${selected.length}レイヤー）`;
-    estEl.style.color = overLimit ? 'var(--red,#ff6b6b)' : '';
-    if(overLimit) estEl.textContent += ' — 100MB超過';
+    estEl.innerHTML = `
+      <span class="adp-est-line adp-est-net${overLimit?' adp-est-over':''}">
+        未DL: 約 ${netMb} MB（${netTiles.toLocaleString()}枚）${overLimit?' — 100MB超過':''}
+      </span>
+      <span class="adp-est-line adp-est-total">
+        合計: 約 ${totalMb} MB（${totalTiles.toLocaleString()}枚） Z${zmin}〜Z${zmax}
+      </span>`;
   }
   if(btn) btn.disabled = overLimit || netBytes === 0;
 }
@@ -836,27 +861,24 @@ function _adpShowProgress(sessId, layers){
 }
 
 function _adpMirrorDlProgress(sessId){
-  const srcLog  = document.getElementById('dl-log');
-  const srcProg = document.getElementById('dl-prog');
-  const dstCnt  = document.getElementById(`adp-pcnt-${sessId}`);
-  const dstBar  = document.getElementById(`adp-pbar-${sessId}`);
-  const dstLog  = document.getElementById(`adp-plog-${sessId}`);
+  const dstCnt = document.getElementById(`adp-pcnt-${sessId}`);
+  const dstBar = document.getElementById(`adp-pbar-${sessId}`);
+  const dstLog = document.getElementById(`adp-plog-${sessId}`);
 
-  if(!srcLog && !srcProg) return;
-
-  // インターバルポーリング（軽量・シンプル）
+  // pg-bar / pg-done / pg-tot を参照（runDl が実際に更新する要素）
   const timer = setInterval(()=>{
     if(!document.getElementById(`adp-prog-${sessId}`)){ clearInterval(timer); return; }
-    if(srcProg){
-      const val = srcProg.value || 0;
-      const max = srcProg.max   || 1;
-      const pct = Math.round(val / max * 100);
-      if(dstBar) dstBar.style.width = pct + '%';
-      if(dstCnt) dstCnt.textContent = `${val} / ${max}（${pct}%）`;
-    }
+    const pgBar  = document.getElementById('pg-bar');
+    const pgDone = document.getElementById('pg-done');
+    const pgTot  = document.getElementById('pg-tot');
+    const pct    = pgBar ? pgBar.style.width : '0%';
+    if(dstBar) dstBar.style.width = pct;
+    if(dstCnt && pgDone && pgTot)
+      dstCnt.textContent = `${pgDone.textContent} / ${pgTot.textContent}（${pct}）`;
+    const srcLog = document.getElementById('dl-log');
     if(srcLog && dstLog){
-      const last = srcLog.lastElementChild;
-      if(last) dstLog.textContent = last.textContent;
+      const firstLine = srcLog.textContent.split('\n')[0] || '';
+      if(firstLine) dstLog.textContent = firstLine;
     }
   }, 300);
 }
