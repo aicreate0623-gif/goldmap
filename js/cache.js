@@ -598,6 +598,9 @@ async function openAddLayerPanel(sessId){
   const panel = document.getElementById('adp-'+sessId);
   if(!panel) return;
 
+  // 開くたびに最新状態を反映するためスキャンキャッシュを破棄
+  delete _adpScanCache[sessId];
+
   // スキャン中表示
   const estEl = document.getElementById('adp-est-'+sessId);
   if(estEl) estEl.textContent = '⏳ DL状態を確認中…';
