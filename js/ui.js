@@ -1450,7 +1450,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
       const _zoom     = (typeof map!=='undefined') ? map.getZoom() : zmax;
       const _label    = `${layers.join('・')} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
       const _bounds   = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
-      await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax});
+      await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
     }
   } else {
     log('⏸ 停止しました。続きから再開できます。');

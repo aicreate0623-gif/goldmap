@@ -184,6 +184,7 @@ async function saveDlSession(opts){
     zmax:          opts.zmax          || 15,
     pendingChunks: opts.pendingChunks || null, // 分割DL残チャンク [{zmin,zmax},...]
     pendingZmin:   opts.pendingZmin   || null, // 次チャンクの開始zmin（表示用）
+    mode:          opts.mode          || "detail", // "base" | "detail"
   };
   await dbPutSess(id, sess);
   return sess;
@@ -275,7 +276,13 @@ async function renderSessionList(){
   }
   if(info) info.textContent = `${(total/1024/1024).toFixed(0)}MB / ${(cacheMax/1024/1024).toFixed(0)}MB 使用中`;
 
-  if(!sessions.length){
+  // ベースセッションは別途 renderBaseDlStatus() で表示するため除外
+  const detailSessions = sessions.filter(s => s.mode !== 'base');
+
+  // renderBaseDlStatus は常に同期して更新
+  if(typeof renderBaseDlStatus === 'function') renderBaseDlStatus(sessions);
+
+  if(!detailSessions.length){
     container.innerHTML = '<div class="sess-empty">保存済みのオフラインエリアはありません</div>';
     return;
   }
@@ -283,7 +290,7 @@ async function renderSessionList(){
   const ALL_LAYERS = ['std','photo','topo'];
   const LAYER_LABEL = {std:'地理院地図', photo:'航空写真', topo:'地形図'};
 
-  const sorted = [...sessions].sort((a,b)=>b.lastUsed - a.lastUsed);
+  const sorted = [...detailSessions].sort((a,b)=>b.lastUsed - a.lastUsed);
   container.innerHTML = sorted.map(s=>{
     const mb   = ((s.totalSize||0)/1024/1024).toFixed(1);
     const date = new Date(s.createdAt).toLocaleDateString('ja-JP');
@@ -1004,4 +1011,37 @@ async function continueChunkedDl(sessId){
 
   await _runChunkedDl(bounds, layers, chunks, 0, sessId);
   await refreshCache();
+}
+
+/**
+ * ベースDLセクションの各レイヤー行にステータスを表示する。
+ * renderSessionList() から自動的に呼ばれる。
+ * @param {Array} sessions - dbGetAllSess() の結果（全セッション）
+ */
+function renderBaseDlStatus(sessions){
+  const LAYERS = ['std','photo','topo'];
+
+  LAYERS.forEach(lk => {
+    const el = document.getElementById('base-status-' + lk);
+    if(!el) return;
+
+    // そのレイヤーを含むベースセッションを探す
+    // 新規: mode === 'base' / 旧データ: bounds===null かつ Z5〜Z9 でフォールバック
+    const sess = sessions.find(s =>
+      Array.isArray(s.srcKeys) && s.srcKeys.includes(lk) &&
+      (
+        s.mode === 'base' ||
+        (!s.mode && !s.bounds && s.zmin <= 5 && s.zmax >= 9)
+      )
+    );
+
+    if(sess){
+      const mb = ((sess.totalSize || 0) / 1024 / 1024).toFixed(0);
+      el.innerHTML =
+        `<span class="base-saved-badge">✅ ${mb}MB</span>` +
+        `<button class="base-saved-del" onclick="deleteSessionWithConfirm('${sess.id}')" title="削除">🗑</button>`;
+    } else {
+      el.innerHTML = '';
+    }
+  });
 }

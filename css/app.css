@@ -3024,3 +3024,31 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   font-weight: 700;
   border-radius: var(--radius-md);
 }
+
+/* ── ベースDL 保存済みステータス表示 ── */
+.base-dl-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.base-saved-badge {
+  font-size: 11px;
+  color: #4caf50;
+  white-space: nowrap;
+}
+.base-saved-del {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--txt-sub);
+  line-height: 1;
+  border-radius: var(--radius-sm);
+}
+.base-saved-del:hover {
+  background: rgba(255,80,80,0.15);
+  color: #ff5555;
+}
