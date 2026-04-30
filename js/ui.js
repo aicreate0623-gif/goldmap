@@ -658,23 +658,32 @@ function estBytesLayers(tileCount, layers){
   return layers.reduce((s,lk)=>s+(LAYER_KB[lk]||10)*1024*tileCount, 0);
 }
 
-function updBaseEst(){
-  const zmax=parseInt(document.getElementById('base-zmax').value);
-  const L2=ckLayers().length||1, n=cntTiles(JAPAN,5,zmax)*L2;
-  document.getElementById('base-est').innerHTML=`Z5〜Z${zmax}、<b>${fmt(n)}</b>（約 <b>${mbEst(n)} MB</b>）<br><span style="font-size:10px;color:#907030">※ Z10全国は約3万枚×レイヤー数</span>`;
+// ═══════════════════════════════════════════
+//  全国ベースマップDL（Z5〜Z9 固定）
+// ═══════════════════════════════════════════
+
+/** レイヤーチェックボックス（全国ベースセクション用）を読む */
+function _ckBaseLayers(){
+  return ['std','photo','topo'].filter(k=>document.getElementById('base-ck-'+k)?.checked);
 }
-function updDetEst(){
-  const btn=document.getElementById('btn-dldet');
-  if(!detRect){document.getElementById('det-est').textContent='— 範囲を選択してください —';btn.disabled=true;return;}
-  const zmin=parseInt(document.getElementById('det-zmin').value),zmax=parseInt(document.getElementById('det-zmax').value);
-  const L2=ckLayers().length||1, n=cntTiles(detRect,zmin,zmax)*L2;
-  document.getElementById('det-est').innerHTML=`Z${zmin}〜Z${zmax}、<b>${fmt(n)}</b>（約 <b>${mbEst(n)} MB</b>）`;
-  btn.disabled=false;
+
+/** 推定MB表示を更新（アコーディオン展開時・チェック変更時に呼ばれる） */
+function updBaseNDlEst(){
+  const el = document.getElementById('base-n-est');
+  if(!el) return;
+  const layers = _ckBaseLayers();
+  if(!layers.length){ el.textContent = '— MB'; return; }
+  const n = cntTiles(JAPAN, 5, 9);
+  const mb = mbEstLayers(n, layers);
+  el.textContent = `約 ${mb} MB`;
 }
-['ck-std','ck-photo','ck-topo'].forEach(id=>{ document.getElementById(id).onchange=()=>{updBaseEst();updDetEst();}; });
-document.getElementById('base-zmax').onchange=updBaseEst;
-document.getElementById('det-zmin').onchange=updDetEst;
-document.getElementById('det-zmax').onchange=updDetEst;
+
+/** 全国ベースDL開始（Z5〜Z9固定・JAPAN全域） */
+async function startBaseNDl(){
+  const layers = _ckBaseLayers();
+  if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
+  await runDl('base', JAPAN, 5, 9, layers, 0);
+}
 
 // ═══════════════════════════════════════════
 //  矩形選択（drawRect系のみ）
@@ -1282,7 +1291,7 @@ async function resumeDl(){
   if(s.mode==='base') bounds=JAPAN;
   else {
     bounds=L.latLngBounds([s.bounds.s,s.bounds.w],[s.bounds.n,s.bounds.e]);
-    detRect=bounds; showRect(); updDetEst();
+    detRect=bounds; showRect();
   }
   await runDl(s.mode, bounds, s.zmin, s.zmax, layers, s.taskIndex);
 }
@@ -1292,21 +1301,6 @@ async function resumeDl(){
 // ═══════════════════════════════════════════
 let dlRun=false, dlStop=false;
 const CONCUR=6;
-
-async function startDl(mode){
-  if(dlRun)return;
-  const layers=ckLayers(); if(!layers.length){showAlert('エラー','レイヤーを1つ以上選択してください');return;}
-  let bounds,zmin,zmax;
-  if(mode==='base'){
-    bounds=JAPAN; zmin=5; zmax=parseInt(document.getElementById('base-zmax').value);
-  }else{
-    if(!detRect){showAlert('エラー','範囲を選択してください');return;}
-    bounds=detRect;
-    zmin=parseInt(document.getElementById('det-zmin').value);
-    zmax=parseInt(document.getElementById('det-zmax').value);
-  }
-  await runDl(mode, bounds, zmin, zmax, layers, 0);
-}
 
 async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
   if(dlRun)return;
@@ -1352,16 +1346,15 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
 
   dlRun=true; dlStop=false;
   document.getElementById('prog-section').classList.add('show');
-  // 進捗バー表示（オフラインタブ・設定タブ）
-  const _pbEl = document.getElementById('dl-progress-bar');
+  // 進捗バー表示（オフラインタブ）
   const _cfgEl = document.getElementById('cfg-dl-progress-bar');
-  if(_pbEl) _pbEl.style.display='block';
   if(_cfgEl) _cfgEl.style.display='block';
 
   // ボタン切替
   const SB=mode==='base'?document.getElementById('btn-stpbase'):document.getElementById('btn-stpdet');
   const DB2=mode==='base'?document.getElementById('btn-dlbase'):document.getElementById('btn-dldet');
-  SB.style.display='block'; DB2.disabled=true;
+  if(SB)  SB.style.display='block';
+  if(DB2) DB2.disabled=true;
 
   // 統計リセット（キャッシュ済み分を done の初期値に）
   const _initDone = startIdx + cachedCount;
@@ -1385,11 +1378,6 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-processed));
     document.getElementById('pg-mb').textContent=mbReal;
     document.getElementById('pg-bar').style.width=pct+'%';
-    // ミラーバー同期（オフラインタブ内）
-    const _pbd=document.getElementById('dl-pb-done'); if(_pbd) _pbd.textContent=fmt(done);
-    const _pbt=document.getElementById('dl-pb-tot');  if(_pbt) _pbt.textContent=fmt(total);
-    const _pbm=document.getElementById('dl-pb-mb');   if(_pbm) _pbm.textContent=mbReal;
-    const _pbb=document.getElementById('dl-pb-bar');  if(_pbb) _pbb.style.width=pct+'%';
     // DLダイアログ内バー同期
     if(typeof _dldSyncProgress==='function') _dldSyncProgress(done,total,mbReal);
     // DLダイアログ内ログミラー
@@ -1444,11 +1432,9 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     next();
   });
 
-  dlRun=false; SB.style.display='none'; DB2.disabled=false;
+  dlRun=false; if(SB) SB.style.display='none'; if(DB2) DB2.disabled=false;
   // 進捗バー非表示
-  const _pbElEnd = document.getElementById('dl-progress-bar');
   const _cfgElEnd = document.getElementById('cfg-dl-progress-bar');
-  if(_pbElEnd) _pbElEnd.style.display='none';
   if(_cfgElEnd) _cfgElEnd.style.display='none';
   if(!dlStop){
     // 完了したらレジューム削除

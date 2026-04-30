@@ -219,7 +219,7 @@ async function deleteSessionWithConfirm(id){
 /** 全キャッシュクリア（確認ダイアログ付き） */
 async function clearCacheWithConfirm(){
   const ok = await showConfirmDialog(
-    `⚠️ すべてのオフラインデータを削除しますか？\nDLセッション履歴も含めて完全に消去されます。\nこの操作は取り消せません。`,
+    `⚠️ すべてのオフラインデータを削除しますか？\n全国ベースマップ（Z5〜Z9）を含むDLセッション履歴も完全に消去されます。\nこの操作は取り消せません。`,
     '全削除', 'キャンセル'
   );
   if(!ok) return;
