@@ -105,11 +105,25 @@ function makeCachedLayer(srcKey){
       const key=tileKey(this._sk,z,x,y);
       const net=tileURL(this._sk,coords.z,coords.x,coords.y);
       if(!db){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); return img; }
-      dbGet(key).then(cached=>{
-        if(cached){ const type=this._sk==='photo'?'image/jpeg':'image/png'; img.src=URL.createObjectURL(new Blob([cached],{type})); }
-        else img.src=net;
-        img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-      }).catch(()=>{ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); });
+
+      // ── オンライン優先：ネット取得を試み失敗したらキャッシュにフォールバック ──
+      const type=this._sk==='photo'?'image/jpeg':'image/png';
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(), 5000); // 5秒タイムアウト
+      fetch(net,{signal:ctrl.signal})
+        .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
+        .then(buf=>{
+          img.src=URL.createObjectURL(new Blob([buf],{type}));
+          img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+        })
+        .catch(()=>{
+          // ネット失敗 → キャッシュにフォールバック
+          dbGet(key).then(cached=>{
+            if(cached) img.src=URL.createObjectURL(new Blob([cached],{type}));
+            else img.src=net; // キャッシュもなければ再試行
+            img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+          }).catch(()=>{ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); });
+        });
       return img;
     }
   });
