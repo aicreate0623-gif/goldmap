@@ -509,8 +509,9 @@ async function refreshCache(){
 // パネルごとのIDBスキャン結果キャッシュ: sessId → {lk → {total,cached,perZoom}}
 const _adpScanCache = {};
 
-// 追加DLパネルでスキャンするズーム範囲（IDB実在タイルを漏れなく検知するため広めに設定）
-const ADP_SCAN_ZMIN = 5;
+// 追加DLパネルでスキャンするズーム範囲
+// ベースDLがZ5〜Z9のため、追加DLはZ10以上を対象とする
+const ADP_SCAN_ZMIN = 10;
 const ADP_SCAN_ZMAX = 18;
 
 /**
@@ -852,8 +853,9 @@ async function _setAdpZoomDefaults(sessId){
     zminEl.innerHTML = `<option value="${recZmin}">Z${recZmin}</option>`;
   }
 
-  // zmax select: recZmin 以上で最近い選択肢を選ぶ（推奨上限はZ16）
-  const recZmax = Math.min(Math.max(recZmin, recZmin), 16);
+  // zmax select: recZmin 以上で最近い選択肢を選ぶ
+  // recZmin が推奨上限(16)を超えている場合はそのまま recZmin をデフォルトにする
+  const recZmax = Math.max(recZmin, 16);
   const opt = [...zmaxEl.options].find(o => parseInt(o.value) >= recZmax);
   if(opt) zmaxEl.value = opt.value;
 }
@@ -962,8 +964,10 @@ async function startAddLayerDl(sessId){
   // パネルをDL中UIに切り替え（パネルは閉じない）
   _adpShowProgress(sessId, selected);
 
+  let hookCalled = false;
   const origSave = window.saveDlSession;
   window.saveDlSession = async (opts)=>{
+    hookCalled = true;
     window.saveDlSession = origSave;
     if(typeof addLayersToSession==='function'){
       await addLayersToSession(sessId, selected, opts.tileKeys||[], opts.totalSize||0, zmax);
@@ -973,7 +977,11 @@ async function startAddLayerDl(sessId){
   };
   await runDl('detail', bounds, zmin, zmax, selected, 0);
   window.saveDlSession = origSave;
-  // saveDlSessionが呼ばれなかった場合（done===0等）も完了UIを確実に出す
+  // done===0（全キャッシュ済み）等でフックが呼ばれなかった場合も
+  // セッションのzmax/srcKeysだけは必ず更新する
+  if(!hookCalled && typeof addLayersToSession==='function'){
+    await addLayersToSession(sessId, selected, [], 0, zmax);
+  }
   _adpShowDone(sessId);
   await refreshCache();
 }
