@@ -1,3 +1,8 @@
+
+All jobs
+Run details
+Workflow file for this run
+.github/workflows/gen-heatmap.yml at 870896e
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # gen-heatmap.yml  砂金投稿座標 → heatmap.json 自動生成
 #
@@ -42,14 +47,12 @@ jobs:
       - name: Decode Firebase SA key
         run: |
           echo "${{ secrets.FIREBASE_SA_KEY }}" | base64 -d > /tmp/sa_key.json
-
       - name: Generate heatmap.json
         env:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa_key.json
         run: |
           python scripts/gen_heatmap.py
-
       - name: Commit & Push
         run: |
           git config user.name  "github-actions[bot]"
