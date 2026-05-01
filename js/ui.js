@@ -914,28 +914,17 @@ function _dldWatchDraw(){
     if(_dldStep !== 1){ clearInterval(timer); return; }
     if(_drawPending){
       clearInterval(timer);
-      // 概算計算機を表示・初期計算
+      // 概算計算機を表示
       const calcEl = document.getElementById('dld-s1-est');
       const clrBtn = document.getElementById('dld-draw-clear');
       if(calcEl) calcEl.style.display = '';
       if(clrBtn) clrBtn.style.display = '';
-      _dldSyncAndCalc();
-      // 100MB超過チェック（超過時は範囲リセットして再ドラッグ待ち）
-      const zmax     = document.getElementById('s1-zmax')?.value || '15';
-      const chkLayers2 = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
-      const layersForCheck = chkLayers2.length ? chkLayers2 : ['std'];
-      if(_dldCheckSize(_drawPending, zmax, layersForCheck)){
-        _drawPending = null;
-        _clearDrawPreview();
-        _dldResetS1Est();
-        if(!drawMode) _enterDrawMode();
-        _dldWatchDraw();
-        return;
-      }
       const hint = document.getElementById('dld-draw-hint');
-      const ok   = document.getElementById('dld-draw-ok');
       if(hint) hint.textContent = '範囲が選択されました。概算を確認して確定してください';
-      if(ok)   ok.disabled = false;
+      // OKボタンをいったん有効化 → _dldSyncAndCalc内で100MB超過なら無効化
+      const ok = document.getElementById('dld-draw-ok');
+      if(ok) ok.disabled = false;
+      _dldSyncAndCalc();
     }
   }, 150);
 }
@@ -984,9 +973,18 @@ function _dldSyncAndCalc(){
     tot.style.color = 'var(--txt-dim)';
     return;
   }
-  const mb = mbEstLayers(base, chkLayers);
-  tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB（${fmt(base * chkLayers.length)}）`;
-  tot.style.color = '';
+  const eb  = estBytesLayers(base, chkLayers);
+  const mb  = (eb / 1024 / 1024).toFixed(0);
+  const over = eb > DL_SESSION_MAX;
+  tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB（${fmt(base * chkLayers.length)}）${over ? ' — 100MB超過' : ''}`;
+  tot.style.color = over ? '#ff5a47' : '';
+
+  // 100MB超過時は確定ボタンを無効化・解消時は再有効化
+  // （_drawPendingがある＝ドラッグ完了済みの場合のみボタン状態を操作）
+  if(_drawPending){
+    const ok = document.getElementById('dld-draw-ok');
+    if(ok) ok.disabled = over;
+  }
 }
 
 // ── 100MB超過チェック共通（true=超過）──────────────────────
