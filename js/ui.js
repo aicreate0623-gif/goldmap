@@ -1125,11 +1125,28 @@ function _dldClearDraw(){
 }
 
 // ── STEP2: 確定ボタン → STEP3へ ────────────────────────
-function _dldConfirmDraw(){
+async function _dldConfirmDraw(){
   if(!_drawPending) return;
-  const zmax     = document.getElementById('s1-zmax')?.value || '15';
+  const zmax      = document.getElementById('s1-zmax')?.value || '15';
   const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
   if(_dldCheckSize(_drawPending, zmax, chkLayers.length ? chkLayers : ['std'])) return;
+
+  // ── ベースDL未完了チェック ──────────────────────────
+  if(typeof getBaseDlDoneLayers === 'function'){
+    const baseDone  = await getBaseDlDoneLayers();
+    const needBase  = chkLayers.filter(lk => !baseDone.has(lk));
+    if(needBase.length){
+      const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+      // STEP2のヒントエリアに警告を表示（ダイアログは閉じない）
+      const hint = document.getElementById('dld-draw-hint');
+      if(hint) hint.innerHTML =
+        `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
+        `<br><button class="btn sm" style="margin-top:6px"
+          onclick="_dldCancel();switchTab('offline')">📥 ベースDLへ</button>`;
+      return; // STEP3には進まない
+    }
+  }
+
   _dldBounds   = _drawPending;
   _drawPending = null;
   _showDrawPreview(_dldBounds);
@@ -1540,7 +1557,7 @@ function stopDl(){dlStop=true;}
 // ═══════════════════════════════════════════
 //  追加レイヤーDL完了後にセッションを更新
 // ═══════════════════════════════════════════
-async function addLayersToSession(sessId, newLayers, newTileKeys, addedBytes){
+async function addLayersToSession(sessId, newLayers, newTileKeys, addedBytes, newZmax){
   try {
     const sess = await dbGetSess(sessId);
     if(!sess) return;
@@ -1548,7 +1565,11 @@ async function addLayersToSession(sessId, newLayers, newTileKeys, addedBytes){
     sess.tileKeys  = [...new Set([...(sess.tileKeys||[]), ...newTileKeys])];
     sess.totalSize = (sess.totalSize||0) + addedBytes;
     sess.lastUsed  = Date.now();
-    sess.label     = `${sess.srcKeys.join('・')} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
+    // zmax を追加DLの上限で更新（次回追加DLのzmin基準になる）
+    if(typeof newZmax === 'number' && newZmax > (sess.zmax||0)){
+      sess.zmax = newZmax;
+    }
+    sess.label = `${sess.srcKeys.join('・')} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
     await dbPutSess(sessId, sess);
   } catch(e){ console.error('addLayersToSession error', e); }
 }

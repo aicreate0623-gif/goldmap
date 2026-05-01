@@ -119,6 +119,21 @@ function makeCachedLayer(srcKey){
 //  セッション管理ユーティリティ
 // ═══════════════════════════════════════════
 
+/**
+ * mode==='base' のセッションからDL済みレイヤーのSetを返す。
+ * @returns {Promise<Set<string>>}  例: Set{'std','photo'}
+ */
+async function getBaseDlDoneLayers(){
+  const sessions = await dbGetAllSess();
+  const done = new Set();
+  sessions.forEach(s => {
+    if(s.mode === 'base' || (!s.mode && !s.bounds && s.zmin <= 5 && s.zmax >= 9)){
+      (s.srcKeys || []).forEach(lk => done.add(lk));
+    }
+  });
+  return done;
+}
+
 /** 全セッションの合計サイズ（バイト） */
 async function calcTotalCacheSize(){
   const sessions = await dbGetAllSess();
@@ -327,14 +342,13 @@ async function renderSessionList(){
       <div class="adp-title">追加ダウンロード — レイヤー選択</div>
       <div class="adp-zoom-row">
         <span class="adp-zoom-label">ズーム:</span>
-        <select class="adp-zsel" id="adp-zmin-${s.id}" onchange="updAddLayerEst('${s.id}')">
-          ${Array.from({length:14},(_,i)=>i+5)
-            .map(z=>`<option value="${z}">Z${z}</option>`).join('')}
+        <select class="adp-zsel" id="adp-zmin-${s.id}" disabled>
+          <option value="${(s.zmax||15)+1}">Z${(s.zmax||15)+1}</option>
         </select>
         <span class="adp-zoom-sep">〜</span>
         <select class="adp-zsel" id="adp-zmax-${s.id}" onchange="updAddLayerEst('${s.id}')">
           ${Array.from({length:14},(_,i)=>i+5)
-            .map(z=>`<option value="${z}">Z${z}</option>`).join('')}
+            .map(z=>`<option value="${z}">${z>=17?'⚠️ ':''}Z${z}</option>`).join('')}
         </select>
         <span class="adp-zoom-hint" id="adp-zhint-${s.id}"></span>
       </div>
@@ -614,7 +628,7 @@ async function openAddLayerPanel(sessId){
     _renderAdpZoomStatus(sessId, sess, scanResult);
     _renderAdpZoomHint(sessId, scanResult);
     _updateAdpCheckboxes(sessId, sess, scanResult);  // ①チェックボックス状態を確定
-    _setAdpZoomDefaults(sessId, scanResult);          // ②ズームデフォルト値を自動セット
+    await _setAdpZoomDefaults(sessId);               // ②ズームデフォルト値を自動セット
   }
   await updAddLayerEst(sessId);
 }
@@ -761,42 +775,27 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
 }
 
 /**
- * スキャン結果からズームデフォルト値を自動セット。
- * - 「未(none)」が最初に現れる最小ズーム → zmin
- * - 「未(none)」が最後に現れる最大ズーム → zmax
- * - 未が全くなければ Z10〜Z15
+ * ズームデフォルト値をセット。
+ * - zmin: sess.zmax+1 固定（select は disabled なので value 更新のみ）
+ * - zmax: min(sess.zmax+1, 16) を推奨デフォルトとする
+ *         ただし sess.zmax+1 が既に 16 超の場合はそのまま
  */
-function _setAdpZoomDefaults(sessId, scanResult){
-  const zminEl = document.getElementById(`adp-zmin-${sessId}`);
+async function _setAdpZoomDefaults(sessId){
   const zmaxEl = document.getElementById(`adp-zmax-${sessId}`);
-  if(!zminEl || !zmaxEl) return;
+  if(!zmaxEl) return;
 
-  const ALL_LAYERS = ['std','photo','topo'];
-  let firstNone = null;
-  let lastNone  = null;
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(!sess) return;
 
-  for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
-    // いずれかのレイヤーで「未」があればそのズームを候補とする
-    const hasNone = ALL_LAYERS.some(lk => {
-      const pz = scanResult[lk]?.perZoom?.[z];
-      return pz && pz.total > 0 && pz.status === 'none';
-    });
-    if(hasNone){
-      if(firstNone === null) firstNone = z;
-      lastNone = z;
-    }
-  }
+  const sessZmax   = sess.zmax || 15;
+  const nextZmin   = sessZmax + 1;
+  const defaultZmax = Math.min(Math.max(nextZmin, nextZmin), 16);
+  // nextZmin が 16 超の場合はそのまま nextZmin を推奨値にする
+  const recZmax = nextZmin > 16 ? nextZmin : defaultZmax;
 
-  const defaultZmin = firstNone !== null ? firstNone : 10;
-  const defaultZmax = lastNone  !== null ? lastNone  : 15;
-
-  // selectの選択肢の中で最近い値を選ぶ
-  const _setSelect = (el, val) => {
-    const opt = [...el.options].find(o => parseInt(o.value) === val);
-    if(opt) el.value = String(val);
-  };
-  _setSelect(zminEl, defaultZmin);
-  _setSelect(zmaxEl, Math.max(defaultZmin, defaultZmax));
+  // zmaxのselectで有効な最近い値を選択
+  const opt = [...zmaxEl.options].find(o => parseInt(o.value) >= recZmax);
+  if(opt) zmaxEl.value = opt.value;
 }
 
 async function updAddLayerEst(sessId){
@@ -814,8 +813,28 @@ async function updAddLayerEst(sessId){
 
   const b = sess.bounds;
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
-  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 11;
-  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 15;
+  const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || (sess.zmax||15) + 1;
+  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || 16;
+
+  // ── ベースDL未完了チェック ──────────────────────────────
+  const baseDone = await getBaseDlDoneLayers();
+  // 新規レイヤー（sess.srcKeys に未含まれる）かつベース未DLのものを抽出
+  const needBase = selected.filter(lk =>
+    !(sess.srcKeys||[]).includes(lk) && !baseDone.has(lk)
+  );
+  if(needBase.length){
+    const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+    if(estEl) estEl.innerHTML = `
+      <span class="adp-est-line adp-est-over">
+        ⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です
+      </span>
+      <span class="adp-est-line">
+        <button class="btn sm" style="margin-top:4px"
+          onclick="switchTab('offline')">📥 ベースDLへ</button>
+      </span>`;
+    if(btn) btn.disabled = true;
+    return;
+  }
 
   // スピナー表示
   if(estEl) estEl.innerHTML = '<span class="adp-spinner"></span><span class="adp-est-scanning">計算中...</span>';
@@ -848,6 +867,7 @@ async function updAddLayerEst(sessId){
   const netMb      = (netBytes   / 1024 / 1024).toFixed(0);
   const totalMb    = (totalBytes / 1024 / 1024).toFixed(0);
   const overLimit  = netBytes > DL_SESSION_MAX;
+  const overRec    = zmax > 16; // 推奨範囲外（Z17〜Z18）
 
   if(estEl){
     estEl.innerHTML = `
@@ -856,7 +876,10 @@ async function updAddLayerEst(sessId){
       </span>
       <span class="adp-est-line adp-est-total">
         合計: 約 ${totalMb} MB（${totalTiles.toLocaleString()}枚） Z${zmin}〜Z${zmax}
-      </span>`;
+      </span>
+      ${overRec ? `<span class="adp-est-line adp-est-warn">
+        ⚠️ Z17以上はデータ量が非常に大きくなります。Wi-Fi環境を推奨します
+      </span>` : ''}`;
   }
   if(btn) btn.disabled = overLimit || netBytes === 0;
 }
@@ -883,7 +906,7 @@ async function startAddLayerDl(sessId){
   window.saveDlSession = async (opts)=>{
     window.saveDlSession = origSave;
     if(typeof addLayersToSession==='function'){
-      await addLayersToSession(sessId, selected, opts.tileKeys||[], opts.totalSize||0);
+      await addLayersToSession(sessId, selected, opts.tileKeys||[], opts.totalSize||0, zmax);
     }
     _adpShowDone(sessId);
     await refreshCache();
