@@ -1212,6 +1212,17 @@ async function _dldStartDl(){
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!_dldBounds){    showAlert('エラー','範囲が選択されていません'); return; }
 
+  // ── ベースDL未完了チェック（STEP3でレイヤーを変更した場合も必ずガード）──
+  if(typeof getBaseDlDoneLayers === 'function'){
+    const baseDone = await getBaseDlDoneLayers();
+    const needBase = layers.filter(lk => !baseDone.has(lk));
+    if(needBase.length){
+      const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+      showAlert('ベースDLが必要です',`「${names}」はベースDL（Z5〜Z9 全国版）が完了していません。\nオフラインタブのベースDLを先に行ってください。`);
+      return;
+    }
+  }
+
   const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
   const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
 
@@ -1292,12 +1303,8 @@ function checkResume(){
   const modeStr=s.mode==='base'?'全日本ベース':'詳細範囲';
   const layerStr=_layerLabel(s.layers);
   const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
-  const _lkb=window._LAYER_KB||{std:11,photo:28,topo:12};
-  const _lks=s.layers||['std'];
-  const _kbPerTile=_lks.reduce((a,k)=>a+(_lkb[k]||10),0);
-  const mbDone=((s.taskIndex||0)*_kbPerTile/1024).toFixed(0);
   document.getElementById('resume-desc').innerHTML=
-    `${modeStr} / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${pct}%</b>（約${mbDone}MB 済）<br>保存: ${s.savedAt||'—'}`;
+    `${modeStr} / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
   banner.classList.add('show');
 }
 
