@@ -87,15 +87,19 @@ function tileKey(key,z,x,y){ return key+'/'+z+'/'+x+'/'+y; }
 // ═══════════════════════════════════════════
 // ── オフライン低解像度フォールバック ON/OFF ──────────
 let _offlineFallback = localStorage.getItem('offlineFallback') !== 'false';
+function _applyFallbackBtn(){
+  const btn = document.getElementById('btn-offline-fallback');
+  if(!btn) return;
+  btn.classList.toggle('active', _offlineFallback);
+  btn.textContent = '🔍 低解像度フォールバック　' + (_offlineFallback ? 'ON' : 'OFF');
+}
 function toggleOfflineFallback(){
   _offlineFallback = !_offlineFallback;
   localStorage.setItem('offlineFallback', _offlineFallback);
-  const btn = document.getElementById('btn-offline-fallback');
-  if(btn) btn.classList.toggle('active', _offlineFallback);
+  _applyFallbackBtn();
 }
 function initOfflineFallbackBtn(){
-  const btn = document.getElementById('btn-offline-fallback');
-  if(btn) btn.classList.toggle('active', _offlineFallback);
+  _applyFallbackBtn();
 }
 
 /**
