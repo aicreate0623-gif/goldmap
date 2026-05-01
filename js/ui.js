@@ -358,6 +358,7 @@ function initHeatLayer(tier) {
 
 // ── ズーム変化時: zoom制限チェック + layer再描画 ────
 map.on('zoomend', () => {
+  updateZoomBadge();
   if(!heatTier) return;
   const z    = map.getZoom();
   const maxZ = TIER_CFG[heatTier].zoomMax;
@@ -1803,4 +1804,18 @@ function showToast(msg, duration) {
   el.style.opacity = '1';
   clearTimeout(_showToastTimer);
   _showToastTimer = setTimeout(() => { el.style.opacity = '0'; }, duration);
+}
+// ── ズーム数バッジ ────────────────────────────────────
+function initZoomBadge(){
+  const container = document.getElementById('float-ctrl-right');
+  if(!container) return;
+  const badge = document.createElement('div');
+  badge.id = 'zoom-level-badge';
+  badge.textContent = 'Z: ' + map.getZoom();
+  container.insertBefore(badge, container.firstChild);
+}
+
+function updateZoomBadge(){
+  const badge = document.getElementById('zoom-level-badge');
+  if(badge) badge.textContent = 'Z: ' + map.getZoom();
 }
