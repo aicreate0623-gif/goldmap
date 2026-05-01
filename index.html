@@ -345,47 +345,36 @@
 
     <!-- ━━━ 全国ベースマップDL（Z5〜Z9） ━━━ -->
     <div class="cfg-accordion" id="base-dl-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this); updBaseNDlEst()">
-        <span class="cfg-accordion-title">🗾 全国ベースマップ DL（Z5〜Z9）</span>
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">🗾 全国ベースマップ DL状況（Z5〜Z9）</span>
         <span class="cfg-accordion-arrow">▶</span>
       </div>
       <div class="cfg-accordion-body">
-        <p class="base-dl-desc">日本全土のZ5〜Z9タイルを一括DLします。オフライン時に広域の地図表示が可能になります。</p>
-
-        <div class="base-dl-zoom-badge">ズーム固定: Z5〜Z9</div>
-
-        <div class="base-dl-section-ttl">レイヤー選択</div>
-        <div class="base-dl-ck-group">
-          <label class="base-dl-ck">
-            <input type="checkbox" id="base-ck-std" checked onchange="updBaseNDlEst()">
-            <span>地理院地図</span>
+        <div class="base-status-list">
+          <div class="base-status-row">
+            <span class="base-status-name">地理院地図</span>
             <span class="base-dl-status" id="base-status-std"></span>
-          </label>
-          <label class="base-dl-ck">
-            <input type="checkbox" id="base-ck-photo" onchange="updBaseNDlEst()">
-            <span>航空写真</span>
+          </div>
+          <div class="base-status-row">
+            <span class="base-status-name">航空写真</span>
             <span class="base-dl-status" id="base-status-photo"></span>
-          </label>
-          <label class="base-dl-ck">
-            <input type="checkbox" id="base-ck-topo" onchange="updBaseNDlEst()">
-            <span>地形図</span>
+          </div>
+          <div class="base-status-row">
+            <span class="base-status-name">地形図</span>
             <span class="base-dl-status" id="base-status-topo"></span>
-          </label>
+          </div>
         </div>
-
-        <div class="base-dl-est" id="base-n-est">— MB</div>
-        <div class="base-dl-warn">⚠️ WiFi環境を推奨します</div>
-
-        <button class="btn accent base-dl-btn" id="base-n-dl-btn" onclick="startBaseNDl()">
-          ⬇ 全国ベース DL 開始
-        </button>
       </div>
     </div>
 
     <!-- DL開始ボタン -->
     <div class="dl-start-wrap">
-      <button class="btn accent dl-start-btn" onclick="openDlDialog()">
-        ⬇ タイルダウンロード開始
+      <button class="btn accent dl-start-btn" onclick="openBaseDlDialog()">
+        ⬇ 全国ベースDL開始
+      </button>
+      <p class="dl-start-hint">日本全土のZ5〜Z9タイルを一括ダウンロードします</p>
+      <button class="btn accent dl-start-btn" onclick="openDlDialog()" style="margin-top:8px">
+        ⬇ 範囲指定タイルDL開始
       </button>
       <p class="dl-start-hint">地図を見ながら範囲・レイヤー・ズームを設定できます</p>
     </div>
@@ -1230,6 +1219,46 @@
 
 </div>
 
+<!-- ══ 全国ベースDLダイアログ ══ -->
+<div id="base-dl-overlay" style="display:none">
+  <div id="base-dl-dialog">
+    <div class="bdlg-header">
+      <span class="bdlg-icon">🗾</span>
+      <span class="bdlg-title">全国ベースDL（Z5〜Z9）</span>
+    </div>
+    <p class="bdlg-desc">日本全土のZ5〜Z9タイルを一括ダウンロードします。オフライン時に広域の地図表示が可能になります。</p>
+
+    <div class="bdlg-zoom-badge">ズーム固定: Z5〜Z9</div>
+
+    <div class="bdlg-section-ttl">レイヤー選択</div>
+    <div class="bdlg-ck-group">
+      <label class="bdlg-ck">
+        <input type="checkbox" id="bdlg-ck-std" checked onchange="updBaseDlgEst()">
+        <span class="bdlg-ck-name">地理院地図</span>
+        <span class="bdlg-ck-status" id="bdlg-status-std"></span>
+      </label>
+      <label class="bdlg-ck">
+        <input type="checkbox" id="bdlg-ck-photo" onchange="updBaseDlgEst()">
+        <span class="bdlg-ck-name">航空写真</span>
+        <span class="bdlg-ck-status" id="bdlg-status-photo"></span>
+      </label>
+      <label class="bdlg-ck">
+        <input type="checkbox" id="bdlg-ck-topo" onchange="updBaseDlgEst()">
+        <span class="bdlg-ck-name">地形図</span>
+        <span class="bdlg-ck-status" id="bdlg-status-topo"></span>
+      </label>
+    </div>
+
+    <div class="bdlg-est" id="bdlg-est">— MB</div>
+    <div class="bdlg-warn">⚠️ WiFi環境でのDLを推奨します</div>
+
+    <div class="bdlg-btns">
+      <button class="btn sm" onclick="closeBaseDlDialog()">キャンセル</button>
+      <button class="btn accent" onclick="startBaseDlFromDialog()">⬇ DL開始</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ DLプログレスダイアログ ══ -->
 <div id="dl-prog-overlay" style="display:none">
   <div id="dl-prog-dialog">
@@ -1247,8 +1276,7 @@
     </div>
 
     <div class="dlprog-stats">
-      <span id="dlprog-done" style="display:none">0</span>
-      <span id="dlprog-tot"  style="display:none">—</span>
+      <span id="dlprog-done">0</span> / <span id="dlprog-tot">—</span> 枚
       <span class="dlprog-mb" id="dlprog-mb">0 MB</span>
     </div>
 
