@@ -3148,3 +3148,29 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   justify-content: flex-end;
   margin-top: 4px;
 }
+
+/* ── セッション削除プログレスバー ─────────────────── */
+.sess-del-prog {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 2px;
+  min-width: 80px;
+}
+.sess-del-prog-label {
+  font-size: 11px;
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+.sess-del-prog-bar-bg {
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.sess-del-prog-bar {
+  height: 100%;
+  background: var(--red, #f55);
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}

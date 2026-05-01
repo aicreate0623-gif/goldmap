@@ -220,13 +220,40 @@ async function deleteSessionWithConfirm(id){
   const label = sess.label || '名称未設定';
   const mb    = ((sess.totalSize||0)/1024/1024).toFixed(1);
   const ok = await showConfirmDialog(
-    `🗑 「${label}」(${mb}MB) を削除しますか？\nこの操作は取り消せません。`,
+    `🗑 「${label}」(約${mb}MB) を削除しますか？\nこの操作は取り消せません。`,
     '削除', 'キャンセル'
   );
   if(!ok) return;
-  if(Array.isArray(sess.tileKeys)){
-    for(const k of sess.tileKeys){ await dbDel(k).catch(()=>{}); }
+
+  // ── 削除ボタンをプログレスバーに差し替え ──
+  const card = document.getElementById('sc-' + id);
+  const btns = card ? card.querySelector('.sess-btns') : null;
+  if(btns){
+    btns.innerHTML = `
+      <div class="sess-del-prog" id="sdp-${id}">
+        <div class="sess-del-prog-label" id="sdp-lbl-${id}">削除中…</div>
+        <div class="sess-del-prog-bar-bg">
+          <div class="sess-del-prog-bar" id="sdp-bar-${id}" style="width:0%"></div>
+        </div>
+      </div>`;
   }
+
+  // ── タイル削除（100件ごとに進捗更新）──
+  const keys  = Array.isArray(sess.tileKeys) ? sess.tileKeys : [];
+  const total = keys.length;
+  const CHUNK = 100;
+  for(let i = 0; i < total; i++){
+    await dbDel(keys[i]).catch(()=>{});
+    if((i + 1) % CHUNK === 0 || i === total - 1){
+      const pct = Math.round((i + 1) / total * 100);
+      const bar = document.getElementById('sdp-bar-' + id);
+      const lbl = document.getElementById('sdp-lbl-' + id);
+      if(bar) bar.style.width = pct + '%';
+      if(lbl) lbl.textContent = `削除中… ${pct}%`;
+      await new Promise(r => setTimeout(r, 0)); // UIを更新
+    }
+  }
+
   await dbDelSess(id);
   await renderSessionList();
   await refreshCache();
