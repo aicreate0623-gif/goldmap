@@ -648,6 +648,7 @@ function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M枚';if(n>=1e3)return Math.
 // std: 地理院地図PNG ≈ 10KB、photo: 航空写真JPEG ≈ 18KB、topo: OpenTopoMap PNG ≈ 3KB
 // 1枚あたりKB係数（実測値ベース: 地理院2460枚/25.8MB・航空2499枚/66.8MB・地形図2848枚/33.8MB）
 const LAYER_KB = {std:11, photo:28, topo:12};
+window._LAYER_KB = LAYER_KB;
 function mbEst(n, lk){ const kb = (lk && LAYER_KB[lk]) || 10; return (n*kb/1024).toFixed(0); }
 // レイヤー配列を考慮した合計MB推定
 function mbEstLayers(tileCount, layers){
@@ -827,6 +828,8 @@ let _dldBounds = null;     // STEP2で確定したbounds
 
 // レイヤー表示名（容量表示用）
 const _DLD_LAYER_LABEL = { std:'地理院地図', photo:'航空写真', topo:'地形図' };
+/** レイヤーキー配列を表示名に変換して結合 例: ['std','photo'] → '地理院地図・航空写真' */
+function _layerLabel(keys, sep){ return (keys||[]).map(k=>_DLD_LAYER_LABEL[k]||k).join(sep||'・'); }
 
 // ── ダイアログ開く ──────────────────────────────────────
 function openDlDialog(){
@@ -1287,10 +1290,14 @@ function checkResume(){
   const s=loadResume(); if(!s)return;
   const banner=document.getElementById('resume-banner');
   const modeStr=s.mode==='base'?'全日本ベース':'詳細範囲';
-  const layerStr=s.layers.join('・');
+  const layerStr=_layerLabel(s.layers);
   const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
+  const _lkb=window._LAYER_KB||{std:11,photo:28,topo:12};
+  const _lks=s.layers||['std'];
+  const _kbPerTile=_lks.reduce((a,k)=>a+(_lkb[k]||10),0);
+  const mbDone=((s.taskIndex||0)*_kbPerTile/1024).toFixed(0);
   document.getElementById('resume-desc').innerHTML=
-    `${modeStr} / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
+    `${modeStr} / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${pct}%</b>（約${mbDone}MB 済）<br>保存: ${s.savedAt||'—'}`;
   banner.classList.add('show');
 }
 
@@ -1435,7 +1442,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
   dlRun=true; dlStop=false;
   document.getElementById('prog-section').classList.add('show');
   // DLプログレスダイアログを開く
-  const _subText = `${layers.join(' · ')}  Z${zmin}〜Z${zmax}`;
+  const _subText = `${_layerLabel(layers, ' · ')}  Z${zmin}〜Z${zmax}`;
   dlprogOpen(_subText);
 
   // ボタン切替（ベース/詳細タブ内）
@@ -1538,7 +1545,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
       const _tileKeys = tasks.map(t=>tileKey(t.lk,t.z,t.x,t.y));
       const _center   = (typeof map!=='undefined') ? [map.getCenter().lat,map.getCenter().lng] : [35,136];
       const _zoom     = (typeof map!=='undefined') ? map.getZoom() : zmax;
-      const _label    = `${layers.join('・')} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
+      const _label    = `${_layerLabel(layers)} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
       const _bounds   = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
       await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
     }
@@ -1567,7 +1574,7 @@ async function addLayersToSession(sessId, newLayers, newTileKeys, addedBytes, ne
     if(typeof newZmax === 'number' && newZmax > (sess.zmax||0)){
       sess.zmax = newZmax;
     }
-    sess.label = `${sess.srcKeys.join('・')} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
+    sess.label = `${_layerLabel(sess.srcKeys)} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
     await dbPutSess(sessId, sess);
   } catch(e){ console.error('addLayersToSession error', e); }
 }

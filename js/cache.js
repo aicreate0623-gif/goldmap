@@ -401,7 +401,11 @@ async function renderSessionList(){
     const used = new Date(s.lastUsed).toLocaleDateString('ja-JP');
     const lat  = s.center?.[0]?.toFixed(4)||'—';
     const lng  = s.center?.[1]?.toFixed(4)||'—';
-    const srcs = (s.srcKeys||[]).map(k=>LAYER_LABEL[k]||k).join('・')||'—';
+    const srcs  = (s.srcKeys||[]).map(k=>LAYER_LABEL[k]||k).join('・')||'—';
+    // 既存セッションのlabelにキー名（std/photo/topo）が残っている場合は日本語で再構築
+    const label = s.srcKeys && s.srcKeys.length
+      ? `${s.srcKeys.map(k=>LAYER_LABEL[k]||k).join('・')} Z${s.zmin||'—'}〜Z${s.zmax||'—'} ${new Date(s.createdAt).toLocaleDateString('ja-JP')}`
+      : (s.label || '名称未設定');
     const hasBounds = !!s.bounds;
     const addDlBtn = hasBounds
       ? `<button class="sess-adddl-btn" onclick="openAddLayerPanel('${s.id}')">＋</button>`
@@ -416,7 +420,7 @@ async function renderSessionList(){
         <div class="sess-zoom-badge">Z${s.zoom||'—'}</div>
       </div>
       <div class="sess-info">
-        <div class="sess-label">${_esc(s.label)}</div>
+        <div class="sess-label">${_esc(label)}</div>
         <div class="sess-meta">約${mb}MB · ${srcs}</div>
         <div class="sess-meta">DL: ${date}</div>
         <div class="sess-meta">最終使用: ${used}</div>
