@@ -664,62 +664,28 @@ function estBytesLayers(tileCount, layers){
 //  全国ベースマップDL（Z5〜Z9 固定）
 // ═══════════════════════════════════════════
 
-/** ダイアログ用レイヤーチェックボックスを読む */
-function _ckBaseDlgLayers(){
-  return ['std','photo','topo'].filter(k=>document.getElementById('bdlg-ck-'+k)?.checked);
-}
-
-/** ダイアログの推定MBを更新 */
-async function updBaseDlgEst(){
-  const el = document.getElementById('bdlg-est');
-  if(!el) return;
-  const layers = _ckBaseDlgLayers();
-  if(!layers.length){ el.textContent = '— MB'; return; }
-  const n = cntTiles(JAPAN, 5, 9);
-  el.textContent = `約 ${mbEstLayers(n, layers)} MB`;
-}
-
-/** ベースDLダイアログを開く */
-async function openBaseDlDialog(){
-  const ov = document.getElementById('base-dl-overlay');
-  if(ov) ov.style.display = 'flex';
-  if(typeof getBaseDlDoneLayers === 'function'){
-    const done = await getBaseDlDoneLayers();
-    ['std','photo','topo'].forEach(lk=>{
-      const el = document.getElementById('bdlg-status-'+lk);
-      const ck = document.getElementById('bdlg-ck-'+lk);
-      if(done.has(lk)){
-        if(el) el.innerHTML = '<span class="base-saved-badge">✅ DL済</span>';
-        if(ck) ck.checked = false;
-      } else {
-        if(el) el.textContent = '─ 未DL';
-        if(ck) ck.checked = true;
-      }
-    });
-  }
-  await updBaseDlgEst();
-}
-
-/** ベースDLダイアログを閉じる */
-function closeBaseDlDialog(){
-  const ov = document.getElementById('base-dl-overlay');
-  if(ov) ov.style.display = 'none';
-}
-
-/** ダイアログからDL開始 */
-async function startBaseDlFromDialog(){
-  const layers = _ckBaseDlgLayers();
-  if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
-  closeBaseDlDialog();
-  await runDl('base', JAPAN, 5, 9, layers, 0);
-}
-
-/** 旧関数（互換のため残す） */
+/** レイヤーチェックボックス（全国ベースセクション用）を読む */
 function _ckBaseLayers(){
   return ['std','photo','topo'].filter(k=>document.getElementById('base-ck-'+k)?.checked);
 }
-function updBaseNDlEst(){}
-async function startBaseNDl(){ await openBaseDlDialog(); }
+
+/** 推定MB表示を更新（アコーディオン展開時・チェック変更時に呼ばれる） */
+function updBaseNDlEst(){
+  const el = document.getElementById('base-n-est');
+  if(!el) return;
+  const layers = _ckBaseLayers();
+  if(!layers.length){ el.textContent = '— MB'; return; }
+  const n = cntTiles(JAPAN, 5, 9);
+  const mb = mbEstLayers(n, layers);
+  el.textContent = `約 ${mb} MB`;
+}
+
+/** 全国ベースDL開始（Z5〜Z9固定・JAPAN全域） */
+async function startBaseNDl(){
+  const layers = _ckBaseLayers();
+  if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
+  await runDl('base', JAPAN, 5, 9, layers, 0);
+}
 
 // ═══════════════════════════════════════════
 //  矩形選択（drawRect系のみ）
@@ -1245,6 +1211,17 @@ async function _dldStartDl(){
   );
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!_dldBounds){    showAlert('エラー','範囲が選択されていません'); return; }
+
+  // ── ベースDL未完了チェック（STEP3でレイヤーを変更した場合も必ずガード）──
+  if(typeof getBaseDlDoneLayers === 'function'){
+    const baseDone = await getBaseDlDoneLayers();
+    const needBase = layers.filter(lk => !baseDone.has(lk));
+    if(needBase.length){
+      const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+      showAlert('ベースDLが必要です',`「${names}」はベースDL（Z5〜Z9 全国版）が完了していません。\nオフラインタブのベースDLを先に行ってください。`);
+      return;
+    }
+  }
 
   const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
   const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
