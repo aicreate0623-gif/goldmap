@@ -3193,3 +3193,34 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   border-radius: 3px;
   transition: width 0.1s linear;
 }
+
+/* ── オフラインフォールバックトグル ─────────────────── */
+.offline-fallback-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 14px;
+}
+.offline-fallback-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  color: var(--txt-sub);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, color .2s;
+}
+.offline-fallback-btn.active {
+  background: rgba(200,170,80,0.15);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.offline-fallback-hint {
+  font-size: 11px;
+  color: var(--txt-sub);
+  line-height: 1.6;
+  margin: 0;
+  padding: 0 2px;
+}

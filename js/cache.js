@@ -85,6 +85,48 @@ function tileKey(key,z,x,y){ return key+'/'+z+'/'+x+'/'+y; }
 // ═══════════════════════════════════════════
 //  カスタムキャッシュレイヤー（既存・変更なし）
 // ═══════════════════════════════════════════
+// ── オフライン低解像度フォールバック ON/OFF ──────────
+let _offlineFallback = localStorage.getItem('offlineFallback') !== 'false';
+function toggleOfflineFallback(){
+  _offlineFallback = !_offlineFallback;
+  localStorage.setItem('offlineFallback', _offlineFallback);
+  const btn = document.getElementById('btn-offline-fallback');
+  if(btn) btn.classList.toggle('active', _offlineFallback);
+}
+function initOfflineFallbackBtn(){
+  const btn = document.getElementById('btn-offline-fallback');
+  if(btn) btn.classList.toggle('active', _offlineFallback);
+}
+
+/**
+ * フォールバック用：2段下のズームからキャッシュを探して引き延ばし表示。
+ * z-1 → z-2 の順に試し、見つかれば引き延ばしてdoneを呼ぶ。
+ */
+async function _tryFallbackTile(sk, origZ, origX, origY, img, done){
+  const type = sk==='photo'?'image/jpeg':'image/png';
+  for(let step=1; step<=2; step++){
+    const fz = origZ - step;
+    if(fz < 0) break;
+    const factor = Math.pow(2, step);
+    const fx = Math.floor(origX / factor);
+    const fy = Math.floor(origY / factor);
+    const cached = await dbGet(tileKey(sk, fz, fx, fy)).catch(()=>null);
+    if(cached){
+      const size = 256 * factor;
+      img.style.width  = size + 'px';
+      img.style.height = size + 'px';
+      img.style.marginLeft = -(origX % factor) * 256 + 'px';
+      img.style.marginTop  = -(origY % factor) * 256 + 'px';
+      img.style.imageRendering = 'pixelated';
+      img.src = URL.createObjectURL(new Blob([cached], {type}));
+      img.onload = ()=>done(null, img);
+      img.onerror = e=>done(e, img);
+      return true;
+    }
+  }
+  return false;
+}
+
 function makeCachedLayer(srcKey){
   return L.TileLayer.extend({
     _sk:srcKey,
@@ -105,11 +147,31 @@ function makeCachedLayer(srcKey){
       const key=tileKey(this._sk,z,x,y);
       const net=tileURL(this._sk,coords.z,coords.x,coords.y);
       if(!db){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); return img; }
-      dbGet(key).then(cached=>{
-        if(cached){ const type=this._sk==='photo'?'image/jpeg':'image/png'; img.src=URL.createObjectURL(new Blob([cached],{type})); }
-        else img.src=net;
-        img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-      }).catch(()=>{ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); });
+
+      // ── オンライン優先：ネット取得を試み失敗したらキャッシュにフォールバック ──
+      const type=this._sk==='photo'?'image/jpeg':'image/png';
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(), 5000);
+      fetch(net,{signal:ctrl.signal})
+        .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
+        .then(buf=>{
+          img.src=URL.createObjectURL(new Blob([buf],{type}));
+          img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+        })
+        .catch(async ()=>{
+          // ネット失敗 → キャッシュ確認
+          const cached = await dbGet(key).catch(()=>null);
+          if(cached){
+            img.src=URL.createObjectURL(new Blob([cached],{type}));
+            img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+          } else if(_offlineFallback){
+            // キャッシュなし＋フォールバックON → 2段下を引き延ばし
+            const hit = await _tryFallbackTile(this._sk, z, x, y, img, done);
+            if(!hit){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); }
+          } else {
+            img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+          }
+        });
       return img;
     }
   });
@@ -339,7 +401,7 @@ async function renderSessionList(){
     const used = new Date(s.lastUsed).toLocaleDateString('ja-JP');
     const lat  = s.center?.[0]?.toFixed(4)||'—';
     const lng  = s.center?.[1]?.toFixed(4)||'—';
-    const srcs = (s.srcKeys||[]).join('・')||'—';
+    const srcs = (s.srcKeys||[]).map(k=>LAYER_LABEL[k]||k).join('・')||'—';
     const hasBounds = !!s.bounds;
     const addDlBtn = hasBounds
       ? `<button class="sess-adddl-btn" onclick="openAddLayerPanel('${s.id}')">＋</button>`
@@ -1166,7 +1228,12 @@ function renderBaseDlStatus(sessions){
     );
 
     if(sess){
-      const mb = ((sess.totalSize || 0) / 1024 / 1024).toFixed(0);
+      // 複数レイヤー同時DL時はLAYER_KBで按分して個別MB推定
+      const layerKb = (window._LAYER_KB) || {std:11, photo:28, topo:12};
+      const totalKb = (sess.srcKeys||[]).reduce((s,k)=>s+(layerKb[k]||10), 0);
+      const myKb    = layerKb[lk] || 10;
+      const myBytes = totalKb > 0 ? (sess.totalSize||0) * myKb / totalKb : (sess.totalSize||0);
+      const mb      = (myBytes / 1024 / 1024).toFixed(0);
       el.innerHTML =
         `<span class="base-saved-badge">✅ 約${mb}MB</span>` +
         `<button class="base-saved-del" onclick="deleteSessionWithConfirm('${sess.id}')" title="削除">🗑</button>`;
