@@ -1025,17 +1025,18 @@ function _adpMirrorDlProgress(sessId){
   const dstBar = document.getElementById(`adp-pbar-${sessId}`);
   const dstLog = document.getElementById(`adp-plog-${sessId}`);
 
-  // pg-bar / pg-done / pg-tot を参照（runDl が実際に更新する要素）
+  // dlprog-* を参照（runDl が dlprogUpdate() 経由で実際に更新する要素）
   const timer = setInterval(()=>{
     if(!document.getElementById(`adp-prog-${sessId}`)){ clearInterval(timer); return; }
-    const pgBar  = document.getElementById('pg-bar');
-    const pgDone = document.getElementById('pg-done');
-    const pgTot  = document.getElementById('pg-tot');
-    const pct    = pgBar ? pgBar.style.width : '0%';
-    if(dstBar) dstBar.style.width = pct;
+    const pgBar  = document.getElementById('dlprog-bar');
+    const pgDone = document.getElementById('dlprog-done');
+    const pgTot  = document.getElementById('dlprog-tot');
+    const pgPct  = document.getElementById('dlprog-pct');
+    const pct    = pgPct ? pgPct.textContent : (pgBar ? pgBar.style.width : '0%');
+    if(dstBar && pgBar) dstBar.style.width = pgBar.style.width;
     if(dstCnt && pgDone && pgTot)
       dstCnt.textContent = `${pgDone.textContent} / ${pgTot.textContent}（${pct}）`;
-    const srcLog = document.getElementById('dl-log');
+    const srcLog = document.getElementById('dlprog-log');
     if(srcLog && dstLog){
       const firstLine = srcLog.textContent.split('\n')[0] || '';
       if(firstLine) dstLog.textContent = firstLine;
