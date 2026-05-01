@@ -105,25 +105,11 @@ function makeCachedLayer(srcKey){
       const key=tileKey(this._sk,z,x,y);
       const net=tileURL(this._sk,coords.z,coords.x,coords.y);
       if(!db){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); return img; }
-
-      // ── オンライン優先：ネット取得を試み失敗したらキャッシュにフォールバック ──
-      const type=this._sk==='photo'?'image/jpeg':'image/png';
-      const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(), 5000); // 5秒タイムアウト
-      fetch(net,{signal:ctrl.signal})
-        .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
-        .then(buf=>{
-          img.src=URL.createObjectURL(new Blob([buf],{type}));
-          img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-        })
-        .catch(()=>{
-          // ネット失敗 → キャッシュにフォールバック
-          dbGet(key).then(cached=>{
-            if(cached) img.src=URL.createObjectURL(new Blob([cached],{type}));
-            else img.src=net; // キャッシュもなければ再試行
-            img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-          }).catch(()=>{ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); });
-        });
+      dbGet(key).then(cached=>{
+        if(cached){ const type=this._sk==='photo'?'image/jpeg':'image/png'; img.src=URL.createObjectURL(new Blob([cached],{type})); }
+        else img.src=net;
+        img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+      }).catch(()=>{ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); });
       return img;
     }
   });
@@ -272,14 +258,14 @@ function checkDlSizeLimit(estimatedBytes){
     const mb = (estimatedBytes/1024/1024).toFixed(0);
     return {
       ok:false, warn:false,
-      msg:`❌ 推定サイズ ${mb}MB は1回のDL上限(100MB)を超えています。\nエリアかズームレベルを絞ってください。`
+      msg:`❌ 推定サイズ 約${mb}MB は1回のDL上限(100MB)を超えています。\nエリアかズームレベルを絞ってください。`
     };
   }
   if(estimatedBytes > DL_SESSION_MAX * CACHE_MAX_WARN_RATIO){
     const mb = (estimatedBytes/1024/1024).toFixed(0);
     return {
       ok:true, warn:true,
-      msg:`⚠️ 推定 ${mb}MB は上限に近い値です。WIFI環境を推奨します。`
+      msg:`⚠️ 推定 約${mb}MB は上限に近い値です。WIFI環境を推奨します。`
     };
   }
   return {ok:true, warn:false, msg:''};
@@ -342,7 +328,7 @@ async function renderSessionList(){
       </div>
       <div class="sess-info">
         <div class="sess-label">${_esc(s.label)}</div>
-        <div class="sess-meta">${mb}MB · ${srcs}</div>
+        <div class="sess-meta">約${mb}MB · ${srcs}</div>
         <div class="sess-meta">DL: ${date}</div>
         <div class="sess-meta">最終使用: ${used}</div>
       </div>
@@ -511,7 +497,7 @@ async function refreshCache(){
     const maxMb    = (getCacheMax()/1024/1024).toFixed(0);
     el.textContent = `${cnt}枚 / 約${mb}MB 使用中（上限 ${maxMb}MB）`;
     const sb = document.getElementById('sb-cache');
-    if(sb) sb.textContent = `キャッシュ: ${mb}MB`;
+    if(sb) sb.textContent = `キャッシュ: 約${mb}MB`;
     await renderSessionList();
   } catch(e){ el.textContent = '取得失敗'; }
 }
@@ -1155,7 +1141,7 @@ function renderBaseDlStatus(sessions){
     if(sess){
       const mb = ((sess.totalSize || 0) / 1024 / 1024).toFixed(0);
       el.innerHTML =
-        `<span class="base-saved-badge">✅ ${mb}MB</span>` +
+        `<span class="base-saved-badge">✅ 約${mb}MB</span>` +
         `<button class="base-saved-del" onclick="deleteSessionWithConfirm('${sess.id}')" title="削除">🗑</button>`;
     } else {
       el.innerHTML = '';

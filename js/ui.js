@@ -1001,7 +1001,7 @@ function _dldCheckSize(bounds, zmaxVal, layers){
   if(eb > DL_SESSION_MAX){
     const mb = (eb / 1024 / 1024).toFixed(0);
     showAlert('⚠️ サイズ超過',
-      `推定サイズ ${mb}MB は1回のDL上限（100MB）を超えています。\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`);
+      `推定サイズ 約${mb}MB は1回のDL上限（100MB）を超えています。\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`);
     return true;
   }
   return false;
@@ -1208,21 +1208,6 @@ async function _dldStartDl(){
   );
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!_dldBounds){    showAlert('エラー','範囲が選択されていません'); return; }
-
-  // ── ベースDL未完了チェック ──────────────────────────
-  if(typeof getBaseDlDoneLayers === 'function'){
-    const baseDone = await getBaseDlDoneLayers();
-    const needBase = layers.filter(lk => !baseDone.has(lk));
-    if(needBase.length){
-      const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
-      const est = document.getElementById('dld-est');
-      if(est) est.innerHTML =
-        `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
-        `<br><button class="btn sm" style="margin-top:6px"
-          onclick="_dldCancel();switchTab('offline')">📥 ベースDLへ</button>`;
-      return;
-    }
-  }
 
   const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
   const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
