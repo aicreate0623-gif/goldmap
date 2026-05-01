@@ -628,7 +628,25 @@ async function openAddLayerPanel(sessId){
     _renderAdpZoomStatus(sessId, sess, scanResult);
     _renderAdpZoomHint(sessId, scanResult);
     _updateAdpCheckboxes(sessId, sess, scanResult);  // ①チェックボックス状態を確定
-    await _setAdpZoomDefaults(sessId);               // ②ズームデフォルト値を自動セット
+    await _setAdpZoomDefaults(sessId);               // ②ズームデフォルト値を自動セット（スキャン結果ベース）
+
+    // ③全レイヤー・全ズーム完了チェック
+    const allCks = panel.querySelectorAll('.adp-ck');
+    const allComplete = allCks.length > 0 &&
+      [...allCks].every(ck => ck.disabled && ck.checked);
+    if(allComplete){
+      // ズーム行・レイヤー行・DL開始ボタンを隠して完了メッセージ表示
+      // キャンセル（閉じる）ボタンは残す
+      const zoomRow = panel.querySelector('.adp-zoom-row');
+      const layers  = panel.querySelector('.adp-layers');
+      const dlBtn   = document.getElementById(`adp-btn-${sessId}`);
+      if(zoomRow) zoomRow.style.display = 'none';
+      if(layers)  layers.style.display  = 'none';
+      if(dlBtn)   dlBtn.style.display   = 'none';
+      if(estEl)   estEl.innerHTML =
+        '<span style="color:#4caf50;font-size:13px">✅ このエリアは全ズーム・全レイヤーが取得済みです</span>';
+      return; // updAddLayerEst は呼ばない
+    }
   }
   await updAddLayerEst(sessId);
 }
@@ -776,24 +794,66 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
 
 /**
  * ズームデフォルト値をセット。
- * - zmin: sess.zmax+1 固定（select は disabled なので value 更新のみ）
- * - zmax: min(sess.zmax+1, 16) を推奨デフォルトとする
- *         ただし sess.zmax+1 が既に 16 超の場合はそのまま
+ * スキャン結果のレイヤー別done状況を見て、
+ * 未完了レイヤーの中で最も低い「次のzmin」をデフォルトに使う。
+ * - zmin select: 未完了レイヤーの最小nextZmin を表示（disabled）
+ * - zmax select: zmin と同じか、推奨上限(16)のいずれか小さい方
  */
 async function _setAdpZoomDefaults(sessId){
+  const zminEl = document.getElementById(`adp-zmin-${sessId}`);
   const zmaxEl = document.getElementById(`adp-zmax-${sessId}`);
   if(!zmaxEl) return;
 
   const sess = await dbGetSess(sessId).catch(()=>null);
   if(!sess) return;
 
-  const sessZmax   = sess.zmax || 15;
-  const nextZmin   = sessZmax + 1;
-  const defaultZmax = Math.min(Math.max(nextZmin, nextZmin), 16);
-  // nextZmin が 16 超の場合はそのまま nextZmin を推奨値にする
-  const recZmax = nextZmin > 16 ? nextZmin : defaultZmax;
+  // スキャン結果を参照（openAddLayerPanel内で既にスキャン済みのはず）
+  const scanResult = _adpScanCache[sessId] || {};
+  const ALL_LAYERS = ['std','photo','topo'];
 
-  // zmaxのselectで有効な最近い値を選択
+  // 未完了レイヤーごとの「次のzmin」を収集
+  // 未完了 = ADP_SCAN_ZMAX までに done でないズームが存在する
+  const nextZmins = [];
+  for(const lk of ALL_LAYERS){
+    const lkData = scanResult[lk];
+    if(!lkData || !lkData.perZoom){
+      // スキャン結果なし → sess.zmax+1 をフォールバックに使う
+      nextZmins.push((sess.zmax || 15) + 1);
+      continue;
+    }
+    // このレイヤーで最後にdoneだったズームを探す（レイヤー単体で判定）
+    let lastDoneZ = ADP_SCAN_ZMIN - 1;
+    let lkAllDone = true;
+    let lkHasTile = false;
+    for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
+      const pz = lkData.perZoom[z];
+      if(!pz || pz.total === 0) continue; // タイルなしズームは無視
+      lkHasTile = true;
+      if(pz.status === 'done'){
+        lastDoneZ = z;
+      } else {
+        lkAllDone = false; // doneでないズームが1つでもあれば未完了
+      }
+    }
+    // タイルが1枚もなければ未DL扱い
+    if(!lkHasTile) lkAllDone = false;
+    // このレイヤーが全ズームdoneなら対象外（nextZminに加えない）
+    if(!lkAllDone) nextZmins.push(lastDoneZ + 1);
+  }
+
+  // 未完了レイヤーがなければ何もしない（全完了済み → openAddLayerPanelで処理）
+  if(!nextZmins.length) return;
+
+  // 未完了レイヤーの中で最も低いnextZminを採用
+  const recZmin = Math.min(...nextZmins);
+
+  // zmin selectを更新（disabled なので option の value/text を書き換え）
+  if(zminEl){
+    zminEl.innerHTML = `<option value="${recZmin}">Z${recZmin}</option>`;
+  }
+
+  // zmax select: recZmin 以上で最近い選択肢を選ぶ（推奨上限はZ16）
+  const recZmax = Math.min(Math.max(recZmin, recZmin), 16);
   const opt = [...zmaxEl.options].find(o => parseInt(o.value) >= recZmax);
   if(opt) zmaxEl.value = opt.value;
 }
