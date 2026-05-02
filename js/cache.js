@@ -106,28 +106,79 @@ function initOfflineFallbackBtn(){
  * フォールバック用：2段下のズームからキャッシュを探して引き延ばし表示。
  * z-1 → z-2 の順に試し、見つかれば引き延ばしてdoneを呼ぶ。
  */
+// ═══════════════════════════════════════════
+//  オフラインフォールバック用: 最大キャッシュズーム管理
+// ═══════════════════════════════════════════
+const LAYERS_ALL = ['std','photo','topo'];
+
+/** localStorageからレイヤーごとの最大キャッシュズームを読む */
+function getMaxCachedZoom(sk){
+  const v = parseInt(localStorage.getItem('cachedMaxZoom_' + sk));
+  return isNaN(v) ? null : v;
+}
+
+/** DL完了・セッション削除後に呼ぶ: 全セッションからレイヤーごとの最大zmaxを再計算して保存 */
+async function updateMaxCachedZooms(){
+  try {
+    const sessions = await dbGetAllSess();
+    LAYERS_ALL.forEach(lk => {
+      let maxZ = null;
+      sessions.forEach(s => {
+        if((s.srcKeys||[]).includes(lk)){
+          const z = s.zmax || 0;
+          if(maxZ === null || z > maxZ) maxZ = z;
+        }
+      });
+      if(maxZ !== null){
+        localStorage.setItem('cachedMaxZoom_' + lk, maxZ);
+      } else {
+        localStorage.removeItem('cachedMaxZoom_' + lk);
+      }
+    });
+  } catch(e){ console.warn('[cache] updateMaxCachedZooms failed', e); }
+}
+
+// トースト連発防止タイマー
+let _offlineToastTimer = null;
+function _showOfflineZoomToast(){
+  if(_offlineToastTimer) return;
+  if(typeof showToast === 'function') showToast('⚠ このズームのオフラインデータはありません', 2500);
+  _offlineToastTimer = setTimeout(()=>{ _offlineToastTimer = null; }, 4000);
+}
+
 async function _tryFallbackTile(sk, origZ, origX, origY, img, done){
   const type = sk==='photo'?'image/jpeg':'image/png';
-  for(let step=1; step<=2; step++){
-    const fz = origZ - step;
-    if(fz < 0) break;
-    const factor = Math.pow(2, step);
-    const fx = Math.floor(origX / factor);
-    const fy = Math.floor(origY / factor);
-    const cached = await dbGet(tileKey(sk, fz, fx, fy)).catch(()=>null);
-    if(cached){
-      const size = 256 * factor;
-      img.style.width  = size + 'px';
-      img.style.height = size + 'px';
-      img.style.marginLeft = -(origX % factor) * 256 + 'px';
-      img.style.marginTop  = -(origY % factor) * 256 + 'px';
-      img.style.imageRendering = 'pixelated';
-      img.onload = ()=>done(null, img);
-      img.onerror = e=>done(e, img);
-      img.src = URL.createObjectURL(new Blob([cached], {type}));
-      return true;
-    }
+
+  // localStorageから最大キャッシュズームを取得
+  const maxZ = getMaxCachedZoom(sk);
+
+  // 最大ズームがない or 既に最大ズーム以下 → フォールバック不可
+  if(maxZ === null || origZ <= maxZ){
+    _showOfflineZoomToast();
+    return false;
   }
+
+  // 最大ズームから1段引き延ばし
+  const fz = maxZ;
+  const factor = Math.pow(2, origZ - fz);
+  const fx = Math.floor(origX / factor);
+  const fy = Math.floor(origY / factor);
+  const cached = await dbGet(tileKey(sk, fz, fx, fy)).catch(()=>null);
+  if(cached){
+    const size = 256 * factor;
+    img.style.width  = size + 'px';
+    img.style.height = size + 'px';
+    img.style.marginLeft = -(origX % factor) * 256 + 'px';
+    img.style.marginTop  = -(origY % factor) * 256 + 'px';
+    img.style.imageRendering = 'pixelated';
+    img.onload = ()=>done(null, img);
+    img.onerror = e=>done(e, img);
+    img.src = URL.createObjectURL(new Blob([cached], {type}));
+    return true;
+  }
+
+  // 最大ズームでもキャッシュなし（エリア外）
+  _showOfflineZoomToast();
   return false;
 }
 
@@ -152,37 +203,30 @@ function makeCachedLayer(srcKey){
       const net=tileURL(this._sk,coords.z,coords.x,coords.y);
       if(!db){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); return img; }
 
-      // ── オフライン時はfetchをスキップして即キャッシュ参照 ──
-      // ── オンライン時はfetch優先、失敗したらキャッシュにフォールバック ──
+      // ── オンライン優先：ネット取得を試み失敗したらキャッシュにフォールバック ──
       const type=this._sk==='photo'?'image/jpeg':'image/png';
-
-      const _loadFromCache = async () => {
-        const cached = await dbGet(key).catch(()=>null);
-        if(cached){
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(), 5000);
+      fetch(net,{signal:ctrl.signal})
+        .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
+        .then(buf=>{
+          img.src=URL.createObjectURL(new Blob([buf],{type}));
           img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-          img.src=URL.createObjectURL(new Blob([cached],{type}));
-        } else if(_offlineFallback){
-          const hit = await _tryFallbackTile(this._sk, z, x, y, img, done);
-          if(!hit){ img.onload=()=>done(null,img); img.onerror=e=>done(e,img); img.src=net; }
-        } else {
-          img.onload=()=>done(null,img); img.onerror=e=>done(e,img); img.src=net;
-        }
-      };
-
-      if(!navigator.onLine){
-        // オフライン確定 → fetchせず即キャッシュ
-        _loadFromCache();
-      } else {
-        const ctrl=new AbortController();
-        const tid=setTimeout(()=>ctrl.abort(), 5000);
-        fetch(net,{signal:ctrl.signal})
-          .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
-          .then(buf=>{
+        })
+        .catch(async ()=>{
+          // ネット失敗 → キャッシュ確認
+          const cached = await dbGet(key).catch(()=>null);
+          if(cached){
+            img.src=URL.createObjectURL(new Blob([cached],{type}));
             img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-            img.src=URL.createObjectURL(new Blob([buf],{type}));
-          })
-          .catch(async ()=>{ clearTimeout(tid); await _loadFromCache(); });
-      }
+          } else if(_offlineFallback){
+            // キャッシュなし＋フォールバックON → 2段下を引き延ばし
+            const hit = await _tryFallbackTile(this._sk, z, x, y, img, done);
+            if(!hit){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); }
+          } else {
+            img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+          }
+        });
       return img;
     }
   });
@@ -311,12 +355,24 @@ async function deleteSessionWithConfirm(id){
       </div>`;
   }
 
-  // ── タイル削除（100件ごとに進捗更新）──
+  // ── 他セッションが参照しているタイルキーをSetに集める ──
+  const otherSessions = await dbGetAllSess().catch(() => []);
+  const sharedKeys = new Set();
+  for(const s of otherSessions){
+    if(s.id === id) continue; // 削除対象自身はスキップ
+    if(Array.isArray(s.tileKeys)){
+      for(const k of s.tileKeys) sharedKeys.add(k);
+    }
+  }
+
+  // ── タイル削除（他セッションと被るキーはスキップ、100件ごとに進捗更新）──
   const keys  = Array.isArray(sess.tileKeys) ? sess.tileKeys : [];
   const total = keys.length;
   const CHUNK = 100;
   for(let i = 0; i < total; i++){
-    await dbDel(keys[i]).catch(()=>{});
+    if(!sharedKeys.has(keys[i])){
+      await dbDel(keys[i]).catch(()=>{});
+    }
     if((i + 1) % CHUNK === 0 || i === total - 1){
       const pct = Math.round((i + 1) / total * 100);
       const bar = document.getElementById('sdp-bar-' + id);
@@ -328,6 +384,7 @@ async function deleteSessionWithConfirm(id){
   }
 
   await dbDelSess(id);
+  await updateMaxCachedZooms();
   await renderSessionList();
   await refreshCache();
 }
@@ -342,6 +399,7 @@ async function clearCacheWithConfirm(){
   await dbClr();
   const sessions = await dbGetAllSess();
   for(const s of sessions){ await dbDelSess(s.id).catch(()=>{}); }
+  await updateMaxCachedZooms();
   await renderSessionList();
   await refreshCache();
 }
