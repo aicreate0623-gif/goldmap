@@ -3363,18 +3363,25 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   flex-shrink: 0;
 }
 
-/* ── 距離スケールバー（float-ctrl直下に配置） ── */
+/* ── 距離スケールバー（float-ctrl直下にCSS固定配置） ── */
+/* LeafletのbottomベースのデフォルトをCSSで上書きしてfloat-ctrl直下に固定 */
+/* float-ctrl top: sb-h(30px)+8px=38px, 高さ: 2段×42px+gap5px=89px → 下端127px */
 .leaflet-control-scale {
+  position: fixed !important;
+  top: calc(var(--sb-h) + 8px + 89px + 6px) !important; /* = 133px */
+  left: 10px !important;
+  bottom: auto !important;
   margin: 0 !important;
   pointer-events: none;
+  z-index: 900;
 }
 .leaflet-control-scale-line {
   background: rgba(20,15,5,0.82) !important;
   border: 1px solid var(--gold, #c8a84b) !important;
-  border-top: none !important;
+  border-top: 2px solid var(--gold, #c8a84b) !important;
   color: var(--txt, #f0e6c8) !important;
   font-size: 10px !important;
   padding: 2px 5px !important;
-  border-radius: 0 0 4px 4px !important;
+  border-radius: 4px !important;
   white-space: nowrap;
 }

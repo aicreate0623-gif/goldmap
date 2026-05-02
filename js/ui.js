@@ -1830,17 +1830,4 @@ function updateZoomBadge(){
   const badge = document.getElementById('zoom-level-badge');
   if(badge) badge.textContent = 'Z: ' + map.getZoom();
 }
-// ── スケールバーをfloat-ctrl下に移動 ────────────────
-function initScaleBar(){
-  // Leafletのスケールバー生成を確実に待つ
-  const tryMove = (attempts) => {
-    const scale = document.querySelector('.leaflet-control-scale');
-    const ctrl  = document.getElementById('float-ctrl');
-    if(scale && ctrl){
-      ctrl.insertAdjacentElement('afterend', scale);
-    } else if(attempts > 0){
-      setTimeout(()=> tryMove(attempts - 1), 200);
-    }
-  };
-  setTimeout(()=> tryMove(10), 500);
-}
+/* initScaleBar削除：スケールバー位置はapp.cssのposition:fixedで管理 */
