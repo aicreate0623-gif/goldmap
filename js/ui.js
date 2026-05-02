@@ -1567,6 +1567,8 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
       const _label    = `${_layerLabel(layers)} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
       const _bounds   = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
       await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
+      // 最大キャッシュズームをlocalStorageに更新
+      if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
     }
   } else {
     log('⏸ 停止しました。続きから再開できます。');
@@ -1595,6 +1597,7 @@ async function addLayersToSession(sessId, newLayers, newTileKeys, addedBytes, ne
     }
     sess.label = `${_layerLabel(sess.srcKeys)} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
     await dbPutSess(sessId, sess);
+    if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
   } catch(e){ console.error('addLayersToSession error', e); }
 }
 
@@ -1888,29 +1891,31 @@ async function diagCache(){
   lines.push(`📍 現在地タイル: Z${z} / X${tx} / Y${ty}`);
   lines.push(`📡 navigator.onLine: ${navigator.onLine}`);
 
+  // 4) レイヤー別キャッシュ確認 + 最大ズーム表示
   const layers = ['photo','std','topo'];
   for(const lk of layers){
+    const maxZ = (typeof getMaxCachedZoom==='function') ? getMaxCachedZoom(lk) : '?';
     try{
       const key = lk+'/'+z+'/'+tx+'/'+ty;
       const val = await dbGet(key);
       if(val){
-        lines.push(`✅ ${lk}: キャッシュあり（${(val.byteLength/1024).toFixed(1)}KB）`);
+        lines.push(`✅ ${lk}: キャッシュあり（${(val.byteLength/1024).toFixed(1)}KB）最大Z=${maxZ}`);
       } else {
-        lines.push(`❌ ${lk}: キャッシュなし（key=${key}）`);
+        lines.push(`❌ ${lk}: キャッシュなし（key=${key}）最大Z=${maxZ}`);
       }
     } catch(e){
       lines.push(`❌ ${lk}: 取得エラー（${e.message}）`);
     }
   }
 
-  // 4) セッション一覧
+  // 5) セッション一覧
   try{
     const sessions = await dbGetAllSess();
     lines.push(`\n💾 DLセッション数: ${sessions.length} 件`);
     sessions.forEach(s=>{
       const mb = ((s.totalSize||0)/1024/1024).toFixed(1);
       const keys = (s.tileKeys||[]).length;
-      lines.push(`  [${s.mode||'?'}] ${s.label||'名称未設定'} - ${mb}MB / ${keys}キー`);
+      lines.push(`  [${s.mode||'?'}] ${s.label||'名称未設定'} - ${mb}MB / ${keys}キー / zmax=${s.zmax||'?'}`);
     });
   } catch(e){
     lines.push('❌ セッション取得失敗: ' + e.message);
