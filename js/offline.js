@@ -299,6 +299,7 @@ function _dldClose(){
   _clearDrawPreview();
   _dldBounds   = null;
   _drawPending = null;
+  _dldResetS1Est();
 }
 
 // ── キャンセル（ボタン押下用） ──────────────────────────
@@ -414,7 +415,7 @@ function _dldSyncAndCalc(){
 function _dldCheckSize(bounds, zmaxVal, layers){
   if(!bounds) return false;
   const zmin = 10;
-  const zmax = parseInt(zmaxVal) || 15;
+  const zmax = parseInt(zmaxVal) || 16;
   const layerArr = Array.isArray(layers) ? layers : Array(layers||1).fill('std');
   const tiles = cntTiles(bounds, zmin, zmax);
   const eb = estBytesLayers(tiles, layerArr);
@@ -444,9 +445,10 @@ function _dldClearDraw(){
 // ── STEP2: 確定ボタン → STEP3へ ────────────────────────
 async function _dldConfirmDraw(){
   if(!_drawPending) return;
-  const zmax      = document.getElementById('s1-zmax')?.value || '15';
+  const zmax      = document.getElementById('s1-zmax')?.value || '16';
   const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
-  if(_dldCheckSize(_drawPending, zmax, chkLayers.length ? chkLayers : ['std'])) return;
+  if(!chkLayers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
+  if(_dldCheckSize(_drawPending, zmax, chkLayers)) return;
 
   // ── ベースDL未完了チェック ──────────────────────────
   if(typeof getBaseDlDoneLayers === 'function'){
@@ -856,9 +858,9 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
         const _label    = `${_layerLabel([lk])} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
         await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:myBytes, srcKeys:[lk], bounds:_bounds, zmin, zmax, mode});
       }
-      // MAXズーム更新（実際にDLが発生した場合のみ）
-      if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
     }
+    // DL完了時に必ずMAXズームを更新（done=0のキャッシュ済み完了も含む）
+    if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
   } else {
     log('⏸ 停止しました。続きから再開できます。');
     dlprogStopped();
@@ -1742,10 +1744,14 @@ function renderBaseDlStatus(sessions){
     const el = document.getElementById('base-status-' + lk);
     if(!el) return;
 
-    // そのレイヤーを含むベースセッションを探す（mode === 'base' のみ）
+    // そのレイヤーを含むベースセッションを探す
+    // 新規: mode === 'base' / 旧データ: bounds===null かつ Z5〜Z9 でフォールバック
     const sess = sessions.find(s =>
       Array.isArray(s.srcKeys) && s.srcKeys.includes(lk) &&
-      s.mode === 'base'
+      (
+        s.mode === 'base' ||
+        (!s.mode && !s.bounds && s.zmin <= 5 && s.zmax >= 9)
+      )
     );
 
     if(sess){
