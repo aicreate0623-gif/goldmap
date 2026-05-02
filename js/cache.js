@@ -122,9 +122,9 @@ async function _tryFallbackTile(sk, origZ, origX, origY, img, done){
       img.style.marginLeft = -(origX % factor) * 256 + 'px';
       img.style.marginTop  = -(origY % factor) * 256 + 'px';
       img.style.imageRendering = 'pixelated';
-      img.src = URL.createObjectURL(new Blob([cached], {type}));
       img.onload = ()=>done(null, img);
       img.onerror = e=>done(e, img);
+      img.src = URL.createObjectURL(new Blob([cached], {type}));
       return true;
     }
   }
@@ -152,20 +152,20 @@ function makeCachedLayer(srcKey){
       const net=tileURL(this._sk,coords.z,coords.x,coords.y);
       if(!db){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); return img; }
 
-      // ── オンライン優先：ネット取得を試み失敗したらキャッシュにフォールバック ──
       // ── オフライン時はfetchをスキップして即キャッシュ参照 ──
+      // ── オンライン時はfetch優先、失敗したらキャッシュにフォールバック ──
       const type=this._sk==='photo'?'image/jpeg':'image/png';
 
       const _loadFromCache = async () => {
         const cached = await dbGet(key).catch(()=>null);
         if(cached){
-          img.src=URL.createObjectURL(new Blob([cached],{type}));
           img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+          img.src=URL.createObjectURL(new Blob([cached],{type}));
         } else if(_offlineFallback){
           const hit = await _tryFallbackTile(this._sk, z, x, y, img, done);
-          if(!hit){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); }
+          if(!hit){ img.onload=()=>done(null,img); img.onerror=e=>done(e,img); img.src=net; }
         } else {
-          img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+          img.onload=()=>done(null,img); img.onerror=e=>done(e,img); img.src=net;
         }
       };
 
@@ -178,8 +178,8 @@ function makeCachedLayer(srcKey){
         fetch(net,{signal:ctrl.signal})
           .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
           .then(buf=>{
-            img.src=URL.createObjectURL(new Blob([buf],{type}));
             img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+            img.src=URL.createObjectURL(new Blob([buf],{type}));
           })
           .catch(async ()=>{ clearTimeout(tid); await _loadFromCache(); });
       }
