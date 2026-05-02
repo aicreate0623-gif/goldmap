@@ -499,6 +499,7 @@ async function _runChunkedDl(bounds, layers, chunks, chunkIndex, sessId){
         });
         savedSessId = s.id;
       }
+      if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
       await refreshCache();
     };
 
