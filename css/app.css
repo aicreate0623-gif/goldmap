@@ -3363,15 +3363,13 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   flex-shrink: 0;
 }
 
-/* ── 距離スケールバー（zoomボタン左に横並び） ── */
-.leaflet-bottom.leaflet-right {
-  display: flex;
-  flex-direction: row-reverse;
-  align-items: flex-end;
-  gap: 6px;
+/* ── 距離スケールバー（左下・タブバー上で干渉なし） ── */
+.leaflet-bottom.leaflet-left {
+  bottom: calc(var(--tab-h) + 8px) !important;
+  left: 8px !important;
 }
 .leaflet-control-scale {
-  margin: 0 0 10px 0 !important;
+  margin: 0 !important;
 }
 .leaflet-control-scale-line {
   background: rgba(20,15,5,0.82) !important;
