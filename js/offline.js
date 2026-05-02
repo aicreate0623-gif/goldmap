@@ -840,16 +840,22 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     log('✅ 完了！ '+fmt(done)+'枚保存（失敗: '+fail+'）');
     dlprogDone();
     if(typeof _dldShowDone==='function') _dldShowDone(false);
-    // セッション保存（一覧に表示するため）
+    // セッション保存（レイヤーごとに個別保存）
     if(typeof saveDlSession==='function' && done>0){
-      const _tileKeys = tasks.map(t=>tileKey(t.lk,t.z,t.x,t.y));
-      const _center   = mode==='base'
+      const _center = mode==='base'
         ? [35.0, 136.0]
         : [bounds.getCenter().lat, bounds.getCenter().lng];
-      const _zoom     = zmax;
-      const _label    = `${_layerLabel(layers)} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
-      const _bounds   = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
-      await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
+      const _zoom   = zmax;
+      const _bounds = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
+      // レイヤーKBあたりの推定サイズ比（容量按分用）
+      const layerKb = {std:11, photo:28, topo:12};
+      const totalKb = layers.reduce((s,k)=>s+(layerKb[k]||10), 0);
+      for(const lk of layers){
+        const _tileKeys = tasks.filter(t=>t.lk===lk).map(t=>tileKey(t.lk,t.z,t.x,t.y));
+        const myBytes   = totalKb > 0 ? realBytes * (layerKb[lk]||10) / totalKb : realBytes;
+        const _label    = `${_layerLabel([lk])} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
+        await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:myBytes, srcKeys:[lk], bounds:_bounds, zmin, zmax, mode});
+      }
     }
     // DL完了時に必ずMAXズームを更新（done=0のキャッシュ済み完了も含む）
     if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
@@ -1747,12 +1753,8 @@ function renderBaseDlStatus(sessions){
     );
 
     if(sess){
-      // 複数レイヤー同時DL時はLAYER_KBで按分して個別MB推定
-      const layerKb = (window._LAYER_KB) || {std:11, photo:28, topo:12};
-      const totalKb = (sess.srcKeys||[]).reduce((s,k)=>s+(layerKb[k]||10), 0);
-      const myKb    = layerKb[lk] || 10;
-      const myBytes = totalKb > 0 ? (sess.totalSize||0) * myKb / totalKb : (sess.totalSize||0);
-      const mb      = (myBytes / 1024 / 1024).toFixed(0);
+      // レイヤー単位セッションなのでtotalSizeをそのまま使用
+      const mb = ((sess.totalSize||0) / 1024 / 1024).toFixed(0);
       el.innerHTML =
         `<span class="base-saved-badge">✅ 約${mb}MB</span>` +
         `<button class="base-saved-del" onclick="deleteSessionWithConfirm('${sess.id}')" title="削除">🗑</button>`;
