@@ -1805,7 +1805,7 @@ function showToast(msg, duration) {
     el = document.createElement('div');
     el.id = 'ui-toast';
     el.style.cssText =
-      'position:fixed;bottom:calc(var(--tab-h, 56px) + 60px);left:50%;transform:translateX(-50%);' +
+      'position:fixed;top:calc(var(--sb-h, 30px) + 8px + 89px + 10px);left:50%;transform:translateX(-50%);' +
       'background:rgba(30,20,10,0.92);border:1px solid var(--gold);color:var(--txt);' +
       'padding:8px 18px;border-radius:20px;font-size:12px;z-index:2000;pointer-events:none;' +
       'white-space:nowrap;backdrop-filter:blur(8px);opacity:0;transition:opacity 0.2s;';
@@ -1830,4 +1830,17 @@ function updateZoomBadge(){
   const badge = document.getElementById('zoom-level-badge');
   if(badge) badge.textContent = 'Z: ' + map.getZoom();
 }
-/* initScaleBar削除：スケールバー位置はapp.cssのposition:fixedで管理 */
+// ── スケールバーをfloat-ctrl下に移動 ────────────────
+function initScaleBar(){
+  // Leafletのスケールバー生成を確実に待つ
+  const tryMove = (attempts) => {
+    const scale = document.querySelector('.leaflet-control-scale');
+    const ctrl  = document.getElementById('float-ctrl');
+    if(scale && ctrl){
+      ctrl.insertAdjacentElement('afterend', scale);
+    } else if(attempts > 0){
+      setTimeout(()=> tryMove(attempts - 1), 200);
+    }
+  };
+  setTimeout(()=> tryMove(10), 500);
+}
