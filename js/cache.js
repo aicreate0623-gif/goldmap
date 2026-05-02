@@ -183,7 +183,7 @@ async function getBaseDlDoneLayers(){
   const sessions = await dbGetAllSess();
   const done = new Set();
   sessions.forEach(s => {
-    if(s.mode === 'base' || (!s.mode && !s.bounds && s.zmin <= 5 && s.zmax >= 9)){
+    if(s.mode === 'base'){
       (s.srcKeys || []).forEach(lk => done.add(lk));
     }
   });

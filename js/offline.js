@@ -257,7 +257,6 @@ function openDlDialog(){
     _dldType   = 'detail';
     _drawPending = null;
     _clearDrawPreview();
-    _dldResetS1Est();
     _dldRenderStep(0);
     document.getElementById('dl-dialog').style.display = 'block';
     _openTab('map');
@@ -364,7 +363,7 @@ function _dldResetS1Est(){
   if(std)   std.checked   = true;
   if(photo) photo.checked = false;
   if(topo)  topo.checked  = false;
-  if(zmax)  zmax.value    = '16';
+  if(zmax)  zmax.value    = '15';
   const tot = document.getElementById('dld-s1-total');
   if(tot) tot.textContent = '— MB';
 }
@@ -857,9 +856,9 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
         const _label    = `${_layerLabel([lk])} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
         await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:myBytes, srcKeys:[lk], bounds:_bounds, zmin, zmax, mode});
       }
+      // MAXズーム更新（実際にDLが発生した場合のみ）
+      if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
     }
-    // DL完了時に必ずMAXズームを更新（done=0のキャッシュ済み完了も含む）
-    if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
   } else {
     log('⏸ 停止しました。続きから再開できます。');
     dlprogStopped();
@@ -1743,14 +1742,10 @@ function renderBaseDlStatus(sessions){
     const el = document.getElementById('base-status-' + lk);
     if(!el) return;
 
-    // そのレイヤーを含むベースセッションを探す
-    // 新規: mode === 'base' / 旧データ: bounds===null かつ Z5〜Z9 でフォールバック
+    // そのレイヤーを含むベースセッションを探す（mode === 'base' のみ）
     const sess = sessions.find(s =>
       Array.isArray(s.srcKeys) && s.srcKeys.includes(lk) &&
-      (
-        s.mode === 'base' ||
-        (!s.mode && !s.bounds && s.zmin <= 5 && s.zmax >= 9)
-      )
+      s.mode === 'base'
     );
 
     if(sess){
