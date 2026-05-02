@@ -700,6 +700,49 @@ async function startBaseNDl(){
 }
 
 // ═══════════════════════════════════════════
+//  全国DLダイアログ（base-dl-overlay）
+// ═══════════════════════════════════════════
+
+/** ダイアログを開く・DL済みステータスを反映 */
+async function openBaseDlDialog(){
+  const done = (typeof getBaseDlDoneLayers === 'function')
+    ? await getBaseDlDoneLayers()
+    : new Set();
+  ['std','photo','topo'].forEach(lk => {
+    const ck = document.getElementById('bdlg-ck-' + lk);
+    const st = document.getElementById('bdlg-status-' + lk);
+    if(ck) ck.checked = !done.has(lk);
+    if(st) st.textContent = done.has(lk) ? '✅ DL済' : '';
+  });
+  updBaseDlgEst();
+  document.getElementById('base-dl-overlay').style.display = 'flex';
+}
+
+/** ダイアログを閉じる */
+function closeBaseDlDialog(){
+  document.getElementById('base-dl-overlay').style.display = 'none';
+}
+
+/** 容量推定を更新（チェック変更時に呼ばれる） */
+function updBaseDlgEst(){
+  const el = document.getElementById('bdlg-est');
+  if(!el) return;
+  const layers = ['std','photo','topo'].filter(lk => document.getElementById('bdlg-ck-' + lk)?.checked);
+  if(!layers.length){ el.textContent = '— MB'; return; }
+  const n  = (typeof cntTiles === 'function') ? cntTiles(JAPAN, 5, 9) : 0;
+  const mb = (typeof mbEstLayers === 'function') ? mbEstLayers(n, layers) : '—';
+  el.textContent = `約 ${mb} MB`;
+}
+
+/** DL開始ボタン */
+async function startBaseDlFromDialog(){
+  const layers = ['std','photo','topo'].filter(lk => document.getElementById('bdlg-ck-' + lk)?.checked);
+  if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
+  closeBaseDlDialog();
+  await runDl('base', JAPAN, 5, 9, layers, 0);
+}
+
+// ═══════════════════════════════════════════
 //  矩形選択（drawRect系のみ）
 //  設計:
 //    DLダイアログのSTEP1でドラッグ選択に一本化。
