@@ -1273,7 +1273,8 @@
     </div>
 
     <div class="dlprog-stats">
-      <span id="dlprog-done">0</span> / <span id="dlprog-tot">—</span> 枚
+      <span id="dlprog-done" style="display:none">0</span>
+      <span id="dlprog-tot"  style="display:none">—</span>
       <span class="dlprog-mb" id="dlprog-mb">0 MB</span>
     </div>
 
@@ -1331,6 +1332,7 @@
       setTimeout(()=>{
         if(typeof initCacheSlider === 'function') initCacheSlider();
         if(typeof renderSessionList === 'function') renderSessionList();
+        if(typeof updateMaxCachedZooms === 'function') updateMaxCachedZooms();
         if(typeof initZoomBadge === 'function') initZoomBadge();
       }, 800);
     });
