@@ -167,14 +167,19 @@ async function _tryFallbackTile(sk, origZ, origX, origY, img, done){
   // 詳細DLの最大キャッシュズームを取得（ベースDLは除外済み）
   const maxZ = getMaxCachedZoom(sk);
 
-  // 詳細DLがない or 現在ズームがmaxZより大きい → ズーム不足
-  if(maxZ === null || origZ > maxZ){
+  // 詳細DLが全くない → 即終了
+  if(maxZ === null){
     _showOfflineZoomToast();
     return false;
   }
 
-  // ズームは範囲内だがタイルがない → エリア外の可能性。1段ずつ下げて確認
-  for(let fz = origZ - 1; fz >= Math.max(maxZ - 4, 0); fz--){
+  // フォールバック探索範囲:
+  //   origZ > maxZ: maxZから下へ（ズーム超過 → 引き延ばし）
+  //   origZ <= maxZ: origZ-1から下へ（同ズーム帯でエリア外）
+  const startZ = Math.min(origZ - 1, maxZ);
+  const limitZ = Math.max(maxZ - 4, 0);
+
+  for(let fz = startZ; fz >= limitZ; fz--){
     const factor = Math.pow(2, origZ - fz);
     const fx = Math.floor(origX / factor);
     const fy = Math.floor(origY / factor);
@@ -189,12 +194,18 @@ async function _tryFallbackTile(sk, origZ, origX, origY, img, done){
       img.onload = ()=>done(null, img);
       img.onerror = e=>done(e, img);
       img.src = URL.createObjectURL(new Blob([cached], {type}));
+      // ズーム超過の場合はトーストも出す（引き延ばし表示中であることを通知）
+      if(origZ > maxZ) _showOfflineZoomToast();
       return true;
     }
   }
 
-  // ズーム範囲内だがどこにもキャッシュなし → エリア外
-  _showOfflineAreaToast();
+  // フォールバック失敗: ズーム超過かエリア外かで出し分け
+  if(origZ > maxZ){
+    _showOfflineZoomToast();
+  } else {
+    _showOfflineAreaToast();
+  }
   return false;
 }
 
