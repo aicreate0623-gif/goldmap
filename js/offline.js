@@ -427,108 +427,6 @@ function _dldCheckSize(bounds, zmaxVal, layers){
   return false;
 }
 
-// ── 分割計画を立てる ────────────────────────────────────────
-// bounds/zmin/zmaxを受け取り、各100MB以内のチャンク配列を返す
-// 例: [{zmin:10,zmax:13}, {zmin:14,zmax:14}, {zmin:15,zmax:15}]
-function _calcChunks(bounds, zmin, zmax, layers){
-  const chunks = [];
-  let curZmin = zmin;
-  while(curZmin <= zmax){
-    // curZminからzmaxまでで100MB以内の最大zmaxChunkを探す
-    let zmaxChunk = zmax;
-    while(zmaxChunk >= curZmin){
-      const tiles = cntTiles(bounds, curZmin, zmaxChunk);
-      const eb = estBytesLayers(tiles, layers);
-      if(eb <= DL_SESSION_MAX) break;
-      zmaxChunk--;
-    }
-    if(zmaxChunk < curZmin){
-      // 1ズームだけでも100MB超の場合は強制的に1ズーム分
-      zmaxChunk = curZmin;
-    }
-    chunks.push({zmin: curZmin, zmax: zmaxChunk});
-    curZmin = zmaxChunk + 1;
-  }
-  return chunks;
-}
-
-// ── 分割DLを順番に実行 ──────────────────────────────────────
-// chunks: [{zmin, zmax}, ...], chunkIndex: 何回目から開始するか
-// sessId: 既存セッションID（2回目以降の続き用, nullなら新規）
-async function _runChunkedDl(bounds, layers, chunks, chunkIndex, sessId){
-  const total = chunks.length;
-  // DLダイアログ内の進捗ヘッダーを更新する共通関数
-  function _setChunkLabel(n){
-    const el = document.getElementById('dld-chunk-label');
-    if(el) el.textContent = `${n}/${total}回目 DL中`;
-  }
-
-  for(let i = chunkIndex; i < total; i++){
-    const chunk = chunks[i];
-    _setChunkLabel(i + 1);
-
-    // saveDlSession をフックして pendingChunks を注入 / セッション更新
-    const origSave = window.saveDlSession;
-    const remainingChunks = chunks.slice(i + 1);
-    let savedSessId = sessId;
-
-    window.saveDlSession = async (opts)=>{
-      window.saveDlSession = origSave;
-      if(savedSessId && i > 0){
-        // 2回目以降: 既存セッションにマージ
-        if(typeof addLayersToSession === 'function'){
-          await addLayersToSession(savedSessId, opts.srcKeys||[], opts.tileKeys||[], opts.totalSize||0);
-        }
-        // pendingChunks と zmax を更新
-        const s = await dbGetSess(savedSessId).catch(()=>null);
-        if(s){
-          s.pendingChunks = remainingChunks.length ? remainingChunks : null;
-          s.pendingZmin   = remainingChunks.length ? remainingChunks[0].zmin : null;
-          // 全チャンク完了時は zmax を全体の最大値に更新
-          s.zmax = Math.max(s.zmax || 0, chunks[chunks.length - 1].zmax);
-          await dbPutSess(savedSessId, s);
-        }
-      } else {
-        // 1回目: 通常保存 + pendingChunks を付加
-        // zmax は全チャンクの最大値（チャンク分割前の元の値）で上書き
-        const fullZmax = chunks[chunks.length - 1].zmax;
-        const s = await origSave({
-          ...opts,
-          zmin:          chunks[0].zmin,
-          zmax:          fullZmax,
-          pendingChunks: remainingChunks.length ? remainingChunks : null,
-          pendingZmin:   remainingChunks.length ? remainingChunks[0].zmin : null,
-        });
-        savedSessId = s.id;
-      }
-      if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
-      await refreshCache();
-    };
-
-    await runDl('detail', bounds, chunk.zmin, chunk.zmax, layers, 0);
-    window.saveDlSession = origSave; // 万が一未呼び出しならリストア
-
-    // 1チャンク完了後、続きがあれば確認ダイアログ
-    if(i < total - 1){
-      const nextChunk = chunks[i + 1];
-      _setChunkLabel('—');
-      // DLダイアログ内ボタンを「続きDL」と「後で」に差し替え
-      const btns = document.getElementById('dld-dl-btns');
-      if(btns){
-        btns.innerHTML =
-          `<button class="btn accent" id="dld-cont-btn">今すぐDL（${i+2}/${total}回目）</button>` +
-          `<button class="btn sm"     id="dld-later-btn">後で</button>`;
-      }
-      // ユーザーの選択を待つ
-      const cont = await new Promise(res=>{
-        document.getElementById('dld-cont-btn')?.addEventListener('click',  ()=>res(true),  {once:true});
-        document.getElementById('dld-later-btn')?.addEventListener('click', ()=>res(false), {once:true});
-      });
-      if(!cont) break; // 「後で」→中断（続きボタンはセッションカードに表示済み）
-    }
-  }
-}
-
 // ── STEP2: 範囲を解除する ────────────────────────────────
 function _dldClearDraw(){
   _drawPending = null;
@@ -645,35 +543,11 @@ async function _dldStartDl(){
   const zmin = parseInt(document.getElementById('dlg-det-zmin').value);
   const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
 
+  if(_dldCheckSize(_dldBounds, zmax, layers)) return;
+
   detRect = _dldBounds;
   _dldRenderStep(3);
-
-  // ── 分割DLチェック（100MB超なら分割）──
-  const totalTiles = cntTiles(_dldBounds, zmin, zmax);
-  const totalBytes = estBytesLayers(totalTiles, layers);
-
-  if(totalBytes > DL_SESSION_MAX){
-    const chunks = _calcChunks(_dldBounds, zmin, zmax, layers);
-    // 総回数ラベルを挿入
-    _dldInjectChunkLabel(chunks.length);
-    await _runChunkedDl(_dldBounds, layers, chunks, 0, null);
-  } else {
-    await runDl('detail', detRect, zmin, zmax, layers, 0);
-  }
-}
-
-// ── DLダイアログに分割回数ラベルを挿入（なければ作る）────
-function _dldInjectChunkLabel(total){
-  let el = document.getElementById('dld-chunk-label');
-  if(!el){
-    el = document.createElement('div');
-    el.id = 'dld-chunk-label';
-    el.className = 'dld-chunk-label';
-    // dld-s3（進捗パネル）の先頭に挿入
-    const s3 = document.getElementById('dld-s3');
-    if(s3) s3.insertBefore(el, s3.firstChild);
-  }
-  el.textContent = `1/${total}回目 DL中`;
+  await runDl('detail', detRect, zmin, zmax, layers, 0);
 }
 
 // ── STEP3: ダイアログ内バーに進捗同期 ─────────────────
@@ -976,9 +850,9 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
       const _label    = `${_layerLabel(layers)} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
       const _bounds   = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
       await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
-      // 最大キャッシュズームをlocalStorageに更新
-      if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
     }
+    // DL完了時に必ずMAXズームを更新（done=0のキャッシュ済み完了も含む）
+    if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
   } else {
     log('⏸ 停止しました。続きから再開できます。');
     dlprogStopped();
@@ -1090,9 +964,6 @@ async function renderSessionList(){
     const addDlBtn = hasBounds
       ? `<button class="sess-adddl-btn" onclick="openAddLayerPanel('${s.id}')">＋</button>`
       : '';
-    const contBtn = (s.pendingChunks && s.pendingChunks.length)
-      ? `<button class="sess-cont-btn" onclick="continueChunkedDl('${s.id}')" title="続き（Z${s.pendingZmin}〜）をDL">続き▶</button>`
-      : '';
     return `
     <div class="sess-card" id="sc-${s.id}">
       <div class="sess-map-thumb" onclick="jumpToSession('${s.id}')">
@@ -1106,7 +977,6 @@ async function renderSessionList(){
         <div class="sess-meta">最終使用: ${used}</div>
       </div>
       <div class="sess-btns">
-        ${contBtn}
         ${addDlBtn}
         <button class="sess-del-btn" onclick="deleteSessionWithConfirm('${s.id}')">🗑</button>
       </div>
@@ -1852,41 +1722,6 @@ function _adpShowDone(sessId){
     };
     panel.appendChild(closeBtn);
   }
-}
-
-// ═══════════════════════════════════════════
-//  分割DL: セッションカードの「続き」ボタンから再開
-// ═══════════════════════════════════════════
-async function continueChunkedDl(sessId){
-  const sess = await dbGetSess(sessId).catch(()=>null);
-  if(!sess){ showAlert('エラー','セッションが見つかりません'); return; }
-  if(!sess.pendingChunks || !sess.pendingChunks.length){
-    showAlert('情報','続きのDLはありません');
-    return;
-  }
-  if(!sess.bounds){ showAlert('エラー','範囲情報がありません'); return; }
-
-  const b = sess.bounds;
-  const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
-  const layers = sess.srcKeys || ['std'];
-  const chunks = sess.pendingChunks;
-
-  // ui.js の _runChunkedDl を呼ぶ（ダイアログ経由せず直接実行）
-  if(typeof _runChunkedDl !== 'function'){
-    showAlert('エラー','DL機能が読み込まれていません'); return;
-  }
-  // オフラインタブを開いてDL開始
-  if(typeof switchTab === 'function') switchTab('offline');
-
-  // DLダイアログが存在すればSTEP3（進捗）に切り替え
-  const dlg = document.getElementById('dl-dialog');
-  if(dlg && dlg.style.display !== 'none'){
-    if(typeof _dldRenderStep === 'function') _dldRenderStep(3);
-    if(typeof _dldInjectChunkLabel === 'function') _dldInjectChunkLabel(chunks.length);
-  }
-
-  await _runChunkedDl(bounds, layers, chunks, 0, sessId);
-  await refreshCache();
 }
 
 /**
