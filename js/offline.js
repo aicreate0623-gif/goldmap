@@ -969,8 +969,10 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     // セッション保存（一覧に表示するため）
     if(typeof saveDlSession==='function' && done>0){
       const _tileKeys = tasks.map(t=>tileKey(t.lk,t.z,t.x,t.y));
-      const _center   = (typeof map!=='undefined') ? [map.getCenter().lat,map.getCenter().lng] : [35,136];
-      const _zoom     = (typeof map!=='undefined') ? map.getZoom() : zmax;
+      const _center   = mode==='base'
+        ? [35.0, 136.0]
+        : [bounds.getCenter().lat, bounds.getCenter().lng];
+      const _zoom     = zmax;
       const _label    = `${_layerLabel(layers)} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
       const _bounds   = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
       await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
