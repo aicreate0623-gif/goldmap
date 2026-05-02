@@ -49,7 +49,6 @@ async function initMap(){
   // mineLayerは起動時に追加しない（ボタンもactive付けない）
   document.getElementById('btn-mine').classList.remove('active');
   loadPts();
-  updBaseEst();
   refreshCache();
   checkResume();
   // 産総研レイヤー初期化（キャッシュ確認のみ・自動表示はしない）
