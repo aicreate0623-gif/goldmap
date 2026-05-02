@@ -153,29 +153,36 @@ function makeCachedLayer(srcKey){
       if(!db){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); return img; }
 
       // ── オンライン優先：ネット取得を試み失敗したらキャッシュにフォールバック ──
+      // ── オフライン時はfetchをスキップして即キャッシュ参照 ──
       const type=this._sk==='photo'?'image/jpeg':'image/png';
-      const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(), 5000);
-      fetch(net,{signal:ctrl.signal})
-        .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
-        .then(buf=>{
-          img.src=URL.createObjectURL(new Blob([buf],{type}));
+
+      const _loadFromCache = async () => {
+        const cached = await dbGet(key).catch(()=>null);
+        if(cached){
+          img.src=URL.createObjectURL(new Blob([cached],{type}));
           img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-        })
-        .catch(async ()=>{
-          // ネット失敗 → キャッシュ確認
-          const cached = await dbGet(key).catch(()=>null);
-          if(cached){
-            img.src=URL.createObjectURL(new Blob([cached],{type}));
+        } else if(_offlineFallback){
+          const hit = await _tryFallbackTile(this._sk, z, x, y, img, done);
+          if(!hit){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); }
+        } else {
+          img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+        }
+      };
+
+      if(!navigator.onLine){
+        // オフライン確定 → fetchせず即キャッシュ
+        _loadFromCache();
+      } else {
+        const ctrl=new AbortController();
+        const tid=setTimeout(()=>ctrl.abort(), 5000);
+        fetch(net,{signal:ctrl.signal})
+          .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
+          .then(buf=>{
+            img.src=URL.createObjectURL(new Blob([buf],{type}));
             img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-          } else if(_offlineFallback){
-            // キャッシュなし＋フォールバックON → 2段下を引き延ばし
-            const hit = await _tryFallbackTile(this._sk, z, x, y, img, done);
-            if(!hit){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); }
-          } else {
-            img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-          }
-        });
+          })
+          .catch(async ()=>{ clearTimeout(tid); await _loadFromCache(); });
+      }
       return img;
     }
   });
