@@ -3362,3 +3362,24 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   box-shadow: 0 2px 12px rgba(0,0,0,0.4);
   flex-shrink: 0;
 }
+
+/* ── 距離スケールバー（zoomボタン左に横並び） ── */
+.leaflet-bottom.leaflet-right {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-end;
+  gap: 6px;
+}
+.leaflet-control-scale {
+  margin: 0 0 10px 0 !important;
+}
+.leaflet-control-scale-line {
+  background: rgba(20,15,5,0.82) !important;
+  border: 1px solid var(--gold, #c8a84b) !important;
+  border-top: none !important;
+  color: var(--txt, #f0e6c8) !important;
+  font-size: 10px !important;
+  padding: 2px 5px !important;
+  border-radius: 0 0 4px 4px !important;
+  white-space: nowrap;
+}

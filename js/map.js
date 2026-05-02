@@ -1,7 +1,7 @@
 'use strict';
 const map=L.map('map',{center:[36.5,137.5],zoom:7,zoomControl:true});
 map.zoomControl.setPosition('bottomright');
-L.control.scale({imperial:false, position:'bottomleft'}).addTo(map);
+L.control.scale({imperial:false, position:'bottomright'}).addTo(map);
 let TILES={}, curBase='photo'; // デフォルト: 航空写真
 
 async function initMap(){
