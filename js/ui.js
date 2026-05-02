@@ -395,7 +395,7 @@ function _showHeatZoomBanner(show, tier, z){
     if(!b){
       b = document.createElement('div');
       b.id = 'heat-zoom-banner';
-      b.style.cssText = 'position:fixed;bottom:calc(var(--tab-h)+16px);left:50%;transform:translateX(-50%);z-index:1050;background:rgba(0,0,0,0.88);border:1px solid var(--gold);border-radius:20px;padding:7px 16px;font-size:12px;color:var(--txt);white-space:nowrap;pointer-events:auto;display:flex;align-items:center;gap:4px;';
+      b.style.cssText = 'position:fixed;top:calc(var(--sb-h, 30px) + 8px + 89px + 16px);left:50%;transform:translateX(-50%);z-index:1050;background:rgba(0,0,0,0.88);border:1px solid var(--gold);border-radius:20px;padding:7px 16px;font-size:12px;color:var(--txt);white-space:nowrap;pointer-events:auto;display:flex;align-items:center;gap:4px;';
       document.body.appendChild(b);
     }
     b.innerHTML = msg + btnHtml;
@@ -1805,7 +1805,7 @@ function showToast(msg, duration) {
     el = document.createElement('div');
     el.id = 'ui-toast';
     el.style.cssText =
-      'position:fixed;top:calc(var(--sb-h, 30px) + 8px + 89px + 10px);left:50%;transform:translateX(-50%);' +
+      'position:fixed;top:calc(var(--sb-h, 30px) + 8px + 89px + 16px);left:50%;transform:translateX(-50%);' +
       'background:rgba(30,20,10,0.92);border:1px solid var(--gold);color:var(--txt);' +
       'padding:8px 18px;border-radius:20px;font-size:12px;z-index:2000;pointer-events:none;' +
       'white-space:nowrap;backdrop-filter:blur(8px);opacity:0;transition:opacity 0.2s;';
