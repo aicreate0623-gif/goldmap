@@ -364,7 +364,7 @@ map.on('zoomend', () => {
   const maxZ = TIER_CFG[heatTier].zoomMax;
   if(z > maxZ){
     if(heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
-    _showHeatZoomBanner(true, heatTier);
+    _showHeatZoomBanner(true, heatTier, z);
   } else {
     _showHeatZoomBanner(false);
     initHeatLayer(heatTier);
@@ -372,19 +372,30 @@ map.on('zoomend', () => {
 });
 
 // ── プレミアム誘導バナー ──────────────────────────────
-function _showHeatZoomBanner(show, tier){
+function _showHeatZoomBanner(show, tier, z){
   let b = document.getElementById('heat-zoom-banner');
   if(show){
-    const msg = tier === 'free'
-      ? '🔒 この拡大率はプレミアム版で閲覧できます'
-      : '⚠ この拡大率は表示範囲外です';
-    const btnHtml = tier === 'free'
-      ? '<button onclick="toggleHeatPremium()" style="margin-left:8px;padding:3px 10px;border-radius:5px;background:var(--gold);border:none;color:#1a1400;font-weight:700;font-size:11px;cursor:pointer;">プレミアムへ</button>'
-      : '';
+    let msg, btnHtml;
+    if(tier === 'free'){
+      const premiumMax = TIER_CFG.premium.zoomMax; // 13
+      if(z <= premiumMax){
+        // Z10〜13: PRO版なら見れる
+        msg = '🔒 Z' + z + ' はPRO版で閲覧できます';
+        btnHtml = '';
+      } else {
+        // Z14以上: PRO版でも範囲外
+        msg = '⚠ この拡大率はどのプランでも表示範囲外です';
+        btnHtml = '';
+      }
+    } else {
+      // premium tier
+      msg = '⚠ この拡大率は表示範囲外です';
+      btnHtml = '';
+    }
     if(!b){
       b = document.createElement('div');
       b.id = 'heat-zoom-banner';
-      b.style.cssText = 'position:fixed;bottom:calc(var(--tab-h)+10px);left:50%;transform:translateX(-50%);z-index:1050;background:rgba(0,0,0,0.88);border:1px solid var(--gold);border-radius:20px;padding:7px 16px;font-size:12px;color:var(--txt);white-space:nowrap;pointer-events:auto;display:flex;align-items:center;gap:4px;';
+      b.style.cssText = 'position:fixed;bottom:calc(var(--tab-h)+16px);left:50%;transform:translateX(-50%);z-index:1050;background:rgba(0,0,0,0.88);border:1px solid var(--gold);border-radius:20px;padding:7px 16px;font-size:12px;color:var(--txt);white-space:nowrap;pointer-events:auto;display:flex;align-items:center;gap:4px;';
       document.body.appendChild(b);
     }
     b.innerHTML = msg + btnHtml;
