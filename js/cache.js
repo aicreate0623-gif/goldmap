@@ -323,6 +323,8 @@ async function deleteSessionWithConfirm(id){
   }
 
   await dbDelSess(id);
+  const _card = document.getElementById('sc-' + id);
+  if(_card) _card.remove();
   await updateMaxCachedZooms();
   await renderSessionList();
   await refreshCache();
