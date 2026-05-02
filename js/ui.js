@@ -1844,3 +1844,77 @@ function initScaleBar(){
   };
   setTimeout(()=> tryMove(10), 500);
 }
+// ── キャッシュ診断 ────────────────────────────────────
+async function diagCache(){
+  const out = document.getElementById('diag-out');
+  if(!out) return;
+  out.textContent = '🔍 診断中…';
+
+  const lines = [];
+
+  // 1) db初期化チェック
+  if(typeof db === 'undefined' || !db){
+    out.textContent = '❌ IndexedDB未初期化（db=null）\nキャッシュは保存されていません。';
+    return;
+  }
+  lines.push('✅ IndexedDB: 初期化済み');
+
+  // 2) タイル総数
+  try{
+    const cnt = await dbCnt();
+    lines.push(`📦 保存タイル総数: ${cnt} 枚`);
+    if(cnt === 0){
+      lines.push('⚠️ タイルが1枚も保存されていません！');
+      lines.push('→ ダウンロードが正常に完了していない可能性があります。');
+      out.textContent = lines.join('\n');
+      return;
+    }
+  } catch(e){
+    lines.push('❌ タイル数取得失敗: ' + e.message);
+    out.textContent = lines.join('\n');
+    return;
+  }
+
+  // 3) 現在地周辺のタイルキーをサンプルチェック
+  const z = map.getZoom();
+  const center = map.getCenter();
+  const n = Math.pow(2, z);
+  const tx = Math.floor((center.lng + 180) / 360 * n);
+  const ty = Math.floor(
+    (1 - Math.log(Math.tan(center.lat * Math.PI/180) + 1/Math.cos(center.lat * Math.PI/180)) / Math.PI)
+    / 2 * n
+  );
+
+  lines.push(`📍 現在地タイル: Z${z} / X${tx} / Y${ty}`);
+  lines.push(`📡 navigator.onLine: ${navigator.onLine}`);
+
+  const layers = ['photo','std','topo'];
+  for(const lk of layers){
+    try{
+      const key = lk+'/'+z+'/'+tx+'/'+ty;
+      const val = await dbGet(key);
+      if(val){
+        lines.push(`✅ ${lk}: キャッシュあり（${(val.byteLength/1024).toFixed(1)}KB）`);
+      } else {
+        lines.push(`❌ ${lk}: キャッシュなし（key=${key}）`);
+      }
+    } catch(e){
+      lines.push(`❌ ${lk}: 取得エラー（${e.message}）`);
+    }
+  }
+
+  // 4) セッション一覧
+  try{
+    const sessions = await dbGetAllSess();
+    lines.push(`\n💾 DLセッション数: ${sessions.length} 件`);
+    sessions.forEach(s=>{
+      const mb = ((s.totalSize||0)/1024/1024).toFixed(1);
+      const keys = (s.tileKeys||[]).length;
+      lines.push(`  [${s.mode||'?'}] ${s.label||'名称未設定'} - ${mb}MB / ${keys}キー`);
+    });
+  } catch(e){
+    lines.push('❌ セッション取得失敗: ' + e.message);
+  }
+
+  out.textContent = lines.join('\n');
+}

@@ -315,6 +315,11 @@
   </div>
   <div class="sheet-body">
 
+    <!-- ━━━ キャッシュ診断 ━━━ -->
+    <div style="margin-bottom:12px">
+      <button class="btn" onclick="diagCache()" style="width:100%">🔍 キャッシュ診断</button>
+      <pre id="diag-out" style="margin-top:8px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;font-size:11px;color:#ccc;white-space:pre-wrap;word-break:break-all;min-height:40px;display:block"></pre>
+    </div>
     <!-- ━━━ ご利用上の説明・ルール ━━━ -->
     <div class="cfg-accordion offline-rules-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
