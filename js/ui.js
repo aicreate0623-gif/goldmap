@@ -1830,3 +1830,14 @@ function updateZoomBadge(){
   const badge = document.getElementById('zoom-level-badge');
   if(badge) badge.textContent = 'Z: ' + map.getZoom();
 }
+// ── スケールバーをfloat-ctrl下に移動 ────────────────
+function initScaleBar(){
+  // LeafletがDOMに描画するまで少し待つ
+  requestAnimationFrame(()=>{
+    const scale = document.querySelector('.leaflet-control-scale');
+    const ctrl  = document.getElementById('float-ctrl');
+    if(!scale || !ctrl) return;
+    // float-ctrlの直後に移動
+    ctrl.insertAdjacentElement('afterend', scale);
+  });
+}

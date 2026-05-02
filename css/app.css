@@ -3363,13 +3363,10 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   flex-shrink: 0;
 }
 
-/* ── 距離スケールバー（左下・タブバー上で干渉なし） ── */
-.leaflet-bottom.leaflet-left {
-  bottom: calc(var(--tab-h) + 8px) !important;
-  left: 8px !important;
-}
+/* ── 距離スケールバー（float-ctrl直下に配置） ── */
 .leaflet-control-scale {
   margin: 0 !important;
+  pointer-events: none;
 }
 .leaflet-control-scale-line {
   background: rgba(20,15,5,0.82) !important;
