@@ -1072,7 +1072,7 @@ async function renderSessionList(){
   const ALL_LAYERS = ['std','photo','topo'];
   const LAYER_LABEL = {std:'地理院地図', photo:'航空写真', topo:'地形図'};
 
-  const sorted = [...detailSessions].sort((a,b)=>b.lastUsed - a.lastUsed);
+  const sorted = [...detailSessions].sort((a,b)=>b.createdAt - a.createdAt);
   container.innerHTML = sorted.map(s=>{
     const mb   = ((s.totalSize||0)/1024/1024).toFixed(1);
     const date = new Date(s.createdAt).toLocaleDateString('ja-JP');
