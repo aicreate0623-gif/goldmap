@@ -86,21 +86,7 @@ function tileKey(key,z,x,y){ return key+'/'+z+'/'+x+'/'+y; }
 //  カスタムキャッシュレイヤー（既存・変更なし）
 // ═══════════════════════════════════════════
 // ── オフライン低解像度フォールバック ON/OFF ──────────
-let _offlineFallback = localStorage.getItem('offlineFallback') !== 'false';
-function _applyFallbackBtn(){
-  const btn = document.getElementById('btn-offline-fallback');
-  if(!btn) return;
-  btn.classList.toggle('active', _offlineFallback);
-  btn.textContent = '🔍 低解像度フォールバック　' + (_offlineFallback ? 'ON' : 'OFF');
-}
-function toggleOfflineFallback(){
-  _offlineFallback = !_offlineFallback;
-  localStorage.setItem('offlineFallback', _offlineFallback);
-  _applyFallbackBtn();
-}
-function initOfflineFallbackBtn(){
-  _applyFallbackBtn();
-}
+
 
 /**
  * フォールバック用：2段下のズームからキャッシュを探して引き延ばし表示。
@@ -117,96 +103,13 @@ function getMaxCachedZoom(sk){
   return isNaN(v) ? null : v;
 }
 
-// ベースDLの最大ズーム（Z9以下はフォールバック対象外）
-const _BASE_DL_MAX_Z = 9;
 
-/** DL完了・セッション削除後に呼ぶ: 詳細DLセッション（zmax>9）のみでmaxZを再計算 */
-async function updateMaxCachedZooms(){
-  try {
-    const sessions = await dbGetAllSess();
-    LAYERS_ALL.forEach(lk => {
-      let maxZ = null;
-      sessions.forEach(s => {
-        // ベースDL（mode='base' または zmax<=9）は除外
-        if(s.mode === 'base' || (s.zmax || 0) <= _BASE_DL_MAX_Z) return;
-        if((s.srcKeys||[]).includes(lk)){
-          const z = s.zmax || 0;
-          if(maxZ === null || z > maxZ) maxZ = z;
-        }
-      });
-      if(maxZ !== null){
-        localStorage.setItem('cachedMaxZoom_' + lk, maxZ);
-      } else {
-        localStorage.removeItem('cachedMaxZoom_' + lk);
-      }
-    });
-  } catch(e){ console.warn('[cache] updateMaxCachedZooms failed', e); }
-}
-
-// トースト連発防止タイマー（ズーム不足・エリア外で別管理）
-let _offlineToastTimerZoom = null;
-let _offlineToastTimerArea = null;
-
-/** ズームレベル不足トースト */
-function _showOfflineZoomToast(){
-  if(_offlineToastTimerZoom) return;
-  if(typeof showToast === 'function') showToast('⚠ このズームレベルはDL範囲外です', 2500);
-  _offlineToastTimerZoom = setTimeout(()=>{ _offlineToastTimerZoom = null; }, 4000);
-}
-
-/** エリア外トースト */
-function _showOfflineAreaToast(){
-  if(_offlineToastTimerArea) return;
+// トースト連発防止タイマー
+let _offlineToastTimer = null;
+function _showOfflineToast(){
+  if(_offlineToastTimer) return;
   if(typeof showToast === 'function') showToast('⚠ この範囲はDLされていません', 2500);
-  _offlineToastTimerArea = setTimeout(()=>{ _offlineToastTimerArea = null; }, 4000);
-}
-
-async function _tryFallbackTile(sk, origZ, origX, origY, img, done){
-  const type = sk==='photo'?'image/jpeg':'image/png';
-
-  // 詳細DLの最大キャッシュズームを取得（ベースDLは除外済み）
-  const maxZ = getMaxCachedZoom(sk);
-
-  // 詳細DLが全くない → 即終了
-  if(maxZ === null){
-    _showOfflineZoomToast();
-    return false;
-  }
-
-  // フォールバック探索範囲:
-  //   origZ > maxZ: maxZから下へ（ズーム超過 → 引き延ばし）
-  //   origZ <= maxZ: origZ-1から下へ（同ズーム帯でエリア外）
-  const startZ = Math.min(origZ - 1, maxZ);
-  const limitZ = Math.max(maxZ - 4, 0);
-
-  for(let fz = startZ; fz >= limitZ; fz--){
-    const factor = Math.pow(2, origZ - fz);
-    const fx = Math.floor(origX / factor);
-    const fy = Math.floor(origY / factor);
-    const cached = await dbGet(tileKey(sk, fz, fx, fy)).catch(()=>null);
-    if(cached){
-      const size = 256 * factor;
-      img.style.width  = size + 'px';
-      img.style.height = size + 'px';
-      img.style.marginLeft = -(origX % factor) * 256 + 'px';
-      img.style.marginTop  = -(origY % factor) * 256 + 'px';
-      img.style.imageRendering = 'pixelated';
-      img.onload = ()=>done(null, img);
-      img.onerror = e=>done(e, img);
-      img.src = URL.createObjectURL(new Blob([cached], {type}));
-      // ズーム超過の場合はトーストも出す（引き延ばし表示中であることを通知）
-      if(origZ > maxZ) _showOfflineZoomToast();
-      return true;
-    }
-  }
-
-  // フォールバック失敗: ズーム超過かエリア外かで出し分け
-  if(origZ > maxZ){
-    _showOfflineZoomToast();
-  } else {
-    _showOfflineAreaToast();
-  }
-  return false;
+  _offlineToastTimer = setTimeout(()=>{ _offlineToastTimer = null; }, 4000);
 }
 
 function makeCachedLayer(srcKey){
@@ -246,11 +149,8 @@ function makeCachedLayer(srcKey){
           if(cached){
             img.src=URL.createObjectURL(new Blob([cached],{type}));
             img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-          } else if(_offlineFallback){
-            // キャッシュなし＋フォールバックON → 2段下を引き延ばし
-            const hit = await _tryFallbackTile(this._sk, coords.z, coords.x, coords.y, img, done);
-            if(!hit){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); }
           } else {
+            _showOfflineToast();
             img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
           }
         });

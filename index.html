@@ -384,14 +384,6 @@
       <p class="dl-start-hint">地図を見ながら範囲・レイヤー・ズームを設定できます</p>
     </div>
 
-    <!-- オフラインフォールバックトグル -->
-    <div class="offline-fallback-wrap">
-      <button class="btn offline-fallback-btn" id="btn-offline-fallback" onclick="toggleOfflineFallback()">
-        🔍 低解像度フォールバック　OFF
-      </button>
-      <p class="offline-fallback-hint">ONにするとオフライン時にDL範囲外のズームを2段下のタイルで引き延ばして表示します</p>
-    </div>
-
     <!-- レジュームバナー -->
     <div id="resume-banner">
       <strong>⏸ 前回の続きがあります</strong><br>
@@ -1339,7 +1331,6 @@
       setTimeout(()=>{
         if(typeof initCacheSlider === 'function') initCacheSlider();
         if(typeof renderSessionList === 'function') renderSessionList();
-        if(typeof initOfflineFallbackBtn === 'function') initOfflineFallbackBtn();
         if(typeof initZoomBadge === 'function') initZoomBadge();
       }, 800);
     });
