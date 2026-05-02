@@ -117,13 +117,18 @@ function getMaxCachedZoom(sk){
   return isNaN(v) ? null : v;
 }
 
-/** DL完了・セッション削除後に呼ぶ: 全セッションからレイヤーごとの最大zmaxを再計算して保存 */
+// ベースDLの最大ズーム（Z9以下はフォールバック対象外）
+const _BASE_DL_MAX_Z = 9;
+
+/** DL完了・セッション削除後に呼ぶ: 詳細DLセッション（zmax>9）のみでmaxZを再計算 */
 async function updateMaxCachedZooms(){
   try {
     const sessions = await dbGetAllSess();
     LAYERS_ALL.forEach(lk => {
       let maxZ = null;
       sessions.forEach(s => {
+        // ベースDL（mode='base' または zmax<=9）は除外
+        if(s.mode === 'base' || (s.zmax || 0) <= _BASE_DL_MAX_Z) return;
         if((s.srcKeys||[]).includes(lk)){
           const z = s.zmax || 0;
           if(maxZ === null || z > maxZ) maxZ = z;
@@ -138,25 +143,38 @@ async function updateMaxCachedZooms(){
   } catch(e){ console.warn('[cache] updateMaxCachedZooms failed', e); }
 }
 
-// トースト連発防止タイマー
-let _offlineToastTimer = null;
+// トースト連発防止タイマー（ズーム不足・エリア外で別管理）
+let _offlineToastTimerZoom = null;
+let _offlineToastTimerArea = null;
+
+/** ズームレベル不足トースト */
 function _showOfflineZoomToast(){
-  if(_offlineToastTimer) return;
-  if(typeof showToast === 'function') showToast('⚠ このズームのオフラインデータはありません', 2500);
-  _offlineToastTimer = setTimeout(()=>{ _offlineToastTimer = null; }, 4000);
+  if(_offlineToastTimerZoom) return;
+  if(typeof showToast === 'function') showToast('⚠ このズームレベルはDL範囲外です', 2500);
+  _offlineToastTimerZoom = setTimeout(()=>{ _offlineToastTimerZoom = null; }, 4000);
+}
+
+/** エリア外トースト */
+function _showOfflineAreaToast(){
+  if(_offlineToastTimerArea) return;
+  if(typeof showToast === 'function') showToast('⚠ この範囲はDLされていません', 2500);
+  _offlineToastTimerArea = setTimeout(()=>{ _offlineToastTimerArea = null; }, 4000);
 }
 
 async function _tryFallbackTile(sk, origZ, origX, origY, img, done){
   const type = sk==='photo'?'image/jpeg':'image/png';
 
-  // localStorageから最大キャッシュズームを取得（ヒントとして使うが必須ではない）
+  // 詳細DLの最大キャッシュズームを取得（ベースDLは除外済み）
   const maxZ = getMaxCachedZoom(sk);
 
-  // フォールバック開始ズーム: origZの1段下から（origZ<=maxZでもDBを実際に確認）
-  const startZ = (maxZ !== null) ? Math.min(origZ - 1, maxZ) : origZ - 1;
+  // 詳細DLがない or 現在ズームがmaxZより大きい → ズーム不足
+  if(maxZ === null || origZ > maxZ){
+    _showOfflineZoomToast();
+    return false;
+  }
 
-  // 1段ずつ下げてDBを確認
-  for(let fz = startZ; fz >= 0; fz--){
+  // ズームは範囲内だがタイルがない → エリア外の可能性。1段ずつ下げて確認
+  for(let fz = origZ - 1; fz >= Math.max(maxZ - 4, 0); fz--){
     const factor = Math.pow(2, origZ - fz);
     const fx = Math.floor(origX / factor);
     const fy = Math.floor(origY / factor);
@@ -173,12 +191,10 @@ async function _tryFallbackTile(sk, origZ, origX, origY, img, done){
       img.src = URL.createObjectURL(new Blob([cached], {type}));
       return true;
     }
-    // 無限ループ防止: maxZの5段以上下まで下げない
-    if(maxZ !== null && fz <= maxZ - 5) break;
   }
 
-  // どのズームにもキャッシュなし
-  _showOfflineZoomToast();
+  // ズーム範囲内だがどこにもキャッシュなし → エリア外
+  _showOfflineAreaToast();
   return false;
 }
 
@@ -403,4 +419,3 @@ async function clearCacheWithConfirm(){
   await renderSessionList();
   await refreshCache();
 }
-
