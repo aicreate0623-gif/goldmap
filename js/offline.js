@@ -98,6 +98,7 @@ function updBaseDlgEst(){
 async function startBaseDlFromDialog(){
   const layers = ['std','photo','topo'].filter(lk => document.getElementById('bdlg-ck-' + lk)?.checked);
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
+  if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
   closeBaseDlDialog();
   await runDl('base', JAPAN, 5, 9, layers, 0);
 }
@@ -248,6 +249,7 @@ function _layerLabel(keys, sep){ return (keys||[]).map(k=>_DLD_LAYER_LABEL[k]||k
 
 // ── ダイアログ開く ──────────────────────────────────────
 function openDlDialog(){
+  if(!navigator.onLine){ showAlert('オフライン', 'インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
   isPremiumUser().then(premium=>{
     if(!premium){ showPremiumGate('offline'); return; }
     _dldStep   = 0;
@@ -394,7 +396,7 @@ function _dldSyncAndCalc(){
   const eb  = estBytesLayers(base, chkLayers);
   const mb  = (eb / 1024 / 1024).toFixed(0);
   const over = eb > DL_SESSION_MAX;
-  tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB（${fmt(base * chkLayers.length)}）${over ? ' — 100MB超過' : ''}`;
+  tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB${over ? ' — 100MB超過' : ''}`;
   tot.style.color = over ? '#ff5a47' : '';
 
   // 100MB超過時は確定ボタンを無効化・解消時は再有効化
@@ -607,14 +609,14 @@ function _dldUpdEst(){
     rows += `<div class="dld-est-row${checked ? '' : ' dld-est-row--off'}">
       <span class="dld-est-lbl">${_DLD_LAYER_LABEL[k]}</span>
       <span class="dld-est-val">${checked
-        ? `約 <b>${mbEst(base, k)} MB</b>（${fmt(base)}）`
+        ? `約 <b>${mbEst(base, k)} MB</b>`
         : '<span class="dld-est-off">0 MB</span>'}</span>
     </div>`;
   });
   const totalMb = mbEstLayers(base, checkedLayers);
   rows += `<div class="dld-est-row dld-est-total">
     <span class="dld-est-lbl">合計</span>
-    <span class="dld-est-val">約 <b>${totalMb} MB</b>（${fmt(base * checkedLayers.length)}）</span>
+    <span class="dld-est-val">約 <b>${totalMb} MB</b></span>
   </div>`;
   document.getElementById('dld-est').innerHTML =
     `<div class="dld-est-range">Z${zmin}〜Z${zmax}</div>${rows}`;
@@ -627,6 +629,7 @@ async function _dldStartDl(){
   );
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!_dldBounds){    showAlert('エラー','範囲が選択されていません'); return; }
+  if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
 
   // ── ベースDL未完了チェック（STEP3でレイヤーを変更した場合も必ずガード）──
   if(typeof getBaseDlDoneLayers === 'function'){
@@ -901,7 +904,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     document.getElementById('pg-mb').textContent=mbReal;
     document.getElementById('pg-bar').style.width=(total>0?Math.round(processed/total*100):0)+'%';
     // DLプログレスダイアログ更新
-    dlprogUpdate(done, total, mbReal);
+    dlprogUpdate(processed, total, mbReal);
     // DLダイアログ内バー同期
     if(typeof _dldSyncProgress==='function') _dldSyncProgress(done,total,mbReal);
     // DLダイアログ内ログミラー
