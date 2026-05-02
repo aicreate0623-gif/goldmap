@@ -221,7 +221,7 @@ function makeCachedLayer(srcKey){
             img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
           } else if(_offlineFallback){
             // キャッシュなし＋フォールバックON → 2段下を引き延ばし
-            const hit = await _tryFallbackTile(this._sk, z, x, y, img, done);
+            const hit = await _tryFallbackTile(this._sk, coords.z, coords.x, coords.y, img, done);
             if(!hit){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); }
           } else {
             img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
