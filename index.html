@@ -54,10 +54,18 @@
     <button class="fc-btn fc-grp-map" id="btn-geo" onclick="toggleGeo()" title="地質図">
       <span class="fc-ico">🪨</span><span>地質</span>
     </button>
+    <button class="fc-btn fc-grp-map" id="btn-hill" onclick="toggleHill()" title="陰影起伏図">
+      <span class="fc-ico">🏔</span><span>陰影</span>
+    </button>
     <div id="geo-row">
       <label>透過</label>
       <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
       <span id="geo-opv">50%</span>
+    </div>
+    <div id="hill-row">
+      <label>透過</label>
+      <input type="range" class="gold" id="hill-op" min="0" max="100" value="50" oninput="setHillOp(this.value)">
+      <span id="hill-opv">50%</span>
     </div>
   </div>
 </div>
@@ -1133,9 +1141,9 @@
           <option value="15">Z15</option>
           <option value="16" selected>Z16</option>
           <option value="17">Z17</option>
-          <option value="18">Z18</option>
+          <option value="18" disabled>Z18</option>
         </select>
-        <span class="dld-s1-zmax-note">Z16まで推奨</span>
+        <span class="dld-s1-zmax-note">Z16まで推奨 / 地形図はZ17まで</span>
       </div>
       <div class="dld-s1-calc-total" id="dld-s1-total">— MB</div>
     </div>
@@ -1181,7 +1189,7 @@
         <option value="12">Z12</option><option value="13">Z13</option>
         <option value="14">Z14</option><option value="15" selected>Z15</option>
         <option value="16">Z16</option><option value="17">Z17</option>
-        <option value="18">Z18</option>
+        <option value="18" disabled>Z18</option>
       </select>
     </div>
 

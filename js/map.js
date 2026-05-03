@@ -11,6 +11,8 @@ async function initMap(){
   // 400: ベースタイル（デフォルト tilePane=200 より上で管理）
   // カスタムpane zIndex設定
   // Leafletデフォルト: tilePane=200, shadowPane=500, overlayPane=400, markerPane=600, popupPane=700
+  map.createPane('paneHill'); // 陰影起伏図（ベースの上・地質図の下）
+  map.getPane('paneHill').style.zIndex = 445;
   map.createPane('paneGeo');  // 地質図タイル（ベースの上・マーカーの下）
   map.getPane('paneGeo').style.zIndex = 450;
   map.createPane('paneBearHeat'); // 熊ヒートマップ（地質図の上・砂金の下）
@@ -87,6 +89,23 @@ function updateRightFloatTop(){
   const top = barBottom + 8;
   document.getElementById('float-ctrl-right').style.top = top + 'px';
 }
+
+// 陰影起伏図
+let hillL=null,hillOn=false;
+function toggleHill(){
+  hillOn=!hillOn;
+  const btn=document.getElementById('btn-hill');
+  btn.classList.toggle('active',hillOn);
+  document.getElementById('hill-row').classList.toggle('show',hillOn);
+  if(hillOn){
+    if(!hillL) hillL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png',
+      {attribution:'地理院タイル',maxNativeZoom:16,maxZoom:18,opacity:.5,pane:'paneHill'});
+    hillL.addTo(map);
+  } else {
+    if(hillL){ map.removeLayer(hillL); }
+  }
+}
+function setHillOp(v){document.getElementById('hill-opv').textContent=v+'%'; if(hillL)hillL.setOpacity(v/100);}
 
 // 地質図
 let geoL=null,geoOn=false;
