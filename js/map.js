@@ -2,6 +2,14 @@
 const map=L.map('map',{center:[36.5,137.5],zoom:7,zoomControl:true});
 map.zoomControl.setPosition('bottomright');
 L.control.scale({imperial:false, position:'bottomleft'}).addTo(map);
+
+// ズーム値バッジ更新
+function _updZoomBadge(){
+  const el = document.getElementById('zoom-level-val');
+  if(el) el.textContent = map.getZoom();
+}
+map.on('zoomend', _updZoomBadge);
+_updZoomBadge();
 let TILES={}, curBase='photo'; // デフォルト: 航空写真
 
 async function initMap(){
