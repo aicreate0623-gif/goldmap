@@ -461,7 +461,7 @@ async function _dldConfirmDraw(){
       if(hint) hint.innerHTML =
         `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
         `<br><button class="btn sm" style="margin-top:6px"
-          onclick="_dldCancel();switchTab('offline')">📥 ベースDLへ</button>`;
+          onclick="_dldCancel();_openTab('offline')">📥 ベースDLへ</button>`;
       return; // STEP3には進まない
     }
   }
@@ -1423,6 +1423,7 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
     let allDone = true;
     let hasAnyTile = false; // タイルが存在するズームが1つでもあるか
     for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
+      if(lk === 'topo' && z === 18) continue; // OpenTopoMapはZ18非対応のため除外
       const pz = lkData.perZoom[z];
       if(!pz || pz.total === 0) continue; // タイルが存在しないズームは無視
       hasAnyTile = true;
@@ -1544,7 +1545,7 @@ async function updAddLayerEst(sessId){
       </span>
       <span class="adp-est-line">
         <button class="btn sm" style="margin-top:4px"
-          onclick="switchTab('offline')">📥 ベースDLへ</button>
+          onclick="_openTab('offline')">📥 ベースDLへ</button>
       </span>`;
     if(btn) btn.disabled = true;
     return;
