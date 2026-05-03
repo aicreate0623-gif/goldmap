@@ -19,7 +19,9 @@ async function initMap(){
   // 400: ベースタイル（デフォルト tilePane=200 より上で管理）
   // カスタムpane zIndex設定
   // Leafletデフォルト: tilePane=200, shadowPane=500, overlayPane=400, markerPane=600, popupPane=700
-  map.createPane('paneHill'); // 陰影起伏図（ベースの上・地質図の下）
+  map.createPane('paneRelief'); // 色別標高図（ベースの上・陰影の下）
+  map.getPane('paneRelief').style.zIndex = 440;
+  map.createPane('paneHill'); // 陰影起伏図（色別標高の上・地質図の下）
   map.getPane('paneHill').style.zIndex = 445;
   map.createPane('paneGeo');  // 地質図タイル（ベースの上・マーカーの下）
   map.getPane('paneGeo').style.zIndex = 450;
@@ -97,6 +99,23 @@ function updateRightFloatTop(){
   const top = barBottom + 8;
   document.getElementById('float-ctrl-right').style.top = top + 'px';
 }
+
+// 色別標高図
+let reliefL=null,reliefOn=false;
+function toggleRelief(){
+  reliefOn=!reliefOn;
+  const btn=document.getElementById('btn-relief');
+  btn.classList.toggle('active',reliefOn);
+  document.getElementById('relief-row').classList.toggle('show',reliefOn);
+  if(reliefOn){
+    if(!reliefL) reliefL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png',
+      {attribution:'地理院タイル',maxNativeZoom:15,maxZoom:18,opacity:.5,pane:'paneRelief'});
+    reliefL.addTo(map);
+  } else {
+    if(reliefL){ map.removeLayer(reliefL); }
+  }
+}
+function setReliefOp(v){document.getElementById('relief-opv').textContent=v+'%'; if(reliefL)reliefL.setOpacity(v/100);}
 
 // 陰影起伏図
 let hillL=null,hillOn=false;

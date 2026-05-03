@@ -100,6 +100,25 @@ html, body {
   gap: 5px;
 }
 
+/* 色別標高図ボタン＋スライダー（左列・陰影と同構造） */
+.fcl-relief-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+#relief-row {
+  display: none; align-items: center; gap: 5px;
+  background: rgba(13,12,8,0.88); backdrop-filter: blur(6px);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 5px 8px;
+  height: 42px;
+  flex-shrink: 0;
+}
+#relief-row.show { display: flex; }
+#relief-row label { font-size: 9px; color: var(--txt-sub); white-space: nowrap; }
+#relief-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
+
 #float-ctrl {
   position: fixed;
   top: calc(var(--sb-h) + 8px);

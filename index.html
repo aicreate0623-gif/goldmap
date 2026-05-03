@@ -44,6 +44,16 @@
       <span id="hill-opv">50%</span>
     </div>
   </div>
+  <div class="fcl-relief-wrap">
+    <button class="fc-btn fc-grp-map" id="btn-relief" onclick="toggleRelief()" title="色別標高図">
+      <span class="fc-ico">🎨</span><span>標高色</span>
+    </button>
+    <div id="relief-row">
+      <label>透過</label>
+      <input type="range" class="gold" id="relief-op" min="0" max="100" value="50" oninput="setReliefOp(this.value)">
+      <span id="relief-opv">50%</span>
+    </div>
+  </div>
   <div class="fcl-geo-wrap">
     <button class="fc-btn fc-grp-map" id="btn-geo" onclick="toggleGeo()" title="地質図">
       <span class="fc-ico">🪨</span><span>地質</span>
