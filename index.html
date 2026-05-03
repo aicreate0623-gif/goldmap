@@ -34,9 +34,6 @@
   <button class="fc-btn fc-grp-map" id="btn-std" onclick="setBase('std')" title="地理院地図">
     <span class="fc-ico">🗾</span><span>地理院</span>
   </button>
-  <button class="fc-btn fc-grp-map" id="btn-topo" onclick="setBase('topo')" title="地形図">
-    <span class="fc-ico">⛰</span><span>地形</span>
-  </button>
   <div class="fcl-hill-wrap">
     <button class="fc-btn fc-grp-map" id="btn-hill" onclick="toggleHill()" title="陰影起伏図">
       <span class="fc-ico">🏔</span><span>陰影</span>
@@ -47,6 +44,16 @@
       <span id="hill-opv">50%</span>
     </div>
   </div>
+  <div class="fcl-geo-wrap">
+    <button class="fc-btn fc-grp-map" id="btn-geo" onclick="toggleGeo()" title="地質図">
+      <span class="fc-ico">🪨</span><span>地質</span>
+    </button>
+    <div id="geo-row">
+      <label>透過</label>
+      <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
+      <span id="geo-opv">50%</span>
+    </div>
+  </div>
   <div id="zoom-level-badge">Z<span id="zoom-level-val">7</span></div>
 </div>
 
@@ -54,6 +61,9 @@
   <div class="fc-row">
     <button class="fc-btn fc-grp-map base-active active" id="btn-photo" onclick="setBase('photo')" title="航空写真">
       <span class="fc-ico">📷</span><span>航空</span>
+    </button>
+    <button class="fc-btn fc-grp-map" id="btn-topo" onclick="setBase('topo')" title="地形図">
+      <span class="fc-ico">⛰</span><span>地形</span>
     </button>
     <button class="fc-btn fc-grp-heat" id="btn-heat-free" onclick="toggleHeatFree()" title="砂金分布ヒートマップ（フリー版）">
       <span class="fc-ico">🔥</span><span>分布</span>
@@ -64,16 +74,6 @@
     <button class="fc-btn fc-grp-heat" id="btn-heat-adj" onclick="toggleHeatPanel()" title="ヒートマップ調整" style="display:none">
       <span class="fc-ico">🎛</span><span>調整</span>
     </button>
-  </div>
-  <div class="fc-row">
-    <button class="fc-btn fc-grp-map" id="btn-geo" onclick="toggleGeo()" title="地質図">
-      <span class="fc-ico">🪨</span><span>地質</span>
-    </button>
-    <div id="geo-row">
-      <label>透過</label>
-      <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
-      <span id="geo-opv">50%</span>
-    </div>
   </div>
 </div>
 
@@ -1349,7 +1349,6 @@
         if(typeof initCacheSlider === 'function') initCacheSlider();
         if(typeof renderSessionList === 'function') renderSessionList();
         if(typeof updateMaxCachedZooms === 'function') updateMaxCachedZooms();
-        if(typeof initZoomBadge === 'function') initZoomBadge();
       }, 800);
     });
   </script>

@@ -92,6 +92,14 @@ html, body {
 #hill-row label { font-size: 9px; color: var(--txt-sub); white-space: nowrap; }
 #hill-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
 
+/* 地質図ボタン＋スライダー（左列・陰影と同構造） */
+.fcl-geo-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+
 #float-ctrl {
   position: fixed;
   top: calc(var(--sb-h) + 8px);
@@ -230,7 +238,7 @@ html, body {
   opacity: 0.4;
 }
 
-/* 地質図透過スライダー行（fc-row内に収まる） */
+/* 地質図透過スライダー行（左列・fcl-geo-wrap内に収まる） */
 #geo-row {
   display: none; align-items: center; gap: 5px;
   background: rgba(13,12,8,0.88); backdrop-filter: blur(6px);
