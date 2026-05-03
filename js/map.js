@@ -100,6 +100,16 @@ function updateRightFloatTop(){
   document.getElementById('float-ctrl-right').style.top = top + 'px';
 }
 
+// ── 透過値のlocalStorage保存・復元ユーティリティ ──
+function _loadOp(key){ return parseFloat(localStorage.getItem(key) ?? '50'); }
+function _saveOp(key, v){ localStorage.setItem(key, v); }
+function _applySlider(idSlider, idLabel, v){
+  const el = document.getElementById(idSlider);
+  if(el) el.value = v;
+  const lb = document.getElementById(idLabel);
+  if(lb) lb.textContent = v + '%';
+}
+
 // 色別標高図
 let reliefL=null,reliefOn=false;
 function toggleRelief(){
@@ -108,14 +118,21 @@ function toggleRelief(){
   btn.classList.toggle('active',reliefOn);
   document.getElementById('relief-row').classList.toggle('show',reliefOn);
   if(reliefOn){
+    const op = _loadOp('gm_op_relief');
+    _applySlider('relief-op','relief-opv', op);
     if(!reliefL) reliefL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png',
-      {attribution:'地理院タイル',maxNativeZoom:15,maxZoom:18,opacity:.5,pane:'paneRelief'});
+      {attribution:'地理院タイル',maxNativeZoom:15,maxZoom:18,opacity:op/100,pane:'paneRelief'});
+    else reliefL.setOpacity(op/100);
     reliefL.addTo(map);
   } else {
     if(reliefL){ map.removeLayer(reliefL); }
   }
 }
-function setReliefOp(v){document.getElementById('relief-opv').textContent=v+'%'; if(reliefL)reliefL.setOpacity(v/100);}
+function setReliefOp(v){
+  _applySlider('relief-op','relief-opv', v);
+  _saveOp('gm_op_relief', v);
+  if(reliefL) reliefL.setOpacity(v/100);
+}
 
 // 陰影起伏図
 let hillL=null,hillOn=false;
@@ -125,14 +142,21 @@ function toggleHill(){
   btn.classList.toggle('active',hillOn);
   document.getElementById('hill-row').classList.toggle('show',hillOn);
   if(hillOn){
+    const op = _loadOp('gm_op_hill');
+    _applySlider('hill-op','hill-opv', op);
     if(!hillL) hillL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png',
-      {attribution:'地理院タイル',maxNativeZoom:16,maxZoom:18,opacity:.5,pane:'paneHill'});
+      {attribution:'地理院タイル',maxNativeZoom:16,maxZoom:18,opacity:op/100,pane:'paneHill'});
+    else hillL.setOpacity(op/100);
     hillL.addTo(map);
   } else {
     if(hillL){ map.removeLayer(hillL); }
   }
 }
-function setHillOp(v){document.getElementById('hill-opv').textContent=v+'%'; if(hillL)hillL.setOpacity(v/100);}
+function setHillOp(v){
+  _applySlider('hill-op','hill-opv', v);
+  _saveOp('gm_op_hill', v);
+  if(hillL) hillL.setOpacity(v/100);
+}
 
 // 地質図
 let geoL=null,geoOn=false;
@@ -142,14 +166,21 @@ function toggleGeo(){
   btn.classList.toggle('active',geoOn);
   document.getElementById('geo-row').classList.toggle('show',geoOn);
   if(geoOn){
+    const op = _loadOp('gm_op_geo');
+    _applySlider('geo-op','geo-opv', op);
     if(!geoL) geoL=L.tileLayer('https://gbank.gsj.jp/seamless/v2/api/1.2/tiles/{z}/{y}/{x}.png',
-      {attribution:'産総研シームレス地質図',maxNativeZoom:13,maxZoom:18,opacity:.5,pane:'paneGeo'});
+      {attribution:'産総研シームレス地質図',maxNativeZoom:13,maxZoom:18,opacity:op/100,pane:'paneGeo'});
+    else geoL.setOpacity(op/100);
     geoL.addTo(map);
   } else {
     if(geoL){ map.removeLayer(geoL); }
   }
 }
-function setGeoOp(v){document.getElementById('geo-opv').textContent=v+'%'; if(geoL)geoL.setOpacity(v/100);}
+function setGeoOp(v){
+  _applySlider('geo-op','geo-opv', v);
+  _saveOp('gm_op_geo', v);
+  if(geoL) geoL.setOpacity(v/100);
+}
 // ━━━ 水位警戒情報（気象庁XML） ━━━
 // 洪水予報XML一覧フィード
 const JMA_FLOOD_INDEX = 'https://www.data.jma.go.jp/developer/xml/feed/extra.xml';
