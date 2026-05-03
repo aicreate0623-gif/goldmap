@@ -999,7 +999,8 @@ async function renderSessionList(){
         <span class="adp-zoom-sep">〜</span>
         <select class="adp-zsel" id="adp-zmax-${s.id}" onchange="updAddLayerEst('${s.id}')">
           ${Array.from({length:14},(_,i)=>i+5)
-            .map(z=>`<option value="${z}">${z>=17?'⚠️ ':''}Z${z}</option>`).join('')}
+            .map(z=>`<option value="${z}"${z===18?' disabled':''}>` +
+              `${z>=17?'⚠️ ':''}Z${z}</option>`).join('')}
         </select>
         <span class="adp-zoom-hint" id="adp-zhint-${s.id}"></span>
       </div>
@@ -1505,8 +1506,8 @@ async function _setAdpZoomDefaults(sessId){
   }
 
   // zmax select: recZmin 以上で最近い選択肢を選ぶ
-  // recZmin が推奨上限(16)を超えている場合はそのまま recZmin をデフォルトにする
-  const recZmax = Math.max(recZmin, 16);
+  // recZmin が推奨上限(18)を超えている場合はそのまま recZmin をデフォルトにする
+  const recZmax = Math.max(recZmin, 18);
   const opt = [...zmaxEl.options].find(o => parseInt(o.value) >= recZmax);
   if(opt) zmaxEl.value = opt.value;
 }
@@ -1610,7 +1611,7 @@ async function startAddLayerDl(sessId){
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
   // ズームselectの値を優先（なければセッション値）
   const zmin = parseInt(document.getElementById(`adp-zmin-${sessId}`)?.value) || sess.zmin || 11;
-  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 15;
+  const zmax = parseInt(document.getElementById(`adp-zmax-${sessId}`)?.value) || sess.zmax || 16;
 
   // パネルをDL中UIに切り替え（パネルは閉じない）
   _adpShowProgress(sessId, selected);
