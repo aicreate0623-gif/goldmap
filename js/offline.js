@@ -364,7 +364,7 @@ function _dldResetS1Est(){
   if(std)   std.checked   = true;
   if(photo) photo.checked = false;
   if(topo)  topo.checked  = false;
-  if(zmax)  zmax.value    = '15';
+  if(zmax)  zmax.value    = '16';
   const tot = document.getElementById('dld-s1-total');
   if(tot) tot.textContent = '— MB';
 }
