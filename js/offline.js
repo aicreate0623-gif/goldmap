@@ -141,6 +141,7 @@ function _enterDrawMode(){
   drawMode   = true;
   _drawStart = null;
   document.getElementById('float-ctrl').classList.add('draw-mode-active');
+  document.getElementById('float-ctrl-left').classList.add('draw-mode-active');
   document.getElementById('float-ctrl-right').classList.add('draw-mode-active');
   map.dragging.disable();
   map.scrollWheelZoom.disable();
@@ -195,6 +196,7 @@ function _stopDraw(){
   map.dragging.enable(); map.scrollWheelZoom.enable();
   map.getContainer().style.cursor='';
   document.getElementById('float-ctrl').classList.remove('draw-mode-active');
+  document.getElementById('float-ctrl-left').classList.remove('draw-mode-active');
   document.getElementById('float-ctrl-right').classList.remove('draw-mode-active');
   const e=map._re;
   if(e){

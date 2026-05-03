@@ -61,17 +61,51 @@ html, body {
 #sb-cache   { margin-left: auto; color: var(--txt-dim); font-size: 9px; }
 
 /* ━━━ FLOATING CONTROLS TOP BAR (左上・2段構成) ━━━ */
-#float-ctrl {
+/* ━━━ FLOATING CONTROLS LEFT（左縦列：基本レイヤー＋ズーム値） ━━━ */
+#float-ctrl-left {
   position: fixed;
   top: calc(var(--sb-h) + 8px);
   left: 10px;
-  right: 60px; /* 右コントロール(52px)+余白 */
   z-index: 900;
   display: flex;
   flex-direction: column;
   gap: 5px;
   align-items: flex-start;
 }
+/* 陰影ボタン＋シークバーのラッパー（横に飛び出す） */
+.fcl-hill-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+/* hill-rowはfloat-ctrl-left内では常にinline表示制御をJSに任せる */
+#hill-row {
+  display: none; align-items: center; gap: 5px;
+  background: rgba(13,12,8,0.88); backdrop-filter: blur(6px);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 5px 8px;
+  height: 42px;
+  flex-shrink: 0;
+}
+#hill-row.show { display: flex; }
+#hill-row label { font-size: 9px; color: var(--txt-sub); white-space: nowrap; }
+#hill-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
+
+#float-ctrl {
+  position: fixed;
+  top: calc(var(--sb-h) + 8px);
+  left: 60px; /* float-ctrl-left(42px)+gap(10px)+余白 */
+  right: 60px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+
+/* スケールバー: float-ctrl-leftの下端に合わせて配置 */
+/* float-ctrl-left: top=sb-h+8px、高さ=3×42px+2×5px+28px(zoom)+5px=166px → 下端=sb-h+174px */
 /* 各行: 横スクロール可能な1行 */
 .fc-row {
   display: flex;
@@ -190,6 +224,7 @@ html, body {
 
 /* ━━━ ドラッグ範囲選択中: フロートボタン無効化 ━━━ */
 #float-ctrl.draw-mode-active,
+#float-ctrl-left.draw-mode-active,
 #float-ctrl-right.draw-mode-active {
   pointer-events: none;
   opacity: 0.4;
@@ -3335,12 +3370,11 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   flex-shrink: 0;
 }
 
-/* ── 距離スケールバー（float-ctrl直下にCSS固定配置） ── */
-/* LeafletのbottomベースのデフォルトをCSSで上書きしてfloat-ctrl直下に固定 */
-/* float-ctrl top: sb-h(30px)+8px=38px, 高さ: 2段×42px+gap5px=89px → 下端127px */
+/* ── 距離スケールバー（float-ctrl-left直下にCSS固定配置） ── */
+/* float-ctrl-left top: sb-h+8px、高さ: 3×42px+2×5px+28px+5px=166px → 下端sb-h+174px */
 .leaflet-control-scale {
   position: fixed !important;
-  top: calc(var(--sb-h) + 8px + 89px + 6px) !important; /* = 133px */
+  top: calc(var(--sb-h) + 8px + 166px + 6px) !important;
   left: 10px !important;
   bottom: auto !important;
   margin: 0 !important;

@@ -29,16 +29,31 @@
 
 <div id="map"></div>
 
+<!-- 左縦列：基本レイヤー＋ズーム値＋スケール -->
+<div id="float-ctrl-left">
+  <button class="fc-btn fc-grp-map" id="btn-std" onclick="setBase('std')" title="地理院地図">
+    <span class="fc-ico">🗾</span><span>地理院</span>
+  </button>
+  <button class="fc-btn fc-grp-map" id="btn-topo" onclick="setBase('topo')" title="地形図">
+    <span class="fc-ico">⛰</span><span>地形</span>
+  </button>
+  <div class="fcl-hill-wrap">
+    <button class="fc-btn fc-grp-map" id="btn-hill" onclick="toggleHill()" title="陰影起伏図">
+      <span class="fc-ico">🏔</span><span>陰影</span>
+    </button>
+    <div id="hill-row">
+      <label>透過</label>
+      <input type="range" class="gold" id="hill-op" min="0" max="100" value="50" oninput="setHillOp(this.value)">
+      <span id="hill-opv">50%</span>
+    </div>
+  </div>
+  <div id="zoom-level-badge">Z<span id="zoom-level-val">7</span></div>
+</div>
+
 <div id="float-ctrl">
   <div class="fc-row">
-    <button class="fc-btn fc-grp-map" id="btn-std" onclick="setBase('std')" title="地理院地図">
-      <span class="fc-ico">🗾</span><span>地理院</span>
-    </button>
     <button class="fc-btn fc-grp-map base-active active" id="btn-photo" onclick="setBase('photo')" title="航空写真">
       <span class="fc-ico">📷</span><span>航空</span>
-    </button>
-    <button class="fc-btn fc-grp-map" id="btn-topo" onclick="setBase('topo')" title="地形図">
-      <span class="fc-ico">⛰</span><span>地形</span>
     </button>
     <button class="fc-btn fc-grp-heat" id="btn-heat-free" onclick="toggleHeatFree()" title="砂金分布ヒートマップ（フリー版）">
       <span class="fc-ico">🔥</span><span>分布</span>
@@ -54,24 +69,15 @@
     <button class="fc-btn fc-grp-map" id="btn-geo" onclick="toggleGeo()" title="地質図">
       <span class="fc-ico">🪨</span><span>地質</span>
     </button>
-    <button class="fc-btn fc-grp-map" id="btn-hill" onclick="toggleHill()" title="陰影起伏図">
-      <span class="fc-ico">🏔</span><span>陰影</span>
-    </button>
     <div id="geo-row">
       <label>透過</label>
       <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
       <span id="geo-opv">50%</span>
     </div>
-    <div id="hill-row">
-      <label>透過</label>
-      <input type="range" class="gold" id="hill-op" min="0" max="100" value="50" oninput="setHillOp(this.value)">
-      <span id="hill-opv">50%</span>
-    </div>
   </div>
 </div>
 
 <div id="float-ctrl-right">
-  <div id="zoom-level-badge">Z<span id="zoom-level-val">7</span></div>
   <button class="fc-btn fc-grp-custom" id="btn-custom-layer" onclick="toggleClMapVisible()" title="カスタムデータ表示/非表示" style="display:none">
     <span class="fc-ico">📂</span><span>マイMAP</span>
   </button>
