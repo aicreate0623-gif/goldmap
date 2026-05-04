@@ -19,7 +19,7 @@ function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M枚';if(n>=1e3)return Math.
 // レイヤー別1枚あたりKB係数（実測値ベース）
 // std: 地理院地図PNG ≈ 10KB、photo: 航空写真JPEG ≈ 18KB、topo: OpenTopoMap PNG ≈ 3KB
 // 1枚あたりKB係数（実測値ベース: 地理院2460枚/25.8MB・航空2499枚/66.8MB・地形図2848枚/33.8MB）
-const LAYER_KB = {std:11, photo:28, topo:12, hill:8, relief:6};
+const LAYER_KB = {std:11, photo:28, topo:14, hill:32, relief:24};
 window._LAYER_KB = LAYER_KB;
 function mbEst(n, lk){ const kb = (lk && LAYER_KB[lk]) || 10; return (n*kb/1024).toFixed(0); }
 // レイヤー配列を考慮した合計MB推定
@@ -882,7 +882,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
         const _bounds = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
         if(mode==='base'){
           // ベースDL → レイヤーごとに個別セッション
-          const layerKb = {std:11, photo:28, topo:12, hill:8, relief:6};
+          const layerKb = {std:11, photo:28, topo:14, hill:32, relief:24};
           const totalKb = layers.reduce((s,k)=>s+(layerKb[k]||10), 0);
           for(const lk of layers){
             const _tileKeys = tasks.filter(t=>t.lk===lk).map(t=>tileKey(t.lk,t.z,t.x,t.y));
