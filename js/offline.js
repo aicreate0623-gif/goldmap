@@ -700,7 +700,7 @@ function _dlprogSetPhase(phase){
 let dlRun=false, dlStop=false;
 const CONCUR=6;
 
-async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
+async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=null){
   if(dlRun)return;
 
   // タスク全生成
@@ -844,21 +844,36 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
     log('✅ 完了！ '+fmt(done)+'枚保存（失敗: '+fail+'）');
     dlprogDone();
     if(typeof _dldShowDone==='function') _dldShowDone(false);
-    // セッション保存（レイヤーごとに個別保存）
-    if(typeof saveDlSession==='function' && done>0){
-      const _center = mode==='base'
-        ? [35.0, 136.0]
-        : [bounds.getCenter().lat, bounds.getCenter().lng];
-      const _zoom   = zmax;
-      const _bounds = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
-      // レイヤーKBあたりの推定サイズ比（容量按分用）
-      const layerKb = {std:11, photo:28, topo:12, hill:8, relief:6};
-      const totalKb = layers.reduce((s,k)=>s+(layerKb[k]||10), 0);
-      for(const lk of layers){
-        const _tileKeys = tasks.filter(t=>t.lk===lk).map(t=>tileKey(t.lk,t.z,t.x,t.y));
-        const myBytes   = totalKb > 0 ? realBytes * (layerKb[lk]||10) / totalKb : realBytes;
-        const _label    = `${_layerLabel([lk])} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
-        await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:myBytes, srcKeys:[lk], bounds:_bounds, zmin, zmax, mode});
+    // セッション保存
+    if(done>0){
+      if(parentSessId){
+        // ＋追加DL → 既存セッションに合算（新規セッション作成しない）
+        const allTileKeys = tasks.map(t=>tileKey(t.lk,t.z,t.x,t.y));
+        if(typeof addLayersToSession==='function'){
+          await addLayersToSession(parentSessId, layers, allTileKeys, realBytes, zmax);
+        }
+      } else if(typeof saveDlSession==='function'){
+        const _center = mode==='base'
+          ? [35.0, 136.0]
+          : [bounds.getCenter().lat, bounds.getCenter().lng];
+        const _zoom   = zmax;
+        const _bounds = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
+        if(mode==='base'){
+          // ベースDL → レイヤーごとに個別セッション
+          const layerKb = {std:11, photo:28, topo:12, hill:8, relief:6};
+          const totalKb = layers.reduce((s,k)=>s+(layerKb[k]||10), 0);
+          for(const lk of layers){
+            const _tileKeys = tasks.filter(t=>t.lk===lk).map(t=>tileKey(t.lk,t.z,t.x,t.y));
+            const myBytes   = totalKb > 0 ? realBytes * (layerKb[lk]||10) / totalKb : realBytes;
+            const _label    = `${_layerLabel([lk])} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
+            await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:myBytes, srcKeys:[lk], bounds:_bounds, zmin, zmax, mode});
+          }
+        } else {
+          // detail → 全レイヤーまとめて1セッション
+          const _tileKeys = tasks.map(t=>tileKey(t.lk,t.z,t.x,t.y));
+          const _label    = `${_layerLabel(layers)} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
+          await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
+        }
       }
     }
     // DL完了時に必ずMAXズームを更新（done=0のキャッシュ済み完了も含む）
@@ -1623,36 +1638,9 @@ async function startAddLayerDl(sessId){
   // パネルをDL中UIに切り替え（パネルは閉じない）
   _adpShowProgress(sessId, selected);
 
-  // saveDlSessionをフックして追加DL分を既存セッションに合算
-  // runDlはレイヤーごとにsaveDlSessionを呼ぶため、selected.length回フックされる
-  let hookCount = 0;
-  const mergedTileKeys = [];
-  let mergedBytes = 0;
-  const origSave = window.saveDlSession;
+  // parentSessId を渡すことで runDl 内で直接 addLayersToSession を呼ぶ
+  await runDl('detail', bounds, zmin, zmax, selected, 0, sessId);
 
-  window.saveDlSession = async (opts) => {
-    hookCount++;
-    mergedTileKeys.push(...(opts.tileKeys || []));
-    mergedBytes += opts.totalSize || 0;
-
-    // 全レイヤー分フックが呼ばれたら合算してセッション更新
-    if(hookCount >= selected.length){
-      window.saveDlSession = origSave;
-      if(typeof addLayersToSession === 'function'){
-        await addLayersToSession(sessId, selected, mergedTileKeys, mergedBytes, zmax);
-      }
-      _adpShowDone(sessId);
-      await refreshCache();
-    }
-  };
-
-  await runDl('detail', bounds, zmin, zmax, selected, 0);
-  window.saveDlSession = origSave; // 念のため戻す
-
-  // done===0（全キャッシュ済み）等でフックが一度も呼ばれなかった場合
-  if(hookCount === 0 && typeof addLayersToSession === 'function'){
-    await addLayersToSession(sessId, selected, [], 0, zmax);
-  }
   _adpShowDone(sessId);
   await refreshCache();
 }
@@ -1718,7 +1706,7 @@ function _adpMirrorDlProgress(sessId){
 function _adpShowDone(sessId){
   const panel = document.getElementById('adp-'+sessId);
   if(!panel) return;
-  // 二重呼び出し防止（saveDlSessionフックと runDl完了後の両方から呼ばれる場合）
+  // 二重呼び出し防止（startAddLayerDl から複数回呼ばれるケースへの安全ガード）
   if(panel.dataset.adpDone === '1') return;
   panel.dataset.adpDone = '1';
   const prog = document.getElementById(`adp-prog-${sessId}`);
