@@ -905,7 +905,7 @@ async function diagCache(){
   lines.push(`📡 navigator.onLine: ${navigator.onLine}`);
 
   // 4) レイヤー別キャッシュ確認 + 最大ズーム表示
-  const layers = ['photo','std','topo'];
+  const layers = ['photo','std','topo','hill','relief'];
   for(const lk of layers){
     const maxZ = (typeof getMaxCachedZoom==='function') ? getMaxCachedZoom(lk) : '?';
     try{
