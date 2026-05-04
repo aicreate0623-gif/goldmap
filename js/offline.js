@@ -1053,10 +1053,9 @@ async function renderSessionList(){
           // スキャン後に _updateAdpCheckboxes が正しい状態に更新する
           return `<label class="adp-layer${done?' adp-layer--done':''}">
             <input type="checkbox" class="adp-ck" data-sess="${s.id}" data-lk="${lk}"
-              ${done?'disabled checked':'disabled'} onchange="updAddLayerZmaxCap('${s.id}');updAddLayerEst('${s.id}')">
+              ${done?'disabled checked':'disabled'} onchange="_adpOnlyOne(this,'${s.id}');updAddLayerZmaxCap('${s.id}');updAddLayerEst('${s.id}')">
             <span class="adp-lk-name">${LAYER_LABEL[lk]}</span>
-            <span class="adp-lk-badge">${done?'✅ 済':'⏳'}</span>
-            <div class="adp-zoom-status" id="adp-zstatus-${s.id}-${lk}">⏳</div>
+            <span class="adp-lk-badge">${done?'✅ 済':''}</span>
           </label>`;
         }).join('')}
       </div>
@@ -1320,7 +1319,6 @@ async function openAddLayerPanel(sessId){
   const sess = await dbGetSess(sessId).catch(()=>null);
   if(sess){
     const scanResult = await _scanAdpTiles(sess);
-    _renderAdpZoomStatus(sessId, sess, scanResult);
     _renderAdpZoomHint(sessId, scanResult);
     _updateAdpCheckboxes(sessId, sess, scanResult);  // ①チェックボックス状態を確定
     await _setAdpZoomDefaults(sessId);               // ②ズームデフォルト値を自動セット（スキャン結果ベース）
@@ -1387,49 +1385,6 @@ function closeAddLayerPanel(sessId){
 }
 
 /**
- * ズーム別DL状態をパネルに描画する。
- */
-function _renderAdpZoomStatus(sessId, sess, scanResult){
-  const ALL_LAYERS = ['std','photo','topo','hill','relief'];
-
-  ALL_LAYERS.forEach(lk => {
-    const statusEl = document.getElementById(`adp-zstatus-${sessId}-${lk}`);
-    if(!statusEl) return;
-    const lkData = scanResult[lk];
-    if(!lkData || !lkData.perZoom){ statusEl.textContent = ''; return; }
-
-    // タイルが実在するズームのみ表示（ADP_SCAN_ZMIN〜ADP_SCAN_ZMAX）
-    const validZooms = [];
-    for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
-      if((lkData.perZoom[z]?.total || 0) > 0) validZooms.push(z);
-    }
-    if(!validZooms.length){ statusEl.textContent = ''; return; }
-
-    // 連続する同状態をグループ化
-    const parts = [];
-    let groupStart = validZooms[0], groupStatus = lkData.perZoom[validZooms[0]]?.status || 'none';
-    for(let i = 1; i < validZooms.length; i++){
-      const z = validZooms[i];
-      const st = lkData.perZoom[z]?.status || 'none';
-      // ズームが連続しているかつ同じ状態かをチェック
-      if(st === groupStatus && z === validZooms[i-1] + 1){
-        continue;
-      }
-      parts.push({ zs: groupStart, ze: validZooms[i-1], status: groupStatus });
-      groupStart = z; groupStatus = st;
-    }
-    parts.push({ zs: groupStart, ze: validZooms[validZooms.length-1], status: groupStatus });
-
-    const STATUS_LABEL = { done: '✅済', partial: '⚠一部', none: '未' };
-    const STATUS_COLOR = { done: '#4caf50', partial: '#ffaa00', none: '#888' };
-    statusEl.innerHTML = parts.map(p => {
-      const zLabel = p.zs === p.ze ? `Z${p.zs}` : `Z${p.zs}-${p.ze}`;
-      return `<span style="color:${STATUS_COLOR[p.status]};margin-right:6px">${zLabel}: ${STATUS_LABEL[p.status]}</span>`;
-    }).join('');
-  });
-}
-
-/**
  * スキャン結果を元にチェックボックスの有効/無効・バッジを更新。
  * - srcKeysに含まれるレイヤー（DL済み）: disabled + checked + ✅ 済
  * - 全ズームが done のレイヤー          : disabled + checked + Znまで
@@ -1451,7 +1406,7 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
       if(!alreadyInSess){
         ck.disabled = false;
         ck.checked  = false;
-        if(badgeEl) badgeEl.textContent = '未DL';
+        if(badgeEl) badgeEl.textContent = '';
       }
       return;
     }
@@ -1475,18 +1430,32 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
     }
     if(!hasAnyTile) allDone = false;
 
-    // バッジ文字列：doneZがあれば「Z○まで」、なければ「未DL」
-    const badgeText = maxDoneZ !== null ? `Z${maxDoneZ}まで` : '未DL';
+    // バッジ文字列
+    const maxNative = _ADP_MAX_NATIVE[lk] ?? 18;
+    const reachedMax = maxDoneZ !== null && maxDoneZ >= maxNative;
+    const badgeText = maxDoneZ !== null
+      ? (reachedMax ? '✅ MAXズームまでDLしました' : `Z${maxDoneZ}まで完了`)
+      : '';
 
     if(allDone){
       ck.disabled = true;
       ck.checked  = true;
-      if(badgeEl) badgeEl.textContent = badgeText;
+      if(badgeEl){
+        badgeEl.textContent = badgeText;
+        badgeEl.style.fontSize   = reachedMax ? '13px' : '';
+        badgeEl.style.fontWeight = reachedMax ? '700'  : '';
+        badgeEl.style.color      = reachedMax ? '#4caf50' : '#aaa';
+      }
       if(labelEl) labelEl.classList.add('adp-layer--done');
     } else {
       ck.disabled = false;
       ck.checked  = false;
-      if(badgeEl) badgeEl.textContent = badgeText;
+      if(badgeEl){
+        badgeEl.textContent = badgeText;
+        badgeEl.style.fontSize   = '';
+        badgeEl.style.fontWeight = '';
+        badgeEl.style.color      = badgeText ? '#aaa' : '';
+      }
       if(labelEl) labelEl.classList.remove('adp-layer--done');
     }
   });
@@ -1562,6 +1531,22 @@ async function _setAdpZoomDefaults(sessId){
 // レイヤー選択に応じてadp-zmaxの上限をキャップする
 // maxNativeZoom: std/photo=18, topo=17, hill=16, relief=15
 const _ADP_MAX_NATIVE = {std:18, photo:18, topo:17, hill:16, relief:15};
+
+// ── 追加DL: ラジオ的挙動（1択制） ──────────────────────────
+function _adpOnlyOne(el, sessId){
+  const cks = [...document.querySelectorAll(`.adp-ck[data-sess="${sessId}"]`)];
+  if(el.checked){
+    cks.forEach(ck=>{
+      if(ck !== el && !ck.checked){ ck.disabled = true; }
+    });
+  } else {
+    // チェックを外したら未済レイヤーのdisabledを解除
+    cks.forEach(ck=>{
+      // DL済み（adp-layer--done）は常にdisabledのまま
+      if(!ck.closest('.adp-layer--done')) ck.disabled = false;
+    });
+  }
+}
 
 function updAddLayerZmaxCap(sessId){
   const zmaxEl = document.getElementById(`adp-zmax-${sessId}`);
