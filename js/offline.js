@@ -344,7 +344,7 @@ function _dldWatchDraw(){
       if(clrBtn) clrBtn.style.display = '';
       const hint = document.getElementById('dld-draw-hint');
       if(hint) hint.textContent = '範囲が選択されました。概算を確認して確定してください';
-      // OKボタンをいったん有効化 → _dldSyncAndCalc内で100MB超過なら無効化
+      // OKボタンをいったん有効化 → _dldSyncAndCalc内で120MB超過なら無効化
       const ok = document.getElementById('dld-draw-ok');
       if(ok) ok.disabled = false;
       _dldSyncAndCalc();
@@ -399,10 +399,10 @@ function _dldSyncAndCalc(){
   const eb  = estBytesLayers(base, chkLayers);
   const mb  = (eb / 1024 / 1024).toFixed(0);
   const over = eb > DL_SESSION_MAX;
-  tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB${over ? ' — 100MB超過' : ''}`;
+  tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB${over ? ' — 120MB超過' : ''}`;
   tot.style.color = over ? '#ff5a47' : '';
 
-  // 100MB超過時は確定ボタンを無効化・解消時は再有効化
+  // 120MB超過時は確定ボタンを無効化・解消時は再有効化
   // （_drawPendingがある＝ドラッグ完了済みの場合のみボタン状態を操作）
   if(_drawPending){
     const ok = document.getElementById('dld-draw-ok');
@@ -410,7 +410,7 @@ function _dldSyncAndCalc(){
   }
 }
 
-// ── 100MB超過チェック共通（true=超過）──────────────────────
+// ── 120MB超過チェック共通（true=超過）──────────────────────
 // layers: 文字列配列['std','photo',...] または件数(後方互換)
 // ※ _dldStartDl では分割DLに移行するためブロックしない。
 //    STEP2（ドラッグ直後）の再ドラッグ要求にのみ使う。
@@ -424,7 +424,7 @@ function _dldCheckSize(bounds, zmaxVal, layers){
   if(eb > DL_SESSION_MAX){
     const mb = (eb / 1024 / 1024).toFixed(0);
     showAlert('⚠️ サイズ超過',
-      `推定サイズ 約${mb}MB は1回のDL上限（100MB）を超えています。\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`);
+      `推定サイズ 約${mb}MB は1回のDL上限（120MB）を超えています。\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`);
     return true;
   }
   return false;
@@ -911,7 +911,7 @@ function checkDlSizeLimit(estimatedBytes){
     const mb = (estimatedBytes/1024/1024).toFixed(0);
     return {
       ok:false, warn:false,
-      msg:`❌ 推定サイズ 約${mb}MB は1回のDL上限(100MB)を超えています。\nエリアかズームレベルを絞ってください。`
+      msg:`❌ 推定サイズ 約${mb}MB は1回のDL上限(120MB)を超えています。\nエリアかズームレベルを絞ってください。`
     };
   }
   if(estimatedBytes > DL_SESSION_MAX * CACHE_MAX_WARN_RATIO){
@@ -1593,7 +1593,7 @@ async function updAddLayerEst(sessId){
   if(estEl){
     estEl.innerHTML = `
       <span class="adp-est-line adp-est-net${overLimit?' adp-est-over':''}">
-        未DL: 約 ${netMb} MB（${netTiles.toLocaleString()}枚）${overLimit?' — 100MB超過':''}
+        未DL: 約 ${netMb} MB（${netTiles.toLocaleString()}枚）${overLimit?' — 120MB超過':''}
       </span>
       <span class="adp-est-line adp-est-total">
         合計: 約 ${totalMb} MB（${totalTiles.toLocaleString()}枚） Z${zmin}〜Z${zmax}
@@ -1623,22 +1623,34 @@ async function startAddLayerDl(sessId){
   // パネルをDL中UIに切り替え（パネルは閉じない）
   _adpShowProgress(sessId, selected);
 
-  let hookCalled = false;
+  // saveDlSessionをフックして追加DL分を既存セッションに合算
+  // runDlはレイヤーごとにsaveDlSessionを呼ぶため、selected.length回フックされる
+  let hookCount = 0;
+  const mergedTileKeys = [];
+  let mergedBytes = 0;
   const origSave = window.saveDlSession;
-  window.saveDlSession = async (opts)=>{
-    hookCalled = true;
-    window.saveDlSession = origSave;
-    if(typeof addLayersToSession==='function'){
-      await addLayersToSession(sessId, selected, opts.tileKeys||[], opts.totalSize||0, zmax);
+
+  window.saveDlSession = async (opts) => {
+    hookCount++;
+    mergedTileKeys.push(...(opts.tileKeys || []));
+    mergedBytes += opts.totalSize || 0;
+
+    // 全レイヤー分フックが呼ばれたら合算してセッション更新
+    if(hookCount >= selected.length){
+      window.saveDlSession = origSave;
+      if(typeof addLayersToSession === 'function'){
+        await addLayersToSession(sessId, selected, mergedTileKeys, mergedBytes, zmax);
+      }
+      _adpShowDone(sessId);
+      await refreshCache();
     }
-    _adpShowDone(sessId);
-    await refreshCache();
   };
+
   await runDl('detail', bounds, zmin, zmax, selected, 0);
-  window.saveDlSession = origSave;
-  // done===0（全キャッシュ済み）等でフックが呼ばれなかった場合も
-  // セッションのzmax/srcKeysだけは必ず更新する
-  if(!hookCalled && typeof addLayersToSession==='function'){
+  window.saveDlSession = origSave; // 念のため戻す
+
+  // done===0（全キャッシュ済み）等でフックが一度も呼ばれなかった場合
+  if(hookCount === 0 && typeof addLayersToSession === 'function'){
     await addLayersToSession(sessId, selected, [], 0, zmax);
   }
   _adpShowDone(sessId);
