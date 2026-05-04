@@ -119,18 +119,20 @@ function _applySlider(idSlider, idLabel, v){
 }
 
 // 色別標高図
-let reliefL=null,reliefOn=false;
+let reliefL=null,reliefState=0;
 function toggleRelief(){
-  reliefOn=!reliefOn;
+  reliefState=(reliefState+1)%3;
   const btn=document.getElementById('btn-relief');
-  btn.classList.toggle('active',reliefOn);
-  document.getElementById('relief-row').classList.toggle('show',reliefOn);
-  if(reliefOn){
+  btn.classList.toggle('active', reliefState>0);
+  document.getElementById('relief-row').classList.toggle('show', reliefState===1);
+  if(reliefState===1){
     const op = _loadOp('gm_op_relief');
     _applySlider('relief-op','relief-opv', op);
     if(!reliefL){ reliefL=TILES.relief; reliefL.setOpacity(op/100); }
     else { reliefL.setOpacity(op/100); }
     reliefL.addTo(map);
+  } else if(reliefState===2){
+    // スライダーを閉じるだけ・レイヤーはそのまま
   } else {
     if(reliefL){ map.removeLayer(reliefL); }
   }
@@ -142,18 +144,20 @@ function setReliefOp(v){
 }
 
 // 陰影起伏図
-let hillL=null,hillOn=false;
+let hillL=null,hillState=0;
 function toggleHill(){
-  hillOn=!hillOn;
+  hillState=(hillState+1)%3;
   const btn=document.getElementById('btn-hill');
-  btn.classList.toggle('active',hillOn);
-  document.getElementById('hill-row').classList.toggle('show',hillOn);
-  if(hillOn){
+  btn.classList.toggle('active', hillState>0);
+  document.getElementById('hill-row').classList.toggle('show', hillState===1);
+  if(hillState===1){
     const op = _loadOp('gm_op_hill');
     _applySlider('hill-op','hill-opv', op);
     if(!hillL){ hillL=TILES.hill; hillL.setOpacity(op/100); }
     else { hillL.setOpacity(op/100); }
     hillL.addTo(map);
+  } else if(hillState===2){
+    // スライダーを閉じるだけ・レイヤーはそのまま
   } else {
     if(hillL){ map.removeLayer(hillL); }
   }
@@ -165,19 +169,21 @@ function setHillOp(v){
 }
 
 // 地質図
-let geoL=null,geoOn=false;
+let geoL=null,geoState=0;
 function toggleGeo(){
-  geoOn=!geoOn;
+  geoState=(geoState+1)%3;
   const btn=document.getElementById('btn-geo');
-  btn.classList.toggle('active',geoOn);
-  document.getElementById('geo-row').classList.toggle('show',geoOn);
-  if(geoOn){
+  btn.classList.toggle('active', geoState>0);
+  document.getElementById('geo-row').classList.toggle('show', geoState===1);
+  if(geoState===1){
     const op = _loadOp('gm_op_geo');
     _applySlider('geo-op','geo-opv', op);
     if(!geoL) geoL=L.tileLayer('https://gbank.gsj.jp/seamless/v2/api/1.2/tiles/{z}/{y}/{x}.png',
       {attribution:'産総研シームレス地質図',maxNativeZoom:13,maxZoom:18,opacity:op/100,pane:'paneGeo'});
     else geoL.setOpacity(op/100);
     geoL.addTo(map);
+  } else if(geoState===2){
+    // スライダーを閉じるだけ・レイヤーはそのまま
   } else {
     if(geoL){ map.removeLayer(geoL); }
   }
