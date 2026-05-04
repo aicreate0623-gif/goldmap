@@ -120,10 +120,14 @@ async function updateMaxCachedZooms(){
 
 // トースト連発防止タイマー
 let _offlineToastTimer = null;
+let _offlineToastDelay = null;
 function _showOfflineToast(){
-  if(_offlineToastTimer) return;
-  if(typeof showToast === 'function') showToast('⚠ この範囲はDLされていません', 2500);
-  _offlineToastTimer = setTimeout(()=>{ _offlineToastTimer = null; }, 4000);
+  if(_offlineToastTimer || _offlineToastDelay) return;
+  _offlineToastDelay = setTimeout(()=>{
+    _offlineToastDelay = null;
+    if(typeof showToast === 'function') showToast('⚠ DLされていない範囲が含まれています', 2500);
+    _offlineToastTimer = setTimeout(()=>{ _offlineToastTimer = null; }, 4000);
+  }, 1000);
 }
 
 function makeCachedLayer(srcKey){
