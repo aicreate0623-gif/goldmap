@@ -44,15 +44,23 @@ async function initMap(){
   map.getPane('shadowPane').style.zIndex  = 890;
   map.getPane('popupPane').style.zIndex   = 900;
 
-  const mk=key=>{
+  const _nativeZooms={std:18,photo:18,topo:17,hill:16,relief:15};
+  const mk=(key,extraOpts={})=>{
     const CLS=makeCachedLayer(key);
     return new CLS(SRCS[key].url,{
       attribution:SRCS[key].attr,
-      maxNativeZoom:key==='topo'?17:18,
+      maxNativeZoom:_nativeZooms[key]??18,
       maxZoom:18,
+      ...extraOpts,
     });
   };
-  TILES={std:mk('std'),photo:mk('photo'),topo:mk('topo')};
+  TILES={
+    std:    mk('std'),
+    photo:  mk('photo'),
+    topo:   mk('topo'),
+    hill:   mk('hill',   {pane:'paneHill',   opacity:0.5}),
+    relief: mk('relief', {pane:'paneRelief', opacity:0.5}),
+  };
   // デフォルト: 航空写真
   TILES.photo.addTo(map);
   curBase='photo';
@@ -120,9 +128,8 @@ function toggleRelief(){
   if(reliefOn){
     const op = _loadOp('gm_op_relief');
     _applySlider('relief-op','relief-opv', op);
-    if(!reliefL) reliefL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png',
-      {attribution:'地理院タイル',maxNativeZoom:15,maxZoom:18,opacity:op/100,pane:'paneRelief'});
-    else reliefL.setOpacity(op/100);
+    if(!reliefL) reliefL=TILES.relief;
+    reliefL.setOpacity(op/100);
     reliefL.addTo(map);
   } else {
     if(reliefL){ map.removeLayer(reliefL); }
@@ -144,9 +151,8 @@ function toggleHill(){
   if(hillOn){
     const op = _loadOp('gm_op_hill');
     _applySlider('hill-op','hill-opv', op);
-    if(!hillL) hillL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png',
-      {attribution:'地理院タイル',maxNativeZoom:16,maxZoom:18,opacity:op/100,pane:'paneHill'});
-    else hillL.setOpacity(op/100);
+    if(!hillL) hillL=TILES.hill;
+    hillL.setOpacity(op/100);
     hillL.addTo(map);
   } else {
     if(hillL){ map.removeLayer(hillL); }
