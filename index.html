@@ -1147,6 +1147,8 @@
           <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-std"   checked onchange="_dldSyncAndCalc()">地理院</label>
           <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-photo"         onchange="_dldSyncAndCalc()">航空写真</label>
           <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-topo"          onchange="_dldSyncAndCalc()">地形図</label>
+          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-hill"          onchange="_dldSyncAndCalc()">陰影起伏</label>
+          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-relief"        onchange="_dldSyncAndCalc()">色別標高</label>
         </div>
       </div>
       <div class="dld-s1-calc-row">
@@ -1188,6 +1190,14 @@
     <div class="ck-row">
       <input type="checkbox" id="dlg-ck-topo" onchange="_dldUpdEst()">
       <label for="dlg-ck-topo">地形図 (OpenTopoMap)</label>
+    </div>
+    <div class="ck-row">
+      <input type="checkbox" id="dlg-ck-hill" onchange="_dldUpdEst()">
+      <label for="dlg-ck-hill">陰影起伏図</label>
+    </div>
+    <div class="ck-row">
+      <input type="checkbox" id="dlg-ck-relief" onchange="_dldUpdEst()">
+      <label for="dlg-ck-relief">色別標高図</label>
     </div>
 
     <div class="dld-section-ttl">ズームレベル</div>
@@ -1269,6 +1279,16 @@
         <input type="checkbox" id="bdlg-ck-topo" onchange="updBaseDlgEst()">
         <span class="bdlg-ck-name">地形図</span>
         <span class="bdlg-ck-status" id="bdlg-status-topo"></span>
+      </label>
+      <label class="bdlg-ck">
+        <input type="checkbox" id="bdlg-ck-hill" onchange="updBaseDlgEst()">
+        <span class="bdlg-ck-name">陰影起伏図</span>
+        <span class="bdlg-ck-status" id="bdlg-status-hill"></span>
+      </label>
+      <label class="bdlg-ck">
+        <input type="checkbox" id="bdlg-ck-relief" onchange="updBaseDlgEst()">
+        <span class="bdlg-ck-name">色別標高図</span>
+        <span class="bdlg-ck-status" id="bdlg-status-relief"></span>
       </label>
     </div>
 

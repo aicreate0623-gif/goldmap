@@ -13,13 +13,13 @@ function ckLayers(){
   // DLダイアログが開いている場合はダイアログ内チェックボックスを参照
   const dlgOpen = document.getElementById('dl-dialog')?.style.display !== 'none';
   const prefix  = dlgOpen ? 'dlg-ck-' : 'ck-';
-  return ['std','photo','topo'].filter(k=>document.getElementById(prefix+k)?.checked);
+  return ['std','photo','topo','hill','relief'].filter(k=>document.getElementById(prefix+k)?.checked);
 }
 function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M枚';if(n>=1e3)return Math.round(n/1e3)+'K枚';return n+'枚';}
 // レイヤー別1枚あたりKB係数（実測値ベース）
 // std: 地理院地図PNG ≈ 10KB、photo: 航空写真JPEG ≈ 18KB、topo: OpenTopoMap PNG ≈ 3KB
 // 1枚あたりKB係数（実測値ベース: 地理院2460枚/25.8MB・航空2499枚/66.8MB・地形図2848枚/33.8MB）
-const LAYER_KB = {std:11, photo:28, topo:12};
+const LAYER_KB = {std:11, photo:28, topo:12, hill:8, relief:6};
 window._LAYER_KB = LAYER_KB;
 function mbEst(n, lk){ const kb = (lk && LAYER_KB[lk]) || 10; return (n*kb/1024).toFixed(0); }
 // レイヤー配列を考慮した合計MB推定
@@ -38,7 +38,7 @@ function estBytesLayers(tileCount, layers){
 
 /** レイヤーチェックボックス（全国ベースセクション用）を読む */
 function _ckBaseLayers(){
-  return ['std','photo','topo'].filter(k=>document.getElementById('base-ck-'+k)?.checked);
+  return ['std','photo','topo','hill','relief'].filter(k=>document.getElementById('base-ck-'+k)?.checked);
 }
 
 /** 推定MB表示を更新（アコーディオン展開時・チェック変更時に呼ばれる） */
@@ -68,7 +68,7 @@ async function openBaseDlDialog(){
   const done = (typeof getBaseDlDoneLayers === 'function')
     ? await getBaseDlDoneLayers()
     : new Set();
-  ['std','photo','topo'].forEach(lk => {
+  ['std','photo','topo','hill','relief'].forEach(lk => {
     const ck = document.getElementById('bdlg-ck-' + lk);
     const st = document.getElementById('bdlg-status-' + lk);
     if(ck) ck.checked = !done.has(lk);
@@ -87,7 +87,7 @@ function closeBaseDlDialog(){
 function updBaseDlgEst(){
   const el = document.getElementById('bdlg-est');
   if(!el) return;
-  const layers = ['std','photo','topo'].filter(lk => document.getElementById('bdlg-ck-' + lk)?.checked);
+  const layers = ['std','photo','topo','hill','relief'].filter(lk => document.getElementById('bdlg-ck-' + lk)?.checked);
   if(!layers.length){ el.textContent = '— MB'; return; }
   const n  = (typeof cntTiles === 'function') ? cntTiles(JAPAN, 5, 9) : 0;
   const mb = (typeof mbEstLayers === 'function') ? mbEstLayers(n, layers) : '—';
@@ -96,7 +96,7 @@ function updBaseDlgEst(){
 
 /** DL開始ボタン */
 async function startBaseDlFromDialog(){
-  const layers = ['std','photo','topo'].filter(lk => document.getElementById('bdlg-ck-' + lk)?.checked);
+  const layers = ['std','photo','topo','hill','relief'].filter(lk => document.getElementById('bdlg-ck-' + lk)?.checked);
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
   closeBaseDlDialog();
@@ -245,7 +245,7 @@ let _dldType   = 'detail'; // 'detail' | 'base'
 let _dldBounds = null;     // STEP2で確定したbounds
 
 // レイヤー表示名（容量表示用）
-const _DLD_LAYER_LABEL = { std:'地理院地図', photo:'航空写真', topo:'地形図' };
+const _DLD_LAYER_LABEL = { std:'地理院地図', photo:'航空写真', topo:'地形図', hill:'陰影起伏図', relief:'色別標高図' };
 /** レイヤーキー配列を表示名に変換して結合 例: ['std','photo'] → '地理院地図・航空写真' */
 function _layerLabel(keys, sep){ return (keys||[]).map(k=>_DLD_LAYER_LABEL[k]||k).join(sep||'・'); }
 
@@ -374,7 +374,7 @@ function _dldResetS1Est(){
 // ── STEP2概算計算機 → STEP3設定パネルに同期して計算 ──────
 function _dldSyncAndCalc(){
   // s1の値をSTEP3側に同期
-  const map = { std:'std', photo:'photo', topo:'topo' };
+  const map = { std:'std', photo:'photo', topo:'topo', hill:'hill', relief:'relief' };
   Object.keys(map).forEach(k=>{
     const s1 = document.getElementById('s1-ck-'+k);
     const s3 = document.getElementById('dlg-ck-'+k);
@@ -390,7 +390,7 @@ function _dldSyncAndCalc(){
   const zmin = 10; // 最小ズームはZ10固定
   const zmax = parseInt(s1zmax?.value || '15');
   const base = cntTiles(_drawPending, zmin, zmax);
-  const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
+  const chkLayers = ['std','photo','topo','hill','relief'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
   if(!chkLayers.length){
     tot.textContent = 'レイヤーを1つ以上選択してください';
     tot.style.color = 'var(--txt-dim)';
@@ -448,16 +448,16 @@ function _dldClearDraw(){
 async function _dldConfirmDraw(){
   if(!_drawPending) return;
   const zmax      = document.getElementById('s1-zmax')?.value || '16';
-  const chkLayers = ['std','photo','topo'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
+  const chkLayers = ['std','photo','topo','hill','relief'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
   if(!chkLayers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(_dldCheckSize(_drawPending, zmax, chkLayers)) return;
 
   // ── ベースDL未完了チェック ──────────────────────────
   if(typeof getBaseDlDoneLayers === 'function'){
     const baseDone  = await getBaseDlDoneLayers();
-    const needBase  = chkLayers.filter(lk => !baseDone.has(lk));
+    const needBase  = chkLayers.filter(lk => !baseDone.has(lk) && lk !== 'hill' && lk !== 'relief');
     if(needBase.length){
-      const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+      const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
       // STEP2のヒントエリアに警告を表示（ダイアログは閉じない）
       const hint = document.getElementById('dld-draw-hint');
       if(hint) hint.innerHTML =
@@ -504,7 +504,7 @@ function _dldUpdEst(){
   const base = cntTiles(bounds, zmin, zmax);
   let rows = '';
   const checkedLayers = [];
-  ['std','photo','topo'].forEach(k=>{
+  ['std','photo','topo','hill','relief'].forEach(k=>{
     const ck = document.getElementById('dlg-ck-'+k);
     const checked = ck?.checked;
     if(checked) checkedLayers.push(k);
@@ -526,7 +526,7 @@ function _dldUpdEst(){
 
 // ── STEP3: DL開始 → STEP4へ ──────────────────────────
 async function _dldStartDl(){
-  const layers = ['std','photo','topo'].filter(k=>
+  const layers = ['std','photo','topo','hill','relief'].filter(k=>
     document.getElementById('dlg-ck-'+k)?.checked
   );
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
@@ -536,9 +536,9 @@ async function _dldStartDl(){
   // ── ベースDL未完了チェック（STEP3でレイヤーを変更した場合も必ずガード）──
   if(typeof getBaseDlDoneLayers === 'function'){
     const baseDone = await getBaseDlDoneLayers();
-    const needBase = layers.filter(lk => !baseDone.has(lk));
+    const needBase = layers.filter(lk => !baseDone.has(lk) && lk !== 'hill' && lk !== 'relief');
     if(needBase.length){
-      const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+      const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
       showAlert('ベースDLが必要です',`「${names}」はベースDL（Z5〜Z9 全国版）が完了していません。\nオフラインタブのベースDLを先に行ってください。`);
       return;
     }
@@ -852,7 +852,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx){
       const _zoom   = zmax;
       const _bounds = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
       // レイヤーKBあたりの推定サイズ比（容量按分用）
-      const layerKb = {std:11, photo:28, topo:12};
+      const layerKb = {std:11, photo:28, topo:12, hill:8, relief:6};
       const totalKb = layers.reduce((s,k)=>s+(layerKb[k]||10), 0);
       for(const lk of layers){
         const _tileKeys = tasks.filter(t=>t.lk===lk).map(t=>tileKey(t.lk,t.z,t.x,t.y));
@@ -955,8 +955,8 @@ async function renderSessionList(){
     return;
   }
 
-  const ALL_LAYERS = ['std','photo','topo'];
-  const LAYER_LABEL = {std:'地理院地図', photo:'航空写真', topo:'地形図'};
+  const ALL_LAYERS = ['std','photo','topo','hill','relief'];
+  const LAYER_LABEL = {std:'地理院地図', photo:'航空写真', topo:'地形図', hill:'陰影起伏図', relief:'色別標高図'};
 
   const sorted = [...detailSessions].sort((a,b)=>b.createdAt - a.createdAt);
   container.innerHTML = sorted.map(s=>{
@@ -1182,7 +1182,7 @@ async function _scanAdpTiles(sess){
   }
 
   const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
-  const ALL_LAYERS = ['std','photo','topo'];
+  const ALL_LAYERS = ['std','photo','topo','hill','relief'];
   const result = {};
 
   for(const lk of ALL_LAYERS){
@@ -1322,7 +1322,7 @@ function _renderAdpZoomHint(sessId, scanResult){
 
   // 全レイヤーでdoneなズームを収集
   const doneZooms = new Set();
-  const ALL_LAYERS = ['std','photo','topo'];
+  const ALL_LAYERS = ['std','photo','topo','hill','relief'];
   for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
     const allDone = ALL_LAYERS.every(lk => {
       const d = scanResult[lk];
@@ -1350,7 +1350,7 @@ function closeAddLayerPanel(sessId){
  * ズーム別DL状態をパネルに描画する。
  */
 function _renderAdpZoomStatus(sessId, sess, scanResult){
-  const ALL_LAYERS = ['std','photo','topo'];
+  const ALL_LAYERS = ['std','photo','topo','hill','relief'];
 
   ALL_LAYERS.forEach(lk => {
     const statusEl = document.getElementById(`adp-zstatus-${sessId}-${lk}`);
@@ -1396,7 +1396,7 @@ function _renderAdpZoomStatus(sessId, sess, scanResult){
  * - 未DL・partialのレイヤー            : enabled  + unchecked + 未
  */
 function _updateAdpCheckboxes(sessId, sess, scanResult){
-  const ALL_LAYERS = ['std','photo','topo'];
+  const ALL_LAYERS = ['std','photo','topo','hill','relief'];
   ALL_LAYERS.forEach(lk => {
     const ck = document.querySelector(`.adp-ck[data-sess="${sessId}"][data-lk="${lk}"]`);
     if(!ck) return;
@@ -1425,7 +1425,9 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
     let allDone = true;
     let hasAnyTile = false; // タイルが存在するズームが1つでもあるか
     for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
-      if(lk === 'topo' && z === 18) continue; // OpenTopoMapはZ18非対応のため除外
+      if(lk === 'topo'   && z >= 18) continue; // OpenTopoMapはZ18非対応のため除外
+      if(lk === 'hill'   && z >= 17) continue; // 陰影起伏図はZ17以上非対応のため除外
+      if(lk === 'relief' && z >= 16) continue; // 色別標高図はZ16以上非対応のため除外
       const pz = lkData.perZoom[z];
       if(!pz || pz.total === 0) continue; // タイルが存在しないズームは無視
       hasAnyTile = true;
@@ -1465,7 +1467,7 @@ async function _setAdpZoomDefaults(sessId){
 
   // スキャン結果を参照（openAddLayerPanel内で既にスキャン済みのはず）
   const scanResult = _adpScanCache[sessId] || {};
-  const ALL_LAYERS = ['std','photo','topo'];
+  const ALL_LAYERS = ['std','photo','topo','hill','relief'];
 
   // 未完了レイヤーごとの「次のzmin」を収集
   // 未完了 = ADP_SCAN_ZMAX までに done でないズームが存在する
@@ -1537,10 +1539,10 @@ async function updAddLayerEst(sessId){
   const baseDone = await getBaseDlDoneLayers();
   // 新規レイヤー（sess.srcKeys に未含まれる）かつベース未DLのものを抽出
   const needBase = selected.filter(lk =>
-    !(sess.srcKeys||[]).includes(lk) && !baseDone.has(lk)
+    !(sess.srcKeys||[]).includes(lk) && !baseDone.has(lk) && lk !== 'hill' && lk !== 'relief'
   );
   if(needBase.length){
-    const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+    const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
     if(estEl) estEl.innerHTML = `
       <span class="adp-est-line adp-est-over">
         ⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です
@@ -1650,7 +1652,7 @@ function _adpShowProgress(sessId, layers){
   if(!panel) return;
 
   // 選択UI → プログレスUIに差し替え
-  const layerNames = layers.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+  const layerNames = layers.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
   panel.querySelector('.adp-layers').style.display = 'none';
   panel.querySelector('.adp-footer').style.display = 'none';
 
@@ -1742,7 +1744,7 @@ function _adpShowDone(sessId){
  * @param {Array} sessions - dbGetAllSess() の結果（全セッション）
  */
 function renderBaseDlStatus(sessions){
-  const LAYERS = ['std','photo','topo'];
+  const LAYERS = ['std','photo','topo','hill','relief'];
 
   LAYERS.forEach(lk => {
     const el = document.getElementById('base-status-' + lk);
