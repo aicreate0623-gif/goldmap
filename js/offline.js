@@ -1392,8 +1392,8 @@ function _renderAdpZoomStatus(sessId, sess, scanResult){
 /**
  * スキャン結果を元にチェックボックスの有効/無効・バッジを更新。
  * - srcKeysに含まれるレイヤー（DL済み）: disabled + checked + ✅ 済
- * - 全ズームが done のレイヤー          : disabled + checked + ✅ 済
- * - 未DL・partialのレイヤー            : enabled  + unchecked + 未
+ * - 全ズームが done のレイヤー          : disabled + checked + Znまで
+ * - 未DL・partialのレイヤー            : enabled  + unchecked + Znまで or 未DL
  */
 function _updateAdpCheckboxes(sessId, sess, scanResult){
   const ALL_LAYERS = ['std','photo','topo','hill','relief'];
@@ -1404,47 +1404,49 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
     const badgeEl = ck.parentElement?.querySelector('.adp-lk-badge');
     const labelEl = ck.parentElement;
 
-    // srcKeysに含まれていてもズームが未DLの場合があるため早期returnしない
-    // → スキャン結果で allDone を判定して状態を上書きする
-
     // スキャン結果が取れなかった場合
     const lkData = scanResult[lk];
     if(!lkData || !lkData.perZoom){
-      // srcKeysに含まれる = 一度DL済みなので済み表示のまま
       const alreadyInSess = (sess.srcKeys||[]).includes(lk);
       if(!alreadyInSess){
         ck.disabled = false;
         ck.checked  = false;
-        if(badgeEl) badgeEl.textContent = '未';
+        if(badgeEl) badgeEl.textContent = '未DL';
       }
       return;
     }
 
-    // スキャン範囲内で「未(none)」または「一部(partial)」のズームが1つでもあれば未DL扱い
-    // total===0（セッション範囲外）のズームは無視する
+    // スキャン結果からdoneな最大Zを取得
+    let maxDoneZ = null;
     let allDone = true;
-    let hasAnyTile = false; // タイルが存在するズームが1つでもあるか
+    let hasAnyTile = false;
     for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
-      if(lk === 'topo'   && z >= 18) continue; // OpenTopoMapはZ18非対応のため除外
-      if(lk === 'hill'   && z >= 17) continue; // 陰影起伏図はZ17以上非対応のため除外
-      if(lk === 'relief' && z >= 16) continue; // 色別標高図はZ16以上非対応のため除外
+      if(lk === 'topo'   && z >= 18) continue;
+      if(lk === 'hill'   && z >= 17) continue;
+      if(lk === 'relief' && z >= 16) continue;
       const pz = lkData.perZoom[z];
-      if(!pz || pz.total === 0) continue; // タイルが存在しないズームは無視
+      if(!pz || pz.total === 0) continue;
       hasAnyTile = true;
-      if(pz.status !== 'done'){ allDone = false; break; }
+      if(pz.status === 'done'){
+        maxDoneZ = z;
+      } else {
+        allDone = false;
+      }
     }
-    // タイルが1枚もスキャンできなかった場合は「未」として扱う（スキャン失敗保険）
     if(!hasAnyTile) allDone = false;
+
+    // バッジ文字列：doneZがあれば「Z○まで」、なければ「未DL」
+    const badgeText = maxDoneZ !== null ? `Z${maxDoneZ}まで` : '未DL';
 
     if(allDone){
       ck.disabled = true;
       ck.checked  = true;
-      if(badgeEl) badgeEl.textContent = '✅ 済';
+      if(badgeEl) badgeEl.textContent = badgeText;
       if(labelEl) labelEl.classList.add('adp-layer--done');
     } else {
       ck.disabled = false;
       ck.checked  = false;
-      if(badgeEl) badgeEl.textContent = '未';
+      if(badgeEl) badgeEl.textContent = badgeText;
       if(labelEl) labelEl.classList.remove('adp-layer--done');
     }
   });
