@@ -341,7 +341,7 @@ function _dldWatchDraw(){
       const calcEl = document.getElementById('dld-s1-est');
       const clrBtn = document.getElementById('dld-draw-clear');
       if(calcEl) calcEl.style.display = '';
-      if(clrBtn) clrBtn.style.display = '';
+      if(clrBtn) clrBtn.disabled = false;
       const hint = document.getElementById('dld-draw-hint');
       if(hint) hint.textContent = '範囲が選択されました。概算を確認して確定してください';
       // OKボタンをいったん有効化 → _dldSyncAndCalc内で120MB超過なら無効化
@@ -373,7 +373,7 @@ function _dldResetS1Est(){
   const calc = document.getElementById('dld-s1-est');
   const clr  = document.getElementById('dld-draw-clear');
   if(calc) calc.style.display = 'none';
-  if(clr)  clr.style.display  = 'none';
+  if(clr)  clr.disabled = true;
   // チェック・disabled・ズームをデフォルトに戻す
   const std   = document.getElementById('s1-ck-std');
   const photo = document.getElementById('s1-ck-photo');

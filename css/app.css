@@ -860,41 +860,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   overflow-y: auto;
 }
 
-/* ステップインジケーター */
-.dld-steps {
-  display: flex; align-items: center; justify-content: center;
-  gap: 0; margin-bottom: 14px;
-}
-.dld-step {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  opacity: 0.35; transition: opacity .2s;
-}
-.dld-step.active { opacity: 1; }
-.dld-step.done   { opacity: 0.7; }
-.dld-step-num {
-  width: 26px; height: 26px; border-radius: 50%;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.15);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: var(--txt-sub);
-}
-.dld-step.active .dld-step-num {
-  background: rgba(200,170,80,0.25);
-  border-color: rgba(200,170,80,0.6);
-  color: var(--gold-lt);
-}
-.dld-step.done .dld-step-num {
-  background: rgba(64,232,120,0.15);
-  border-color: rgba(64,232,120,0.4);
-  color: #40e878;
-}
-.dld-step-lbl { font-size: 9px; color: var(--txt-dim); font-weight: 600; letter-spacing: .05em; }
-.dld-step.active .dld-step-lbl { color: var(--gold-lt); }
-.dld-step-line {
-  flex: 1; height: 1px; min-width: 28px; max-width: 48px;
-  background: rgba(255,255,255,0.12);
-  margin: 0 4px; margin-bottom: 14px;
-}
 
 /* パネル共通 */
 .dld-panel { padding-bottom: 4px; }
@@ -945,11 +910,16 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 /* 推定ボックス */
 .dld-est { margin: 10px 0 6px; }
 
-/* フッターボタン列 */
+/* フッターボタン列（4列グリッド固定） */
 .dld-footer-btns {
-  display: flex; gap: 8px; justify-content: space-between; align-items: center;
+  display: grid;
+  grid-template-columns: auto auto auto auto;
+  gap: 6px; align-items: center;
   margin-top: 12px; padding-top: 10px;
   border-top: 1px solid rgba(255,255,255,0.06);
+}
+.dld-footer-spacer {
+  display: block;
 }
 
 /* 進捗ラップ */
@@ -961,10 +931,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   border: 1px solid rgba(200,170,80,0.2);
   border-radius: var(--radius-sm);
   padding: 10px 12px; margin-bottom: 8px;
-}
-.dld-s1-calc-title {
-  font-size: 10px; font-weight: 700; color: var(--gold);
-  letter-spacing: .08em; margin-bottom: 8px;
 }
 .dld-s1-calc-row {
   display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
@@ -993,10 +959,12 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 
-/* 範囲解除ボタン */
+/* 範囲解除ボタン（フッター内・disabled時は薄く） */
 .dld-draw-clear {
-  width: 100%; margin-bottom: 8px;
   color: var(--txt-sub); font-size: 11px;
+}
+.dld-draw-clear:disabled {
+  opacity: .3; pointer-events: none;
 }
 
 /* 設定パネル 容量OFF行・0MB文字 */
