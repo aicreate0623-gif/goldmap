@@ -1063,7 +1063,7 @@ async function jumpToSession(id){
 // ═══════════════════════════════════════════
 //  キャッシュ上限スライダー
 // ═══════════════════════════════════════════
-const CACHE_STEPS_MB = [200, 400, 800, 1024, 2048];
+const CACHE_STEPS_MB = [200, 500, 800, 1024, 2048];
 
 function initCacheSlider(){
   const slider = document.getElementById('cache-limit-slider');
@@ -1081,7 +1081,7 @@ function initCacheSlider(){
   });
   slider.addEventListener('change', async()=>{
     const mb = CACHE_STEPS_MB[slider.value];
-    if(mb > 400){
+    if(mb > 500){
       const ok = await showConfirmDialog(
         `⚠️ キャッシュ上限を ${_fmt(mb)} に拡張します。\n端末のストレージを圧迫する可能性があります。\n自己責任での使用となります。よろしいですか？`,
         '拡張する', 'キャンセル'
