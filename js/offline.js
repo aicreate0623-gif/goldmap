@@ -1513,8 +1513,8 @@ async function _setAdpZoomDefaults(sessId){
   }
 
   // zmax select: recZmin 以上で最近い選択肢を選ぶ
-  // recZmin が推奨上限(18)を超えている場合はそのまま recZmin をデフォルトにする
-  const recZmax = Math.max(recZmin, 18);
+  // recZmin が推奨上限(16)を超えている場合はそのまま recZmin をデフォルトにする
+  const recZmax = Math.max(recZmin, 16);
   const opt = [...zmaxEl.options].find(o => parseInt(o.value) >= recZmax);
   if(opt) zmaxEl.value = opt.value;
 }
