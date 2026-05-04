@@ -379,9 +379,9 @@ function _dldResetS1Est(){
   const photo = document.getElementById('s1-ck-photo');
   const topo  = document.getElementById('s1-ck-topo');
   const zmax  = document.getElementById('s1-zmax');
-  if(std)   { std.checked   = true;  std.disabled   = false; }
-  if(photo) { photo.checked = false; photo.disabled = true;  }
-  if(topo)  { topo.checked  = false; topo.disabled  = true;  }
+  if(std)   { std.checked   = false; std.disabled   = false; }
+  if(photo) { photo.checked = false; photo.disabled = false; }
+  if(topo)  { topo.checked  = false; topo.disabled  = false; }
   if(zmax)  zmax.value = '16';
   // STEP3側も同期してリセット
   ['std','photo','topo'].forEach(k=>{
@@ -400,7 +400,7 @@ function _dldSyncAndCalc(){
   Object.keys(map).forEach(k=>{
     const s1 = document.getElementById('s1-ck-'+k);
     const s3 = document.getElementById('dlg-ck-'+k);
-    if(s1 && s3) s3.checked = s1.checked;
+    if(s1 && s3){ s3.checked = s1.checked; s3.disabled = s1.disabled; }
   });
   const s1zmax = document.getElementById('s1-zmax');
   const s3zmax = document.getElementById('dlg-det-zmax');
