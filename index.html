@@ -1152,11 +1152,11 @@
       <div class="dld-s1-calc-row">
         <span class="dld-s1-calc-lbl">レイヤー</span>
         <div class="dld-s1-ck-group">
-          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-std"   checked onchange="_dldSyncAndCalc()">地理院</label>
-          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-photo"         onchange="_dldSyncAndCalc()">航空写真</label>
-          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-topo"          onchange="_dldSyncAndCalc()">地形図</label>
-          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-hill"          onchange="_dldSyncAndCalc()">陰影起伏</label>
-          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-relief"        onchange="_dldSyncAndCalc()">色別標高</label>
+          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-std"   checked onchange="_dldOnlyOne(this,'s1-ck-');_dldSyncAndCalc()">地理院</label>
+          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-photo"         onchange="_dldOnlyOne(this,'s1-ck-');_dldSyncAndCalc()">航空写真</label>
+          <label class="dld-s1-ck"><input type="checkbox" id="s1-ck-topo"          onchange="_dldOnlyOne(this,'s1-ck-');_dldSyncAndCalc()">地形図</label>
+          <label class="dld-s1-ck" style="display:none"><input type="checkbox" id="s1-ck-hill">陰影起伏</label>
+          <label class="dld-s1-ck" style="display:none"><input type="checkbox" id="s1-ck-relief">色別標高</label>
         </div>
       </div>
       <div class="dld-s1-calc-row">
@@ -1188,23 +1188,23 @@
 
     <div class="dld-section-ttl">レイヤー選択</div>
     <div class="ck-row">
-      <input type="checkbox" id="dlg-ck-std" checked onchange="_dldUpdEst()">
+      <input type="checkbox" id="dlg-ck-std" checked onchange="_dldOnlyOne(this,'dlg-ck-');_dldUpdEst()">
       <label for="dlg-ck-std">地理院地図</label>
     </div>
     <div class="ck-row">
-      <input type="checkbox" id="dlg-ck-photo" onchange="_dldUpdEst()">
+      <input type="checkbox" id="dlg-ck-photo" onchange="_dldOnlyOne(this,'dlg-ck-');_dldUpdEst()">
       <label for="dlg-ck-photo">航空写真</label>
     </div>
     <div class="ck-row">
-      <input type="checkbox" id="dlg-ck-topo" onchange="_dldUpdEst()">
+      <input type="checkbox" id="dlg-ck-topo" onchange="_dldOnlyOne(this,'dlg-ck-');_dldUpdEst()">
       <label for="dlg-ck-topo">地形図 (OpenTopoMap)</label>
     </div>
-    <div class="ck-row">
-      <input type="checkbox" id="dlg-ck-hill" onchange="_dldUpdEst()">
+    <div class="ck-row" style="display:none">
+      <input type="checkbox" id="dlg-ck-hill">
       <label for="dlg-ck-hill">陰影起伏図</label>
     </div>
-    <div class="ck-row">
-      <input type="checkbox" id="dlg-ck-relief" onchange="_dldUpdEst()">
+    <div class="ck-row" style="display:none">
+      <input type="checkbox" id="dlg-ck-relief">
       <label for="dlg-ck-relief">色別標高図</label>
     </div>
 

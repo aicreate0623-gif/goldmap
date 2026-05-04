@@ -352,21 +352,43 @@ function _dldWatchDraw(){
   }, 150);
 }
 
+// ── ラジオ的挙動：1つ選んだら他2つをdisabled、外したら全解除 ──
+function _dldOnlyOne(el, prefix){
+  const keys = ['std','photo','topo'];
+  if(el.checked){
+    keys.forEach(k=>{
+      const ck = document.getElementById(prefix + k);
+      if(ck && ck !== el){ ck.checked = false; ck.disabled = true; }
+    });
+  } else {
+    keys.forEach(k=>{
+      const ck = document.getElementById(prefix + k);
+      if(ck) ck.disabled = false;
+    });
+  }
+}
+
 // ── STEP2簡易容量・解除ボタンをリセット（共通） ──────────
 function _dldResetS1Est(){
   const calc = document.getElementById('dld-s1-est');
   const clr  = document.getElementById('dld-draw-clear');
   if(calc) calc.style.display = 'none';
   if(clr)  clr.style.display  = 'none';
-  // チェック・ズームをデフォルトに戻す
+  // チェック・disabled・ズームをデフォルトに戻す
   const std   = document.getElementById('s1-ck-std');
   const photo = document.getElementById('s1-ck-photo');
   const topo  = document.getElementById('s1-ck-topo');
   const zmax  = document.getElementById('s1-zmax');
-  if(std)   std.checked   = true;
-  if(photo) photo.checked = false;
-  if(topo)  topo.checked  = false;
-  if(zmax)  zmax.value    = '16';
+  if(std)   { std.checked   = true;  std.disabled   = false; }
+  if(photo) { photo.checked = false; photo.disabled = true;  }
+  if(topo)  { topo.checked  = false; topo.disabled  = true;  }
+  if(zmax)  zmax.value = '16';
+  // STEP3側も同期してリセット
+  ['std','photo','topo'].forEach(k=>{
+    const s3 = document.getElementById('dlg-ck-'+k);
+    const s1 = document.getElementById('s1-ck-'+k);
+    if(s3 && s1){ s3.checked = s1.checked; s3.disabled = s1.disabled; }
+  });
   const tot = document.getElementById('dld-s1-total');
   if(tot) tot.textContent = '— MB';
 }
