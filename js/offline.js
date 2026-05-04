@@ -899,10 +899,13 @@ async function addLayersToSession(sessId, newLayers, newTileKeys, addedBytes, ne
     sess.tileKeys  = [...new Set([...(sess.tileKeys||[]), ...newTileKeys])];
     sess.totalSize = (sess.totalSize||0) + addedBytes;
     sess.lastUsed  = Date.now();
-    // zmax を追加DLの上限で更新（次回追加DLのzmin基準になる）
-    if(typeof newZmax === 'number' && newZmax > (sess.zmax||0)){
-      sess.zmax = newZmax;
-    }
+    // zmax をセッション全体のsrcKeysに対応したmaxNativeZoomの最大値で再計算
+    // 例: std(18)+hill(16) → zmax=18、relief(15)のみ → zmax=15
+    const _MAX_NATIVE = {std:18, photo:18, topo:17, hill:16, relief:15};
+    const allKeys = [...new Set([...(sess.srcKeys||[])])];
+    sess.zmax = allKeys.length
+      ? Math.max(...allKeys.map(k => _MAX_NATIVE[k] ?? 18))
+      : (newZmax ?? sess.zmax ?? 15);
     sess.label = `${_layerLabel(sess.srcKeys)} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
     await dbPutSess(sessId, sess);
     if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
@@ -1014,7 +1017,7 @@ async function renderSessionList(){
           <option value="${(s.zmax||15)+1}">Z${(s.zmax||15)+1}</option>
         </select>
         <span class="adp-zoom-sep">〜</span>
-        <select class="adp-zsel" id="adp-zmax-${s.id}" onchange="updAddLayerEst('${s.id}')">
+        <select class="adp-zsel" id="adp-zmax-${s.id}" onchange="updAddLayerZmaxCap('${s.id}');updAddLayerEst('${s.id}')">
           ${Array.from({length:14},(_,i)=>i+5)
             .map(z=>`<option value="${z}"${z===18?' disabled':''}>` +
               `${z>=17?'⚠️ ':''}Z${z}</option>`).join('')}
@@ -1028,7 +1031,7 @@ async function renderSessionList(){
           // スキャン後に _updateAdpCheckboxes が正しい状態に更新する
           return `<label class="adp-layer${done?' adp-layer--done':''}">
             <input type="checkbox" class="adp-ck" data-sess="${s.id}" data-lk="${lk}"
-              ${done?'disabled checked':'disabled'} onchange="updAddLayerEst('${s.id}')">
+              ${done?'disabled checked':'disabled'} onchange="updAddLayerZmaxCap('${s.id}');updAddLayerEst('${s.id}')">
             <span class="adp-lk-name">${LAYER_LABEL[lk]}</span>
             <span class="adp-lk-badge">${done?'✅ 済':'⏳'}</span>
             <div class="adp-zoom-status" id="adp-zstatus-${s.id}-${lk}">⏳</div>
@@ -1532,6 +1535,32 @@ async function _setAdpZoomDefaults(sessId){
   const recZmax = Math.max(recZmin, 16);
   const opt = [...zmaxEl.options].find(o => parseInt(o.value) >= recZmax);
   if(opt) zmaxEl.value = opt.value;
+}
+
+// レイヤー選択に応じてadp-zmaxの上限をキャップする
+// maxNativeZoom: std/photo=18, topo=17, hill=16, relief=15
+const _ADP_MAX_NATIVE = {std:18, photo:18, topo:17, hill:16, relief:15};
+
+function updAddLayerZmaxCap(sessId){
+  const zmaxEl = document.getElementById(`adp-zmax-${sessId}`);
+  if(!zmaxEl) return;
+  // チェック済みレイヤーのmaxNativeZoom最小値を求める
+  const checked = [...document.querySelectorAll(`.adp-ck[data-sess="${sessId}"]:not(:disabled):checked`)]
+    .map(el => el.dataset.lk);
+  const cap = checked.length
+    ? Math.min(...checked.map(lk => _ADP_MAX_NATIVE[lk] ?? 18))
+    : 18;
+  // 選択肢のdisabled状態を更新
+  [...zmaxEl.options].forEach(o => {
+    const z = parseInt(o.value);
+    o.disabled = z > cap;
+    o.text = z > cap ? `Z${z}` : (z >= 17 ? `⚠️ Z${z}` : `Z${z}`);
+  });
+  // 現在の選択値がcapを超えていたらcapに戻す
+  if(parseInt(zmaxEl.value) > cap){
+    const fallback = [...zmaxEl.options].reverse().find(o => parseInt(o.value) <= cap && !o.disabled);
+    if(fallback) zmaxEl.value = fallback.value;
+  }
 }
 
 async function updAddLayerEst(sessId){

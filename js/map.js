@@ -128,8 +128,8 @@ function toggleRelief(){
   if(reliefOn){
     const op = _loadOp('gm_op_relief');
     _applySlider('relief-op','relief-opv', op);
-    if(!reliefL) reliefL=TILES.relief;
-    reliefL.setOpacity(op/100);
+    if(!reliefL){ reliefL=TILES.relief; reliefL.setOpacity(op/100); }
+    else { reliefL.setOpacity(op/100); }
     reliefL.addTo(map);
   } else {
     if(reliefL){ map.removeLayer(reliefL); }
@@ -151,8 +151,8 @@ function toggleHill(){
   if(hillOn){
     const op = _loadOp('gm_op_hill');
     _applySlider('hill-op','hill-opv', op);
-    if(!hillL) hillL=TILES.hill;
-    hillL.setOpacity(op/100);
+    if(!hillL){ hillL=TILES.hill; hillL.setOpacity(op/100); }
+    else { hillL.setOpacity(op/100); }
     hillL.addTo(map);
   } else {
     if(hillL){ map.removeLayer(hillL); }
