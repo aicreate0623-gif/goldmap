@@ -662,6 +662,108 @@ function deleteResume(){
   localStorage.removeItem(RESUME_KEY);
 }
 
+// ═══════════════════════════════════════════
+//  ベースDL進捗（専用キー）
+// ═══════════════════════════════════════════
+const BASE_DL_PROG_KEY = 'gm_base_dl_progress';
+
+/** ベースDL進捗を保存 */
+function saveBaseDlProgress(state){
+  try{ localStorage.setItem(BASE_DL_PROG_KEY, JSON.stringify(state)); }catch(e){}
+}
+/** ベースDL進捗を読み込む */
+function loadBaseDlProgress(){
+  try{ return JSON.parse(localStorage.getItem(BASE_DL_PROG_KEY)||'null'); }catch(e){return null;}
+}
+/** ベースDL進捗を削除 */
+function deleteBaseDlProgress(){
+  localStorage.removeItem(BASE_DL_PROG_KEY);
+}
+
+/** ベースDL状況UIを更新（3状態）
+ *  - 全完了   → #base-dl-state-done
+ *  - 途中保存 → #base-dl-state-resume
+ *  - それ以外 → #base-dl-state-partial（各レイヤー済み表示）
+ */
+async function refreshBaseDlStatus(){
+  const ALL_LAYERS = ['std','photo','topo','hill','relief'];
+  const LAYER_NAME = {std:'地理院地図', photo:'航空写真', topo:'地形図', hill:'陰影起伏図', relief:'色別標高図'};
+
+  const elPartial = document.getElementById('base-dl-state-partial');
+  const elResume  = document.getElementById('base-dl-state-resume');
+  const elDone    = document.getElementById('base-dl-state-done');
+  if(!elPartial || !elResume || !elDone) return;
+
+  // 完了済みレイヤーを取得
+  const done = (typeof getBaseDlDoneLayers === 'function')
+    ? await getBaseDlDoneLayers()
+    : new Set();
+
+  // 途中保存チェック
+  const prog = loadBaseDlProgress();
+  const hasResume = prog && prog.layers && prog.layers.length > 0;
+
+  const allDone = ALL_LAYERS.every(lk => done.has(lk));
+
+  if(allDone){
+    // ③ 全完了
+    elPartial.style.display = 'none';
+    elResume.style.display  = 'none';
+    elDone.style.display    = 'block';
+  } else if(hasResume){
+    // ② 途中
+    elPartial.style.display = 'none';
+    elResume.style.display  = 'block';
+    elDone.style.display    = 'none';
+    // 進捗バー・%・レイヤー名を更新
+    const pct = prog.total > 0 ? Math.round(prog.taskIndex / prog.total * 100) : 0;
+    const pctEl  = document.getElementById('base-resume-pct');
+    const barEl  = document.getElementById('base-resume-bar-fill');
+    const lyrsEl = document.getElementById('base-resume-layers');
+    if(pctEl)  pctEl.textContent  = pct + '%';
+    if(barEl)  barEl.style.width  = pct + '%';
+    if(lyrsEl) lyrsEl.textContent = prog.layers.map(lk => LAYER_NAME[lk]||lk).join(' ・ ');
+  } else {
+    // ① 未DL/一部未完了
+    elPartial.style.display = 'block';
+    elResume.style.display  = 'none';
+    elDone.style.display    = 'none';
+    ALL_LAYERS.forEach(lk => {
+      const el = document.getElementById('base-status-' + lk);
+      if(!el) return;
+      if(done.has(lk)){
+        el.innerHTML = '<span class="base-saved-badge">✅ DL済</span>';
+      } else {
+        el.innerHTML = '';
+      }
+    });
+  }
+}
+
+/** ② 途中: 続きをDL */
+async function baseResumeStart(){
+  const prog = loadBaseDlProgress();
+  if(!prog || !prog.layers || !prog.layers.length){
+    showAlert('エラー','レジュームデータがありません');
+    return;
+  }
+  if(!navigator.onLine){
+    showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。');
+    return;
+  }
+  _bdprogOpen(prog.layers);
+  const pct = prog.total > 0 ? Math.round(prog.taskIndex / prog.total * 100) : 0;
+  _bdprogSyncProgress(prog.taskIndex || 0, prog.total || 0, '— MB');
+  _bdprogSetPhase('running');
+  await runDl('base', JAPAN, prog.zmin || 5, prog.zmax || 9, prog.layers, 0);
+}
+
+/** ② 途中: 破棄 */
+function baseResumeDiscard(){
+  deleteBaseDlProgress();
+  refreshBaseDlStatus();
+}
+
 function checkResume(){
   const s=loadResume(); if(!s)return;
   if(s.mode==='base'){
@@ -1196,6 +1298,10 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
               // 全fetch完了後に停止処理
               const now=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
               saveResume({mode,bounds:boundsData,zmin,zmax,layers,taskIndex:done,total,savedAt:now});
+              // ベースDLの場合は専用キーにも保存
+              if(mode==='base'){
+                saveBaseDlProgress({layers,zmin,zmax,taskIndex:done,total,savedAt:now});
+              }
               resolve();
             }
           } else if(!q.length&&active===0){
@@ -1213,6 +1319,8 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   if(!dlStop){
     // 完了したらレジューム削除
     deleteResume();
+    // ベースDLの場合は専用進捗キーも削除
+    if(mode==='base') deleteBaseDlProgress();
     document.getElementById('resume-banner').classList.remove('show');
     log('✅ 完了！ '+fmt(done)+'枚保存（失敗: '+fail+'）');
     // セッション保存
@@ -1268,6 +1376,8 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     }
   }
   refreshCache();
+  // ベースDL状況UIを最新状態に更新
+  if(typeof refreshBaseDlStatus === 'function') refreshBaseDlStatus();
 }
 
 /** 停止ボタン押下: AbortControllerでfetchをキャンセルし「停止中…」表示 */
@@ -1354,11 +1464,11 @@ async function renderSessionList(){
   }
   if(info) info.textContent = `${(total/1024/1024).toFixed(0)}MB / ${(cacheMax/1024/1024).toFixed(0)}MB 使用中`;
 
-  // ベースセッションは別途 renderBaseDlStatus() で表示するため除外
+  // ベースDL状況UIを更新（refreshBaseDlStatus で管理）
   const detailSessions = sessions.filter(s => s.mode !== 'base');
 
-  // renderBaseDlStatus は常に同期して更新
-  if(typeof renderBaseDlStatus === 'function') renderBaseDlStatus(sessions);
+  // ベースDL状況UIを更新
+  if(typeof refreshBaseDlStatus === 'function') refreshBaseDlStatus();
 
   if(!detailSessions.length){
     container.innerHTML = '<div class="sess-empty">保存済みのオフラインエリアはありません</div>';

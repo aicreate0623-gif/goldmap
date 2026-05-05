@@ -3514,3 +3514,71 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* ━━━ ベースDL状況: 3状態UI ━━━ */
+
+/* ③ 全完了バッジ */
+.base-dl-done-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px;
+  background: rgba(76,175,80,0.12);
+  border: 1px solid rgba(76,175,80,0.35);
+  border-radius: var(--radius-md);
+  color: #4caf50;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+/* ② 途中バナー */
+.base-resume-banner {
+  background: rgba(200,168,75,0.08);
+  border: 1px solid rgba(200,168,75,0.35);
+  border-radius: var(--radius-md);
+  padding: 12px 14px 10px;
+  margin-bottom: 10px;
+}
+.base-resume-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.base-resume-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--txt);
+}
+.base-resume-pct {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold, #c8a84b);
+}
+.base-resume-bar-bg {
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 7px;
+}
+.base-resume-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--gold, #c8a84b);
+  transition: width .4s ease;
+  width: 0%;
+}
+.base-resume-layers {
+  font-size: 11px;
+  color: var(--txt-sub);
+}
+.base-resume-btns {
+  display: flex;
+  gap: 8px;
+}
+.base-resume-btns .btn {
+  flex: 1;
+}

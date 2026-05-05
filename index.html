@@ -386,38 +386,64 @@
         <span class="cfg-accordion-arrow">▶</span>
       </div>
       <div class="cfg-accordion-body">
-        <div class="base-status-list">
-          <div class="base-status-row">
-            <span class="base-status-name">地理院地図</span>
-            <span class="base-dl-status" id="base-status-std"></span>
+        <!-- 状態コンテナ: JS が内容を差し替える -->
+        <div id="base-dl-status-container">
+          <!-- ① 未DL/一部未完了 -->
+          <div id="base-dl-state-partial">
+            <div class="base-status-list">
+              <div class="base-status-row">
+                <span class="base-status-name">地理院地図</span>
+                <span class="base-dl-status" id="base-status-std"></span>
+              </div>
+              <div class="base-status-row">
+                <span class="base-status-name">航空写真</span>
+                <span class="base-dl-status" id="base-status-photo"></span>
+              </div>
+              <div class="base-status-row">
+                <span class="base-status-name">地形図</span>
+                <span class="base-dl-status" id="base-status-topo"></span>
+              </div>
+              <div class="base-status-row">
+                <span class="base-status-name">陰影起伏図</span>
+                <span class="base-dl-status" id="base-status-hill"></span>
+              </div>
+              <div class="base-status-row">
+                <span class="base-status-name">色別標高図</span>
+                <span class="base-dl-status" id="base-status-relief"></span>
+              </div>
+            </div>
+            <button class="btn accent dl-start-btn" onclick="openBaseDlDialog()" style="margin-top:10px">
+              ⬇ 全国ベースDL開始
+            </button>
           </div>
-          <div class="base-status-row">
-            <span class="base-status-name">航空写真</span>
-            <span class="base-dl-status" id="base-status-photo"></span>
+          <!-- ② DL途中（レジューム有） -->
+          <div id="base-dl-state-resume" style="display:none">
+            <div class="base-resume-banner">
+              <div class="base-resume-info">
+                <span class="base-resume-label">⏸ ベースDLが途中です</span>
+                <span class="base-resume-pct" id="base-resume-pct">—%</span>
+              </div>
+              <div class="base-resume-bar-bg">
+                <div class="base-resume-bar-fill" id="base-resume-bar-fill"></div>
+              </div>
+              <div class="base-resume-layers" id="base-resume-layers"></div>
+            </div>
+            <div class="base-resume-btns">
+              <button class="btn accent" onclick="baseResumeStart()">▶ 続きをDL</button>
+              <button class="btn sm red"  onclick="baseResumeDiscard()">🗑 破棄</button>
+            </div>
           </div>
-          <div class="base-status-row">
-            <span class="base-status-name">地形図</span>
-            <span class="base-dl-status" id="base-status-topo"></span>
-          </div>
-          <div class="base-status-row">
-            <span class="base-status-name">陰影起伏図</span>
-            <span class="base-dl-status" id="base-status-hill"></span>
-          </div>
-          <div class="base-status-row">
-            <span class="base-status-name">色別標高図</span>
-            <span class="base-dl-status" id="base-status-relief"></span>
+          <!-- ③ 全完了 -->
+          <div id="base-dl-state-done" style="display:none">
+            <div class="base-dl-done-badge">✅ 全国ベースDL完了済み</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- DL開始ボタン -->
+    <!-- DL開始ボタン（範囲指定） -->
     <div class="dl-start-wrap">
-      <button class="btn accent dl-start-btn" onclick="openBaseDlDialog()">
-        ⬇ 全国ベースDL開始
-      </button>
-      <p class="dl-start-hint">日本全土のZ5〜Z9タイルを一括ダウンロードします</p>
-      <button class="btn accent dl-start-btn" onclick="openDlDialog()" style="margin-top:8px">
+      <button class="btn accent dl-start-btn" onclick="openDlDialog()">
         ⬇ 範囲指定タイルDL開始
       </button>
       <p class="dl-start-hint">地図を見ながら範囲・レイヤー・ズームを設定できます</p>
