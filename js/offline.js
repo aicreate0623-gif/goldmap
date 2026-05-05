@@ -1339,14 +1339,27 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
         const _zoom   = zmax;
         const _bounds = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
         if(mode==='base'){
-          // ベースDL → レイヤーごとに個別セッション
+          // ベースDL → レイヤーごとに個別セッション（既存があればマージ）
           // レイヤー按分はLAYER_KB（実測係数）を使用
           const totalKb = layers.reduce((s,k)=>s+(LAYER_KB[k]||10), 0);
+          const allSessions = await dbGetAllSess();
           for(const lk of layers){
             const _tileKeys = tasks.filter(t=>t.lk===lk).map(t=>tileKey(t.lk,t.z,t.x,t.y));
             const myBytes   = totalKb > 0 ? realBytes * (LAYER_KB[lk]||10) / totalKb : realBytes;
-            const _label    = `${_layerLabel([lk])} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
-            await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:myBytes, srcKeys:[lk], bounds:_bounds, zmin, zmax, mode});
+            // 同一レイヤーのベースセッションが既存にあればマージ（重複排除）
+            const existing = allSessions.find(s =>
+              s.mode === 'base' &&
+              Array.isArray(s.srcKeys) && s.srcKeys.length === 1 && s.srcKeys[0] === lk
+            );
+            if(existing){
+              existing.tileKeys  = [...new Set([...(existing.tileKeys||[]), ..._tileKeys])];
+              existing.totalSize = (existing.totalSize || 0) + myBytes;
+              existing.lastUsed  = Date.now();
+              await dbPutSess(existing.id, existing);
+            } else {
+              const _label = `${_layerLabel([lk])} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
+              await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:myBytes, srcKeys:[lk], bounds:_bounds, zmin, zmax, mode});
+            }
           }
         } else {
           // detail → 全レイヤーまとめて1セッション
