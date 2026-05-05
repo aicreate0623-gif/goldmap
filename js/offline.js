@@ -414,7 +414,7 @@ function _dldSyncAndCalc(){
   const base = cntTiles(_drawPending, zmin, zmax);
   const chkLayers = ['std','photo','topo','hill','relief'].filter(k=>document.getElementById('s1-ck-'+k)?.checked);
   if(!chkLayers.length){
-    tot.textContent = 'レイヤーを1つ以上選択してください';
+    tot.textContent = 'レイヤーを一つ選択して下さい';
     tot.style.color = 'var(--txt-dim)';
     return;
   }
@@ -480,9 +480,9 @@ async function _dldConfirmDraw(){
     const needBase  = chkLayers.filter(lk => !baseDone.has(lk) && lk !== 'hill' && lk !== 'relief');
     if(needBase.length){
       const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
-      // STEP2のヒントエリアに警告を表示（ダイアログは閉じない）
-      const hint = document.getElementById('dld-draw-hint');
-      if(hint) hint.innerHTML =
+      // 概算エリアの合計欄に警告を表示（ダイアログは閉じない）
+      const tot = document.getElementById('dld-s1-total');
+      if(tot) tot.innerHTML =
         `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
         `<br><button class="btn sm" style="margin-top:6px"
           onclick="_dldCancel();_openTab('offline')">📥 ベースDLへ</button>`;
@@ -576,31 +576,6 @@ async function _dldStartDl(){
   await runDl('detail', detRect, zmin, zmax, layers, 0);
 }
 
-// ── STEP3: ダイアログ内バーに進捗同期 ─────────────────
-function _dldSyncProgress(done, total, mb){
-  const pct = total>0 ? Math.round(done/total*100) : 0;
-  const el = id => document.getElementById(id);
-  if(el('dld-pb-done')) el('dld-pb-done').textContent = done.toLocaleString();
-  if(el('dld-pb-tot'))  el('dld-pb-tot').textContent  = total.toLocaleString();
-  if(el('dld-pb-bar'))  el('dld-pb-bar').style.width  = pct+'%';
-  if(el('dld-pb-mb'))   el('dld-pb-mb').textContent   = mb+' MB';
-  // ダイアログ内ログミラー（200枚ごと）
-  if(done%200===0 && el('dld-log')){
-    const log = el('dld-log');
-    log.textContent = `完了: ${fmt(done)} / ${fmt(total)}\n` + log.textContent;
-    log.textContent = log.textContent.split('\n').slice(0,20).join('\n');
-  }
-}
-
-// ── DL完了・停止時に閉じるボタン表示 ──────────────────
-function _dldShowDone(stopped){
-  const btns = document.getElementById('dld-dl-btns');
-  if(!btns) return;
-  btns.innerHTML = stopped
-    ? `<button class="btn sm"     onclick="_dldCancel()">閉じる</button>`
-    : `<button class="btn accent" onclick="_dldCancel()">✅ 完了・閉じる</button>`;
-}
-
 // ═══════════════════════════════════════════
 //  レジューム管理
 // ═══════════════════════════════════════════
@@ -646,80 +621,116 @@ async function resumeDl(){
 }
 
 // ═══════════════════════════════════════════
-//  DLプログレスダイアログ制御
+//  STEP3 UI制御
 // ═══════════════════════════════════════════
 
-/** ダイアログを開いてDL開始状態にリセット */
-function dlprogOpen(subText){
-  const ov = document.getElementById('dl-prog-overlay');
-  if(ov) ov.style.display = 'flex';
-  _dlprogSetPhase('running');
-  _dlprogSub(subText || '');
-  _dlprogLog('');
-}
-
-/** ダイアログを閉じる（中断保存・完了） */
-function dlprogClose(){
-  const ov = document.getElementById('dl-prog-overlay');
-  if(ov) ov.style.display = 'none';
-  checkResume();
-}
-
-/** 停止後フェーズ: 続き or 中断保存 を表示 */
-function dlprogStopped(){
-  _dlprogSetPhase('stopped');
-}
-
-/** 完了フェーズ */
-function dlprogDone(){
-  _dlprogSetPhase('done');
-}
-
-/** 続きをDL（停止後から再開） */
-async function dlprogResume(){
-  _dlprogSetPhase('running');
-  await resumeDl();
-}
-
-/** プログレス数値・バー更新 */
-function dlprogUpdate(done, total, mb){
-  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+/**
+ * STEP3のフェーズを切り替える。
+ * phase: 'running' | 'stopping' | 'stopped' | 'done'
+ */
+function _dldS3SetPhase(phase){
   const _e = id => document.getElementById(id);
-  if(_e('dlprog-done')) _e('dlprog-done').textContent = done.toLocaleString();
-  if(_e('dlprog-tot'))  _e('dlprog-tot').textContent  = total.toLocaleString();
-  if(_e('dlprog-bar'))  _e('dlprog-bar').style.width  = pct + '%';
-  if(_e('dlprog-pct'))  _e('dlprog-pct').textContent  = pct + '%';
-  if(_e('dlprog-mb'))   _e('dlprog-mb').textContent   = mb;
-}
 
-/** サブタイトル（レイヤー名・ズーム範囲）更新 */
-function _dlprogSub(text){
-  const el = document.getElementById('dlprog-sub');
-  if(el) el.textContent = text;
-}
+  // タイトル切り替え
+  const title = _e('dld-s3-title');
+  if(title){
+    const map = {
+      running:  '⬇ タイルをダウンロード中です…',
+      stopping: '⏳ 停止処理中です…',
+      stopped:  '⏸ ダウンロードを停止しました',
+      done:     '✅ ダウンロード完了'
+    };
+    title.textContent = map[phase] || '';
+  }
 
-/** ログ追記 */
-function _dlprogLog(msg){
-  const el = document.getElementById('dlprog-log');
-  if(!el) return;
-  if(msg === '') { el.textContent = ''; return; }
-  el.textContent = msg + '\n' + el.textContent;
-  el.textContent = el.textContent.split('\n').slice(0, 30).join('\n');
-}
+  // 停止中メッセージ
+  const stopMsg = _e('dld-stopping-msg');
+  if(stopMsg) stopMsg.style.display = phase === 'stopping' ? 'block' : 'none';
 
-/** フェーズ切替: 'running' | 'stopped' | 'done' */
-function _dlprogSetPhase(phase){
-  const ids = ['running','stopped','done'];
-  ids.forEach(p => {
-    const el = document.getElementById('dlprog-btns-' + p);
+  // 完了パネル
+  const donePanel = _e('dld-s3-done-panel');
+  if(donePanel) donePanel.style.display = phase === 'done' ? 'block' : 'none';
+
+  // ボタン群切り替え
+  ['running','stopping','stopped','done'].forEach(p => {
+    const el = _e('dld-btns-' + p);
     if(el) el.style.display = p === phase ? 'flex' : 'none';
   });
+}
+
+/**
+ * STEP3の進捗バーを更新する。
+ */
+function _dldSyncProgress(done, total, mb){
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  const _e = id => document.getElementById(id);
+  if(_e('dld-pb-done')) _e('dld-pb-done').textContent = done.toLocaleString();
+  if(_e('dld-pb-tot'))  _e('dld-pb-tot').textContent  = total.toLocaleString();
+  if(_e('dld-pb-bar'))  _e('dld-pb-bar').style.width  = pct + '%';
+  if(_e('dld-pb-mb'))   _e('dld-pb-mb').textContent   = mb;
+}
+
+/**
+ * DL完了後パネルを表示する。
+ * 完了サマリー＋追加DLパネルを埋め込む。
+ */
+async function _dldShowDonePanel(done, realBytes, layers, zmin, zmax, sessId){
+  const summary = document.getElementById('dld-done-summary');
+  if(summary){
+    const mb = (realBytes / 1024 / 1024).toFixed(1);
+    const layerNames = _layerLabel(layers, '・');
+    summary.innerHTML =
+      `<div class="dld-done-row">📦 <b>${done.toLocaleString()}</b> 枚 / 約 <b>${mb} MB</b></div>` +
+      `<div class="dld-done-row">🗂 ${layerNames}</div>` +
+      `<div class="dld-done-row">🔍 Z${zmin}〜Z${zmax}</div>`;
+  }
+
+  // 追加DLパネルを埋め込む（detail モードかつ sessId がある場合のみ）
+  const adddlPanel = document.getElementById('dld-done-adddl-panel');
+  const hint = adddlPanel?.previousElementSibling; // dld-done-adddl-hint
+  if(!adddlPanel) return;
+
+  if(!sessId){
+    if(hint) hint.style.display = 'none';
+    adddlPanel.style.display = 'none';
+    return;
+  }
+
+  // セッションカードの追加DLパネルと同じHTMLを生成して埋め込む
+  // openAddLayerPanel を流用するためダミーIDを作成
+  adddlPanel.innerHTML = `<div id="sc-${sessId}" style="display:none"></div>`;
+  // adp-パネルを直接生成
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(!sess || !sess.bounds){
+    if(hint) hint.style.display = 'none';
+    adddlPanel.style.display = 'none';
+    return;
+  }
+
+  // 追加DLパネルをdld-done-adddl-panel内に展開
+  adddlPanel.innerHTML = '';
+  const wrapper = document.createElement('div');
+  wrapper.id = `adp-${sessId}`;
+  wrapper.className = 'sess-adddl-panel';
+  wrapper.style.display = 'block';
+  adddlPanel.appendChild(wrapper);
+
+  // renderSessionList と同じHTML生成ロジックを流用
+  await openAddLayerPanel(sessId);
+  // openAddLayerPanel はsc-{id}を探すため、ダミー要素を一時配置
+  const dummy = document.createElement('div');
+  dummy.id = `sc-${sessId}`;
+  dummy.style.display = 'none';
+  document.body.appendChild(dummy);
+  await openAddLayerPanel(sessId);
+  dummy.remove();
 }
 
 // ═══════════════════════════════════════════
 //  ダウンロードエンジン
 // ═══════════════════════════════════════════
 let dlRun=false, dlStop=false;
+let _dlAbortCtrl = null; // AbortController（実行中fetch一括キャンセル用）
 const CONCUR=6;
 
 async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=null){
@@ -766,10 +777,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   const total = tasks.length;
 
   dlRun=true; dlStop=false;
-  document.getElementById('prog-section').classList.add('show');
-  // DLプログレスダイアログを開く
-  const _subText = `${_layerLabel(layers, ' · ')}  Z${zmin}〜Z${zmax}`;
-  dlprogOpen(_subText);
+  _dlAbortCtrl = new AbortController();
 
   // ボタン切替（ベース/詳細タブ内）
   const SB=mode==='base'?document.getElementById('btn-stpbase'):document.getElementById('btn-stpdet');
@@ -777,42 +785,26 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   if(SB)  SB.style.display='block';
   if(DB2) DB2.disabled=true;
 
+  // STEP3 UI初期化
+  _dldS3SetPhase('running');
+
   // 統計リセット（キャッシュ済み分を done の初期値に）
-  // startIdx はレジューム時のプログレスバー表示開始位置にのみ使用
   const _initDone = cachedCount;
-  document.getElementById('pg-tot').textContent=total.toLocaleString();
-  document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-_initDone));
-  document.getElementById('pg-done').textContent=_initDone.toLocaleString();
-  document.getElementById('pg-bar').style.width=(total>0?Math.round(_initDone/total*100):0)+'%';
-  document.getElementById('dl-log').textContent='';
+  _dldSyncProgress(_initDone, total, '0 MB');
 
   // resumeの境界情報
   const boundsData=mode==='base'?null:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
 
   let done=_initDone, fail=0, realBytes=0;
   const log=msg=>{
-    const el=document.getElementById('dl-log');
+    const el=document.getElementById('dld-log');
     if(el){el.textContent=msg+'\n'+el.textContent;el.textContent=el.textContent.split('\n').slice(0,40).join('\n');}
-    _dlprogLog(msg);
   };
 
   const tick=()=>{
     const processed=done+fail;
     const mbReal=(realBytes/1024/1024).toFixed(0)+' MB';
-    document.getElementById('pg-done').textContent=done.toLocaleString();
-    document.getElementById('pg-rem').textContent=fmt(Math.max(0,total-processed));
-    document.getElementById('pg-mb').textContent=mbReal;
-    document.getElementById('pg-bar').style.width=(total>0?Math.round(processed/total*100):0)+'%';
-    // DLプログレスダイアログ更新
-    dlprogUpdate(processed, total, mbReal);
-    // DLダイアログ内バー同期
-    if(typeof _dldSyncProgress==='function') _dldSyncProgress(done,total,mbReal);
-    // DLダイアログ内ログミラー
-    const _dlog=document.getElementById('dld-log');
-    if(_dlog&&done%200===0){
-      _dlog.textContent=`完了: ${fmt(done)} / ${fmt(total)}  失敗: ${fail}\n`+_dlog.textContent;
-      _dlog.textContent=_dlog.textContent.split('\n').slice(0,20).join('\n');
-    }
+    _dldSyncProgress(done, total, mbReal);
   };
 
   // fetchTasks のみをキューに積む（cachedSet除外済みなので重複DLなし）
@@ -829,11 +821,11 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
         const k=tileKey(t.lk,t.z,t.x,t.y);
         const url2=tileURL(t.lk,t.z,t.x,t.y);
         const promise=db
-          ?fetch(url2,{signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined})
+          ?fetch(url2,{signal:_dlAbortCtrl.signal})
               .then(r=>r.ok?r.arrayBuffer():null)
               .then(buf=>{if(buf)return dbPut(k,buf).then(()=>{done++;realBytes+=buf.byteLength;tick();});else{fail++;tick();}})
               .catch(()=>{fail++;tick();})
-          :fetch(url2)
+          :fetch(url2,{signal:_dlAbortCtrl.signal})
               .then(r=>r.ok?r.arrayBuffer():null)
               .then(buf=>{if(buf){done++;realBytes+=buf.byteLength;tick();}else{fail++;tick();}})
               .catch(()=>{fail++;tick();});
@@ -843,10 +835,12 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
           if(done%200===0||done===total) log(`完了: ${fmt(done)} / ${fmt(total)}  失敗: ${fail}`);
 
           if(dlStop){
-            // 停止時にレジューム状態を保存
-            const now=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-            saveResume({mode,bounds:boundsData,zmin,zmax,layers,taskIndex:done,total,savedAt:now});
-            resolve();
+            if(active===0){
+              // 全fetch完了後に停止処理
+              const now=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+              saveResume({mode,bounds:boundsData,zmin,zmax,layers,taskIndex:done,total,savedAt:now});
+              resolve();
+            }
           } else if(!q.length&&active===0){
             resolve();
           } else {
@@ -864,9 +858,8 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     deleteResume();
     document.getElementById('resume-banner').classList.remove('show');
     log('✅ 完了！ '+fmt(done)+'枚保存（失敗: '+fail+'）');
-    dlprogDone();
-    if(typeof _dldShowDone==='function') _dldShowDone(false);
     // セッション保存
+    let _savedSessId = parentSessId || null;
     if(done>0){
       if(parentSessId){
         // ＋追加DL → 既存セッションに合算（新規セッション作成しない）
@@ -894,21 +887,32 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
           // detail → 全レイヤーまとめて1セッション
           const _tileKeys = tasks.map(t=>tileKey(t.lk,t.z,t.x,t.y));
           const _label    = `${_layerLabel(layers)} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
-          await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
+          const _sess = await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
+          _savedSessId = _sess?.id || null;
         }
       }
     }
     // DL完了時に必ずMAXズームを更新（done=0のキャッシュ済み完了も含む）
     if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
+    // 完了UI表示
+    _dldS3SetPhase('done');
+    _dldShowDonePanel(done, realBytes, layers, zmin, zmax, _savedSessId);
   } else {
     log('⏸ 停止しました。続きから再開できます。');
-    dlprogStopped();
-    if(typeof _dldShowDone==='function') _dldShowDone(true);
+    _dldS3SetPhase('stopped');
   }
   refreshCache();
 }
 
-function stopDl(){dlStop=true;}
+/** 停止ボタン押下: AbortControllerでfetchをキャンセルし「停止中…」表示 */
+function _dldStopWithFeedback(){
+  dlStop = true;
+  if(_dlAbortCtrl) _dlAbortCtrl.abort();
+  _dldS3SetPhase('stopping');
+}
+
+/** 後方互換: stopDl() も引き続き動作 */
+function stopDl(){ _dldStopWithFeedback(); }
 
 // ═══════════════════════════════════════════
 //  追加レイヤーDL完了後にセッションを更新
@@ -1720,18 +1724,18 @@ function _adpMirrorDlProgress(sessId){
   const dstBar = document.getElementById(`adp-pbar-${sessId}`);
   const dstLog = document.getElementById(`adp-plog-${sessId}`);
 
-  // dlprog-* を参照（runDl が dlprogUpdate() 経由で実際に更新する要素）
+  // dld-pb-* を参照（runDl が _dldSyncProgress() 経由で実際に更新する要素）
   const timer = setInterval(()=>{
     if(!document.getElementById(`adp-prog-${sessId}`)){ clearInterval(timer); return; }
-    const pgBar  = document.getElementById('dlprog-bar');
-    const pgDone = document.getElementById('dlprog-done');
-    const pgTot  = document.getElementById('dlprog-tot');
-    const pgPct  = document.getElementById('dlprog-pct');
-    const pct    = pgPct ? pgPct.textContent : (pgBar ? pgBar.style.width : '0%');
+    const pgBar  = document.getElementById('dld-pb-bar');
+    const pgDone = document.getElementById('dld-pb-done');
+    const pgTot  = document.getElementById('dld-pb-tot');
+    const pgMb   = document.getElementById('dld-pb-mb');
+    const pct    = pgBar ? pgBar.style.width : '0%';
     if(dstBar && pgBar) dstBar.style.width = pgBar.style.width;
     if(dstCnt && pgDone && pgTot)
       dstCnt.textContent = `${pgDone.textContent} / ${pgTot.textContent}（${pct}）`;
-    const srcLog = document.getElementById('dlprog-log');
+    const srcLog = document.getElementById('dld-log');
     if(srcLog && dstLog){
       const firstLine = srcLog.textContent.split('\n')[0] || '';
       if(firstLine) dstLog.textContent = firstLine;

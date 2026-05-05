@@ -495,18 +495,7 @@
       </div>
     </div>
 
-    <!-- DL進捗ログ（DL中のみ表示） -->
-    <div id="cfg-dl-progress-bar" class="dl-progress-bar dl-progress-bar--cfg" style="display:none!important;visibility:hidden">
-      <div class="dl-pb-row">
-        <span class="dl-pb-label">DL進捗</span>
-        <span class="dl-pb-nums"><span id="pg-done">0</span> / <span id="pg-tot">—</span> 枚</span>
-        <span class="dl-pb-mb" id="pg-mb">0 MB</span>
-      </div>
-      <div class="prog-bar-bg"><div class="prog-bar-fill" id="pg-bar" style="width:0%"></div></div>
-      <div class="dl-log" id="dl-log"></div>
-    </div>
-    <!-- prog-section: ui.js の show クラス制御のため非表示で保持 -->
-    <div id="prog-section" style="display:none"><span id="pg-rem"></span></div>
+
 
   </div>
 </div>
@@ -1132,9 +1121,9 @@
   <!-- STEP 0: 地図を移動してエリアを決める -->
   <div class="dld-panel" id="dld-s0">
     <div class="dld-title">🗺 ダウンロードしたい場所に地図を移動してください</div>
-    <p class="dld-hint">地図をスクロール・ドラッグしてエリアを選択して下さい</p>
     <div class="dld-footer-btns">
       <button class="btn red" onclick="_dldCancel()">✕ キャンセル</button>
+      <span class="dld-footer-spacer"></span>
       <button class="btn accent" onclick="_dldGoStep(1)">次へ →</button>
     </div>
   </div>
@@ -1142,7 +1131,6 @@
   <!-- STEP 1: ドラッグで範囲選択 -->
   <div class="dld-panel" id="dld-s1" style="display:none">
     <div class="dld-title">📍 地図上をドラッグして範囲を選択してください</div>
-    <p class="dld-hint" id="dld-draw-hint">指でドラッグすると矩形が描かれます。選択後に確定ボタンを押してください</p>
     <div id="dld-s1-est" class="dld-s1-calc" style="display:none">
       <div class="dld-s1-calc-row">
         <span class="dld-s1-calc-lbl">レイヤー</span>
@@ -1236,10 +1224,14 @@
     </div>
   </div>
 
-  <!-- STEP 3: DL進捗 -->
+  <!-- STEP 3: DL進捗 / 停止中 / 完了 -->
   <div class="dld-panel" id="dld-s3" style="display:none">
-    <div class="dld-title">⬇ タイルをダウンロード中です…</div>
-    <div class="dld-pb-wrap">
+
+    <!-- DL中タイトル（完了・停止中は切り替え） -->
+    <div class="dld-title" id="dld-s3-title">⬇ タイルをダウンロード中です…</div>
+
+    <!-- 進捗バー（DL中・停止中に表示） -->
+    <div class="dld-pb-wrap" id="dld-s3-progress">
       <div class="dl-pb-row">
         <span class="dl-pb-label">進捗</span>
         <span class="dl-pb-nums"><span id="dld-pb-done">0</span> / <span id="dld-pb-tot">0</span> 枚</span>
@@ -1248,10 +1240,45 @@
       <div class="prog-bar-bg"><div class="prog-bar-fill" id="dld-pb-bar" style="width:0%"></div></div>
     </div>
     <div class="dl-log" id="dld-log"></div>
-    <div class="dld-footer-btns" id="dld-dl-btns">
-      <button class="btn sm" id="dld-s3-back" onclick="_dldGoStep(2)">← 戻る</button>
-      <button class="btn red" onclick="stopDl()">■ 停止</button>
+
+    <!-- 停止中メッセージ -->
+    <div class="dld-stopping-msg" id="dld-stopping-msg" style="display:none">
+      ⏳ 実行中のDLが完了するまでお待ちください…
     </div>
+
+    <!-- 完了画面 -->
+    <div id="dld-s3-done-panel" style="display:none">
+      <div class="dld-done-summary" id="dld-done-summary"></div>
+      <div class="dld-done-adddl-hint">
+        📥 追加でレイヤーをダウンロードできます。<br>
+        レイヤーを選択してそのままDLを開始できます。
+      </div>
+      <div id="dld-done-adddl-panel"></div>
+    </div>
+
+    <!-- フッターボタン -->
+    <div class="dld-footer-btns" id="dld-dl-btns">
+      <!-- DL中: 停止のみ -->
+      <div id="dld-btns-running" style="display:flex;gap:6px;width:100%;justify-content:flex-end">
+        <button class="btn red" onclick="_dldStopWithFeedback()">■ 停止</button>
+      </div>
+      <!-- 停止中: 無効化表示 -->
+      <div id="dld-btns-stopping" style="display:none;gap:6px;width:100%;justify-content:flex-end">
+        <button class="btn red" disabled>⏳ 停止中…</button>
+      </div>
+      <!-- 停止後 -->
+      <div id="dld-btns-stopped" style="display:none;gap:6px;width:100%">
+        <button class="btn sm" onclick="_dldGoStep(2)">← 戻る</button>
+        <span style="flex:1"></span>
+        <button class="btn accent" onclick="_dldCancel()">閉じる</button>
+      </div>
+      <!-- 完了後 -->
+      <div id="dld-btns-done" style="display:none;gap:6px;width:100%">
+        <span style="flex:1"></span>
+        <button class="btn accent" onclick="_dldCancel()">✅ 閉じる</button>
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -1306,45 +1333,7 @@
   </div>
 </div>
 
-<!-- ══ DLプログレスダイアログ ══ -->
-<div id="dl-prog-overlay" style="display:none">
-  <div id="dl-prog-dialog">
-    <div class="dlprog-header">
-      <span class="dlprog-icon">⬇</span>
-      <span class="dlprog-title" id="dlprog-title">ダウンロード中</span>
-    </div>
-    <div class="dlprog-sub" id="dlprog-sub">準備中…</div>
 
-    <div class="dlprog-bar-wrap">
-      <div class="dlprog-bar-bg">
-        <div class="dlprog-bar-fill" id="dlprog-bar" style="width:0%"></div>
-      </div>
-      <span class="dlprog-pct" id="dlprog-pct">0%</span>
-    </div>
-
-    <div class="dlprog-stats">
-      <span id="dlprog-done" style="display:none">0</span>
-      <span id="dlprog-tot"  style="display:none">—</span>
-      <span class="dlprog-mb" id="dlprog-mb">0 MB</span>
-    </div>
-
-    <div class="dlprog-log" id="dlprog-log" style="display:none"></div>
-
-    <!-- 通常: 停止ボタン -->
-    <div class="dlprog-btns" id="dlprog-btns-running">
-      <button class="btn red" onclick="stopDl()">■ 停止</button>
-    </div>
-    <!-- 停止後: 続き or 中断保存 -->
-    <div class="dlprog-btns" id="dlprog-btns-stopped" style="display:none">
-      <button class="btn accent" onclick="dlprogResume()">▶ 続きをDL</button>
-      <button class="btn sm"     onclick="dlprogClose()">⏹ 中断して保存</button>
-    </div>
-    <!-- 完了後 -->
-    <div class="dlprog-btns" id="dlprog-btns-done" style="display:none">
-      <button class="btn accent" onclick="dlprogClose()">✅ 完了・閉じる</button>
-    </div>
-  </div>
-</div>
 
 <div id="exit-overlay" style="
   display:none; position:fixed; inset:0; z-index:9000;
