@@ -707,6 +707,8 @@ async function refreshBaseDlStatus(){
     elPartial.style.display = 'block';
     elResume.style.display  = 'none';
     elDone.style.display    = 'none';
+    // ゴミ箱表示のためセッション一覧を取得
+    const allSessions = (typeof dbGetAllSess === 'function') ? await dbGetAllSess() : [];
     ALL_LAYERS.forEach(lk => {
       // チェックボックス: DL済みのものはチェック済み・無効化
       const ck = document.getElementById('base-ck-' + lk);
@@ -714,9 +716,18 @@ async function refreshBaseDlStatus(){
         ck.checked  = !done.has(lk); // 未DLのみチェック
         ck.disabled = done.has(lk);  // DL済みは変更不可
       }
-      // ステータス表示
+      // ステータス表示 + DL済みにはゴミ箱
       const st = document.getElementById('base-status-' + lk);
-      if(st) st.textContent = done.has(lk) ? 'DL済' : '';
+      if(!st) return;
+      if(done.has(lk)){
+        const sess = allSessions.find(s =>
+          s.mode === 'base' && Array.isArray(s.srcKeys) && s.srcKeys.includes(lk)
+        );
+        st.innerHTML = 'DL済' +
+          (sess ? ` <button class="base-saved-del" onclick="deleteSessionWithConfirm('${sess.id}')" title="削除">🗑</button>` : '');
+      } else {
+        st.textContent = '';
+      }
     });
     // 推定MB更新
     updBaseStatusEst();

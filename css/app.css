@@ -3514,6 +3514,9 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: var(--txt);
 }
 .base-ck-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   color: #4caf50;
 }
