@@ -300,6 +300,22 @@ async function deleteSessionWithConfirm(id){
       </div>`;
   }
 
+  // ── ベースDLセクション内の🗑ボタンにもプログレスを表示 ──
+  // sess.srcKeys からレイヤーキーを特定して base-status-{lk} 要素に挿入
+  if(!card && sess.mode === 'base'){
+    const lk = (sess.srcKeys || [])[0];
+    const baseEl = lk ? document.getElementById('base-status-' + lk) : null;
+    if(baseEl){
+      baseEl.innerHTML = `
+        <div class="sess-del-prog" id="sdp-${id}">
+          <div class="sess-del-prog-label" id="sdp-lbl-${id}">削除中…</div>
+          <div class="sess-del-prog-bar-bg">
+            <div class="sess-del-prog-bar" id="sdp-bar-${id}" style="width:0%"></div>
+          </div>
+        </div>`;
+    }
+  }
+
   // ── 他セッションが参照しているタイルキーをSetに集める ──
   const otherSessions = await dbGetAllSess().catch(() => []);
   const sharedKeys = new Set();
