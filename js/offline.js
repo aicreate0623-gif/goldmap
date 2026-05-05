@@ -458,7 +458,7 @@ async function _dldConfirmDraw(){
   // ── ベースDL未完了チェック ──────────────────────────
   if(typeof getBaseDlDoneLayers === 'function'){
     const baseDone  = await getBaseDlDoneLayers();
-    const needBase  = chkLayers.filter(lk => !baseDone.has(lk) && lk !== 'hill' && lk !== 'relief');
+    const needBase  = chkLayers.filter(lk => !baseDone.has(lk));
     if(needBase.length){
       const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
       // 概算エリアの合計欄に警告を表示（ダイアログは閉じない）
@@ -539,7 +539,7 @@ async function _dldStartDl(){
   // ── ベースDL未完了チェック（STEP3でレイヤーを変更した場合も必ずガード）──
   if(typeof getBaseDlDoneLayers === 'function'){
     const baseDone = await getBaseDlDoneLayers();
-    const needBase = layers.filter(lk => !baseDone.has(lk) && lk !== 'hill' && lk !== 'relief');
+    const needBase = layers.filter(lk => !baseDone.has(lk));
     if(needBase.length){
       const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
       showAlert('ベースDLが必要です',`「${names}」はベースDL（Z5〜Z9 全国版）が完了していません。\nオフラインタブのベースDLを先に行ってください。`);
@@ -1059,7 +1059,7 @@ async function _dldAdpUpdEst(sessId){
   // ベースDL未完了チェック
   const baseDone = await getBaseDlDoneLayers();
   const needBase = checked.filter(lk =>
-    !(sess.srcKeys||[]).includes(lk) && !baseDone.has(lk) && lk !== 'hill' && lk !== 'relief'
+    !(sess.srcKeys||[]).includes(lk) && !baseDone.has(lk)
   );
   if(needBase.length){
     const names = needBase.map(lk=>_DLD_LAYER_LABEL[lk]||lk).join('・');
@@ -1536,12 +1536,18 @@ async function renderSessionList(){
       <div class="adp-layers">
         ${ALL_LAYERS.map(lk=>{
           const done = (s.srcKeys||[]).includes(lk);
+          // ベースDL状態: localStorageのcachedMaxZoom_{lk}で簡易判定（+ボタン時に最新取得）
+          const baseOk = localStorage.getItem('cachedMaxZoom_' + lk) !== null;
+          const baseBadge = baseOk
+            ? `<span class="adp-base-badge adp-base-ok"  id="adp-base-${s.id}-${lk}">✅ベース済</span>`
+            : `<span class="adp-base-badge adp-base-ng"  id="adp-base-${s.id}-${lk}">⚠️ベース未</span>`;
           // 未DLレイヤーもスキャン完了まで disabled（⏳）で初期化
           // スキャン後に _updateAdpCheckboxes が正しい状態に更新する
           return `<label class="adp-layer${done?' adp-layer--done':''}">
             <input type="checkbox" class="adp-ck" data-sess="${s.id}" data-lk="${lk}"
               ${done?'disabled checked':'disabled'} onchange="_adpOnlyOne(this,'${s.id}');updAddLayerZmaxCap('${s.id}');updAddLayerEst('${s.id}')">
             <span class="adp-lk-name">${LAYER_LABEL[lk]}</span>
+            ${baseBadge}
             <span class="adp-lk-badge">${done?'✅ 済':''}</span>
           </label>`;
         }).join('')}
@@ -1805,6 +1811,21 @@ async function openAddLayerPanel(sessId){
   // IDBスキャン
   const sess = await dbGetSess(sessId).catch(()=>null);
   if(sess){
+    // ＋ボタン押下時: getBaseDlDoneLayers()で最新ベースDL状態を取得してバッジ更新
+    const baseDone = await getBaseDlDoneLayers();
+    const ALL_LAYERS_BASE = ['std','photo','topo','hill','relief'];
+    ALL_LAYERS_BASE.forEach(lk => {
+      const el = document.getElementById(`adp-base-${sessId}-${lk}`);
+      if(!el) return;
+      if(baseDone.has(lk)){
+        el.textContent = '✅ベース済';
+        el.className   = 'adp-base-badge adp-base-ok';
+      } else {
+        el.textContent = '⚠️ベース未';
+        el.className   = 'adp-base-badge adp-base-ng';
+      }
+    });
+
     const scanResult = await _scanAdpTiles(sess);
     _renderAdpZoomHint(sessId, scanResult);
     _updateAdpCheckboxes(sessId, sess, scanResult);  // ①チェックボックス状態を確定
@@ -2079,7 +2100,7 @@ async function updAddLayerEst(sessId){
   const baseDone = await getBaseDlDoneLayers();
   // 新規レイヤー（sess.srcKeys に未含まれる）かつベース未DLのものを抽出
   const needBase = selected.filter(lk =>
-    !(sess.srcKeys||[]).includes(lk) && !baseDone.has(lk) && lk !== 'hill' && lk !== 'relief'
+    !(sess.srcKeys||[]).includes(lk) && !baseDone.has(lk)
   );
   if(needBase.length){
     const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');

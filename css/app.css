@@ -2862,6 +2862,22 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: var(--txt-sub);
 }
 .adp-layer--done .adp-lk-badge { color: #4caf50; }
+/* ─── ベースDL状態バッジ ─── */
+.adp-base-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+.adp-base-ok {
+  color: #4caf50;
+  background: rgba(76,175,80,0.12);
+}
+.adp-base-ng {
+  color: #ffaa00;
+  background: rgba(255,170,0,0.12);
+}
 .adp-est {
   font-size: 12px;
   color: var(--txt-sub);
