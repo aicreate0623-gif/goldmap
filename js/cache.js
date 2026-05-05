@@ -263,6 +263,15 @@ async function saveDlSession(opts){
     pendingZmin:   opts.pendingZmin   || null, // 次チャンクの開始zmin（表示用）
     mode:          opts.mode          || "detail", // "base" | "detail"
   };
+  // detailモードのみ layerStatus を記録（base は別管理）
+  if(sess.mode === 'detail'){
+    const zmin = sess.zmin || 11;
+    const zmax = sess.zmax || 15;
+    sess.layerStatus = {};
+    (sess.srcKeys || []).forEach(lk => {
+      sess.layerStatus[lk] = { zmin, zmax };
+    });
+  }
   await dbPutSess(id, sess);
   return sess;
 }

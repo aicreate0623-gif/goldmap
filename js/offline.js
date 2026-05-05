@@ -1416,6 +1416,12 @@ async function addLayersToSession(sessId, newLayers, newTileKeys, addedBytes, ne
       ? Math.max(...allKeys.map(k => _MAX_NATIVE[k] ?? 18))
       : (newZmax ?? sess.zmax ?? 15);
     sess.label = `${_layerLabel(sess.srcKeys)} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
+    // layerStatus を更新：追加レイヤーの zmin/zmax を記録
+    if(!sess.layerStatus) sess.layerStatus = {};
+    const _addZmin = sess.zmin || 11;
+    newLayers.forEach(lk => {
+      sess.layerStatus[lk] = { zmin: _addZmin, zmax: newZmax || sess.zmax || 15 };
+    });
     await dbPutSess(sessId, sess);
     if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
   } catch(e){ console.error('addLayersToSession error', e); }
@@ -1548,7 +1554,12 @@ async function renderSessionList(){
               ${done?'disabled checked':'disabled'} onchange="_adpOnlyOne(this,'${s.id}');updAddLayerZmaxCap('${s.id}');updAddLayerEst('${s.id}')">
             <span class="adp-lk-name">${LAYER_LABEL[lk]}</span>
             ${baseBadge}
-            <span class="adp-lk-badge">${done?'✅ 済':''}</span>
+            <span class="adp-lk-badge" id="adp-ls-${s.id}-${lk}">${(()=>{
+              if(!done) return '';
+              const ls = (s.layerStatus||{})[lk];
+              if(ls) return `<span class="adp-ls-badge">Z${ls.zmin}〜Z${ls.zmax}</span>`;
+              return '✅ 済';
+            })()}</span>
           </label>`;
         }).join('')}
       </div>
