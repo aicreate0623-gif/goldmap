@@ -1132,6 +1132,14 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     _dldS3SetPhase('running');
   }
 
+  // resumeの境界情報
+  const boundsData=mode==='base'?null:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
+
+  // レジューム再開時は前回DL済みバイト数を初期値として引き継ぐ（_initDone表示より前に定義）
+  const _resumeForTick = loadResume();
+  const _prevBytesForTick = (_resumeForTick && _resumeForTick.mode === mode)
+    ? (_resumeForTick.prevBytes || 0) : 0;
+
   // 統計リセット（キャッシュ済み分を done の初期値に）
   const _initDone = cachedCount;
   if(mode==='base'){
@@ -1139,14 +1147,6 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   } else {
     _dldSyncProgress(_initDone, total, (_prevBytesForTick/1024/1024).toFixed(0)+' MB');
   }
-
-  // resumeの境界情報
-  const boundsData=mode==='base'?null:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
-
-  // レジューム再開時は前回DL済みバイト数を初期値として引き継ぐ
-  const _resumeForTick = loadResume();
-  const _prevBytesForTick = (_resumeForTick && _resumeForTick.mode === mode)
-    ? (_resumeForTick.prevBytes || 0) : 0;
 
   let done=_initDone, fail=0, realBytes=0;
   const log=msg=>{
