@@ -390,30 +390,37 @@
         <div id="base-dl-status-container">
           <!-- ① 未DL/一部未完了 -->
           <div id="base-dl-state-partial">
-            <div class="base-status-list">
-              <div class="base-status-row">
-                <span class="base-status-name">地理院地図</span>
-                <span class="base-dl-status" id="base-status-std"></span>
-              </div>
-              <div class="base-status-row">
-                <span class="base-status-name">航空写真</span>
-                <span class="base-dl-status" id="base-status-photo"></span>
-              </div>
-              <div class="base-status-row">
-                <span class="base-status-name">地形図</span>
-                <span class="base-dl-status" id="base-status-topo"></span>
-              </div>
-              <div class="base-status-row">
-                <span class="base-status-name">陰影起伏図</span>
-                <span class="base-dl-status" id="base-status-hill"></span>
-              </div>
-              <div class="base-status-row">
-                <span class="base-status-name">色別標高図</span>
-                <span class="base-dl-status" id="base-status-relief"></span>
-              </div>
+            <div class="base-ck-list">
+              <label class="base-ck-row">
+                <input type="checkbox" id="base-ck-std" checked onchange="updBaseStatusEst()">
+                <span class="base-ck-name">地理院地図</span>
+                <span class="base-ck-status" id="base-status-std"></span>
+              </label>
+              <label class="base-ck-row">
+                <input type="checkbox" id="base-ck-photo" onchange="updBaseStatusEst()">
+                <span class="base-ck-name">航空写真</span>
+                <span class="base-ck-status" id="base-status-photo"></span>
+              </label>
+              <label class="base-ck-row">
+                <input type="checkbox" id="base-ck-topo" onchange="updBaseStatusEst()">
+                <span class="base-ck-name">地形図</span>
+                <span class="base-ck-status" id="base-status-topo"></span>
+              </label>
+              <label class="base-ck-row">
+                <input type="checkbox" id="base-ck-hill" onchange="updBaseStatusEst()">
+                <span class="base-ck-name">陰影起伏図</span>
+                <span class="base-ck-status" id="base-status-hill"></span>
+              </label>
+              <label class="base-ck-row">
+                <input type="checkbox" id="base-ck-relief" onchange="updBaseStatusEst()">
+                <span class="base-ck-name">色別標高図</span>
+                <span class="base-ck-status" id="base-status-relief"></span>
+              </label>
             </div>
-            <button class="btn accent dl-start-btn" onclick="openBaseDlDialog()" style="margin-top:10px">
-              ⬇ 全国ベースDL開始
+            <div class="base-status-est" id="base-status-est">— MB</div>
+            <div class="base-status-warn">⚠️ WiFi環境でのDLを推奨します</div>
+            <button class="btn accent dl-start-btn" onclick="startBaseDlFromStatus()" style="margin-top:8px">
+              ⬇ DL開始
             </button>
           </div>
           <!-- ② DL途中（レジューム有） -->
@@ -435,6 +442,33 @@
           </div>
           <!-- ③ 全完了 -->
           <div id="base-dl-state-done" style="display:none">
+            <div class="base-ck-list base-ck-list--done">
+              <div class="base-ck-row base-ck-row--done">
+                <span class="base-ck-done-icon">✅</span>
+                <span class="base-ck-name">地理院地図</span>
+                <span class="base-ck-status">DL済</span>
+              </div>
+              <div class="base-ck-row base-ck-row--done">
+                <span class="base-ck-done-icon">✅</span>
+                <span class="base-ck-name">航空写真</span>
+                <span class="base-ck-status">DL済</span>
+              </div>
+              <div class="base-ck-row base-ck-row--done">
+                <span class="base-ck-done-icon">✅</span>
+                <span class="base-ck-name">地形図</span>
+                <span class="base-ck-status">DL済</span>
+              </div>
+              <div class="base-ck-row base-ck-row--done">
+                <span class="base-ck-done-icon">✅</span>
+                <span class="base-ck-name">陰影起伏図</span>
+                <span class="base-ck-status">DL済</span>
+              </div>
+              <div class="base-ck-row base-ck-row--done">
+                <span class="base-ck-done-icon">✅</span>
+                <span class="base-ck-name">色別標高図</span>
+                <span class="base-ck-status">DL済</span>
+              </div>
+            </div>
             <div class="base-dl-done-badge">✅ 全国ベースDL完了済み</div>
           </div>
         </div>
@@ -1338,57 +1372,6 @@
     </div>
   </div>
 </div>
-
-<!-- ══ 全国ベースDLダイアログ ══ -->
-<div id="base-dl-overlay" style="display:none">
-  <div id="base-dl-dialog">
-    <div class="bdlg-header">
-      <span class="bdlg-icon">🗾</span>
-      <span class="bdlg-title">全国ベースDL（Z5〜Z9）</span>
-    </div>
-    <p class="bdlg-desc">日本全土のZ5〜Z9タイルを一括ダウンロードします。オフライン時に広域の地図表示が可能になります。</p>
-
-    <div class="bdlg-zoom-badge">ズーム固定: Z5〜Z9</div>
-
-    <div class="bdlg-section-ttl">レイヤー選択</div>
-    <div class="bdlg-ck-group">
-      <label class="bdlg-ck">
-        <input type="checkbox" id="bdlg-ck-std" checked onchange="updBaseDlgEst()">
-        <span class="bdlg-ck-name">地理院地図</span>
-        <span class="bdlg-ck-status" id="bdlg-status-std"></span>
-      </label>
-      <label class="bdlg-ck">
-        <input type="checkbox" id="bdlg-ck-photo" onchange="updBaseDlgEst()">
-        <span class="bdlg-ck-name">航空写真</span>
-        <span class="bdlg-ck-status" id="bdlg-status-photo"></span>
-      </label>
-      <label class="bdlg-ck">
-        <input type="checkbox" id="bdlg-ck-topo" onchange="updBaseDlgEst()">
-        <span class="bdlg-ck-name">地形図</span>
-        <span class="bdlg-ck-status" id="bdlg-status-topo"></span>
-      </label>
-      <label class="bdlg-ck">
-        <input type="checkbox" id="bdlg-ck-hill" onchange="updBaseDlgEst()">
-        <span class="bdlg-ck-name">陰影起伏図</span>
-        <span class="bdlg-ck-status" id="bdlg-status-hill"></span>
-      </label>
-      <label class="bdlg-ck">
-        <input type="checkbox" id="bdlg-ck-relief" onchange="updBaseDlgEst()">
-        <span class="bdlg-ck-name">色別標高図</span>
-        <span class="bdlg-ck-status" id="bdlg-status-relief"></span>
-      </label>
-    </div>
-
-    <div class="bdlg-est" id="bdlg-est">— MB</div>
-    <div class="bdlg-warn">⚠️ WiFi環境でのDLを推奨します</div>
-
-    <div class="bdlg-btns">
-      <button class="btn sm" onclick="closeBaseDlDialog()">キャンセル</button>
-      <button class="btn accent" onclick="startBaseDlFromDialog()">⬇ DL開始</button>
-    </div>
-  </div>
-</div>
-
 
 
 <div id="exit-overlay" style="

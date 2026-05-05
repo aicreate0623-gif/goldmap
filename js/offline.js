@@ -61,46 +61,25 @@ async function startBaseNDl(){
 }
 
 // ═══════════════════════════════════════════
-//  全国DLダイアログ（base-dl-overlay）
+//  ベースDL状況内: 推定MB更新・DL開始
 // ═══════════════════════════════════════════
 
-/** ダイアログを開く・DL済みステータスを反映 */
-async function openBaseDlDialog(){
-  const done = (typeof getBaseDlDoneLayers === 'function')
-    ? await getBaseDlDoneLayers()
-    : new Set();
-  ['std','photo','topo','hill','relief'].forEach(lk => {
-    const ck = document.getElementById('bdlg-ck-' + lk);
-    const st = document.getElementById('bdlg-status-' + lk);
-    if(ck) ck.checked = !done.has(lk);
-    if(st) st.textContent = done.has(lk) ? '✅ DL済' : '';
-  });
-  updBaseDlgEst();
-  document.getElementById('base-dl-overlay').style.display = 'flex';
-}
-
-/** ダイアログを閉じる */
-function closeBaseDlDialog(){
-  document.getElementById('base-dl-overlay').style.display = 'none';
-}
-
-/** 容量推定を更新（チェック変更時に呼ばれる） */
-function updBaseDlgEst(){
-  const el = document.getElementById('bdlg-est');
+/** チェック変更時に推定MBを更新 */
+function updBaseStatusEst(){
+  const el = document.getElementById('base-status-est');
   if(!el) return;
-  const layers = ['std','photo','topo','hill','relief'].filter(lk => document.getElementById('bdlg-ck-' + lk)?.checked);
+  const layers = ['std','photo','topo','hill','relief'].filter(lk => document.getElementById('base-ck-' + lk)?.checked);
   if(!layers.length){ el.textContent = '— MB'; return; }
-  const n  = (typeof cntTiles === 'function') ? cntTiles(JAPAN, 5, 9) : 0;
-  const mb = (typeof mbEstLayers === 'function') ? mbEstLayers(n, layers) : '—';
+  const n  = cntTiles(JAPAN, 5, 9);
+  const mb = mbEstLayers(n, layers);
   el.textContent = `約 ${mb} MB`;
 }
 
-/** DL開始ボタン */
-async function startBaseDlFromDialog(){
-  const layers = ['std','photo','topo','hill','relief'].filter(lk => document.getElementById('bdlg-ck-' + lk)?.checked);
+/** DL開始ボタン（状況UI内） */
+async function startBaseDlFromStatus(){
+  const layers = ['std','photo','topo','hill','relief'].filter(lk => document.getElementById('base-ck-' + lk)?.checked);
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
-  closeBaseDlDialog();
   _bdprogOpen(layers);
   await runDl('base', JAPAN, 5, 9, layers, 0);
 }
@@ -729,14 +708,18 @@ async function refreshBaseDlStatus(){
     elResume.style.display  = 'none';
     elDone.style.display    = 'none';
     ALL_LAYERS.forEach(lk => {
-      const el = document.getElementById('base-status-' + lk);
-      if(!el) return;
-      if(done.has(lk)){
-        el.innerHTML = '<span class="base-saved-badge">✅ DL済</span>';
-      } else {
-        el.innerHTML = '';
+      // チェックボックス: DL済みのものはチェック済み・無効化
+      const ck = document.getElementById('base-ck-' + lk);
+      if(ck){
+        ck.checked  = !done.has(lk); // 未DLのみチェック
+        ck.disabled = done.has(lk);  // DL済みは変更不可
       }
+      // ステータス表示
+      const st = document.getElementById('base-status-' + lk);
+      if(st) st.textContent = done.has(lk) ? 'DL済' : '';
     });
+    // 推定MB更新
+    updBaseStatusEst();
   }
 }
 

@@ -3168,100 +3168,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 
 /* ══ 全国ベースDLダイアログ ══ */
-#base-dl-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 8500;
-  background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#base-dl-dialog {
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px 18px 16px;
-  width: min(92vw, 360px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-}
-.bdlg-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.bdlg-icon { font-size: 20px; }
-.bdlg-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--txt);
-}
-.bdlg-desc {
-  font-size: 12px;
-  color: var(--txt-sub);
-  line-height: 1.6;
-  margin: 0 0 12px;
-}
-.bdlg-zoom-badge {
-  display: inline-block;
-  font-size: 11px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 2px 10px;
-  color: var(--txt-sub);
-  margin-bottom: 12px;
-}
-.bdlg-section-ttl {
-  font-size: 11px;
-  color: var(--txt-sub);
-  margin-bottom: 6px;
-  letter-spacing: .05em;
-}
-.bdlg-ck-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-.bdlg-ck {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.bdlg-ck input[type="checkbox"] { flex-shrink: 0; }
-.bdlg-ck-name {
-  flex: 1;
-  font-size: 13px;
-  color: var(--txt);
-}
-.bdlg-ck-status {
-  font-size: 11px;
-  color: var(--txt-sub);
-}
-.bdlg-est {
-  font-size: 13px;
-  color: var(--gold);
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-.bdlg-warn {
-  font-size: 11px;
-  color: #ffaa00;
-  margin-bottom: 16px;
-}
-.bdlg-btns {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
+/* ベースDLオーバーレイ廃止済み */
 /* ステータス確認アコーディオン */
 .base-status-list {
   display: flex;
@@ -3581,4 +3488,56 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 .base-resume-btns .btn {
   flex: 1;
+}
+
+/* ━━━ ベースDL状況: チェックボックス一覧（①③共通） ━━━ */
+.base-ck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.base-ck-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.base-ck-row input[type="checkbox"] { flex-shrink: 0; }
+.base-ck-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--txt);
+}
+.base-ck-status {
+  font-size: 11px;
+  color: #4caf50;
+}
+
+/* ③ 全完了: グレーアウト */
+.base-ck-list--done .base-ck-row--done {
+  opacity: 0.55;
+  cursor: default;
+  pointer-events: none;
+}
+.base-ck-done-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* 推定MB・WiFi警告 */
+.base-status-est {
+  font-size: 13px;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.base-status-warn {
+  font-size: 11px;
+  color: #ffaa00;
+  margin-bottom: 8px;
 }
