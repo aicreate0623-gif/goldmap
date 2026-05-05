@@ -685,45 +685,305 @@ async function _dldShowDonePanel(done, realBytes, layers, zmin, zmax, sessId){
       `<div class="dld-done-row">🔍 Z${zmin}〜Z${zmax}</div>`;
   }
 
-  // 追加DLパネルを埋め込む（detail モードかつ sessId がある場合のみ）
-  const adddlPanel = document.getElementById('dld-done-adddl-panel');
-  const hint = adddlPanel?.previousElementSibling; // dld-done-adddl-hint
-  if(!adddlPanel) return;
+  const area = document.getElementById('dld-done-adddl-area');
+  const addBtn = document.getElementById('dld-btn-addlayer');
+  if(!area){ if(addBtn) addBtn.style.display='none'; return; }
 
+  // detail モード + sessId がある場合のみ追加DLパネルを展開
   if(!sessId){
-    if(hint) hint.style.display = 'none';
-    adddlPanel.style.display = 'none';
+    area.innerHTML = '';
+    if(addBtn) addBtn.style.display = 'none';
     return;
   }
 
-  // セッションカードの追加DLパネルと同じHTMLを生成して埋め込む
-  // openAddLayerPanel を流用するためダミーIDを作成
-  adddlPanel.innerHTML = `<div id="sc-${sessId}" style="display:none"></div>`;
-  // adp-パネルを直接生成
   const sess = await dbGetSess(sessId).catch(()=>null);
   if(!sess || !sess.bounds){
-    if(hint) hint.style.display = 'none';
-    adddlPanel.style.display = 'none';
+    area.innerHTML = '';
+    if(addBtn) addBtn.style.display = 'none';
     return;
   }
 
-  // 追加DLパネルをdld-done-adddl-panel内に展開
-  adddlPanel.innerHTML = '';
-  const wrapper = document.createElement('div');
-  wrapper.id = `adp-${sessId}`;
-  wrapper.className = 'sess-adddl-panel';
-  wrapper.style.display = 'block';
-  adddlPanel.appendChild(wrapper);
+  // 専用関数でパネルをレンダリング
+  await _dldRenderAddLayerPanel(sessId, sess, area);
 
-  // renderSessionList と同じHTML生成ロジックを流用
-  await openAddLayerPanel(sessId);
-  // openAddLayerPanel はsc-{id}を探すため、ダミー要素を一時配置
-  const dummy = document.createElement('div');
-  dummy.id = `sc-${sessId}`;
-  dummy.style.display = 'none';
-  document.body.appendChild(dummy);
-  await openAddLayerPanel(sessId);
-  dummy.remove();
+  // 追加DL可能なレイヤーがある場合のみ誘導ボタンを表示
+  const hasPending = area.querySelector('.dldadp-ck:not(:disabled)');
+  if(addBtn) addBtn.style.display = hasPending ? 'inline-flex' : 'none';
+}
+
+// ── 誘導ボタン → 追加DLエリアへスクロール ───────────────
+function _dldScrollToAddLayer(){
+  const area = document.getElementById('dld-done-adddl-area');
+  if(area) area.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ═══════════════════════════════════════════
+//  STEP3完了パネル専用 追加レイヤーDLパネル
+// ═══════════════════════════════════════════
+
+/**
+ * STEP3完了パネル内に追加レイヤーDLパネルを直接生成する。
+ * openAddLayerPanel とは独立した専用実装。DOM依存なし。
+ * @param {string} sessId
+ * @param {object} sess  - dbGetSessの結果
+ * @param {HTMLElement} container - 描画先要素
+ */
+async function _dldRenderAddLayerPanel(sessId, sess, container){
+  const ALL_LAYERS = ['std','photo','topo','hill','relief'];
+  const LAYER_NAME = {std:'地理院地図', photo:'航空写真', topo:'地形図', hill:'陰影起伏図', relief:'色別標高図'};
+  const MAX_NATIVE  = {std:18, photo:18, topo:17, hill:16, relief:15};
+
+  // ── スキャン（_adpScanCacheを共用） ──────────────────────
+  delete _adpScanCache[sessId]; // 常に最新を取得
+  const scanResult = await _scanAdpTiles(sess);
+
+  // ── レイヤー別の状態を判定 ──────────────────────────────
+  // done: 全ズームキャッシュ済み → disabled
+  // pending: 未DLズームあり → 選択可
+  const layerStates = {}; // {done, maxDoneZ, badge}
+  ALL_LAYERS.forEach(lk => {
+    const lkData = scanResult[lk];
+    let maxDoneZ = null, allDone = true, hasAnyTile = false;
+    const maxNative = MAX_NATIVE[lk];
+    for(let z = ADP_SCAN_ZMIN; z <= ADP_SCAN_ZMAX; z++){
+      if(z > maxNative) continue;
+      const pz = lkData?.perZoom?.[z];
+      if(!pz || pz.total === 0) continue;
+      hasAnyTile = true;
+      if(pz.status === 'done') maxDoneZ = z;
+      else allDone = false;
+    }
+    if(!hasAnyTile) allDone = false;
+
+    const reachedMax = maxDoneZ !== null && maxDoneZ >= maxNative;
+    const badge = maxDoneZ !== null
+      ? (reachedMax ? '✅ MAXまで完了' : `Z${maxDoneZ}まで完了`)
+      : '';
+    layerStates[lk] = {done: allDone, maxDoneZ, badge, reachedMax};
+  });
+
+  // ── ズームselectの選択肢生成（Z10〜Z18） ─────────────────
+  const zmaxOpts = Array.from({length:9}, (_,i)=>10+i).map(z => {
+    const warn = z >= 17 ? '⚠️ ' : '';
+    return `<option value="${z}">${warn}Z${z}</option>`;
+  }).join('');
+
+  // ── ズームデフォルト：未完了レイヤーの最小nextZminから推定 ──
+  const nextZmins = ALL_LAYERS
+    .filter(lk => !layerStates[lk].done)
+    .map(lk => (layerStates[lk].maxDoneZ ?? (sess.zmax || 15)) + 1);
+  const defaultZmax = nextZmins.length
+    ? Math.max(Math.min(...nextZmins), 16)
+    : (sess.zmax || 16);
+
+  // ── チェックボックス行HTML生成 ────────────────────────────
+  const ckRows = ALL_LAYERS.map(lk => {
+    const {done, badge, reachedMax} = layerStates[lk];
+    const disabledAttr = done ? 'disabled checked' : '';
+    const doneClass    = done ? ' dldadp-layer--done' : '';
+    const badgeColor   = done
+      ? (reachedMax ? '#4caf50' : '#888')
+      : (badge ? '#888' : '');
+    const badgeWeight  = reachedMax ? '700' : '';
+    return `
+      <label class="dldadp-layer${doneClass}">
+        <input type="checkbox" class="dldadp-ck" data-lk="${lk}"
+          ${disabledAttr}
+          onchange="_dldAdpOnChange('${sessId}')">
+        <span class="dldadp-name">${LAYER_NAME[lk]}</span>
+        <span class="dldadp-badge" style="color:${badgeColor};font-weight:${badgeWeight}">${badge}</span>
+      </label>`;
+  }).join('');
+
+  // ── 全完了チェック ────────────────────────────────────────
+  const allComplete = ALL_LAYERS.every(lk => layerStates[lk].done);
+
+  container.innerHTML = `
+    <div class="dldadp-panel" id="dldadp-${sessId}">
+      <div class="dldadp-title">📥 レイヤーを追加DL</div>
+      ${allComplete
+        ? `<div class="dldadp-all-done">✅ このエリアは全ズーム・全レイヤーが取得済みです</div>`
+        : `<div class="dldadp-layers">${ckRows}</div>
+           <div class="dldadp-zoom-row">
+             <label class="dldadp-zoom-lbl">ズーム（最大）</label>
+             <select id="dldadp-zmax-${sessId}" class="dldadp-zmax"
+               onchange="_dldAdpOnChange('${sessId}')">${zmaxOpts}</select>
+           </div>
+           <div class="dldadp-est" id="dldadp-est-${sessId}">レイヤーを選択してください</div>
+           <button class="btn accent dldadp-btn" id="dldadp-btn-${sessId}"
+             onclick="_dldAdpStart('${sessId}')" disabled>⬇ DL開始</button>
+           <div class="dldadp-prog" id="dldadp-prog-${sessId}" style="display:none">
+             <div class="dldadp-prog-label" id="dldadp-prog-lbl-${sessId}">DL中…</div>
+             <div class="prog-bar-bg">
+               <div class="prog-bar-fill" id="dldadp-prog-bar-${sessId}" style="width:0%"></div>
+             </div>
+             <div class="dldadp-prog-cnt" id="dldadp-prog-cnt-${sessId}">0 / —</div>
+           </div>`
+      }
+    </div>`;
+
+  // zmaxのデフォルト値をセット
+  const zmaxEl = document.getElementById(`dldadp-zmax-${sessId}`);
+  if(zmaxEl){
+    const clampedDefault = Math.min(defaultZmax, 18);
+    // 選択肢内で最近い値を選ぶ
+    const opt = [...zmaxEl.options].reverse().find(o => parseInt(o.value) <= clampedDefault);
+    if(opt) zmaxEl.value = opt.value;
+    // レイヤーに応じたcap制御
+    _dldAdpCapZmax(sessId);
+  }
+}
+
+/** dldadp: チェック変更 → cap更新 → 容量推定更新 */
+function _dldAdpOnChange(sessId){
+  _dldAdpCapZmax(sessId);
+  _dldAdpUpdEst(sessId);
+}
+
+/** dldadp: 選択レイヤーのmaxNativeZoomでzmax selectをcap */
+function _dldAdpCapZmax(sessId){
+  const MAX_NATIVE = {std:18, photo:18, topo:17, hill:16, relief:15};
+  const zmaxEl = document.getElementById(`dldadp-zmax-${sessId}`);
+  if(!zmaxEl) return;
+  const checked = [...document.querySelectorAll(`#dldadp-${sessId} .dldadp-ck:not(:disabled):checked`)]
+    .map(el => el.dataset.lk);
+  const cap = checked.length ? Math.min(...checked.map(lk => MAX_NATIVE[lk] ?? 18)) : 18;
+  [...zmaxEl.options].forEach(o => {
+    const z = parseInt(o.value);
+    o.disabled = z > cap;
+  });
+  if(parseInt(zmaxEl.value) > cap){
+    const fallback = [...zmaxEl.options].reverse().find(o => parseInt(o.value) <= cap && !o.disabled);
+    if(fallback) zmaxEl.value = fallback.value;
+  }
+}
+
+/** dldadp: 容量推定を更新してDLボタンの有効/無効を制御 */
+async function _dldAdpUpdEst(sessId){
+  const estEl = document.getElementById(`dldadp-est-${sessId}`);
+  const btn   = document.getElementById(`dldadp-btn-${sessId}`);
+  const checked = [...document.querySelectorAll(`#dldadp-${sessId} .dldadp-ck:not(:disabled):checked`)]
+    .map(el => el.dataset.lk);
+
+  if(!checked.length){
+    if(estEl) estEl.textContent = 'レイヤーを選択してください';
+    if(btn)   btn.disabled = true;
+    return;
+  }
+
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(!sess || !sess.bounds){ if(btn) btn.disabled = true; return; }
+
+  const b = sess.bounds;
+  const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
+  const zmaxEl = document.getElementById(`dldadp-zmax-${sessId}`);
+  const zmax = parseInt(zmaxEl?.value) || sess.zmax || 16;
+  const zmin = ADP_SCAN_ZMIN; // Z10固定
+
+  // ベースDL未完了チェック
+  const baseDone = await getBaseDlDoneLayers();
+  const needBase = checked.filter(lk =>
+    !(sess.srcKeys||[]).includes(lk) && !baseDone.has(lk) && lk !== 'hill' && lk !== 'relief'
+  );
+  if(needBase.length){
+    const names = needBase.map(lk=>_DLD_LAYER_LABEL[lk]||lk).join('・');
+    if(estEl) estEl.innerHTML =
+      `<span style="color:#ffaa00">⚠️「${names}」はベースDL（全国Z5〜Z9）が必要です</span>`;
+    if(btn) btn.disabled = true;
+    return;
+  }
+
+  // IDBスキャンで正確な未DL枚数を計算
+  let netTiles = 0, totalTiles = 0;
+  try {
+    for(const lk of checked){
+      for(let z = zmin; z <= zmax; z++){
+        const cnt = typeof cntTiles === 'function' ? cntTiles(bounds, z, z) : 0;
+        totalTiles += cnt;
+        let cached = 0;
+        try { cached = await _countCachedTilesForZoom(lk, z, bounds); } catch(e){}
+        netTiles += Math.max(0, cnt - cached);
+      }
+    }
+  } catch(e){ netTiles = 0; }
+
+  const avgKb = checked.reduce((s,lk)=>s+(LAYER_KB[lk]||10),0) / checked.length;
+  const netMb = (netTiles * avgKb * 1024 / 1024 / 1024).toFixed(0);
+  const overLimit = netTiles * avgKb * 1024 > DL_SESSION_MAX;
+
+  if(estEl) estEl.innerHTML =
+    `<span${overLimit?' style="color:#ff5a47"':''}>未DL: 約 ${netMb} MB（${netTiles.toLocaleString()}枚）${overLimit?' — 120MB超過':''}</span>`;
+
+  if(btn) btn.disabled = overLimit || netTiles === 0;
+}
+
+/** dldadp: DL開始 */
+async function _dldAdpStart(sessId){
+  const checked = [...document.querySelectorAll(`#dldadp-${sessId} .dldadp-ck:not(:disabled):checked`)]
+    .map(el => el.dataset.lk);
+  if(!checked.length){ showAlert('エラー','レイヤーを選択してください'); return; }
+  if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません'); return; }
+
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(!sess || !sess.bounds){ showAlert('エラー','範囲情報がありません'); return; }
+
+  const b = sess.bounds;
+  const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
+  const zmaxEl = document.getElementById(`dldadp-zmax-${sessId}`);
+  const zmax = parseInt(zmaxEl?.value) || sess.zmax || 16;
+  const zmin = ADP_SCAN_ZMIN;
+
+  // UI → DL中モードに切替
+  const panel = document.getElementById(`dldadp-${sessId}`);
+  if(panel){
+    const layersEl = panel.querySelector('.dldadp-layers');
+    const zoomRow  = panel.querySelector('.dldadp-zoom-row');
+    const estEl    = document.getElementById(`dldadp-est-${sessId}`);
+    const btn      = document.getElementById(`dldadp-btn-${sessId}`);
+    const prog     = document.getElementById(`dldadp-prog-${sessId}`);
+    if(layersEl) layersEl.style.display = 'none';
+    if(zoomRow)  zoomRow.style.display  = 'none';
+    if(estEl)    estEl.style.display    = 'none';
+    if(btn)      btn.style.display      = 'none';
+    if(prog)     prog.style.display     = 'block';
+    // STEP3プログレスバーをミラーリング
+    _dldAdpMirrorProgress(sessId);
+  }
+
+  await runDl('detail', bounds, zmin, zmax, checked, 0, sessId);
+
+  // DL完了 → 完了表示
+  const prog    = document.getElementById(`dldadp-prog-${sessId}`);
+  const progBar = document.getElementById(`dldadp-prog-bar-${sessId}`);
+  const progCnt = document.getElementById(`dldadp-prog-cnt-${sessId}`);
+  const progLbl = document.getElementById(`dldadp-prog-lbl-${sessId}`);
+  if(progBar){ progBar.style.width = '100%'; progBar.style.background = '#4caf50'; }
+  if(progCnt) progCnt.textContent = '✅ DL完了';
+  if(progLbl) progLbl.textContent = '';
+
+  // 誘導ボタンを非表示（追加DL完了後）
+  const addBtn = document.getElementById('dld-btn-addlayer');
+  if(addBtn) addBtn.style.display = 'none';
+
+  await refreshCache();
+}
+
+/** dldadp: STEP3プログレスをパネル内にミラーリング */
+function _dldAdpMirrorProgress(sessId){
+  const timer = setInterval(()=>{
+    const prog = document.getElementById(`dldadp-prog-${sessId}`);
+    if(!prog){ clearInterval(timer); return; }
+    const pgBar  = document.getElementById('dld-pb-bar');
+    const pgDone = document.getElementById('dld-pb-done');
+    const pgTot  = document.getElementById('dld-pb-tot');
+    const bar    = document.getElementById(`dldadp-prog-bar-${sessId}`);
+    const cnt    = document.getElementById(`dldadp-prog-cnt-${sessId}`);
+    if(bar && pgBar) bar.style.width = pgBar.style.width;
+    if(cnt && pgDone && pgTot)
+      cnt.textContent = `${pgDone.textContent} / ${pgTot.textContent}`;
+    // DL完了判定（dlRunがfalseになったら停止）
+    if(typeof dlRun !== 'undefined' && !dlRun){ clearInterval(timer); }
+  }, 300);
 }
 
 // ═══════════════════════════════════════════

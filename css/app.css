@@ -3328,3 +3328,115 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   white-space: nowrap;
   text-shadow: none !important;
 }
+/* ━━━ STEP3完了パネル 追加レイヤーDL専用パネル (dldadp-*) ━━━ */
+.dldadp-panel {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(200,170,80,0.05);
+  border: 1px solid rgba(200,170,80,0.2);
+  border-radius: var(--radius-md);
+}
+.dldadp-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 10px;
+  letter-spacing: .03em;
+}
+.dldadp-all-done {
+  font-size: 13px;
+  color: #4caf50;
+  padding: 6px 0;
+}
+.dldadp-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.dldadp-layer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background .12s;
+}
+.dldadp-layer:has(.dldadp-ck:not(:disabled)):hover {
+  background: rgba(200,170,80,0.08);
+}
+.dldadp-layer--done {
+  opacity: 0.55;
+  cursor: default;
+}
+.dldadp-ck {
+  accent-color: var(--gold);
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.dldadp-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--txt);
+}
+.dldadp-badge {
+  font-size: 11px;
+  color: var(--txt-dim);
+  white-space: nowrap;
+}
+.dldadp-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.dldadp-zoom-lbl {
+  font-size: 12px;
+  color: var(--txt-sub);
+  white-space: nowrap;
+}
+.dldadp-zmax {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--txt);
+  font-size: 13px;
+  padding: 4px 8px;
+}
+.dldadp-est {
+  font-size: 12px;
+  color: var(--txt-sub);
+  margin-bottom: 10px;
+  min-height: 18px;
+  line-height: 1.5;
+}
+.dldadp-btn {
+  width: 100%;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.dldadp-prog {
+  margin-top: 8px;
+}
+.dldadp-prog-label {
+  font-size: 12px;
+  color: var(--txt-sub);
+  margin-bottom: 5px;
+}
+.dldadp-prog-cnt {
+  font-size: 11px;
+  color: var(--txt-dim);
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* 誘導ボタン（dld-btn-addlayer） */
+#dld-btn-addlayer {
+  font-size: 12px;
+  padding: 7px 12px;
+}
