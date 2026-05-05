@@ -17,9 +17,10 @@ function ckLayers(){
 }
 function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M枚';if(n>=1e3)return Math.round(n/1e3)+'K枚';return n+'枚';}
 // レイヤー別1枚あたりKB係数（実測値ベース）
-// std: 地理院地図PNG ≈ 10KB、photo: 航空写真JPEG ≈ 18KB、topo: OpenTopoMap PNG ≈ 3KB
-// 1枚あたりKB係数（実測値ベース: 地理院2460枚/25.8MB・航空2499枚/66.8MB・地形図2848枚/33.8MB）
-const LAYER_KB = {std:11, photo:28, topo:14, hill:32, relief:24};
+// 実測: std=25.8MB/2499枚→10.6KB, topo=33.5MB/2499枚→13.7KB
+//       hill=21.8MB/2499枚→8.9KB, relief=115.2MB/2499枚→47.1KB
+//       photo=前回実測66.8MB/2499枚→26.7KB
+const LAYER_KB = {std:11, photo:27, topo:14, hill:9, relief:47};
 window._LAYER_KB = LAYER_KB;
 function mbEst(n, lk){ const kb = (lk && LAYER_KB[lk]) || 10; return (n*kb/1024).toFixed(0); }
 // レイヤー配列を考慮した合計MB推定
@@ -654,10 +655,6 @@ const RESUME_KEY='gm_dl_resume';
 function saveResume(state){
   try{ localStorage.setItem(RESUME_KEY,JSON.stringify(state)); }catch(e){}
 }
-/** レジューム停止時点の realBytes を prevBytes として保存（レジューム後の容量合算用） */
-function saveResumeWithBytes(state, prevBytes){
-  saveResume(Object.assign({}, state, { prevBytes: prevBytes || 0 }));
-}
 function loadResume(){
   try{ return JSON.parse(localStorage.getItem(RESUME_KEY)||'null'); }catch(e){return null;}
 }
@@ -1192,7 +1189,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
             if(active===0){
               // 全fetch完了後に停止処理
               const now=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-              saveResumeWithBytes({mode,bounds:boundsData,zmin,zmax,layers,taskIndex:done,total,savedAt:now}, realBytes);
+              saveResume({mode,bounds:boundsData,zmin,zmax,layers,taskIndex:done,total,savedAt:now});
               resolve();
             }
           } else if(!q.length&&active===0){
@@ -1209,17 +1206,12 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   dlRun=false; if(SB) SB.style.display='none'; if(DB2) DB2.disabled=false;
   if(!dlStop){
     // 完了したらレジューム削除
-    // レジュームからの再開時は prevBytes を取得して合算（容量トータル計算用）
-    const _resumeData = loadResume();
-    const _prevBytes  = (_resumeData && _resumeData.mode === mode) ? (_resumeData.prevBytes || 0) : 0;
     deleteResume();
     document.getElementById('resume-banner').classList.remove('show');
     log('✅ 完了！ '+fmt(done)+'枚保存（失敗: '+fail+'）');
     // セッション保存
-    // totalBytes = 今回DL分 + 前回停止時のDL分（レジューム合算）
-    const _totalBytes = realBytes + _prevBytes;
     let _savedSessId = parentSessId || null;
-    if(done>0 || _prevBytes>0){
+    if(done>0){
       if(parentSessId){
         // ＋追加DL → 既存セッションに合算（新規セッション作成しない）
         const allTileKeys = tasks.map(t=>tileKey(t.lk,t.z,t.x,t.y));
@@ -1234,37 +1226,19 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
         const _bounds = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
         if(mode==='base'){
           // ベースDL → レイヤーごとに個別セッション
-          // レジューム時は既存セッションがあれば更新、なければ新規作成
-          const layerKb = {std:11, photo:28, topo:14, hill:32, relief:24};
-          const totalKb = layers.reduce((s,k)=>s+(layerKb[k]||10), 0);
-          const allSessions = await dbGetAllSess();
+          // レイヤー按分はLAYER_KB（実測係数）を使用
+          const totalKb = layers.reduce((s,k)=>s+(LAYER_KB[k]||10), 0);
           for(const lk of layers){
             const _tileKeys = tasks.filter(t=>t.lk===lk).map(t=>tileKey(t.lk,t.z,t.x,t.y));
-            // レイヤーの按分バイト数（前回分＋今回分を合算）
-            const myBytes = totalKb > 0 ? _totalBytes * (layerKb[lk]||10) / totalKb : _totalBytes;
-            // 既存ベースセッションを探す（mode==='base' かつ同レイヤー）
-            const existSess = allSessions.find(s =>
-              s.mode === 'base' &&
-              Array.isArray(s.srcKeys) && s.srcKeys.includes(lk)
-            );
-            if(existSess){
-              // 既存セッションを更新（totalSizeを上書き・tileKeysを合算）
-              existSess.totalSize = myBytes;
-              existSess.tileKeys  = [...new Set([...(existSess.tileKeys||[]), ..._tileKeys])];
-              existSess.lastUsed  = Date.now();
-              existSess.label     = `${_layerLabel([lk])} Z${zmin}〜Z${zmax} ${new Date(existSess.createdAt).toLocaleDateString('ja-JP')}`;
-              await dbPutSess(existSess.id, existSess);
-            } else {
-              // 新規作成
-              const _label = `${_layerLabel([lk])} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
-              await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:myBytes, srcKeys:[lk], bounds:_bounds, zmin, zmax, mode});
-            }
+            const myBytes   = totalKb > 0 ? realBytes * (LAYER_KB[lk]||10) / totalKb : realBytes;
+            const _label    = `${_layerLabel([lk])} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
+            await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:myBytes, srcKeys:[lk], bounds:_bounds, zmin, zmax, mode});
           }
         } else {
           // detail → 全レイヤーまとめて1セッション
           const _tileKeys = tasks.map(t=>tileKey(t.lk,t.z,t.x,t.y));
           const _label    = `${_layerLabel(layers)} Z${zmin}〜Z${zmax} ${new Date().toLocaleDateString('ja-JP')}`;
-          const _sess = await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:_totalBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
+          const _sess = await saveDlSession({label:_label, center:_center, zoom:_zoom, tileKeys:_tileKeys, totalSize:realBytes, srcKeys:layers, bounds:_bounds, zmin, zmax, mode});
           _savedSessId = _sess?.id || null;
         }
       }
@@ -1272,14 +1246,12 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     // DL完了時に必ずMAXズームを更新（done=0のキャッシュ済み完了も含む）
     if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
     // 完了UI表示（mode別）
-    // ① 強制100%: fail があっても完了時は必ず100%にセット
     if(mode==='base'){
-      _bdprogSyncProgress(total, total, (_totalBytes/1024/1024).toFixed(0)+' MB');
+      _bdprogSyncProgress(done, total, (realBytes/1024/1024).toFixed(0)+' MB');
       _bdprogSetPhase('done');
     } else {
-      _dldSyncProgress(total, total, (_totalBytes/1024/1024).toFixed(0)+' MB');
       _dldS3SetPhase('done');
-      _dldShowDonePanel(done, _totalBytes, layers, zmin, zmax, _savedSessId);
+      _dldShowDonePanel(done, realBytes, layers, zmin, zmax, _savedSessId);
     }
   } else {
     log('⏸ 停止しました。続きから再開できます。');
