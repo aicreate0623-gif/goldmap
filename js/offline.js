@@ -1135,13 +1135,18 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   // 統計リセット（キャッシュ済み分を done の初期値に）
   const _initDone = cachedCount;
   if(mode==='base'){
-    _bdprogSyncProgress(_initDone, total, '0 MB');
+    _bdprogSyncProgress(_initDone, total, (_prevBytesForTick/1024/1024).toFixed(0)+' MB');
   } else {
-    _dldSyncProgress(_initDone, total, '0 MB');
+    _dldSyncProgress(_initDone, total, (_prevBytesForTick/1024/1024).toFixed(0)+' MB');
   }
 
   // resumeの境界情報
   const boundsData=mode==='base'?null:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
+
+  // レジューム再開時は前回DL済みバイト数を初期値として引き継ぐ
+  const _resumeForTick = loadResume();
+  const _prevBytesForTick = (_resumeForTick && _resumeForTick.mode === mode)
+    ? (_resumeForTick.prevBytes || 0) : 0;
 
   let done=_initDone, fail=0, realBytes=0;
   const log=msg=>{
@@ -1154,7 +1159,8 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     else              _dldSyncProgress(d, t, mb);
   };
   const tick=()=>{
-    const mbReal=(realBytes/1024/1024).toFixed(0)+' MB';
+    // レジューム前の累積分を加算して続きから表示
+    const mbReal=((_prevBytesForTick + realBytes)/1024/1024).toFixed(0)+' MB';
     _syncUI(done, total, mbReal);
   };
 
