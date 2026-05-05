@@ -3440,3 +3440,77 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   font-size: 12px;
   padding: 7px 12px;
 }
+
+/* ━━━ ベースDL専用プログレスオーバーレイ ━━━ */
+#base-dl-prog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8600;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#base-dl-prog-dialog {
+  background: var(--bg2);
+  border: 1px solid rgba(200,170,80,0.25);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px 18px;
+  width: min(92vw, 340px);
+  box-shadow: var(--shadow-gold);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.bdprog-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--txt);
+  text-align: center;
+  letter-spacing: .03em;
+}
+.bdprog-layers {
+  font-size: 12px;
+  color: var(--txt-sub);
+  text-align: center;
+  line-height: 1.5;
+}
+.bdprog-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bdprog-bar-bg {
+  flex: 1;
+  height: 10px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.bdprog-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 5px;
+  transition: width .25s linear;
+}
+.bdprog-pct {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  min-width: 38px;
+  text-align: right;
+}
+.bdprog-mb {
+  font-size: 12px;
+  color: var(--txt-sub);
+  text-align: center;
+}
+#bdprog-btns-running,
+#bdprog-btns-stopping,
+#bdprog-btns-stopped,
+#bdprog-btns-done {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

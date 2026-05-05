@@ -100,6 +100,7 @@ async function startBaseDlFromDialog(){
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
   closeBaseDlDialog();
+  _bdprogOpen(layers);
   await runDl('base', JAPAN, 5, 9, layers, 0);
 }
 
@@ -577,6 +578,75 @@ async function _dldStartDl(){
 }
 
 // ═══════════════════════════════════════════
+//  ベースDL専用プログレスUI
+// ═══════════════════════════════════════════
+
+/** オーバーレイを開いてDL中フェーズに初期化 */
+function _bdprogOpen(layers){
+  const LAYER_NAME = {std:'地理院地図', photo:'航空写真', topo:'地形図', hill:'陰影起伏図', relief:'色別標高図'};
+  const layersEl = document.getElementById('bdprog-layers');
+  if(layersEl) layersEl.textContent = (layers||[]).map(lk=>LAYER_NAME[lk]||lk).join(' ・ ');
+  _bdprogSetPhase('running');
+  _bdprogSyncProgress(0, 0, '0 MB');
+  document.getElementById('base-dl-prog-overlay').style.display = 'flex';
+}
+
+/** フェーズ切替: 'running' | 'stopping' | 'stopped' | 'done' */
+function _bdprogSetPhase(phase){
+  const title = document.getElementById('bdprog-title');
+  if(title){
+    const map = {
+      running:  '⬇ 全国ベースマップをDL中…',
+      stopping: '⏳ 停止処理中です…',
+      stopped:  '⏸ ダウンロードを停止しました',
+      done:     '✅ ダウンロード完了'
+    };
+    title.textContent = map[phase] || '';
+  }
+  ['running','stopping','stopped','done'].forEach(p=>{
+    const el = document.getElementById('bdprog-btns-'+p);
+    if(el) el.style.display = p===phase ? (p==='stopped'?'flex':'block') : 'none';
+  });
+  // バー色: 完了時グリーン
+  const bar = document.getElementById('bdprog-bar');
+  if(bar) bar.style.background = phase==='done' ? '#4caf50' : '';
+}
+
+/** プログレスバー・パーセンテージ・MB更新 */
+function _bdprogSyncProgress(done, total, mb){
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  const bar  = document.getElementById('bdprog-bar');
+  const pctEl= document.getElementById('bdprog-pct');
+  const mbEl = document.getElementById('bdprog-mb');
+  if(bar)   bar.style.width    = pct + '%';
+  if(pctEl) pctEl.textContent  = pct + '%';
+  if(mbEl)  mbEl.textContent   = mb;
+}
+
+/** 停止ボタン */
+function _bdprogStop(){
+  dlStop = true;
+  if(_dlAbortCtrl) _dlAbortCtrl.abort();
+  _bdprogSetPhase('stopping');
+}
+
+/** 閉じる */
+function _bdprogClose(){
+  document.getElementById('base-dl-prog-overlay').style.display = 'none';
+}
+
+/** レジューム再開 */
+async function _bdprogResume(){
+  const s = loadResume();
+  if(!s || s.mode !== 'base'){ showAlert('エラー','レジュームデータがありません'); return; }
+  const layers = s.layers;
+  if(!layers||!layers.length) return;
+  if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません'); return; }
+  _bdprogOpen(layers);
+  await runDl('base', JAPAN, s.zmin, s.zmax, layers, 0);
+}
+
+// ═══════════════════════════════════════════
 //  レジューム管理
 // ═══════════════════════════════════════════
 const RESUME_KEY='gm_dl_resume';
@@ -593,13 +663,22 @@ function deleteResume(){
 
 function checkResume(){
   const s=loadResume(); if(!s)return;
-  const banner=document.getElementById('resume-banner');
-  const modeStr=s.mode==='base'?'全日本ベース':'詳細範囲';
-  const layerStr=_layerLabel(s.layers);
-  const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
-  document.getElementById('resume-desc').innerHTML=
-    `${modeStr} / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
-  banner.classList.add('show');
+  if(s.mode==='base'){
+    // ベースDL: 専用プログレスオーバーレイをレジューム状態で表示
+    _bdprogOpen(s.layers||[]);
+    const pct = s.total>0 ? Math.round(s.taskIndex/s.total*100) : 0;
+    _bdprogSyncProgress(s.taskIndex||0, s.total||0, '— MB');
+    _bdprogSetPhase('stopped');
+  } else {
+    // detail: 既存のresume-bannerを使用
+    const banner=document.getElementById('resume-banner');
+    const modeStr='詳細範囲';
+    const layerStr=_layerLabel(s.layers);
+    const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
+    document.getElementById('resume-desc').innerHTML=
+      `${modeStr} / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
+    banner.classList.add('show');
+  }
 }
 
 function clearResume(){
@@ -1045,12 +1124,20 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   if(SB)  SB.style.display='block';
   if(DB2) DB2.disabled=true;
 
-  // STEP3 UI初期化
-  _dldS3SetPhase('running');
+  // UI初期化（mode別）
+  if(mode==='base'){
+    _bdprogSetPhase('running');
+  } else {
+    _dldS3SetPhase('running');
+  }
 
   // 統計リセット（キャッシュ済み分を done の初期値に）
   const _initDone = cachedCount;
-  _dldSyncProgress(_initDone, total, '0 MB');
+  if(mode==='base'){
+    _bdprogSyncProgress(_initDone, total, '0 MB');
+  } else {
+    _dldSyncProgress(_initDone, total, '0 MB');
+  }
 
   // resumeの境界情報
   const boundsData=mode==='base'?null:{n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
@@ -1061,10 +1148,13 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     if(el){el.textContent=msg+'\n'+el.textContent;el.textContent=el.textContent.split('\n').slice(0,40).join('\n');}
   };
 
+  const _syncUI = (d, t, mb) => {
+    if(mode==='base') _bdprogSyncProgress(d, t, mb);
+    else              _dldSyncProgress(d, t, mb);
+  };
   const tick=()=>{
-    const processed=done+fail;
     const mbReal=(realBytes/1024/1024).toFixed(0)+' MB';
-    _dldSyncProgress(done, total, mbReal);
+    _syncUI(done, total, mbReal);
   };
 
   // fetchTasks のみをキューに積む（cachedSet除外済みなので重複DLなし）
@@ -1154,12 +1244,21 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     }
     // DL完了時に必ずMAXズームを更新（done=0のキャッシュ済み完了も含む）
     if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
-    // 完了UI表示
-    _dldS3SetPhase('done');
-    _dldShowDonePanel(done, realBytes, layers, zmin, zmax, _savedSessId);
+    // 完了UI表示（mode別）
+    if(mode==='base'){
+      _bdprogSyncProgress(done, total, (realBytes/1024/1024).toFixed(0)+' MB');
+      _bdprogSetPhase('done');
+    } else {
+      _dldS3SetPhase('done');
+      _dldShowDonePanel(done, realBytes, layers, zmin, zmax, _savedSessId);
+    }
   } else {
     log('⏸ 停止しました。続きから再開できます。');
-    _dldS3SetPhase('stopped');
+    if(mode==='base'){
+      _bdprogSetPhase('stopped');
+    } else {
+      _dldS3SetPhase('stopped');
+    }
   }
   refreshCache();
 }
