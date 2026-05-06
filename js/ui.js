@@ -979,66 +979,197 @@ function _buildBarDots(bar, btns) {
   });
 }
 
+// ── transformユーティリティ ──
+function _setTransform(el, val, animate) {
+  el.classList.toggle('fc-snap', animate);
+  el.classList.remove('fc-intro');
+  el.style.transform = val;
+}
+
 // ── 左セット 収納/展開 ──
 let _fcLeftOpen = true;
-function _fcLeftHide() {
+
+function _fcLeftHide(animate) {
   _fcLeftOpen = false;
-  ['float-ctrl-left','float-ctrl'].forEach(id => {
-    document.getElementById(id).classList.add('fc-hidden');
-  });
-  document.getElementById('zoom-level-badge').classList.add('fc-hidden');
-  const scale = document.querySelector('.leaflet-control-scale');
-  if (scale) scale.classList.add('fc-hidden');
-  const bar = document.getElementById('fc-bar-left');
-  _buildBarDots(bar, FC_LEFT_BTNS);
-  bar.classList.add('show');
-  requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.add('fc-bar-in')));
+  const elL = document.getElementById('float-ctrl-left');
+  const elC = document.getElementById('float-ctrl');
+  // 収納完了後に display:none & バー表示
+  const onEnd = () => {
+    elL.removeEventListener('transitionend', onEnd);
+    elL.classList.add('fc-hidden');
+    elC.classList.add('fc-hidden');
+    document.getElementById('zoom-level-badge').classList.add('fc-hidden');
+    const scale = document.querySelector('.leaflet-control-scale');
+    if (scale) scale.classList.add('fc-hidden');
+    const bar = document.getElementById('fc-bar-left');
+    _buildBarDots(bar, FC_LEFT_BTNS);
+    bar.classList.add('show');
+    bar.classList.remove('fc-snap');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      bar.classList.add('fc-snap');
+      bar.style.transform = 'translateX(0)';
+    }));
+  };
+  if (animate) {
+    elL.addEventListener('transitionend', onEnd, { once: true });
+  }
+  _setTransform(elL, 'translateX(-120%)', animate);
+  _setTransform(elC, 'translateX(-120%)', animate);
+  if (!animate) onEnd();
 }
-function _fcLeftShow() {
+
+function _fcLeftShow(animate) {
   _fcLeftOpen = true;
-  ['float-ctrl-left','float-ctrl'].forEach(id => {
-    document.getElementById(id).classList.remove('fc-hidden');
-  });
+  const elL = document.getElementById('float-ctrl-left');
+  const elC = document.getElementById('float-ctrl');
+  const bar = document.getElementById('fc-bar-left');
+  // バー収納
+  bar.classList.add('fc-snap');
+  bar.style.transform = 'translateX(-100%)';
+  bar.addEventListener('transitionend', () => {
+    bar.classList.remove('show', 'fc-snap');
+    bar.style.transform = '';
+  }, { once: true });
+  // ボタン展開
+  elL.classList.remove('fc-hidden');
+  elC.classList.remove('fc-hidden');
   document.getElementById('zoom-level-badge').classList.remove('fc-hidden');
   const scale = document.querySelector('.leaflet-control-scale');
   if (scale) scale.classList.remove('fc-hidden');
-  const bar = document.getElementById('fc-bar-left');
-  bar.classList.remove('show', 'fc-bar-in');
+  // 左外から右へスライドイン
+  elL.classList.remove('fc-snap', 'fc-intro');
+  elC.classList.remove('fc-snap', 'fc-intro');
+  elL.style.transform = 'translateX(-120%)';
+  elC.style.transform = 'translateX(-120%)';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    elL.classList.add('fc-snap');
+    elC.classList.add('fc-snap');
+    elL.style.transform = 'translateX(0)';
+    elC.style.transform = 'translateX(0)';
+  }));
 }
 
 // ── 右列 収納/展開 ──
 let _fcRightOpen = true;
-function _fcRightHide() {
+
+function _fcRightHide(animate) {
   _fcRightOpen = false;
-  document.getElementById('float-ctrl-right').classList.add('fc-hidden');
-  const bar = document.getElementById('fc-bar-right');
-  _buildBarDots(bar, FC_RIGHT_BTNS);
-  bar.classList.add('show');
-  requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.add('fc-bar-in')));
-}
-function _fcRightShow() {
-  _fcRightOpen = true;
-  document.getElementById('float-ctrl-right').classList.remove('fc-hidden');
-  const bar = document.getElementById('fc-bar-right');
-  bar.classList.remove('show', 'fc-bar-in');
+  const elR = document.getElementById('float-ctrl-right');
+  const onEnd = () => {
+    elR.removeEventListener('transitionend', onEnd);
+    elR.classList.add('fc-hidden');
+    const bar = document.getElementById('fc-bar-right');
+    _buildBarDots(bar, FC_RIGHT_BTNS);
+    bar.classList.add('show');
+    bar.classList.remove('fc-snap');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      bar.classList.add('fc-snap');
+      bar.style.transform = 'translateY(0)';
+    }));
+  };
+  if (animate) {
+    elR.addEventListener('transitionend', onEnd, { once: true });
+  }
+  _setTransform(elR, 'translateY(-120%)', animate);
+  if (!animate) onEnd();
 }
 
-// ── スワイプ検出ユーティリティ（X軸）──
-function _addSwipe(el, onRight, onLeft) {
-  let sx = null;
+function _fcRightShow(animate) {
+  _fcRightOpen = true;
+  const elR = document.getElementById('float-ctrl-right');
+  const bar = document.getElementById('fc-bar-right');
+  // バー収納
+  bar.classList.add('fc-snap');
+  bar.style.transform = 'translateY(-100%)';
+  bar.addEventListener('transitionend', () => {
+    bar.classList.remove('show', 'fc-snap');
+    bar.style.transform = '';
+  }, { once: true });
+  // ボタン展開
+  elR.classList.remove('fc-hidden');
+  elR.classList.remove('fc-snap', 'fc-intro');
+  elR.style.transform = 'translateY(-120%)';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    elR.classList.add('fc-snap');
+    elR.style.transform = 'translateY(0)';
+  }));
+}
+
+// ── ドラッグ追従（X軸）：左セット用 ──
+function _addDragX(el, onCommit, onCancel) {
+  let sx = null, dragging = false;
+  const targets = ['float-ctrl-left','float-ctrl'].map(id => document.getElementById(id));
+  const threshold = 80; // px
+
   el.addEventListener('touchstart', e => {
     sx = e.touches[0].clientX;
+    dragging = false;
+    targets.forEach(t => { t.classList.remove('fc-snap','fc-intro'); });
   }, { passive: true });
-  el.addEventListener('touchend', e => {
+
+  el.addEventListener('touchmove', e => {
     if (sx === null) return;
+    const dx = e.touches[0].clientX - sx;
+    if (dx >= 0) return; // 右方向は無視
+    dragging = true;
+    const clamped = Math.max(dx, -window.innerWidth);
+    targets.forEach(t => { t.style.transform = `translateX(${clamped}px)`; });
+  }, { passive: true });
+
+  el.addEventListener('touchend', e => {
+    if (!dragging || sx === null) { sx = null; return; }
     const dx = e.changedTouches[0].clientX - sx;
-    sx = null;
-    if (dx > 30 && onRight) onRight();
-    else if (dx < -30 && onLeft) onLeft();
+    sx = null; dragging = false;
+    if (dx < -threshold) {
+      onCommit();
+    } else {
+      // スナップバック
+      targets.forEach(t => {
+        t.classList.add('fc-snap');
+        t.style.transform = 'translateX(0)';
+      });
+      if (onCancel) onCancel();
+    }
   }, { passive: true });
 }
 
-// ── スワイプ検出ユーティリティ（Y軸）──
+// ── ドラッグ追従（Y軸）：右列用 ──
+function _addDragY(el, onCommit, onCancel) {
+  let sy = null, dragging = false;
+  const target = document.getElementById('float-ctrl-right');
+  const threshold = 80; // px
+
+  el.addEventListener('touchstart', e => {
+    sy = e.touches[0].clientY;
+    dragging = false;
+    target.classList.remove('fc-snap','fc-intro');
+  }, { passive: true });
+
+  el.addEventListener('touchmove', e => {
+    if (sy === null) return;
+    const dy = e.touches[0].clientY - sy;
+    if (dy >= 0) return; // 下方向は無視
+    dragging = true;
+    const clamped = Math.max(dy, -window.innerHeight);
+    target.style.transform = `translateY(${clamped}px)`;
+  }, { passive: true });
+
+  el.addEventListener('touchend', e => {
+    if (!dragging || sy === null) { sy = null; return; }
+    const dy = e.changedTouches[0].clientY - sy;
+    sy = null; dragging = false;
+    if (dy < -threshold) {
+      onCommit();
+    } else {
+      // スナップバック
+      target.classList.add('fc-snap');
+      target.style.transform = 'translateY(0)';
+      if (onCancel) onCancel();
+    }
+  }, { passive: true });
+}
+
+// ── バータップ用スワイプ（Y軸）──
 function _addSwipeY(el, onDown, onUp) {
   let sy = null;
   el.addEventListener('touchstart', e => {
@@ -1048,8 +1179,8 @@ function _addSwipeY(el, onDown, onUp) {
     if (sy === null) return;
     const dy = e.changedTouches[0].clientY - sy;
     sy = null;
-    if (dy > 30 && onDown) onDown();
-    else if (dy < -30 && onUp) onUp();
+    if (dy > 20 && onDown) onDown();
+    else if (dy < -20 && onUp) onUp();
   }, { passive: true });
 }
 
@@ -1057,29 +1188,42 @@ function _addSwipeY(el, onDown, onUp) {
 function initFcToggle() {
   const barL = document.getElementById('fc-bar-left');
   const barR = document.getElementById('fc-bar-right');
+  const elL  = document.getElementById('float-ctrl-left');
+  const elC  = document.getElementById('float-ctrl');
+  const elR  = document.getElementById('float-ctrl-right');
 
-  // 左バー：右スワイプで展開、タップでも展開
-  _addSwipe(barL, _fcLeftShow, null);
-  barL.addEventListener('click', _fcLeftShow);
+  // 左バー：タップで展開
+  barL.addEventListener('click', () => _fcLeftShow(true));
 
-  // 左セット：左スワイプで収納
-  _addSwipe(document.getElementById('float-ctrl-left'), null, _fcLeftHide);
-  _addSwipe(document.getElementById('float-ctrl'),      null, _fcLeftHide);
+  // 左セット：ドラッグ追従で収納
+  _addDragX(elL, () => _fcLeftHide(true), null);
+  _addDragX(elC, () => _fcLeftHide(true), null);
 
-  // 右バー（上端横バー）：下スワイプ/タップで展開
-  _addSwipeY(barR, _fcRightShow, null);
-  barR.addEventListener('click', _fcRightShow);
+  // 右バー（上端横バー）：タップ/下スワイプで展開
+  _addSwipeY(barR, () => _fcRightShow(true), null);
+  barR.addEventListener('click', () => _fcRightShow(true));
 
-  // 右列：上スワイプで収納
-  _addSwipeY(document.getElementById('float-ctrl-right'), null, _fcRightHide);
+  // 右列：ドラッグ追従で収納
+  _addDragY(elR, () => _fcRightHide(true), null);
 
-  // ── 起動時：両バーをにょきっとスライドイン ──
-  // ドットはまだ空でよい（収納前なのでボタンは全部表示中）
-  barL.classList.add('show');
-  barR.classList.add('show');
+  // ── 起動時スライドイン ──
+  // 左・中央：左から右へ
+  elL.style.transform = 'translateX(-120%)';
+  elC.style.transform = 'translateX(-120%)';
+  // 右：上から下へ
+  elR.style.transform = 'translateY(-120%)';
+
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    barL.classList.add('fc-bar-in');
-    barR.classList.add('fc-bar-in');
+    elL.classList.add('fc-intro');
+    elC.classList.add('fc-intro');
+    elR.classList.add('fc-intro');
+    elL.style.transform = 'translateX(0)';
+    elC.style.transform = 'translateX(0)';
+    elR.style.transform = 'translateY(0)';
+    // intro終了後にクラスをクリア
+    elL.addEventListener('transitionend', () => elL.classList.remove('fc-intro'), { once: true });
+    elC.addEventListener('transitionend', () => elC.classList.remove('fc-intro'), { once: true });
+    elR.addEventListener('transitionend', () => elR.classList.remove('fc-intro'), { once: true });
   }));
 }
 
