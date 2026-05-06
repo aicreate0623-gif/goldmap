@@ -180,10 +180,10 @@ html, body {
   color: rgba(200,170,80,0.65);
 }
 .fc-grp-map.base-active {
-  background: rgb(80,62,18);
-  border-color: rgba(200,170,80,0.6);
-  color: var(--gold-lt);
-  box-shadow: 0 0 14px rgba(200,170,80,0.22), 0 2px 12px rgba(0,0,0,0.4);
+  background: rgb(110,84,20);
+  border-color: rgba(200,170,80,0.9);
+  color: #ffe87a;
+  box-shadow: 0 0 0 1.5px rgba(200,170,80,0.7), 0 0 12px rgba(200,170,80,0.55), 0 0 28px rgba(200,170,80,0.28), 0 2px 12px rgba(0,0,0,0.5);
 }
 
 /* ── ヒートマップグループ（分布・分布Pro・調整）: オレンジ ── */
@@ -193,10 +193,10 @@ html, body {
   color: rgba(230,130,50,0.65);
 }
 .fc-grp-heat.active {
-  background: rgb(100,48,8);
-  border-color: rgba(255,150,60,0.65);
-  color: #ffaa55;
-  box-shadow: 0 0 14px rgba(230,120,30,0.28), 0 2px 12px rgba(0,0,0,0.4);
+  background: rgb(140,62,8);
+  border-color: rgba(255,150,60,0.9);
+  color: #ffc870;
+  box-shadow: 0 0 0 1.5px rgba(230,120,30,0.7), 0 0 12px rgba(230,120,30,0.55), 0 0 28px rgba(230,120,30,0.28), 0 2px 12px rgba(0,0,0,0.5);
 }
 
 /* ── 安全情報グループ（熊情報・水位）: ティール ── */
@@ -206,10 +206,10 @@ html, body {
   color: rgba(40,190,170,0.65);
 }
 .fc-grp-safety.active {
-  background: rgb(8,80,72);
-  border-color: rgba(50,210,190,0.65);
-  color: #50e8d8;
-  box-shadow: 0 0 14px rgba(30,190,170,0.28), 0 2px 12px rgba(0,0,0,0.4);
+  background: rgb(10,108,95);
+  border-color: rgba(50,210,190,0.9);
+  color: #80fff2;
+  box-shadow: 0 0 0 1.5px rgba(30,190,170,0.7), 0 0 12px rgba(30,190,170,0.55), 0 0 28px rgba(30,190,170,0.28), 0 2px 12px rgba(0,0,0,0.5);
 }
 
 /* ── 探索DBグループ（スポット・鉱床・Wiki・調査記）: アンバー ── */
@@ -219,10 +219,10 @@ html, body {
   color: rgba(190,135,40,0.65);
 }
 .fc-grp-db.active {
-  background: rgb(80,52,8);
-  border-color: rgba(220,160,50,0.65);
-  color: #e8c060;
-  box-shadow: 0 0 14px rgba(190,140,30,0.28), 0 2px 12px rgba(0,0,0,0.4);
+  background: rgb(110,70,8);
+  border-color: rgba(220,160,50,0.9);
+  color: #ffd878;
+  box-shadow: 0 0 0 1.5px rgba(190,140,30,0.7), 0 0 12px rgba(190,140,30,0.55), 0 0 28px rgba(190,140,30,0.28), 0 2px 12px rgba(0,0,0,0.5);
 }
 
 /* ── GPSグループ（GPS・追従）: ブルー ── */
@@ -232,18 +232,18 @@ html, body {
   color: rgba(80,150,240,0.65);
 }
 .fc-grp-gps.active {
-  background: rgb(16,52,110);
-  border-color: rgba(90,160,255,0.65);
-  color: #78b8ff;
-  box-shadow: 0 0 14px rgba(60,140,240,0.28), 0 2px 12px rgba(0,0,0,0.4);
+  background: rgb(20,68,148);
+  border-color: rgba(90,160,255,0.9);
+  color: #a8d4ff;
+  box-shadow: 0 0 0 1.5px rgba(60,140,240,0.7), 0 0 12px rgba(60,140,240,0.55), 0 0 28px rgba(60,140,240,0.28), 0 2px 12px rgba(0,0,0,0.5);
 }
 
 /* 後方互換 */
 .fc-btn.base-active {
-  background: rgb(80,62,18);
-  border-color: rgba(200,170,80,0.6);
-  color: var(--gold-lt);
-  box-shadow: 0 0 14px rgba(200,170,80,0.22), 0 2px 12px rgba(0,0,0,0.4);
+  background: rgb(110,84,20);
+  border-color: rgba(200,170,80,0.9);
+  color: #ffe87a;
+  box-shadow: 0 0 0 1.5px rgba(200,170,80,0.7), 0 0 12px rgba(200,170,80,0.55), 0 0 28px rgba(200,170,80,0.28), 0 2px 12px rgba(0,0,0,0.5);
 }
 
 /* GPS追従ボタン（GPS ON時のみ表示）*/
