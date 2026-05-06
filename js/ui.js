@@ -1019,7 +1019,7 @@ function _fcRightShow() {
   document.getElementById('fc-bar-right').classList.remove('show');
 }
 
-// ── スワイプ検出ユーティリティ ──
+// ── スワイプ検出ユーティリティ（X軸）──
 function _addSwipe(el, onRight, onLeft) {
   let sx = null;
   el.addEventListener('touchstart', e => {
@@ -1031,6 +1031,21 @@ function _addSwipe(el, onRight, onLeft) {
     sx = null;
     if (dx > 30 && onRight) onRight();
     else if (dx < -30 && onLeft) onLeft();
+  }, { passive: true });
+}
+
+// ── スワイプ検出ユーティリティ（Y軸）──
+function _addSwipeY(el, onDown, onUp) {
+  let sy = null;
+  el.addEventListener('touchstart', e => {
+    sy = e.touches[0].clientY;
+  }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (sy === null) return;
+    const dy = e.changedTouches[0].clientY - sy;
+    sy = null;
+    if (dy > 30 && onDown) onDown();
+    else if (dy < -30 && onUp) onUp();
   }, { passive: true });
 }
 
@@ -1047,12 +1062,12 @@ function initFcToggle() {
   _addSwipe(document.getElementById('float-ctrl-left'), null, _fcLeftHide);
   _addSwipe(document.getElementById('float-ctrl'),      null, _fcLeftHide);
 
-  // 右バー：左スワイプで展開、タップでも展開
-  _addSwipe(barR, null, _fcRightShow);
+  // 右バー（上端横バー）：下スワイプ/タップで展開
+  _addSwipeY(barR, _fcRightShow, null);
   barR.addEventListener('click', _fcRightShow);
 
-  // 右列：右スワイプで収納
-  _addSwipe(document.getElementById('float-ctrl-right'), _fcRightHide, null);
+  // 右列：上スワイプで収納
+  _addSwipeY(document.getElementById('float-ctrl-right'), null, _fcRightHide);
 }
 
 // DOMContentLoaded後に初期化

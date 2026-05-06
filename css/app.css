@@ -275,11 +275,11 @@ html, body {
   position: fixed;
   left: 0;
   top: calc(var(--sb-h) + 8px);
-  width: 8px;
-  height: 56px;
+  width: 18px;
+  height: 80px;
   background: rgba(200,170,80,0.13);
   border-right: 1px solid rgba(200,170,80,0.3);
-  border-radius: 0 5px 5px 0;
+  border-radius: 0 8px 8px 0;
   z-index: 900;
   display: none;
   flex-direction: column;
@@ -291,31 +291,55 @@ html, body {
 }
 #fc-bar-left.show { display: flex; }
 
-/* 収納時：右バー */
+/* 左バー：右向き三角（展開方向を示す） */
+#fc-bar-left::before {
+  content: '';
+  display: block;
+  width: 0; height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid rgba(200,170,80,0.7);
+  margin-bottom: 5px;
+  flex-shrink: 0;
+}
+
+/* 収納時：右バー → 上端横バーに変更 */
 #fc-bar-right {
   position: fixed;
-  right: 0;
-  top: calc(var(--sb-h) + 8px);
-  width: 8px;
-  height: 44px;
-  background: rgba(80,100,200,0.12);
-  border-left: 1px solid rgba(120,130,230,0.28);
-  border-radius: 5px 0 0 5px;
+  right: 10px;
+  top: calc(var(--sb-h));
+  width: 80px;
+  height: 16px;
+  background: rgba(80,100,200,0.14);
+  border-bottom: 1px solid rgba(120,130,230,0.32);
+  border-radius: 0 0 8px 8px;
   z-index: 900;
   display: none;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 4px;
   cursor: pointer;
-  touch-action: pan-x;
+  touch-action: pan-y;
 }
 #fc-bar-right.show { display: flex; }
 
+/* 右バー：下向き三角（展開方向を示す）*/
+#fc-bar-right::after {
+  content: '';
+  display: block;
+  width: 0; height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid rgba(120,130,230,0.8);
+  margin-left: 5px;
+  flex-shrink: 0;
+}
+
 /* バー内ドット */
 .fc-bar-dot {
-  width: 3px;
-  height: 3px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: rgba(255,255,255,0.15);
   flex-shrink: 0;
