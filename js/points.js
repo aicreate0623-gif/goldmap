@@ -243,7 +243,8 @@ function addMk(p) {
     zIndexOffset:100, pane:'paneUser'
   });
   m.on('click', () => openDet(p.id));
-  m.addTo(map); p.mk = m;
+  if (_myPtsVisible) m.addTo(map);
+  p.mk = m;
 }
 function _updateMk(p) {
   if (p.mk) p.mk.setIcon(_makeIcon(p.icon||PT_DEFAULT_ICON, p.color||PT_DEFAULT_COLOR));
@@ -275,6 +276,23 @@ function _updateMk(p) {
   container.addEventListener('touchcancel',_clearLp,{passive:true});
   container.addEventListener('touchmove',  _clearLp,{passive:true});
 })();
+
+// ── マイポイント一括表示/非表示 ──────────────────
+let _myPtsVisible = false;
+
+function toggleMyPts() {
+  _myPtsVisible = !_myPtsVisible;
+  pts.forEach(p => {
+    if (!p.mk) return;
+    if (_myPtsVisible) {
+      if (!map.hasLayer(p.mk)) map.addLayer(p.mk);
+    } else {
+      if (map.hasLayer(p.mk)) map.removeLayer(p.mk);
+    }
+  });
+  const btn = document.getElementById('btn-mypts');
+  if (btn) btn.classList.toggle('active', _myPtsVisible);
+}
 
 function updPtCnt(){
   document.getElementById('sb-pt').textContent='ポイント: '+pts.length+'件';
