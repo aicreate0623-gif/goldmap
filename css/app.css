@@ -271,68 +271,93 @@ html, body {
 /* ━━━ フロートボタン 折りたたみバー ━━━ */
 
 /* 収納時：左バー */
+/* ── 左収納バー ── */
 #fc-bar-left {
   position: fixed;
   left: 0;
   top: calc(var(--sb-h) + 8px);
-  width: 18px;
-  height: 80px;
+  width: 36px;
+  height: 160px;
   background: rgba(200,170,80,0.13);
   border-right: 1px solid rgba(200,170,80,0.3);
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 12px 12px 0;
   z-index: 900;
-  display: none;
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   cursor: pointer;
   touch-action: pan-x;
+  /* 初期状態：左に隠れている */
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform 0s, visibility 0s;
 }
-#fc-bar-left.show { display: flex; }
+/* 出現アニメーション */
+#fc-bar-left.show {
+  visibility: visible;
+  transform: translateX(-100%);
+  transition: transform 1s cubic-bezier(0.34, 1.4, 0.64, 1), visibility 0s;
+}
+#fc-bar-left.show.fc-bar-in {
+  transform: translateX(0);
+}
 
 /* 左バー：右向き三角（展開方向を示す） */
 #fc-bar-left::before {
   content: '';
   display: block;
   width: 0; height: 0;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-left: 6px solid rgba(200,170,80,0.7);
-  margin-bottom: 5px;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 9px solid rgba(200,170,80,0.7);
+  margin-bottom: 6px;
   flex-shrink: 0;
 }
 
-/* 収納時：右バー → 上端横バーに変更 */
+/* ── 右収納バー（上端から下にスライド） ── */
 #fc-bar-right {
   position: fixed;
   right: 10px;
   top: calc(var(--sb-h));
-  width: 80px;
-  height: 16px;
+  width: 160px;
+  height: 32px;
   background: rgba(80,100,200,0.14);
   border-bottom: 1px solid rgba(120,130,230,0.32);
-  border-radius: 0 0 8px 8px;
+  border-radius: 0 0 12px 12px;
   z-index: 900;
-  display: none;
+  display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   cursor: pointer;
   touch-action: pan-y;
+  /* 初期状態：上に隠れている */
+  transform: translateY(-100%);
+  visibility: hidden;
+  transition: transform 0s, visibility 0s;
 }
-#fc-bar-right.show { display: flex; }
+/* 出現アニメーション */
+#fc-bar-right.show {
+  visibility: visible;
+  transform: translateY(-100%);
+  transition: transform 1s cubic-bezier(0.34, 1.4, 0.64, 1), visibility 0s;
+}
+#fc-bar-right.show.fc-bar-in {
+  transform: translateY(0);
+}
 
 /* 右バー：下向き三角（展開方向を示す）*/
 #fc-bar-right::after {
   content: '';
   display: block;
   width: 0; height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 6px solid rgba(120,130,230,0.8);
-  margin-left: 5px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 9px solid rgba(120,130,230,0.8);
+  margin-left: 6px;
   flex-shrink: 0;
 }
 

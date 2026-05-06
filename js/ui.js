@@ -992,6 +992,7 @@ function _fcLeftHide() {
   const bar = document.getElementById('fc-bar-left');
   _buildBarDots(bar, FC_LEFT_BTNS);
   bar.classList.add('show');
+  requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.add('fc-bar-in')));
 }
 function _fcLeftShow() {
   _fcLeftOpen = true;
@@ -1001,7 +1002,8 @@ function _fcLeftShow() {
   document.getElementById('zoom-level-badge').classList.remove('fc-hidden');
   const scale = document.querySelector('.leaflet-control-scale');
   if (scale) scale.classList.remove('fc-hidden');
-  document.getElementById('fc-bar-left').classList.remove('show');
+  const bar = document.getElementById('fc-bar-left');
+  bar.classList.remove('show', 'fc-bar-in');
 }
 
 // ── 右列 収納/展開 ──
@@ -1012,11 +1014,13 @@ function _fcRightHide() {
   const bar = document.getElementById('fc-bar-right');
   _buildBarDots(bar, FC_RIGHT_BTNS);
   bar.classList.add('show');
+  requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.add('fc-bar-in')));
 }
 function _fcRightShow() {
   _fcRightOpen = true;
   document.getElementById('float-ctrl-right').classList.remove('fc-hidden');
-  document.getElementById('fc-bar-right').classList.remove('show');
+  const bar = document.getElementById('fc-bar-right');
+  bar.classList.remove('show', 'fc-bar-in');
 }
 
 // ── スワイプ検出ユーティリティ（X軸）──
@@ -1068,6 +1072,15 @@ function initFcToggle() {
 
   // 右列：上スワイプで収納
   _addSwipeY(document.getElementById('float-ctrl-right'), null, _fcRightHide);
+
+  // ── 起動時：両バーをにょきっとスライドイン ──
+  // ドットはまだ空でよい（収納前なのでボタンは全部表示中）
+  barL.classList.add('show');
+  barR.classList.add('show');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    barL.classList.add('fc-bar-in');
+    barR.classList.add('fc-bar-in');
+  }));
 }
 
 // DOMContentLoaded後に初期化
