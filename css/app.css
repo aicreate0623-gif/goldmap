@@ -268,6 +268,80 @@ html, body {
 /* GPS追従ボタン（GPS ON時のみ表示）*/
 #btn-flw { display: none; }
 
+/* ━━━ フロートボタン 折りたたみバー ━━━ */
+
+/* 収納時：左バー */
+#fc-bar-left {
+  position: fixed;
+  left: 0;
+  top: calc(var(--sb-h) + 8px);
+  width: 8px;
+  height: 56px;
+  background: rgba(200,170,80,0.13);
+  border-right: 1px solid rgba(200,170,80,0.3);
+  border-radius: 0 5px 5px 0;
+  z-index: 900;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  touch-action: pan-x;
+}
+#fc-bar-left.show { display: flex; }
+
+/* 収納時：右バー */
+#fc-bar-right {
+  position: fixed;
+  right: 0;
+  top: calc(var(--sb-h) + 8px);
+  width: 8px;
+  height: 44px;
+  background: rgba(80,100,200,0.12);
+  border-left: 1px solid rgba(120,130,230,0.28);
+  border-radius: 5px 0 0 5px;
+  z-index: 900;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  touch-action: pan-x;
+}
+#fc-bar-right.show { display: flex; }
+
+/* バー内ドット */
+.fc-bar-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0;
+}
+.fc-bar-dot.on-gold   { background: #c8aa50; }
+.fc-bar-dot.on-orange { background: #e67820; }
+.fc-bar-dot.on-teal   { background: #1eb4a0; }
+.fc-bar-dot.on-amber  { background: #d4a030; }
+.fc-bar-dot.on-blue   { background: #78b8ff; }
+.fc-bar-dot.on-purple { background: #c090ff; }
+
+/* 収納中：左セット・スケール非表示 */
+#float-ctrl-left.fc-hidden,
+#float-ctrl.fc-hidden,
+#zoom-level-badge.fc-hidden {
+  display: none !important;
+}
+.leaflet-control-scale.fc-hidden {
+  display: none !important;
+}
+
+/* 収納中：右列非表示 */
+#float-ctrl-right.fc-hidden {
+  display: none !important;
+}
+
 /* ━━━ ドラッグ範囲選択中: フロートボタン無効化 ━━━ */
 #float-ctrl.draw-mode-active,
 #float-ctrl-left.draw-mode-active,

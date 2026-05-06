@@ -88,9 +88,6 @@
 </div>
 
 <div id="float-ctrl-right">
-  <button class="fc-btn fc-grp-pt" id="btn-mypts" onclick="toggleMyPts()" title="マイポイント 表示/非表示">
-    <span class="fc-ico">📍</span><span>マイPT</span>
-  </button>
   <button class="fc-btn fc-grp-custom" id="btn-custom-layer" onclick="toggleClMapVisible()" title="カスタムデータ表示/非表示" style="display:none">
     <span class="fc-ico">📂</span><span>マイMAP</span>
   </button>
@@ -120,7 +117,9 @@
   </button>
 </div>
 
-
+<!-- フロートボタン折りたたみバー -->
+<div id="fc-bar-left"></div>
+<div id="fc-bar-right"></div>
 
 <div id="add-banner">
   ピンをドラッグして位置決め
@@ -144,7 +143,7 @@
     <span class="t-ico">💬</span>コミュニティ
   </button>
   <button class="tab-btn"        id="tab-pts"       onclick="switchTab('pts')">
-    <span class="t-ico">📍</span>マイポイント
+    <span class="t-ico">📍</span>ポイント
   </button>
   <button class="tab-btn"        id="tab-cfg"       onclick="switchTab('cfg')">
     <span class="t-ico">⚙</span>設定
@@ -252,7 +251,7 @@
 
 <div class="sheet" id="pt-sheet">
   <div class="sheet-head">
-    <h2>📍 マイポイント</h2>
+    <h2>📍 ポイント一覧</h2>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
 

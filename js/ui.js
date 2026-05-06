@@ -936,3 +936,128 @@ async function diagCache(){
 
   out.textContent = lines.join('\n');
 }
+// ═══════════════════════════════════════════
+//  フロートボタン 折りたたみ制御
+// ═══════════════════════════════════════════
+
+// ── ドット定義（ボタンID → グループカラークラス）──
+const FC_LEFT_BTNS = [
+  { id:'btn-std',          cls:'on-gold'   },
+  { id:'btn-hill',         cls:'on-gold'   },
+  { id:'btn-relief',       cls:'on-gold'   },
+  { id:'btn-geo',          cls:'on-gold'   },
+  { id:'btn-photo',        cls:'on-gold'   },
+  { id:'btn-topo',         cls:'on-gold'   },
+  { id:'btn-heat-free',    cls:'on-orange' },
+  { id:'btn-heat-premium', cls:'on-orange' },
+];
+const FC_RIGHT_BTNS = [
+  { id:'btn-mypts',        cls:'on-purple' },
+  { id:'btn-custom-layer', cls:'on-purple' },
+  { id:'btn-bear',         cls:'on-teal'   },
+  { id:'btn-water',        cls:'on-teal'   },
+  { id:'btn-mine',         cls:'on-amber'  },
+  { id:'btn-gsj',          cls:'on-amber'  },
+  { id:'btn-wiki',         cls:'on-amber'  },
+  { id:'btn-kinno',        cls:'on-amber'  },
+  { id:'btn-gps',          cls:'on-blue'   },
+  { id:'btn-flw',          cls:'on-blue'   },
+];
+
+function _isActive(id) {
+  const el = document.getElementById(id);
+  if (!el || el.style.display === 'none') return false;
+  return el.classList.contains('active') || el.classList.contains('base-active');
+}
+
+function _buildBarDots(bar, btns) {
+  bar.innerHTML = '';
+  btns.forEach(b => {
+    const dot = document.createElement('div');
+    dot.className = 'fc-bar-dot' + (_isActive(b.id) ? ' ' + b.cls : '');
+    bar.appendChild(dot);
+  });
+}
+
+// ── 左セット 収納/展開 ──
+let _fcLeftOpen = true;
+function _fcLeftHide() {
+  _fcLeftOpen = false;
+  ['float-ctrl-left','float-ctrl'].forEach(id => {
+    document.getElementById(id).classList.add('fc-hidden');
+  });
+  document.getElementById('zoom-level-badge').classList.add('fc-hidden');
+  const scale = document.querySelector('.leaflet-control-scale');
+  if (scale) scale.classList.add('fc-hidden');
+  const bar = document.getElementById('fc-bar-left');
+  _buildBarDots(bar, FC_LEFT_BTNS);
+  bar.classList.add('show');
+}
+function _fcLeftShow() {
+  _fcLeftOpen = true;
+  ['float-ctrl-left','float-ctrl'].forEach(id => {
+    document.getElementById(id).classList.remove('fc-hidden');
+  });
+  document.getElementById('zoom-level-badge').classList.remove('fc-hidden');
+  const scale = document.querySelector('.leaflet-control-scale');
+  if (scale) scale.classList.remove('fc-hidden');
+  document.getElementById('fc-bar-left').classList.remove('show');
+}
+
+// ── 右列 収納/展開 ──
+let _fcRightOpen = true;
+function _fcRightHide() {
+  _fcRightOpen = false;
+  document.getElementById('float-ctrl-right').classList.add('fc-hidden');
+  const bar = document.getElementById('fc-bar-right');
+  _buildBarDots(bar, FC_RIGHT_BTNS);
+  bar.classList.add('show');
+}
+function _fcRightShow() {
+  _fcRightOpen = true;
+  document.getElementById('float-ctrl-right').classList.remove('fc-hidden');
+  document.getElementById('fc-bar-right').classList.remove('show');
+}
+
+// ── スワイプ検出ユーティリティ ──
+function _addSwipe(el, onRight, onLeft) {
+  let sx = null;
+  el.addEventListener('touchstart', e => {
+    sx = e.touches[0].clientX;
+  }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (sx === null) return;
+    const dx = e.changedTouches[0].clientX - sx;
+    sx = null;
+    if (dx > 30 && onRight) onRight();
+    else if (dx < -30 && onLeft) onLeft();
+  }, { passive: true });
+}
+
+// ── 初期化（DOM構築後に呼ぶ）──
+function initFcToggle() {
+  const barL = document.getElementById('fc-bar-left');
+  const barR = document.getElementById('fc-bar-right');
+
+  // 左バー：右スワイプで展開、タップでも展開
+  _addSwipe(barL, _fcLeftShow, null);
+  barL.addEventListener('click', _fcLeftShow);
+
+  // 左セット：左スワイプで収納
+  _addSwipe(document.getElementById('float-ctrl-left'), null, _fcLeftHide);
+  _addSwipe(document.getElementById('float-ctrl'),      null, _fcLeftHide);
+
+  // 右バー：左スワイプで展開、タップでも展開
+  _addSwipe(barR, null, _fcRightShow);
+  barR.addEventListener('click', _fcRightShow);
+
+  // 右列：右スワイプで収納
+  _addSwipe(document.getElementById('float-ctrl-right'), _fcRightHide, null);
+}
+
+// DOMContentLoaded後に初期化
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initFcToggle);
+} else {
+  initFcToggle();
+}
