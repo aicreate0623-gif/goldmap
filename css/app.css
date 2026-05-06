@@ -407,13 +407,15 @@ html, body {
   border-radius: 50%;
   background: rgba(255,255,255,0.15);
   flex-shrink: 0;
+  transition: width .15s, height .15s;
 }
-.fc-bar-dot.on-gold   { background: #c8aa50; }
-.fc-bar-dot.on-orange { background: #e67820; }
-.fc-bar-dot.on-teal   { background: #1eb4a0; }
-.fc-bar-dot.on-amber  { background: #d4a030; }
-.fc-bar-dot.on-blue   { background: #78b8ff; }
-.fc-bar-dot.on-purple { background: #c090ff; }
+/* ON状態：大きく・光らせる */
+.fc-bar-dot.on-gold   { width: 8px; height: 8px; background: #c8aa50; box-shadow: 0 0 5px rgba(200,170,80,0.8); }
+.fc-bar-dot.on-orange { width: 8px; height: 8px; background: #e67820; box-shadow: 0 0 5px rgba(230,120,30,0.8); }
+.fc-bar-dot.on-teal   { width: 8px; height: 8px; background: #1eb4a0; box-shadow: 0 0 5px rgba(30,180,160,0.8); }
+.fc-bar-dot.on-amber  { width: 8px; height: 8px; background: #d4a030; box-shadow: 0 0 5px rgba(212,160,48,0.8); }
+.fc-bar-dot.on-blue   { width: 8px; height: 8px; background: #78b8ff; box-shadow: 0 0 5px rgba(120,184,255,0.8); }
+.fc-bar-dot.on-purple { width: 8px; height: 8px; background: #c090ff; box-shadow: 0 0 5px rgba(192,144,255,0.8); }
 
 /* ━━━ フロートボタン アニメーション ━━━ */
 
