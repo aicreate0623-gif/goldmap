@@ -3738,3 +3738,75 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: #ffaa00;
   margin-bottom: 8px;
 }
+/* ━━━ 円形エリアDLダイアログ ━━━ */
+#circle-dl-dialog {
+  position: fixed;
+  bottom: calc(var(--tab-h) + 8px);
+  left: 8px; right: 8px;
+  z-index: 2500;
+  background: rgba(8,7,5,0.97);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(200,170,80,0.28);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 -4px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(200,170,80,0.08);
+  padding: 14px 16px 12px;
+  max-height: 72vh;
+  overflow-y: auto;
+}
+.cdld-section {
+  margin-bottom: 14px;
+}
+.cdld-label {
+  font-size: 11px; color: var(--txt-dim); margin-bottom: 6px;
+}
+.cdld-label-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.cdld-center-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.cdld-center-val {
+  flex: 1; font-size: 12px; color: var(--txt);
+  font-family: var(--font-mono, monospace);
+}
+.cdld-tap-hint {
+  margin-top: 6px; font-size: 11px; color: var(--gold);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+}
+.cdld-radius-val {
+  font-size: 15px; font-weight: 700; color: var(--gold);
+}
+.cdld-radius-scale {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--txt-dim); margin-top: 2px;
+}
+.cdld-ck-group {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.cdld-zmax-note {
+  font-size: 10px; color: var(--txt-dim); margin-top: 4px;
+}
+.cdld-est {
+  text-align: center;
+  font-size: 13px; font-weight: 700; color: var(--gold-lt);
+  background: rgba(200,170,80,0.07);
+  border: 1px solid rgba(200,170,80,0.18);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  margin-bottom: 14px;
+}
+
+/* ━━━ エリアタイルDLボタン2列 ━━━ */
+.dl-btn-row {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.dl-circle-btn {
+  background: rgba(80,140,200,0.18);
+  border-color: rgba(100,160,220,0.5);
+  box-shadow: 0 0 16px rgba(80,140,200,0.12);
+}

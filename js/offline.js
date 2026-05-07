@@ -2328,3 +2328,204 @@ function renderBaseDlStatus(sessions){
     }
   });
 }
+
+// ═══════════════════════════════════════════
+//  円形エリアDL
+// ═══════════════════════════════════════════
+
+let _cdldCenter   = null;  // {lat, lng}
+let _cdldTapping  = false; // タップ待ちフラグ
+let _cdldCircle   = null;  // 地図上のプレビュー円
+let _cdldTapHandler = null;
+
+/** 半径スライダー値(km)を取得 */
+function _cdldRadiusKm(){
+  return parseInt(document.getElementById('cdld-radius-slider')?.value || 5);
+}
+
+/** km → 緯度差・経度差に変換して L.LatLngBounds を生成 */
+function _cdldBounds(lat, lng, km){
+  const dLat = km / 111.0;
+  const dLng = km / (111.0 * Math.cos(lat * Math.PI / 180));
+  return L.latLngBounds(
+    [lat - dLat, lng - dLng],
+    [lat + dLat, lng + dLng]
+  );
+}
+
+/** 地図上の円プレビューを更新 */
+function _cdldUpdateCircle(){
+  if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+  if(!_cdldCenter) return;
+  const km = _cdldRadiusKm();
+  _cdldCircle = L.circle([_cdldCenter.lat, _cdldCenter.lng], {
+    radius: km * 1000,
+    color: '#c8a84b',
+    weight: 2,
+    fillColor: '#c8a84b',
+    fillOpacity: 0.10
+  }).addTo(map);
+}
+
+/** 推定容量を計算して表示 */
+function _cdldCalc(){
+  const el = document.getElementById('cdld-est');
+  const btn = document.getElementById('cdld-dl-btn');
+  if(!_cdldCenter){ if(el) el.textContent = '— MB'; if(btn) btn.disabled = true; return; }
+  const layers = ['std','photo','topo'].filter(k => document.getElementById('cdld-ck-'+k)?.checked);
+  if(!layers.length){ if(el) el.textContent = '— MB'; if(btn) btn.disabled = true; return; }
+  const zmax = parseInt(document.getElementById('cdld-zmax')?.value || 16);
+  const bounds = _cdldBounds(_cdldCenter.lat, _cdldCenter.lng, _cdldRadiusKm());
+  const tiles  = cntTiles(bounds, 10, zmax);
+  const bytes  = estBytesLayers(tiles, layers);
+  const mb     = (bytes / 1024 / 1024).toFixed(1);
+  if(el)  el.textContent = `推定 約 ${mb} MB`;
+  if(btn) btn.disabled = false;
+}
+
+/** レイヤー1択制御 */
+function _cdldOnlyOne(el){
+  if(!el.checked){ el.checked = true; return; } // 全解除防止
+  ['cdld-ck-std','cdld-ck-photo','cdld-ck-topo'].forEach(id => {
+    const ck = document.getElementById(id);
+    if(ck && ck !== el) ck.checked = false;
+  });
+}
+
+/** 半径変更時 */
+function _cdldOnRadiusChange(){
+  const km = _cdldRadiusKm();
+  const el = document.getElementById('cdld-radius-val');
+  if(el) el.textContent = km + ' km';
+  _cdldUpdateCircle();
+  _cdldCalc();
+}
+
+/** タップ選択モード開始 */
+function _cdldStartTap(){
+  if(_cdldTapping) return;
+  _cdldTapping = true;
+  const hint = document.getElementById('cdld-tap-hint');
+  const btn  = document.getElementById('cdld-tap-btn');
+  if(hint) hint.style.display = 'block';
+  if(btn)  btn.textContent = '⏳ タップ待ち…';
+  // 地図タブに切り替え
+  _openTab('map');
+  _pushHistory();
+  // 1回だけclickを受け取る
+  _cdldTapHandler = function(e){
+    _cdldTapping = false;
+    _cdldSetCenter(e.latlng.lat, e.latlng.lng);
+    // オフラインタブに戻る
+    _openTab('offline');
+    _pushHistory();
+    // ダイアログを再表示
+    const dlg = document.getElementById('circle-dl-dialog');
+    if(dlg) dlg.style.display = 'block';
+  };
+  map.once('click', _cdldTapHandler);
+}
+
+/** 中心座標をセット（タップ or 外部からの引数渡し共通） */
+function _cdldSetCenter(lat, lng){
+  _cdldCenter = { lat, lng };
+  const el = document.getElementById('cdld-center-val');
+  if(el) el.textContent = lat.toFixed(5) + ', ' + lng.toFixed(5);
+  const hint = document.getElementById('cdld-tap-hint');
+  const btn  = document.getElementById('cdld-tap-btn');
+  if(hint) hint.style.display = 'none';
+  if(btn)  btn.textContent = '📍 変更';
+  _cdldUpdateCircle();
+  _cdldCalc();
+}
+
+/** ダイアログを開く（引数なし=タップ選択、引数あり=ポイント連携） */
+function openCircleDlDialog(lat, lng){
+  if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
+  isPremiumUser().then(premium => {
+    if(!premium){ showPremiumGate('offline'); return; }
+
+    // 初期化
+    _cdldTapping = false;
+    if(_cdldTapHandler){ map.off('click', _cdldTapHandler); _cdldTapHandler = null; }
+    _cdldCenter = null;
+    if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+
+    // UI リセット
+    const centerVal = document.getElementById('cdld-center-val');
+    const tapHint   = document.getElementById('cdld-tap-hint');
+    const tapBtn    = document.getElementById('cdld-tap-btn');
+    const slider    = document.getElementById('cdld-radius-slider');
+    const radiusVal = document.getElementById('cdld-radius-val');
+    const est       = document.getElementById('cdld-est');
+    const dlBtn     = document.getElementById('cdld-dl-btn');
+    if(centerVal) centerVal.textContent = '地図をタップして選択';
+    if(tapHint)   tapHint.style.display = 'none';
+    if(tapBtn)    tapBtn.textContent = '📍 タップ選択';
+    if(slider)    slider.value = 5;
+    if(radiusVal) radiusVal.textContent = '5 km';
+    if(est)       est.textContent = '— MB';
+    if(dlBtn)     dlBtn.disabled = true;
+    // レイヤー初期化
+    ['cdld-ck-std','cdld-ck-photo','cdld-ck-topo'].forEach((id,i) => {
+      const ck = document.getElementById(id);
+      if(ck) ck.checked = (i === 0);
+    });
+
+    document.getElementById('circle-dl-dialog').style.display = 'block';
+    _openTab('offline');
+    _pushHistory();
+
+    // 引数で座標が渡された場合は即セット
+    if(lat !== undefined && lng !== undefined){
+      _cdldSetCenter(lat, lng);
+    }
+  });
+}
+
+/** キャンセル */
+function _cdldCancel(){
+  document.getElementById('circle-dl-dialog').style.display = 'none';
+  if(_cdldTapHandler){ map.off('click', _cdldTapHandler); _cdldTapHandler = null; }
+  if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+  _cdldCenter  = null;
+  _cdldTapping = false;
+  _openTab('offline');
+  _pushHistory();
+}
+
+/** DL開始 */
+async function _cdldStartDl(){
+  if(!_cdldCenter){ showAlert('エラー','中心座標を選択してください'); return; }
+  const layers = ['std','photo','topo'].filter(k => document.getElementById('cdld-ck-'+k)?.checked);
+  if(!layers.length){ showAlert('エラー','レイヤーを選択してください'); return; }
+  if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません'); return; }
+
+  // ベースDL完了チェック
+  if(typeof getBaseDlDoneLayers === 'function'){
+    const baseDone = await getBaseDlDoneLayers();
+    const needBase = layers.filter(lk => !baseDone.has(lk));
+    if(needBase.length){
+      const names = needBase.map(lk => ({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+      showAlert('ベースDLが必要です',`「${names}」はベースDL（Z5〜Z9 全国版）が完了していません。\nオフラインタブのベースDLを先に行ってください。`);
+      return;
+    }
+  }
+
+  const zmax   = parseInt(document.getElementById('cdld-zmax')?.value || 16);
+  const bounds = _cdldBounds(_cdldCenter.lat, _cdldCenter.lng, _cdldRadiusKm());
+
+  // 容量チェック（既存関数流用）
+  if(_dldCheckSize(bounds, zmax, layers)) return;
+
+  // circle-dl-dialogを閉じてdl-dialogのSTEP3を表示
+  document.getElementById('circle-dl-dialog').style.display = 'none';
+  document.getElementById('dl-dialog').style.display = 'block';
+  _dldRenderStep(3);
+
+  detRect = bounds;
+  await runDl('detail', bounds, 10, zmax, layers, 0);
+
+  // 完了後に円プレビューを除去
+  if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+}

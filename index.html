@@ -536,11 +536,16 @@
       </div>
       <div class="cfg-accordion-body">
 
-        <!-- DL開始ボタン -->
+        <!-- DL開始ボタン群 -->
         <div class="dl-start-wrap">
-          <button class="btn accent dl-start-btn" onclick="openDlDialog()">
-            ⬇ エリアタイルDL開始
-          </button>
+          <div class="dl-btn-row">
+            <button class="btn accent dl-start-btn" onclick="openDlDialog()">
+              ⬇ エリアタイルDL開始
+            </button>
+            <button class="btn dl-start-btn dl-circle-btn" onclick="openCircleDlDialog()">
+              🎯 円形エリアDL開始
+            </button>
+          </div>
           <p class="dl-start-hint">地図を見ながら範囲・レイヤー・ズームを設定できます</p>
         </div>
 
@@ -1184,6 +1189,72 @@
      STEP2: レイヤー・ズーム設定
      STEP3: DL進捗
      ═══════════════════════════════════════════ -->
+<!-- ══ 円形エリアDL ダイアログ ══ -->
+<div id="circle-dl-dialog" style="display:none">
+  <div class="dld-title">🎯 円形エリアDL</div>
+
+  <!-- 中心座標 -->
+  <div class="cdld-section">
+    <div class="cdld-label">中心座標</div>
+    <div class="cdld-center-row">
+      <span class="cdld-center-val" id="cdld-center-val">地図をタップして選択</span>
+      <button class="btn sm" id="cdld-tap-btn" onclick="_cdldStartTap()">📍 タップ選択</button>
+    </div>
+    <div class="cdld-tap-hint" id="cdld-tap-hint" style="display:none">地図をタップして中心を指定してください</div>
+  </div>
+
+  <!-- 半径スライダー -->
+  <div class="cdld-section">
+    <div class="cdld-label-row">
+      <span class="cdld-label">半径</span>
+      <span class="cdld-radius-val" id="cdld-radius-val">5 km</span>
+    </div>
+    <input type="range" id="cdld-radius-slider" min="1" max="10" step="1" value="5"
+      style="width:100%;accent-color:var(--gold,#c8a84b);"
+      oninput="_cdldOnRadiusChange()">
+    <div class="cdld-radius-scale">
+      <span>1km</span><span>5km</span><span>10km</span>
+    </div>
+  </div>
+
+  <!-- レイヤー選択 -->
+  <div class="cdld-section">
+    <div class="cdld-label">レイヤー（1つ選択）</div>
+    <div class="cdld-ck-group">
+      <label class="dld-s1-ck"><input type="checkbox" id="cdld-ck-std"   checked onchange="_cdldOnlyOne(this);_cdldCalc()">地理院</label>
+      <label class="dld-s1-ck"><input type="checkbox" id="cdld-ck-photo"        onchange="_cdldOnlyOne(this);_cdldCalc()">航空写真</label>
+      <label class="dld-s1-ck"><input type="checkbox" id="cdld-ck-topo"         onchange="_cdldOnlyOne(this);_cdldCalc()">地形図</label>
+    </div>
+  </div>
+
+  <!-- ズーム選択 -->
+  <div class="cdld-section">
+    <div class="cdld-label-row">
+      <span class="cdld-label">最大ズーム</span>
+      <select id="cdld-zmax" class="dld-s1-zmax-sel" onchange="_cdldCalc()">
+        <option value="12">Z12</option>
+        <option value="13">Z13</option>
+        <option value="14">Z14</option>
+        <option value="15">Z15</option>
+        <option value="16" selected>Z16</option>
+        <option value="17">Z17</option>
+        <option value="18">Z18</option>
+      </select>
+    </div>
+    <div class="cdld-zmax-note">Z16まで推奨 / 地形図はZ17まで</div>
+  </div>
+
+  <!-- 推定容量 -->
+  <div class="cdld-est" id="cdld-est">— MB</div>
+
+  <!-- フッターボタン -->
+  <div class="dld-footer-btns">
+    <button class="btn red" onclick="_cdldCancel()">✕ キャンセル</button>
+    <span class="dld-footer-spacer"></span>
+    <button class="btn accent" id="cdld-dl-btn" onclick="_cdldStartDl()" disabled>⬇ DL開始</button>
+  </div>
+</div>
+
 <div id="dl-dialog" style="display:none">
 
 
