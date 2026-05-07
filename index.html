@@ -344,17 +344,6 @@
   </div>
   <div class="sheet-body">
 
-    <!-- ━━━ キャッシュ診断 ━━━ -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🔍 キャッシュ診断</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <button class="btn" onclick="diagCache()" style="width:100%;margin-bottom:8px">診断を実行</button>
-        <pre id="diag-out" style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;font-size:11px;color:#ccc;white-space:pre-wrap;word-break:break-all;min-height:40px;display:block"></pre>
-      </div>
-    </div>
     <!-- ━━━ ご利用上の説明・ルール ━━━ -->
     <div class="cfg-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
@@ -374,7 +363,7 @@
           <li>⚠️ <b>削除の取り消しはできません</b><br>
             エリア削除・全削除は確認ダイアログを経ても元に戻すことができません。</li>
           <li>🗾 <b>詳細DLの前に全国ベースDLが必要です</b><br>
-            エリア指定でのダウンロードには、まず「全国ベースマップ（Z5〜Z9）」のDLが必要です。ベースDL未完了のレイヤーは詳細DLに進めません。</li>
+            エリア指定でのダウンロードには、まず「全国ベースマップ管理（Z5〜Z9）」のDLが必要です。ベースDL未完了のレイヤーは詳細DLに進めません。</li>
           <li>📍 <b>DL済みのエリア・ズームレベルのみオフライン表示できます</b><br>
             オフライン時はダウンロード済みの範囲・ズームレベルのみ地図が表示されます。DL範囲外や未DLのズームレベルは電波が必要です。</li>
           <li>🗑 <b>ブラウザのデータ消去でキャッシュが失われます</b><br>
@@ -383,10 +372,70 @@
       </div>
     </div>
 
-    <!-- ━━━ 全国ベースマップDL（Z5〜Z9） ━━━ -->
+    <!-- ━━━ キャッシュ診断 ━━━ -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">🔍 キャッシュ診断</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <button class="btn" onclick="diagCache()" style="width:100%;margin-bottom:8px">診断を実行</button>
+        <pre id="diag-out" style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;font-size:11px;color:#ccc;white-space:pre-wrap;word-break:break-all;min-height:40px;display:block"></pre>
+      </div>
+    </div>
+
+    <!-- ━━━ 地図キャッシュ管理 ━━━ -->
+    <div class="cfg-accordion">
+      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+        <span class="cfg-accordion-title">💾 地図キャッシュ管理</span>
+        <span class="cfg-accordion-arrow">▶</span>
+      </div>
+      <div class="cfg-accordion-body">
+        <!-- 使用量 -->
+        <div class="cfg-row">
+          <div>
+            <div class="cfg-label">キャッシュ容量</div>
+            <div class="cfg-sub cfg-val" id="cache-info">読み込み中…</div>
+          </div>
+          <button class="btn sm" onclick="refreshCache()">更新</button>
+        </div>
+        <!-- 使用量バー -->
+        <div class="sess-usage-bar-bg">
+          <div class="sess-usage-bar-fill" id="sess-usage-bar-fill"></div>
+        </div>
+        <div class="sess-usage-info" id="sess-usage-info">—</div>
+
+        <!-- キャッシュ上限スライダー -->
+        <div class="cfg-row" style="margin-top:12px;align-items:center;">
+          <div>
+            <div class="cfg-label">キャッシュ上限</div>
+            <div class="cfg-sub">200MB〜2GB（デフォルト400MB）</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:80px;">
+            <span id="cache-limit-val" style="font-size:13px;color:var(--gold,#c8a84b);font-weight:700;">400MB</span>
+            <input type="range" id="cache-limit-slider" min="0" max="4" step="1" value="1"
+              style="width:80px;accent-color:var(--gold,#c8a84b);">
+          </div>
+        </div>
+        <div class="cfg-sub" style="font-size:11px;color:#ff9944;margin:2px 0 10px;">
+          ⚠️ 上限を超えると古いエリアから自動削除されます
+        </div>
+
+        <!-- 全削除 -->
+        <div class="cfg-row">
+          <div>
+            <div class="cfg-label">キャッシュ全削除</div>
+            <div class="cfg-sub">保存済み地図タイルを全て削除します</div>
+          </div>
+          <button class="btn sm red" onclick="clearCacheWithConfirm()">全削除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━ 全国ベースマップ管理（Z5〜Z9） ━━━ -->
     <div class="cfg-accordion" id="base-dl-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🗾 全国ベースマップ DL状況（Z5〜Z9）</span>
+        <span class="cfg-accordion-title">🗾 全国ベースマップ管理（Z5〜Z9）</span>
         <span class="cfg-accordion-arrow">▶</span>
       </div>
       <div class="cfg-accordion-body">
@@ -479,83 +528,39 @@
       </div>
     </div>
 
-    <!-- DL開始ボタン（範囲指定） -->
-    <div class="dl-start-wrap">
-      <button class="btn accent dl-start-btn" onclick="openDlDialog()">
-        ⬇ 範囲指定タイルDL開始
-      </button>
-      <p class="dl-start-hint">地図を見ながら範囲・レイヤー・ズームを設定できます</p>
-    </div>
-
-    <!-- レジュームバナー -->
-    <div id="resume-banner">
-      <strong>⏸ 前回の続きがあります</strong><br>
-      <span id="resume-desc"></span>
-      <div class="resume-btns">
-        <button class="btn sm blue" onclick="resumeDl()">▶ 再開</button>
-        <button class="btn sm red"  onclick="clearResume()">✕ 破棄</button>
-      </div>
-    </div>
-
-    <!-- キャッシュ管理 -->
+    <!-- ━━━ エリアタイル管理（Z10〜Z18） ━━━ -->
     <div class="cfg-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">💾 地図キャッシュ管理</span>
+        <span class="cfg-accordion-title">📥 エリアタイル管理（Z10〜Z18）</span>
         <span class="cfg-accordion-arrow">▶</span>
       </div>
       <div class="cfg-accordion-body">
-        <!-- 使用量 -->
-        <div class="cfg-row">
-          <div>
-            <div class="cfg-label">キャッシュ容量</div>
-            <div class="cfg-sub cfg-val" id="cache-info">読み込み中…</div>
-          </div>
-          <button class="btn sm" onclick="refreshCache()">更新</button>
-        </div>
-        <!-- 使用量バー -->
-        <div class="sess-usage-bar-bg">
-          <div class="sess-usage-bar-fill" id="sess-usage-bar-fill"></div>
-        </div>
-        <div class="sess-usage-info" id="sess-usage-info">—</div>
 
-        <!-- キャッシュ上限スライダー -->
-        <div class="cfg-row" style="margin-top:12px;align-items:center;">
-          <div>
-            <div class="cfg-label">キャッシュ上限</div>
-            <div class="cfg-sub">200MB〜2GB（デフォルト400MB）</div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:80px;">
-            <span id="cache-limit-val" style="font-size:13px;color:var(--gold,#c8a84b);font-weight:700;">400MB</span>
-            <input type="range" id="cache-limit-slider" min="0" max="4" step="1" value="1"
-              style="width:80px;accent-color:var(--gold,#c8a84b);">
-          </div>
-        </div>
-        <div class="cfg-sub" style="font-size:11px;color:#ff9944;margin:2px 0 10px;">
-          ⚠️ 上限を超えると古いエリアから自動削除されます
+        <!-- DL開始ボタン -->
+        <div class="dl-start-wrap">
+          <button class="btn accent dl-start-btn" onclick="openDlDialog()">
+            ⬇ エリアタイルDL開始
+          </button>
+          <p class="dl-start-hint">地図を見ながら範囲・レイヤー・ズームを設定できます</p>
         </div>
 
-        <!-- 全削除 -->
-        <div class="cfg-row">
-          <div>
-            <div class="cfg-label">キャッシュ全削除</div>
-            <div class="cfg-sub">保存済み地図タイルを全て削除します</div>
+        <!-- レジュームバナー -->
+        <div id="resume-banner">
+          <strong>⏸ 前回の続きがあります</strong><br>
+          <span id="resume-desc"></span>
+          <div class="resume-btns">
+            <button class="btn sm blue" onclick="resumeDl()">▶ 再開</button>
+            <button class="btn sm red"  onclick="clearResume()">✕ 破棄</button>
           </div>
-          <button class="btn sm red" onclick="clearCacheWithConfirm()">全削除</button>
         </div>
-      </div>
-    </div>
 
-    <!-- ━━━ 保存済みエリア一覧 ━━━ -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">📂 保存済みオフラインエリア</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
+        <!-- 保存済みエリア一覧 -->
+        <div class="cfg-label" style="margin-top:14px;margin-bottom:6px;">📂 保存済みエリア一覧</div>
         <div class="cfg-sub" style="margin-bottom:8px;font-size:11px;">
           タップすると地図がそのエリアに移動します。最終使用日が更新されます。
         </div>
         <div id="session-list"><div class="sess-empty">読み込み中…</div></div>
+
       </div>
     </div>
 
