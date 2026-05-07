@@ -2813,23 +2813,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .offline-rules-list li b { color: var(--txt); }
 
 /* ── ご利用上の説明・ルール アコーディオン拡張 ── */
-.offline-rules-accordion {
-  background: rgba(200,170,80,0.07);
-  border: 1px solid var(--border-gold) !important;
-  margin-bottom: 14px;
-}
-.offline-rules-accordion-title {
-  font-size: 15px !important;
-  font-weight: 700;
-  color: var(--gold) !important;
-  letter-spacing: .4px;
-}
-.offline-rules-accordion .cfg-accordion-header {
-  padding: 14px 16px;
-}
-.offline-rules-accordion .cfg-accordion-body {
-  padding: 4px 16px 16px;
-}
 
 /* ━━━ 使用量バー ━━━ */
 .sess-usage-bar-bg {
