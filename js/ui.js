@@ -973,6 +973,12 @@ function _isActive(id) {
 function _buildBarDots(bar, btns) {
   bar.innerHTML = '';
   btns.forEach(b => {
+    if (b.spacer) {
+      const sp = document.createElement('div');
+      sp.className = 'fc-bar-spacer';
+      bar.appendChild(sp);
+      return;
+    }
     const dot = document.createElement('div');
     dot.className = 'fc-bar-dot' + (_isActive(b.id) ? ' ' + b.cls : '');
     bar.appendChild(dot);
@@ -1052,6 +1058,13 @@ function _fcLeftShow(animate) {
 // ── 右列 収納/展開 ──
 let _fcRightOpen = true;
 
+// 収納バーに表示するドットリスト（地図系／その他をスペーサーで区切る）
+const FC_ALL_BTNS = [
+  ...FC_LEFT_BTNS,
+  { spacer: true },
+  ...FC_RIGHT_BTNS,
+];
+
 function _fcRightHide(animate) {
   _fcRightOpen = false;
   _fcLeftOpen = false;
@@ -1060,14 +1073,14 @@ function _fcRightHide(animate) {
   const elR = document.getElementById('float-ctrl-right');
   const onEnd = () => {
     elR.removeEventListener('transitionend', onEnd);
-    elR.classList.add('fc-hidden');
     elL.classList.add('fc-hidden');
     elC.classList.add('fc-hidden');
+    elR.classList.add('fc-hidden');
     document.getElementById('zoom-level-badge').classList.add('fc-hidden');
     const scale = document.querySelector('.leaflet-control-scale');
     if (scale) scale.classList.add('fc-hidden');
     const bar = document.getElementById('fc-bar-right');
-    _buildBarDots(bar, [...FC_LEFT_BTNS, ...FC_RIGHT_BTNS]);
+    _buildBarDots(bar, FC_ALL_BTNS);
     bar.classList.add('show');
     bar.classList.remove('fc-snap');
     requestAnimationFrame(() => requestAnimationFrame(() => {
