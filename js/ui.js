@@ -1054,12 +1054,20 @@ let _fcRightOpen = true;
 
 function _fcRightHide(animate) {
   _fcRightOpen = false;
+  _fcLeftOpen = false;
+  const elL = document.getElementById('float-ctrl-left');
+  const elC = document.getElementById('float-ctrl');
   const elR = document.getElementById('float-ctrl-right');
   const onEnd = () => {
     elR.removeEventListener('transitionend', onEnd);
     elR.classList.add('fc-hidden');
+    elL.classList.add('fc-hidden');
+    elC.classList.add('fc-hidden');
+    document.getElementById('zoom-level-badge').classList.add('fc-hidden');
+    const scale = document.querySelector('.leaflet-control-scale');
+    if (scale) scale.classList.add('fc-hidden');
     const bar = document.getElementById('fc-bar-right');
-    _buildBarDots(bar, FC_RIGHT_BTNS);
+    _buildBarDots(bar, [...FC_LEFT_BTNS, ...FC_RIGHT_BTNS]);
     bar.classList.add('show');
     bar.classList.remove('fc-snap');
     requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -1070,12 +1078,17 @@ function _fcRightHide(animate) {
   if (animate) {
     elR.addEventListener('transitionend', onEnd, { once: true });
   }
+  _setTransform(elL, 'translateY(-120%)', animate);
+  _setTransform(elC, 'translateY(-120%)', animate);
   _setTransform(elR, 'translateY(-120%)', animate);
   if (!animate) onEnd();
 }
 
 function _fcRightShow(animate) {
   _fcRightOpen = true;
+  _fcLeftOpen = true;
+  const elL = document.getElementById('float-ctrl-left');
+  const elC = document.getElementById('float-ctrl');
   const elR = document.getElementById('float-ctrl-right');
   const bar = document.getElementById('fc-bar-right');
   // バー収納
@@ -1085,13 +1098,19 @@ function _fcRightShow(animate) {
     bar.classList.remove('show', 'fc-snap');
     bar.style.transform = '';
   }, { once: true });
-  // ボタン展開
-  elR.classList.remove('fc-hidden');
-  elR.classList.remove('fc-snap', 'fc-intro');
-  elR.style.transform = 'translateY(-120%)';
+  // 左列・中央・右列を一緒に展開
+  [elL, elC, elR].forEach(el => {
+    el.classList.remove('fc-hidden', 'fc-snap', 'fc-intro');
+    el.style.transform = 'translateY(-120%)';
+  });
+  document.getElementById('zoom-level-badge').classList.remove('fc-hidden');
+  const scale = document.querySelector('.leaflet-control-scale');
+  if (scale) scale.classList.remove('fc-hidden');
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    elR.classList.add('fc-snap');
-    elR.style.transform = 'translateY(0)';
+    [elL, elC, elR].forEach(el => {
+      el.classList.add('fc-snap');
+      el.style.transform = 'translateY(0)';
+    });
   }));
 }
 
@@ -1136,13 +1155,13 @@ function _addDragX(el, onCommit, onCancel) {
 // ── ドラッグ追従（Y軸）：右列用 ──
 function _addDragY(el, onCommit, onCancel) {
   let sy = null, dragging = false;
-  const target = document.getElementById('float-ctrl-right');
+  const targets = ['float-ctrl-left','float-ctrl','float-ctrl-right'].map(id => document.getElementById(id));
   const threshold = 80; // px
 
   el.addEventListener('touchstart', e => {
     sy = e.touches[0].clientY;
     dragging = false;
-    target.classList.remove('fc-snap','fc-intro');
+    targets.forEach(t => { t.classList.remove('fc-snap','fc-intro'); });
   }, { passive: true });
 
   el.addEventListener('touchmove', e => {
@@ -1151,7 +1170,7 @@ function _addDragY(el, onCommit, onCancel) {
     if (dy >= 0) return; // 下方向は無視
     dragging = true;
     const clamped = Math.max(dy, -window.innerHeight);
-    target.style.transform = `translateY(${clamped}px)`;
+    targets.forEach(t => { t.style.transform = `translateY(${clamped}px)`; });
   }, { passive: true });
 
   el.addEventListener('touchend', e => {
@@ -1162,8 +1181,10 @@ function _addDragY(el, onCommit, onCancel) {
       onCommit();
     } else {
       // スナップバック
-      target.classList.add('fc-snap');
-      target.style.transform = 'translateY(0)';
+      targets.forEach(t => {
+        t.classList.add('fc-snap');
+        t.style.transform = 'translateY(0)';
+      });
       if (onCancel) onCancel();
     }
   }, { passive: true });
@@ -1186,44 +1207,29 @@ function _addSwipeY(el, onDown, onUp) {
 
 // ── 初期化（DOM構築後に呼ぶ）──
 function initFcToggle() {
-  const barL = document.getElementById('fc-bar-left');
   const barR = document.getElementById('fc-bar-right');
   const elL  = document.getElementById('float-ctrl-left');
   const elC  = document.getElementById('float-ctrl');
   const elR  = document.getElementById('float-ctrl-right');
 
-  // 左バー：タップで展開
-  barL.addEventListener('click', () => _fcLeftShow(true));
-
-  // 左セット：ドラッグ追従で収納
-  _addDragX(elL, () => _fcLeftHide(true), null);
-  _addDragX(elC, () => _fcLeftHide(true), null);
-
-  // 右バー（上端横バー）：タップ/下スワイプで展開
+  // 右バー：タップ/下スワイプで全体展開
   _addSwipeY(barR, () => _fcRightShow(true), null);
   barR.addEventListener('click', () => _fcRightShow(true));
 
-  // 右列：ドラッグ追従で収納
+  // 右列・左列・中央：上スワイプで全体収納
   _addDragY(elR, () => _fcRightHide(true), null);
+  _addDragY(elL, () => _fcRightHide(true), null);
+  _addDragY(elC, () => _fcRightHide(true), null);
 
-  // ── 起動時スライドイン ──
-  // 左・中央：左から右へ
-  elL.style.transform = 'translateX(-120%)';
-  elC.style.transform = 'translateX(-120%)';
-  // 右：上から下へ
-  elR.style.transform = 'translateY(-120%)';
+  // ── 起動時スライドイン（全エリア上から下へ統一）──
+  [elL, elC, elR].forEach(el => { el.style.transform = 'translateY(-120%)'; });
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    elL.classList.add('fc-intro');
-    elC.classList.add('fc-intro');
-    elR.classList.add('fc-intro');
-    elL.style.transform = 'translateX(0)';
-    elC.style.transform = 'translateX(0)';
-    elR.style.transform = 'translateY(0)';
-    // intro終了後にクラスをクリア
-    elL.addEventListener('transitionend', () => elL.classList.remove('fc-intro'), { once: true });
-    elC.addEventListener('transitionend', () => elC.classList.remove('fc-intro'), { once: true });
-    elR.addEventListener('transitionend', () => elR.classList.remove('fc-intro'), { once: true });
+    [elL, elC, elR].forEach(el => {
+      el.classList.add('fc-intro');
+      el.style.transform = 'translateY(0)';
+      el.addEventListener('transitionend', () => el.classList.remove('fc-intro'), { once: true });
+    });
   }));
 }
 
