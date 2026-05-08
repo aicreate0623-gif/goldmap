@@ -3739,7 +3739,8 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   margin-bottom: 8px;
 }
 /* ━━━ 円形エリアDLダイアログ ━━━ */
-#circle-dl-dialog {
+/* #circle-dl-dialog は #cdld-panel に移行 */
+#cdld-panel {
   position: fixed;
   bottom: calc(var(--tab-h) + 8px);
   left: 8px; right: 8px;
@@ -3753,6 +3754,21 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   padding: 14px 16px 12px;
   max-height: 72vh;
   overflow-y: auto;
+}
+/* フェーズ①：タップ待ちバー（コンパクト） */
+#cdld-ph1 {
+  padding: 0;
+}
+.cdld-ph1-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0;
+}
+.cdld-ph1-msg {
+  font-size: 13px; color: var(--gold);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.cdld-ph1-cancel {
+  flex-shrink: 0; margin-left: 12px;
 }
 .cdld-section {
   margin-bottom: 14px;

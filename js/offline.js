@@ -766,8 +766,17 @@ function checkResume(){
     const pct = s.total>0 ? Math.round(s.taskIndex/s.total*100) : 0;
     _bdprogSyncProgress(s.taskIndex||0, s.total||0, '— MB');
     _bdprogSetPhase('stopped');
+  } else if(s.subMode==='circle'){
+    // 円形DL: resume-banner を使用（矩形と同じ）
+    const banner=document.getElementById('resume-banner');
+    const modeStr='円形エリア';
+    const layerStr=_layerLabel(s.layers);
+    const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
+    document.getElementById('resume-desc').innerHTML=
+      `${modeStr} / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
+    banner.classList.add('show');
   } else {
-    // detail: 既存のresume-bannerを使用
+    // detail（矩形）: 既存のresume-bannerを使用
     const banner=document.getElementById('resume-banner');
     const modeStr='詳細範囲';
     const layerStr=_layerLabel(s.layers);
@@ -785,15 +794,39 @@ function clearResume(){
 
 async function resumeDl(){
   const s=loadResume(); if(!s)return;
-  // 状態を復元してDL再開
   const layers=s.layers; if(!layers.length)return;
   let bounds;
   if(s.mode==='base') bounds=JAPAN;
   else {
     bounds=L.latLngBounds([s.bounds.s,s.bounds.w],[s.bounds.n,s.bounds.e]);
-    detRect=bounds; showRect();
+    if(s.subMode!=='circle'){ detRect=bounds; showRect(); }
   }
-  await runDl(s.mode, bounds, s.zmin, s.zmax, layers, 0);
+  if(s.subMode==='circle'){
+    // 円形DL: cdld-panel フェーズ③を開いてDL再開
+    _cdldCenter = s.center || null;
+    // プレビュー円を復元
+    if(_cdldCenter){
+      if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+      _cdldCircle = L.circle([_cdldCenter.lat, _cdldCenter.lng], {
+        radius: (s.radiusKm || 5) * 1000,
+        color: '#c8a84b', weight: 2,
+        fillColor: '#c8a84b', fillOpacity: 0.10
+      }).addTo(map);
+    }
+    _cdldShowPhase('cdld-ph3');
+    _cdldPh3SetPhase('running');
+    const pct = s.total>0 ? Math.round(s.taskIndex/s.total*100) : 0;
+    _cdldSyncProgress(s.taskIndex||0, s.total||0, '— MB');
+    _openTab('map');
+    document.getElementById('resume-banner').classList.remove('show');
+    // オーバーライド設定（再開中も cdld 進捗バーを使う）
+    window._dldSyncProgressOverride = (done, total, mb) => _cdldSyncProgress(done, total, mb);
+    await runDl('detail', bounds, s.zmin, s.zmax, layers, 0);
+    window._dldSyncProgressOverride = null;
+    if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+  } else {
+    await runDl(s.mode, bounds, s.zmin, s.zmax, layers, 0);
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -838,6 +871,11 @@ function _dldS3SetPhase(phase){
  * STEP3の進捗バーを更新する。
  */
 function _dldSyncProgress(done, total, mb){
+  // 円形DL中は cdld-ph3 の進捗バーに転送
+  if(typeof window._dldSyncProgressOverride === 'function'){
+    window._dldSyncProgressOverride(done, total, mb);
+    return;
+  }
   const pct = total > 0 ? Math.round(done / total * 100) : 0;
   const _e = id => document.getElementById(id);
   if(_e('dld-pb-done')) _e('dld-pb-done').textContent = done.toLocaleString();
@@ -1291,7 +1329,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
             if(active===0){
               // 全fetch完了後に停止処理
               const now=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-              saveResume({mode,bounds:boundsData,zmin,zmax,layers,taskIndex:done,total,savedAt:now});
+              saveResume({mode,subMode:window._cdldActiveSession?'circle':undefined,center:window._cdldActiveSession?.center,radiusKm:window._cdldActiveSession?.radiusKm,bounds:boundsData,zmin,zmax,layers,taskIndex:done,total,savedAt:now});
               // ベースDLの場合は専用キーにも保存
               if(mode==='base'){
                 saveBaseDlProgress({layers,zmin,zmax,taskIndex:done,total,savedAt:now});
@@ -1370,6 +1408,11 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     if(mode==='base'){
       _bdprogSyncProgress(done, total, (realBytes/1024/1024).toFixed(0)+' MB');
       _bdprogSetPhase('done');
+    } else if(window._cdldActiveSession){
+      // 円形DL完了
+      _cdldSyncProgress(done, total, (realBytes/1024/1024).toFixed(1)+' MB');
+      _cdldPh3SetPhase('done');
+      _cdldShowDonePanel(done, realBytes, layers, zmin, zmax);
     } else {
       _dldS3SetPhase('done');
       _dldShowDonePanel(done, realBytes, layers, zmin, zmax, _savedSessId);
@@ -1378,6 +1421,8 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     log('⏸ 停止しました。続きから再開できます。');
     if(mode==='base'){
       _bdprogSetPhase('stopped');
+    } else if(window._cdldActiveSession){
+      _cdldPh3SetPhase('stopped');
     } else {
       _dldS3SetPhase('stopped');
     }
@@ -2401,29 +2446,38 @@ function _cdldOnRadiusChange(){
   _cdldCalc();
 }
 
-/** タップ選択モード開始 */
+// ─── cdld フェーズ切替ヘルパー ───────────────────────────
+function _cdldShowPhase(ph){
+  ['cdld-ph1','cdld-ph2','cdld-ph3'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = (id === ph) ? 'block' : 'none';
+  });
+  const panel = document.getElementById('cdld-panel');
+  if(panel) panel.style.display = ph ? 'block' : 'none';
+}
+
+/** タップ待ちモード（フェーズ①）開始 ― マップタブへ自動切替 */
 function _cdldStartTap(){
   if(_cdldTapping) return;
   _cdldTapping = true;
-  const hint = document.getElementById('cdld-tap-hint');
-  const btn  = document.getElementById('cdld-tap-btn');
-  if(hint) hint.style.display = 'block';
-  if(btn)  btn.textContent = '⏳ タップ待ち…';
-  // 地図タブに切り替え
+  // バーを表示したまま地図タブへ
+  _cdldShowPhase('cdld-ph1');
   _openTab('map');
   _pushHistory();
-  // 1回だけclickを受け取る
+  // 1回だけクリックを受け取る
   _cdldTapHandler = function(e){
     _cdldTapping = false;
     _cdldSetCenter(e.latlng.lat, e.latlng.lng);
-    // オフラインタブに戻る
-    _openTab('offline');
-    _pushHistory();
-    // ダイアログを再表示
-    const dlg = document.getElementById('circle-dl-dialog');
-    if(dlg) dlg.style.display = 'block';
+    // タップ後はそのままフェーズ②（タブ切替なし）
+    _cdldShowPhase('cdld-ph2');
   };
   map.once('click', _cdldTapHandler);
+}
+
+/** フェーズ②から「📍 変更」→ フェーズ①に戻る */
+function _cdldBackToTap(){
+  if(_cdldTapHandler){ map.off('click', _cdldTapHandler); _cdldTapHandler = null; }
+  _cdldStartTap();
 }
 
 /** 中心座標をセット（タップ or 外部からの引数渡し共通） */
@@ -2431,10 +2485,6 @@ function _cdldSetCenter(lat, lng){
   _cdldCenter = { lat, lng };
   const el = document.getElementById('cdld-center-val');
   if(el) el.textContent = lat.toFixed(5) + ', ' + lng.toFixed(5);
-  const hint = document.getElementById('cdld-tap-hint');
-  const btn  = document.getElementById('cdld-tap-btn');
-  if(hint) hint.style.display = 'none';
-  if(btn)  btn.textContent = '📍 変更';
   _cdldUpdateCircle();
   _cdldCalc();
 }
@@ -2445,53 +2495,109 @@ function openCircleDlDialog(lat, lng){
   isPremiumUser().then(premium => {
     if(!premium){ showPremiumGate('offline'); return; }
 
-    // 初期化
+    // 内部状態を初期化
     _cdldTapping = false;
     if(_cdldTapHandler){ map.off('click', _cdldTapHandler); _cdldTapHandler = null; }
     _cdldCenter = null;
     if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
 
-    // UI リセット
-    const centerVal = document.getElementById('cdld-center-val');
-    const tapHint   = document.getElementById('cdld-tap-hint');
-    const tapBtn    = document.getElementById('cdld-tap-btn');
+    // フェーズ②のUI をリセット
     const slider    = document.getElementById('cdld-radius-slider');
     const radiusVal = document.getElementById('cdld-radius-val');
     const est       = document.getElementById('cdld-est');
     const dlBtn     = document.getElementById('cdld-dl-btn');
-    if(centerVal) centerVal.textContent = '地図をタップして選択';
-    if(tapHint)   tapHint.style.display = 'none';
-    if(tapBtn)    tapBtn.textContent = '📍 タップ選択';
+    const centerVal = document.getElementById('cdld-center-val');
     if(slider)    slider.value = 5;
     if(radiusVal) radiusVal.textContent = '5 km';
     if(est)       est.textContent = '— MB';
     if(dlBtn)     dlBtn.disabled = true;
+    if(centerVal) centerVal.textContent = '—';
     // レイヤー初期化
     ['cdld-ck-std','cdld-ck-photo','cdld-ck-topo'].forEach((id,i) => {
       const ck = document.getElementById(id);
       if(ck) ck.checked = (i === 0);
     });
 
-    document.getElementById('circle-dl-dialog').style.display = 'block';
-    _openTab('offline');
-    _pushHistory();
-
-    // 引数で座標が渡された場合は即セット
     if(lat !== undefined && lng !== undefined){
+      // 座標引数あり → フェーズ②を直接表示
       _cdldSetCenter(lat, lng);
+      _cdldShowPhase('cdld-ph2');
+      _openTab('map');
+      _pushHistory();
+    } else {
+      // 引数なし → フェーズ①（タップ待ちバー）
+      _cdldStartTap();
     }
   });
 }
 
-/** キャンセル */
+/** キャンセル・閉じる共通処理 */
 function _cdldCancel(){
-  document.getElementById('circle-dl-dialog').style.display = 'none';
   if(_cdldTapHandler){ map.off('click', _cdldTapHandler); _cdldTapHandler = null; }
   if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
   _cdldCenter  = null;
   _cdldTapping = false;
-  _openTab('offline');
-  _pushHistory();
+  _cdldShowPhase(null); // パネルを隠す
+}
+
+/** フェーズ③完了後の閉じるボタン */
+function _cdldClose(){
+  _cdldCancel();
+}
+
+/** フェーズ③ フェーズ切替（矩形 _dldS3SetPhase に対応） */
+function _cdldPh3SetPhase(phase){
+  const _e = id => document.getElementById(id);
+  const titleMap = {
+    running:  '⬇ タイルをダウンロード中です…',
+    stopping: '⏳ 停止処理中です…',
+    stopped:  '⏸ ダウンロードを停止しました',
+    done:     '✅ ダウンロード完了'
+  };
+  const title = _e('cdld-ph3-title');
+  if(title) title.textContent = titleMap[phase] || '';
+
+  const stopMsg  = _e('cdld-stopping-msg');
+  if(stopMsg) stopMsg.style.display = phase === 'stopping' ? 'block' : 'none';
+
+  const donePanel = _e('cdld-done-panel');
+  if(donePanel) donePanel.style.display = phase === 'done' ? 'block' : 'none';
+
+  const btnStop  = _e('cdld-btn-stop');
+  const btnBack  = _e('cdld-btn-back');
+  const btnClose = _e('cdld-btn-close');
+  if(btnStop)  btnStop.style.display  = (phase === 'running' || phase === 'stopping') ? 'inline-block' : 'none';
+  if(btnBack)  btnBack.style.display  = phase === 'stopped' ? 'inline-block' : 'none';
+  if(btnClose) btnClose.style.display = phase === 'done'    ? 'inline-block' : 'none';
+}
+
+/** フェーズ③ 進捗バー更新（矩形 _dldSyncProgress に対応） */
+function _cdldSyncProgress(done, total, mb){
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  const _e = id => document.getElementById(id);
+  if(_e('cdld-pb-done')) _e('cdld-pb-done').textContent = done.toLocaleString();
+  if(_e('cdld-pb-tot'))  _e('cdld-pb-tot').textContent  = total.toLocaleString();
+  if(_e('cdld-pb-bar'))  _e('cdld-pb-bar').style.width  = pct + '%';
+  if(_e('cdld-pb-mb'))   _e('cdld-pb-mb').textContent   = mb;
+}
+
+/** フェーズ③ 完了パネル表示（矩形 _dldShowDonePanel 簡易版） */
+function _cdldShowDonePanel(done, realBytes, layers, zmin, zmax){
+  const summary = document.getElementById('cdld-done-summary');
+  if(summary){
+    const mb = (realBytes / 1024 / 1024).toFixed(1);
+    const layerNames = _layerLabel(layers, '・');
+    summary.innerHTML =
+      `<div class="dld-done-row">📦 <b>${done.toLocaleString()}</b> 枚 / 約 <b>${mb} MB</b></div>` +
+      `<div class="dld-done-row">🗂 ${layerNames}</div>` +
+      `<div class="dld-done-row">🔍 Z${zmin}〜Z${zmax}</div>`;
+  }
+}
+
+/** 停止ボタン */
+function _cdldStop(){
+  _cdldPh3SetPhase('stopping');
+  dlStop = true; // runDl の停止フラグ
 }
 
 /** DL開始 */
@@ -2518,13 +2624,40 @@ async function _cdldStartDl(){
   // 容量チェック（既存関数流用）
   if(_dldCheckSize(bounds, zmax, layers)) return;
 
-  // circle-dl-dialogを閉じてdl-dialogのSTEP3を表示
-  document.getElementById('circle-dl-dialog').style.display = 'none';
-  document.getElementById('dl-dialog').style.display = 'block';
-  _dldRenderStep(3);
+  // フェーズ③へ
+  _cdldShowPhase('cdld-ph3');
+  _cdldPh3SetPhase('running');
+
+  // circle DL識別用セッション情報をグローバルに保持（runDl内のsaveResumeから参照）
+  window._cdldActiveSession = { center: { lat: _cdldCenter.lat, lng: _cdldCenter.lng }, radiusKm: _cdldRadiusKm() };
+
+  // レジューム保存（subMode:'circle' で矩形と区別）
+  const now = new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  saveResume({
+    mode: 'detail',
+    subMode: 'circle',
+    center: { lat: _cdldCenter.lat, lng: _cdldCenter.lng },
+    radiusKm: _cdldRadiusKm(),
+    bounds: { n: bounds.getNorth(), s: bounds.getSouth(), e: bounds.getEast(), w: bounds.getWest() },
+    zmin: 10, zmax, layers,
+    taskIndex: 0, total: 0,
+    savedAt: now
+  });
 
   detRect = bounds;
+
+  // runDl 完了コールバックをフック（circle専用進捗・完了処理）
+  const _cdldTickHook = (done, total, mb) => {
+    _cdldSyncProgress(done, total, mb);
+  };
+  // runDl に渡すためにグローバルの _dldSyncProgress を一時差し替え
+  const _saved = window._dldSyncProgressOverride;
+  window._dldSyncProgressOverride = _cdldTickHook;
+
   await runDl('detail', bounds, 10, zmax, layers, 0);
+
+  window._dldSyncProgressOverride = _saved;
+  window._cdldActiveSession = null;
 
   // 完了後に円プレビューを除去
   if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
