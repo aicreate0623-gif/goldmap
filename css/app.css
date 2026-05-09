@@ -3009,25 +3009,32 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .adp-layers {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   margin-bottom: 10px;
 }
 .adp-layer {
-  display: flex;
+  display: grid;
+  grid-template-columns: 20px 1fr 80px 72px;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 13px;
   color: var(--txt);
   cursor: pointer;
+  padding: 3px 0;
 }
 .adp-layer--done {
   color: var(--txt-sub);
   cursor: default;
 }
-.adp-lk-name { flex: 1; }
+.adp-lk-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .adp-lk-badge {
   font-size: 11px;
   color: var(--txt-sub);
+  text-align: right;
 }
 .adp-layer--done .adp-lk-badge { color: #4caf50; }
 /* ─── レイヤーズームステータスバッジ ─── */
@@ -3069,9 +3076,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 
 /* ─── 追加DL ズーム別状態 ─── */
-.adp-layer {
-  flex-wrap: wrap;
-}
 .adp-zoom-status {
   flex-basis: 100%;
   font-size: 10px;
