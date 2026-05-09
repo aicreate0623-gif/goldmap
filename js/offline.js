@@ -1413,7 +1413,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
       // 半径エリアDL完了
       _cdldSyncProgress(done, total, (realBytes/1024/1024).toFixed(1)+' MB');
       _cdldPh3SetPhase('done');
-      _cdldShowDonePanel(done, realBytes, layers, zmin, zmax);
+      _cdldShowDonePanel(done, realBytes, layers, zmin, zmax, _savedSessId);
     } else {
       _dldS3SetPhase('done');
       _dldShowDonePanel(done, realBytes, layers, zmin, zmax, _savedSessId);
@@ -2610,33 +2610,29 @@ function _cdldPh3SetPhase(phase){
   const title = _e('cdld-ph3-title');
   if(title) title.textContent = titleMap[phase] || '';
 
-  const stopMsg  = _e('cdld-stopping-msg');
+  const stopMsg = _e('cdld-stopping-msg');
   if(stopMsg) stopMsg.style.display = phase === 'stopping' ? 'block' : 'none';
 
   const donePanel = _e('cdld-done-panel');
   if(donePanel) donePanel.style.display = phase === 'done' ? 'block' : 'none';
 
-  const btnStop  = _e('cdld-btn-stop');
-  const btnBack  = _e('cdld-btn-back');
-  const btnClose = _e('cdld-btn-close');
-  if(btnStop)  btnStop.style.display  = (phase === 'running' || phase === 'stopping') ? 'inline-block' : 'none';
-  if(btnBack)  btnBack.style.display  = phase === 'stopped' ? 'inline-block' : 'none';
-  if(btnClose) btnClose.style.display = phase === 'done'    ? 'inline-block' : 'none';
+  // ボタングループ切り替え
+  ['running','stopping','stopped','done'].forEach(p => {
+    const el = _e('cdld-btns-' + p);
+    if(el) el.style.display = p === phase ? 'flex' : 'none';
+  });
 }
 
 /** フェーズ③ 進捗バー更新（矩形 _dldSyncProgress に対応） */
 function _cdldSyncProgress(done, total, mb){
   const pct = total > 0 ? Math.round(done / total * 100) : 0;
   const _e = id => document.getElementById(id);
-  if(_e('cdld-pb-done')) _e('cdld-pb-done').textContent = done.toLocaleString();
-  if(_e('cdld-pb-tot'))  _e('cdld-pb-tot').textContent  = total.toLocaleString();
-  if(_e('cdld-pb-bar'))  _e('cdld-pb-bar').style.width  = pct + '%';
-  if(_e('cdld-pb-mb'))   _e('cdld-pb-mb').textContent   = mb;
-  if(_e('cdld-pb-pct'))  _e('cdld-pb-pct').textContent  = pct + '%';
+  if(_e('cdld-pb-bar')) _e('cdld-pb-bar').style.width = pct + '%';
+  if(_e('cdld-pb-pct')) _e('cdld-pb-pct').textContent  = pct + '%';
 }
 
-/** フェーズ③ 完了パネル表示（矩形 _dldShowDonePanel 簡易版） */
-function _cdldShowDonePanel(done, realBytes, layers, zmin, zmax){
+/** フェーズ③ 完了パネル表示（矩形 _dldShowDonePanel 相当） */
+async function _cdldShowDonePanel(done, realBytes, layers, zmin, zmax, sessId){
   const summary = document.getElementById('cdld-done-summary');
   if(summary){
     const mb = (realBytes / 1024 / 1024).toFixed(1);
@@ -2646,12 +2642,78 @@ function _cdldShowDonePanel(done, realBytes, layers, zmin, zmax){
       `<div class="dld-done-row">🗂 ${layerNames}</div>` +
       `<div class="dld-done-row">🔍 Z${zmin}〜Z${zmax}</div>`;
   }
+
+  const area   = document.getElementById('cdld-done-adddl-area');
+  const addBtn = document.getElementById('cdld-btn-addlayer');
+  if(!area){ if(addBtn) addBtn.style.display = 'none'; return; }
+
+  if(!sessId){
+    area.innerHTML = '';
+    if(addBtn) addBtn.style.display = 'none';
+    return;
+  }
+
+  const sess = await dbGetSess(sessId).catch(() => null);
+  if(!sess || !sess.bounds){
+    area.innerHTML = '';
+    if(addBtn) addBtn.style.display = 'none';
+    return;
+  }
+
+  // 追加DLパネルを矩形DLと同じ関数で描画
+  await _dldRenderAddLayerPanel(sessId, sess, area);
+
+  const hasPending = area.querySelector('.dldadp-ck:not(:disabled)');
+  if(addBtn) addBtn.style.display = hasPending ? 'inline-flex' : 'none';
+}
+
+/** 完了パネル内の追加DLエリアへスクロール */
+function _cdldScrollToAddLayer(){
+  const area = document.getElementById('cdld-done-adddl-area');
+  if(area) area.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /** 停止ボタン */
 function _cdldStop(){
   _cdldPh3SetPhase('stopping');
   dlStop = true; // runDl の停止フラグ
+}
+
+/** stopped フェーズ: 再開ボタン（resumeDl の circle 処理を直接実行） */
+async function _cdldResume(){
+  const s = loadResume();
+  if(!s || s.subMode !== 'circle'){ showAlert('エラー','レジュームデータがありません'); return; }
+
+  const bounds = L.latLngBounds([s.bounds.s, s.bounds.w], [s.bounds.n, s.bounds.e]);
+  _cdldCenter = s.center || null;
+
+  // プレビュー円を復元
+  if(_cdldCenter){
+    if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+    _cdldCircle = L.circle([_cdldCenter.lat, _cdldCenter.lng], {
+      radius: (s.radiusKm || 5) * 1000,
+      color: '#c8a84b', weight: 2,
+      fillColor: '#c8a84b', fillOpacity: 0.10
+    }).addTo(map);
+  }
+
+  _cdldPh3SetPhase('running');
+  _cdldSyncProgress(s.taskIndex || 0, s.total || 0, '— MB');
+
+  window._cdldActiveSession = { center: s.center, radiusKm: s.radiusKm };
+  window._dldSyncProgressOverride = (done, total, mb) => _cdldSyncProgress(done, total, mb);
+
+  await runDl('detail', bounds, s.zmin, s.zmax, s.layers, s.taskIndex || 0);
+
+  window._dldSyncProgressOverride = null;
+  window._cdldActiveSession = null;
+  if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+}
+
+/** stopped フェーズ: 破棄ボタン */
+function _cdldDiscard(){
+  clearResume();
+  _cdldCancel();
 }
 
 /** DL開始 */
@@ -2715,11 +2777,4 @@ async function _cdldStartDl(){
 
   // 完了後に円プレビューを除去
   if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
-
-  // 完了パネル表示
-  if(!dlStop){
-    _cdldPh3SetPhase('done');
-    const sess = await dbGetSess(detSessId).catch(()=>null);
-    if(sess) _cdldShowDonePanel(sess.totalTiles||0, sess.totalSize||0, layers, 10, zmax);
-  }
 }

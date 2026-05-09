@@ -1273,16 +1273,13 @@
       停止処理中です。しばらくお待ちください…
     </div>
 
-    <!-- 進捗バー -->
+    <!-- 進捗バー（%のみ） -->
     <div class="dld-pb-wrap">
       <div class="dld-pb-track">
         <div class="dld-pb-fill" id="cdld-pb-bar" style="width:0%"></div>
       </div>
       <div class="dld-pb-nums">
         <span id="cdld-pb-pct">0%</span>
-        &nbsp;·&nbsp;
-        <span id="cdld-pb-done">0</span> / <span id="cdld-pb-tot">—</span> 枚
-        &nbsp;(<span id="cdld-pb-mb">— MB</span>)
       </div>
     </div>
 
@@ -1292,13 +1289,32 @@
     <!-- 完了パネル -->
     <div id="cdld-done-panel" style="display:none">
       <div id="cdld-done-summary"></div>
+      <!-- 追加DLエリア（_cdldShowDonePanel で動的生成） -->
+      <div id="cdld-done-adddl-area"></div>
     </div>
 
     <!-- フッターボタン -->
     <div class="dld-footer-btns">
-      <button class="btn red"    id="cdld-btn-stop"  onclick="_cdldStop()">■ 停止</button>
-      <button class="btn"        id="cdld-btn-back"  style="display:none" onclick="_cdldCancel()">← 閉じる</button>
-      <button class="btn accent" id="cdld-btn-close" style="display:none" onclick="_cdldClose()">✅ 閉じる</button>
+      <!-- DL中 -->
+      <div id="cdld-btns-running" style="display:flex;gap:6px;width:100%;justify-content:flex-end">
+        <button class="btn red" onclick="_cdldStop()">■ 停止</button>
+      </div>
+      <!-- 停止処理中 -->
+      <div id="cdld-btns-stopping" style="display:none;gap:6px;width:100%;justify-content:flex-end">
+        <button class="btn red" disabled>⏳ 停止中…</button>
+      </div>
+      <!-- 停止後: 再開 + 破棄 -->
+      <div id="cdld-btns-stopped" style="display:none;gap:6px;width:100%">
+        <button class="btn sm red" onclick="_cdldDiscard()">✕ 破棄</button>
+        <span style="flex:1"></span>
+        <button class="btn accent" onclick="_cdldResume()">▶ 再開</button>
+      </div>
+      <!-- 完了後 -->
+      <div id="cdld-btns-done" style="display:none;gap:6px;width:100%;flex-wrap:wrap">
+        <button class="btn sm" id="cdld-btn-addlayer" onclick="_cdldScrollToAddLayer()" style="display:none">📥 レイヤーを追加DL</button>
+        <span style="flex:1"></span>
+        <button class="btn accent" onclick="_cdldClose()">✅ 閉じる</button>
+      </div>
     </div>
   </div>
 
