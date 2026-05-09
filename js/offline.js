@@ -1166,6 +1166,9 @@ async function _dldAdpStart(sessId){
 
   await runDl('detail', bounds, zmin, zmax, checked, 0, sessId);
 
+  // ミラーリング用オーバーライドをリセット
+  window._dldSyncProgressOverride = null;
+
   // DL完了 → 完了表示
   const prog    = document.getElementById(`dldadp-prog-${sessId}`);
   const progBar = document.getElementById(`dldadp-prog-bar-${sessId}`);
@@ -1175,29 +1178,31 @@ async function _dldAdpStart(sessId){
   if(progCnt) progCnt.textContent = '✅ DL完了';
   if(progLbl) progLbl.textContent = '';
 
-  // 誘導ボタンを非表示（追加DL完了後）
-  const addBtn = document.getElementById('dld-btn-addlayer');
-  if(addBtn) addBtn.style.display = 'none';
+  // 誘導ボタンを非表示（矩形DL・円形DL両対応）
+  ['dld-btn-addlayer', 'cdld-btn-addlayer'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
 
   await refreshCache();
 }
 
-/** dldadp: STEP3プログレスをパネル内にミラーリング */
+/** dldadp: 追加DL中の進捗をパネル内にミラーリング
+ *  矩形DL・円形DLどちらの完了パネルからでも動作するよう
+ *  _dldSyncProgressOverride コールバックで受け取る方式に統一
+ */
 function _dldAdpMirrorProgress(sessId){
-  const timer = setInterval(()=>{
-    const prog = document.getElementById(`dldadp-prog-${sessId}`);
-    if(!prog){ clearInterval(timer); return; }
-    const pgBar  = document.getElementById('dld-pb-bar');
-    const pgDone = document.getElementById('dld-pb-done');
-    const pgTot  = document.getElementById('dld-pb-tot');
-    const bar    = document.getElementById(`dldadp-prog-bar-${sessId}`);
-    const cnt    = document.getElementById(`dldadp-prog-cnt-${sessId}`);
-    if(bar && pgBar) bar.style.width = pgBar.style.width;
-    if(cnt && pgDone && pgTot)
-      cnt.textContent = `${pgDone.textContent} / ${pgTot.textContent}`;
-    // DL完了判定（dlRunがfalseになったら停止）
-    if(typeof dlRun !== 'undefined' && !dlRun){ clearInterval(timer); }
-  }, 300);
+  const bar = document.getElementById(`dldadp-prog-bar-${sessId}`);
+  const cnt = document.getElementById(`dldadp-prog-cnt-${sessId}`);
+
+  // 既存のオーバーライドを保存して連鎖
+  const _prev = window._dldSyncProgressOverride;
+  window._dldSyncProgressOverride = (done, total, mb) => {
+    if(typeof _prev === 'function') _prev(done, total, mb);
+    const pct = total > 0 ? Math.round(done / total * 100) : 0;
+    if(bar) bar.style.width = pct + '%';
+    if(cnt) cnt.textContent = `${done.toLocaleString()} / ${total.toLocaleString()}`;
+  };
 }
 
 // ═══════════════════════════════════════════
@@ -2660,7 +2665,6 @@ async function _cdldShowDonePanel(done, realBytes, layers, zmin, zmax, sessId){
     return;
   }
 
-  // 追加DLパネルを矩形DLと同じ関数で描画
   await _dldRenderAddLayerPanel(sessId, sess, area);
 
   const hasPending = area.querySelector('.dldadp-ck:not(:disabled)');
@@ -2676,10 +2680,10 @@ function _cdldScrollToAddLayer(){
 /** 停止ボタン */
 function _cdldStop(){
   _cdldPh3SetPhase('stopping');
-  dlStop = true; // runDl の停止フラグ
+  dlStop = true;
 }
 
-/** stopped フェーズ: 再開ボタン（resumeDl の circle 処理を直接実行） */
+/** stopped フェーズ: 再開ボタン */
 async function _cdldResume(){
   const s = loadResume();
   if(!s || s.subMode !== 'circle'){ showAlert('エラー','レジュームデータがありません'); return; }
@@ -2687,7 +2691,6 @@ async function _cdldResume(){
   const bounds = L.latLngBounds([s.bounds.s, s.bounds.w], [s.bounds.n, s.bounds.e]);
   _cdldCenter = s.center || null;
 
-  // プレビュー円を復元
   if(_cdldCenter){
     if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
     _cdldCircle = L.circle([_cdldCenter.lat, _cdldCenter.lng], {
