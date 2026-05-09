@@ -821,11 +821,11 @@ async function resumeDl(){
     document.getElementById('resume-banner').classList.remove('show');
     // オーバーライド設定（再開中も cdld 進捗バーを使う）
     window._dldSyncProgressOverride = (done, total, mb) => _cdldSyncProgress(done, total, mb);
-    await runDl('detail', bounds, s.zmin, s.zmax, layers, 0);
+    await runDl('detail', bounds, s.zmin, s.zmax, layers, s.taskIndex||0);
     window._dldSyncProgressOverride = null;
     if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
   } else {
-    await runDl(s.mode, bounds, s.zmin, s.zmax, layers, 0);
+    await runDl(s.mode, bounds, s.zmin, s.zmax, layers, s.taskIndex||0);
   }
 }
 
@@ -1245,9 +1245,10 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
 
   // キャッシュ済みをスキップしたfetch対象タスクのみに絞る
   const cachedCount = tasks.filter(t=>cachedSet.has(tileKey(t.lk,t.z,t.x,t.y))).length;
-  const fetchTasks  = tasks.filter(t=>!cachedSet.has(tileKey(t.lk,t.z,t.x,t.y)));
+  const allFetchTasks = tasks.filter(t=>!cachedSet.has(tileKey(t.lk,t.z,t.x,t.y)));
+  // startIdx が指定されている場合は途中から再開（レジューム）
+  const fetchTasks = startIdx > 0 ? allFetchTasks.slice(startIdx) : allFetchTasks;
   // total は全タスク数（進捗表示の分母）
-  // done 初期値はキャッシュ済み数のみ（startIdxと合算しない）
   const total = tasks.length;
 
   dlRun=true; dlStop=false;
@@ -2714,4 +2715,11 @@ async function _cdldStartDl(){
 
   // 完了後に円プレビューを除去
   if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+
+  // 完了パネル表示
+  if(!dlStop){
+    _cdldPh3SetPhase('done');
+    const sess = await dbGetSess(detSessId).catch(()=>null);
+    if(sess) _cdldShowDonePanel(sess.totalTiles||0, sess.totalSize||0, layers, 10, zmax);
+  }
 }
