@@ -1189,7 +1189,7 @@
      STEP2: レイヤー・ズーム設定
      STEP3: DL進捗
      ═══════════════════════════════════════════ -->
-<!-- ══ 円形エリアDL 3フェーズパネル ══ -->
+<!-- ══ 半径エリアDL 4フェーズパネル ══ -->
 <div id="cdld-panel" style="display:none">
 
   <!-- フェーズ①：タップ待ちバー -->
@@ -1200,20 +1200,9 @@
     </div>
   </div>
 
-  <!-- フェーズ②：設定パネル -->
+  <!-- フェーズ②：半径選択 -->
   <div id="cdld-ph2" style="display:none">
-    <div class="dld-title">🎯 円形エリアDL</div>
-
-    <!-- 中心座標 -->
-    <div class="cdld-section">
-      <div class="cdld-label-row">
-        <span class="cdld-label">中心座標</span>
-        <button class="btn sm" id="cdld-change-btn" onclick="_cdldBackToTap()">📍 変更</button>
-      </div>
-      <span class="cdld-center-val" id="cdld-center-val">—</span>
-    </div>
-
-    <!-- 半径スライダー -->
+    <div class="dld-title">📏 半径エリアDL — 半径を選択</div>
     <div class="cdld-section">
       <div class="cdld-label-row">
         <span class="cdld-label">半径</span>
@@ -1226,6 +1215,16 @@
         <span>1km</span><span>5km</span><span>10km</span>
       </div>
     </div>
+    <div class="dld-footer-btns">
+      <button class="btn red"    onclick="_cdldCancel()">✕ キャンセル</button>
+      <button class="btn"        onclick="_cdldBackToTap()">← 戻る</button>
+      <button class="btn accent" onclick="_cdldShowPhase('cdld-ph3')">次へ →</button>
+    </div>
+  </div>
+
+  <!-- フェーズ③：レイヤー・ズーム設定 -->
+  <div id="cdld-ph3" style="display:none">
+    <div class="dld-title">📏 半径エリアDL — レイヤー選択</div>
 
     <!-- レイヤー選択 -->
     <div class="cdld-section">
@@ -1259,15 +1258,15 @@
 
     <!-- フッターボタン -->
     <div class="dld-footer-btns">
-      <button class="btn red" onclick="_cdldCancel()">✕ キャンセル</button>
-      <span class="dld-footer-spacer"></span>
+      <button class="btn red"    onclick="_cdldCancel()">✕ キャンセル</button>
+      <button class="btn"        onclick="_cdldShowPhase('cdld-ph2')">← 戻る</button>
       <button class="btn accent" id="cdld-dl-btn" onclick="_cdldStartDl()" disabled>▶ DL開始</button>
     </div>
   </div>
 
-  <!-- フェーズ③：進捗パネル（矩形 dld-s3 と同構造） -->
-  <div id="cdld-ph3" style="display:none">
-    <div class="dld-title" id="cdld-ph3-title">⬇ タイルをダウンロード中です…</div>
+  <!-- フェーズ④：進捗パネル -->
+  <div id="cdld-ph4" style="display:none">
+    <div class="dld-title" id="cdld-ph3-title">⬇ 半径エリアをダウンロード中…</div>
 
     <!-- 停止中メッセージ -->
     <div id="cdld-stopping-msg" style="display:none;font-size:0.8rem;color:var(--gold)">
@@ -1280,6 +1279,8 @@
         <div class="dld-pb-fill" id="cdld-pb-bar" style="width:0%"></div>
       </div>
       <div class="dld-pb-nums">
+        <span id="cdld-pb-pct">0%</span>
+        &nbsp;·&nbsp;
         <span id="cdld-pb-done">0</span> / <span id="cdld-pb-tot">—</span> 枚
         &nbsp;(<span id="cdld-pb-mb">— MB</span>)
       </div>
@@ -1295,11 +1296,8 @@
 
     <!-- フッターボタン -->
     <div class="dld-footer-btns">
-      <!-- DL中 -->
-      <button class="btn red" id="cdld-btn-stop" onclick="_cdldStop()">■ 停止</button>
-      <!-- 停止後 -->
-      <button class="btn" id="cdld-btn-back" style="display:none" onclick="_cdldCancel()">← 閉じる</button>
-      <!-- 完了後 -->
+      <button class="btn red"    id="cdld-btn-stop"  onclick="_cdldStop()">■ 停止</button>
+      <button class="btn"        id="cdld-btn-back"  style="display:none" onclick="_cdldCancel()">← 閉じる</button>
       <button class="btn accent" id="cdld-btn-close" style="display:none" onclick="_cdldClose()">✅ 閉じる</button>
     </div>
   </div>

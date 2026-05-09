@@ -767,9 +767,9 @@ function checkResume(){
     _bdprogSyncProgress(s.taskIndex||0, s.total||0, '— MB');
     _bdprogSetPhase('stopped');
   } else if(s.subMode==='circle'){
-    // 円形DL: resume-banner を使用（矩形と同じ）
+    // 半径エリアDL: resume-banner を使用（矩形と同じ）
     const banner=document.getElementById('resume-banner');
-    const modeStr='円形エリア';
+    const modeStr='半径エリア';
     const layerStr=_layerLabel(s.layers);
     const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
     document.getElementById('resume-desc').innerHTML=
@@ -802,7 +802,7 @@ async function resumeDl(){
     if(s.subMode!=='circle'){ detRect=bounds; showRect(); }
   }
   if(s.subMode==='circle'){
-    // 円形DL: cdld-panel フェーズ③を開いてDL再開
+    // 半径エリアDL: cdld-panel フェーズ③を開いてDL再開
     _cdldCenter = s.center || null;
     // プレビュー円を復元
     if(_cdldCenter){
@@ -813,7 +813,7 @@ async function resumeDl(){
         fillColor: '#c8a84b', fillOpacity: 0.10
       }).addTo(map);
     }
-    _cdldShowPhase('cdld-ph3');
+    _cdldShowPhase('cdld-ph4');
     _cdldPh3SetPhase('running');
     const pct = s.total>0 ? Math.round(s.taskIndex/s.total*100) : 0;
     _cdldSyncProgress(s.taskIndex||0, s.total||0, '— MB');
@@ -871,7 +871,7 @@ function _dldS3SetPhase(phase){
  * STEP3の進捗バーを更新する。
  */
 function _dldSyncProgress(done, total, mb){
-  // 円形DL中は cdld-ph3 の進捗バーに転送
+  // 半径エリアDL中は cdld-ph3 の進捗バーに転送
   if(typeof window._dldSyncProgressOverride === 'function'){
     window._dldSyncProgressOverride(done, total, mb);
     return;
@@ -1409,7 +1409,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
       _bdprogSyncProgress(done, total, (realBytes/1024/1024).toFixed(0)+' MB');
       _bdprogSetPhase('done');
     } else if(window._cdldActiveSession){
-      // 円形DL完了
+      // 半径エリアDL完了
       _cdldSyncProgress(done, total, (realBytes/1024/1024).toFixed(1)+' MB');
       _cdldPh3SetPhase('done');
       _cdldShowDonePanel(done, realBytes, layers, zmin, zmax);
@@ -1541,28 +1541,28 @@ async function renderSessionList(){
     const mb   = ((s.totalSize||0)/1024/1024).toFixed(1);
     const date = new Date(s.createdAt).toLocaleDateString('ja-JP');
     const used = new Date(s.lastUsed).toLocaleDateString('ja-JP');
+    const lat  = s.center?.[0]?.toFixed(4)||'—';
+    const lng  = s.center?.[1]?.toFixed(4)||'—';
     const srcs  = (s.srcKeys||[]).map(k=>LAYER_LABEL[k]||k).join('・')||'—';
-    const label = s.label && s.label !== '名称未設定'
-      ? s.label
-      : (s.srcKeys && s.srcKeys.length
-          ? `${s.srcKeys.map(k=>LAYER_LABEL[k]||k).join('・')} Z${s.zmin||'—'}〜Z${s.zmax||'—'}`
-          : '名称未設定');
-    const thumbSvg = _buildSessThumbSvg(s);
+    // 既存セッションのlabelにキー名（std/photo/topo）が残っている場合は日本語で再構築
+    const label = s.srcKeys && s.srcKeys.length
+      ? `${s.srcKeys.map(k=>LAYER_LABEL[k]||k).join('・')} Z${s.zmin||'—'}〜Z${s.zmax||'—'} ${new Date(s.createdAt).toLocaleDateString('ja-JP')}`
+      : (s.label || '名称未設定');
     const hasBounds = !!s.bounds;
     const addDlBtn = hasBounds
       ? `<button class="sess-adddl-btn" onclick="openAddLayerPanel('${s.id}')">＋</button>`
       : '';
     return `
     <div class="sess-card" id="sc-${s.id}">
-      <div class="sess-thumb-svg" onclick="jumpToSession('${s.id}')">${thumbSvg}</div>
+      <div class="sess-map-thumb" onclick="jumpToSession('${s.id}')">
+        <div class="sess-coord">${lat}<br>${lng}</div>
+        <div class="sess-zoom-badge">Z${s.zoom||'—'}</div>
+      </div>
       <div class="sess-info">
-        <div class="sess-label-row">
-          <span class="sess-label" id="sl-${s.id}">${_esc(label)}</span>
-          <button class="sess-rename-btn" onclick="_sessRenameStart('${s.id}')" title="リネーム">✏️</button>
-        </div>
-        <div class="sess-meta">最終使用: ${used}</div>
+        <div class="sess-label">${_esc(label)}</div>
         <div class="sess-meta">約${mb}MB · ${srcs}</div>
         <div class="sess-meta">DL: ${date}</div>
+        <div class="sess-meta">最終使用: ${used}</div>
       </div>
       <div class="sess-btns">
         ${addDlBtn}
@@ -1619,134 +1619,6 @@ async function renderSessionList(){
 
 function _esc(s){
   return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-// ═══════════════════════════════════════════
-//  セッションカード：SVGサムネイル・リネーム
-// ═══════════════════════════════════════════
-
-/** 日本地図輪郭の簡易SVGパス（viewBox 0 0 100 120） */
-const _JP_SVG_PATH = `
-  M44,8 L47,7 L52,9 L55,12 L53,16 L49,18 L46,16 L43,12 Z
-  M30,22 L35,20 L42,21 L48,24 L55,26 L62,28 L68,32 L70,38
-  L67,44 L63,48 L58,52 L52,55 L46,57 L40,55 L35,50 L30,45
-  L26,38 L25,32 L27,26 Z
-  M22,58 L28,56 L33,58 L35,63 L32,67 L27,68 L22,65 L21,61 Z
-  M58,56 L64,54 L70,56 L74,61 L72,67 L66,70 L60,68 L57,63 Z
-  M36,70 L44,68 L52,70 L58,74 L60,80 L56,85 L48,87 L40,85
-  L34,80 L33,74 Z
-`;
-
-/** bounds → SVG viewBox(0,0,100,120) 上の座標に変換 */
-function _boundsToSvgRect(bounds){
-  if(!bounds) return null;
-  const LAT_MIN=24, LAT_MAX=46, LNG_MIN=122, LNG_MAX=146;
-  const W=100, H=120;
-  const n = bounds.north ?? bounds._northEast?.lat ?? bounds[1]?.[0];
-  const s = bounds.south ?? bounds._southWest?.lat ?? bounds[0]?.[0];
-  const e = bounds.east  ?? bounds._northEast?.lng ?? bounds[1]?.[1];
-  const w = bounds.west  ?? bounds._southWest?.lng ?? bounds[0]?.[1];
-  if(n==null||s==null||e==null||w==null) return null;
-  const x1 = (w - LNG_MIN) / (LNG_MAX - LNG_MIN) * W;
-  const x2 = (e - LNG_MIN) / (LNG_MAX - LNG_MIN) * W;
-  const y1 = (1 - (n - LAT_MIN) / (LAT_MAX - LAT_MIN)) * H;
-  const y2 = (1 - (s - LAT_MIN) / (LAT_MAX - LAT_MIN)) * H;
-  return {
-    x: Math.max(0, x1),
-    y: Math.max(0, y1),
-    w: Math.min(W, x2) - Math.max(0, x1),
-    h: Math.min(H, y2) - Math.max(0, y1),
-  };
-}
-
-/** center座標 → SVG上の点 */
-function _centerToSvgXY(center){
-  const LAT_MIN=24, LAT_MAX=46, LNG_MIN=122, LNG_MAX=146;
-  const W=100, H=120;
-  const lat = Array.isArray(center) ? center[0] : center.lat;
-  const lng = Array.isArray(center) ? center[1] : center.lng;
-  return {
-    x: (lng - LNG_MIN) / (LNG_MAX - LNG_MIN) * W,
-    y: (1 - (lat - LAT_MIN) / (LAT_MAX - LAT_MIN)) * H,
-  };
-}
-
-/** セッション1件分のSVGサムネイルを生成して返す */
-function _buildSessThumbSvg(sess){
-  const rect = _boundsToSvgRect(sess.bounds);
-  const pt   = _centerToSvgXY(sess.center || [35,136]);
-
-  let shapeEl = '';
-  if(rect && rect.w > 0 && rect.h > 0){
-    if(sess.mode === 'circle'){
-      const cx = rect.x + rect.w/2;
-      const cy = rect.y + rect.h/2;
-      shapeEl = `<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}"
-        rx="${(rect.w/2).toFixed(1)}" ry="${(rect.h/2).toFixed(1)}"
-        fill="rgba(200,168,75,0.35)" stroke="#c8a84b" stroke-width="1.5"/>`;
-    } else {
-      shapeEl = `<rect x="${rect.x.toFixed(1)}" y="${rect.y.toFixed(1)}"
-        width="${rect.w.toFixed(1)}" height="${rect.h.toFixed(1)}"
-        fill="rgba(200,168,75,0.30)" stroke="#c8a84b" stroke-width="1.5"/>`;
-    }
-  } else {
-    shapeEl = `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}"
-      r="4" fill="#c8a84b" opacity="0.8"/>`;
-  }
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120"
-    width="64" height="64" style="display:block;">
-    <rect width="100" height="120" fill="rgba(10,30,60,0.9)"/>
-    <path d="${_JP_SVG_PATH}" fill="rgba(60,80,60,0.7)" stroke="rgba(120,160,120,0.5)" stroke-width="0.8"/>
-    ${shapeEl}
-  </svg>`;
-}
-
-/** セッションのlabelをIDBに保存 */
-async function _renameSession(id, newLabel){
-  try {
-    const sess = await dbGetSess(id);
-    if(!sess) return;
-    sess.label = newLabel.trim() || '名称未設定';
-    await dbPutSess(id, sess);
-  } catch(e){ console.warn('renameSession error', e); }
-}
-
-/** インラインリネーム開始（✏️ボタンから呼ぶ） */
-function _sessRenameStart(id){
-  const labelEl = document.getElementById('sl-' + id);
-  if(!labelEl) return;
-  const current = labelEl.textContent;
-  const row = labelEl.parentElement; // .sess-label-row
-
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'sess-label-input';
-  input.value = current === '名称未設定' ? '' : current;
-  input.placeholder = '名称未設定';
-  input.maxLength = 30;
-
-  row.replaceChild(input, labelEl);
-  const renameBtn = row.querySelector('.sess-rename-btn');
-  if(renameBtn) renameBtn.style.display = 'none';
-  input.focus();
-  input.select();
-
-  const commit = async () => {
-    const newLabel = input.value.trim() || '名称未設定';
-    await _renameSession(id, newLabel);
-    labelEl.textContent = newLabel;
-    row.replaceChild(labelEl, input);
-    if(renameBtn) renameBtn.style.display = '';
-  };
-  input.addEventListener('blur', commit);
-  input.addEventListener('keydown', e => {
-    if(e.key === 'Enter')  { input.blur(); }
-    if(e.key === 'Escape') {
-      row.replaceChild(labelEl, input);
-      if(renameBtn) renameBtn.style.display = '';
-    }
-  });
 }
 
 // セッション範囲矩形を管理するグローバル変数
@@ -2503,7 +2375,7 @@ function renderBaseDlStatus(sessions){
 }
 
 // ═══════════════════════════════════════════
-//  円形エリアDL
+//  半径エリアDL
 // ═══════════════════════════════════════════
 
 let _cdldCenter   = null;  // {lat, lng}
@@ -2576,12 +2448,14 @@ function _cdldOnRadiusChange(){
 
 // ─── cdld フェーズ切替ヘルパー ───────────────────────────
 function _cdldShowPhase(ph){
-  ['cdld-ph1','cdld-ph2','cdld-ph3'].forEach(id => {
+  ['cdld-ph1','cdld-ph2','cdld-ph3','cdld-ph4'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.style.display = (id === ph) ? 'block' : 'none';
   });
   const panel = document.getElementById('cdld-panel');
   if(panel) panel.style.display = ph ? 'block' : 'none';
+  // ph3表示時に推定容量を再計算
+  if(ph === 'cdld-ph3') _cdldCalc();
 }
 
 /** タップ待ちモード（フェーズ①）開始 ― マップタブへ自動切替 */
@@ -2596,7 +2470,7 @@ function _cdldStartTap(){
   _cdldTapHandler = function(e){
     _cdldTapping = false;
     _cdldSetCenter(e.latlng.lat, e.latlng.lng);
-    // タップ後はそのままフェーズ②（タブ切替なし）
+    // タップ後はフェーズ②（半径選択）へ
     _cdldShowPhase('cdld-ph2');
   };
   map.once('click', _cdldTapHandler);
@@ -2647,7 +2521,7 @@ function openCircleDlDialog(lat, lng){
     });
 
     if(lat !== undefined && lng !== undefined){
-      // 座標引数あり → フェーズ②を直接表示
+      // 座標引数あり → フェーズ②（半径選択）を直接表示
       _cdldSetCenter(lat, lng);
       _cdldShowPhase('cdld-ph2');
       _openTab('map');
@@ -2707,6 +2581,7 @@ function _cdldSyncProgress(done, total, mb){
   if(_e('cdld-pb-tot'))  _e('cdld-pb-tot').textContent  = total.toLocaleString();
   if(_e('cdld-pb-bar'))  _e('cdld-pb-bar').style.width  = pct + '%';
   if(_e('cdld-pb-mb'))   _e('cdld-pb-mb').textContent   = mb;
+  if(_e('cdld-pb-pct'))  _e('cdld-pb-pct').textContent  = pct + '%';
 }
 
 /** フェーズ③ 完了パネル表示（矩形 _dldShowDonePanel 簡易版） */
@@ -2752,8 +2627,8 @@ async function _cdldStartDl(){
   // 容量チェック（既存関数流用）
   if(_dldCheckSize(bounds, zmax, layers)) return;
 
-  // フェーズ③へ
-  _cdldShowPhase('cdld-ph3');
+  // フェーズ④へ
+  _cdldShowPhase('cdld-ph4');
   _cdldPh3SetPhase('running');
 
   // circle DL識別用セッション情報をグローバルに保持（runDl内のsaveResumeから参照）
