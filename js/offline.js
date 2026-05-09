@@ -1559,7 +1559,10 @@ async function renderSessionList(){
         <div class="sess-zoom-badge">Z${s.zoom||'—'}</div>
       </div>
       <div class="sess-info">
-        <div class="sess-label">${_esc(label)}</div>
+        <div class="sess-label-row">
+          <span class="sess-label" id="sl-${s.id}">${_esc(label)}</span>
+          <button class="sess-rename-btn" onclick="_sessRenameStart('${s.id}')" title="リネーム">✏️</button>
+        </div>
         <div class="sess-meta">約${mb}MB · ${srcs}</div>
         <div class="sess-meta">DL: ${date}</div>
         <div class="sess-meta">最終使用: ${used}</div>
@@ -1619,6 +1622,53 @@ async function renderSessionList(){
 
 function _esc(s){
   return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/** セッションのlabelをIDBに保存 */
+async function _renameSession(id, newLabel){
+  try {
+    const sess = await dbGetSess(id);
+    if(!sess) return;
+    sess.label = newLabel.trim() || '名称未設定';
+    await dbPutSess(id, sess);
+  } catch(e){ console.warn('renameSession error', e); }
+}
+
+/** インラインリネーム開始（✏️ボタンから呼ぶ） */
+function _sessRenameStart(id){
+  const labelEl = document.getElementById('sl-' + id);
+  if(!labelEl) return;
+  const current = labelEl.textContent;
+  const row = labelEl.parentElement;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'sess-label-input';
+  input.value = current === '名称未設定' ? '' : current;
+  input.placeholder = '名称未設定';
+  input.maxLength = 30;
+
+  row.replaceChild(input, labelEl);
+  const renameBtn = row.querySelector('.sess-rename-btn');
+  if(renameBtn) renameBtn.style.display = 'none';
+  input.focus();
+  input.select();
+
+  const commit = async () => {
+    const newLabel = input.value.trim() || '名称未設定';
+    await _renameSession(id, newLabel);
+    labelEl.textContent = newLabel;
+    row.replaceChild(labelEl, input);
+    if(renameBtn) renameBtn.style.display = '';
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if(e.key === 'Enter')  { input.blur(); }
+    if(e.key === 'Escape') {
+      row.replaceChild(labelEl, input);
+      if(renameBtn) renameBtn.style.display = '';
+    }
+  });
 }
 
 // セッション範囲矩形を管理するグローバル変数
