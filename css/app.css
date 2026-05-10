@@ -3648,6 +3648,35 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 #bdprog-select-body {
   margin-bottom: 4px;
 }
+.bdprog-select-done {
+  text-align: center;
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--txt-sub);
+}
+.bdprog-select-resume {
+  background: rgba(200,168,75,0.07);
+  border: 1px solid rgba(200,168,75,0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+}
+.bdprog-select-resume-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+.bdprog-select-resume-layers {
+  font-size: 11px;
+  color: var(--txt-sub);
+  margin-bottom: 2px;
+}
+.bdprog-select-resume-pct {
+  font-size: 11px;
+  color: var(--txt-sub);
+  text-align: right;
+}
 
 /* ━━━ ベースDL状況: 3状態UI ━━━ */
 

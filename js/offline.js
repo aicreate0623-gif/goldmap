@@ -604,16 +604,90 @@ function _bdprogSyncProgress(done, total){
 /** 追加DLボタン: selectフェーズへ遷移 */
 async function _bdprogAddDl(){
   _bdprogSetPhase('select');
-  // チェックボックスの状態を最新に更新
-  await refreshBaseDlStatus();
-  // base-dl-state-partial の内容をオーバーレイ内にクローン表示
-  const src  = document.getElementById('base-dl-state-partial');
   const body = document.getElementById('bdprog-select-body');
-  if(src && body){
-    body.innerHTML = src.innerHTML;
-    // クローン内のonchange属性はそのまま動作（updBaseStatusEst参照先は元のDOMのため非表示）
-    // 推定MB表示は元DOM側を参照するので別途inline表示を更新
-    updBaseStatusEst();
+  if(!body) return;
+
+  const ALL_LAYERS = ['std','photo','topo','hill','relief'];
+  const LAYER_NAME = {std:'地理院地図', photo:'航空写真', topo:'地形図', hill:'陰影起伏図', relief:'色別標高図'};
+
+  // 状況判定
+  const doneLayers = (typeof getBaseDlDoneLayers === 'function')
+    ? await getBaseDlDoneLayers()
+    : new Set();
+  const prog     = loadBaseDlProgress();
+  const hasResume = prog && prog.layers && prog.layers.length > 0;
+  const allDone   = ALL_LAYERS.every(lk => doneLayers.has(lk));
+
+  if(allDone){
+    // ③ 全完了: 追加できるものなし
+    body.innerHTML = `<div class="bdprog-select-done">✅ 全レイヤーDL済みです</div>`;
+    // DL開始ボタンを非表示
+    const startBtn = body.parentElement.querySelector('.btn.accent');
+    if(startBtn) startBtn.style.display = 'none';
+
+  } else if(hasResume){
+    // ② レジューム途中
+    const pct    = prog.total > 0 ? Math.round(prog.taskIndex / prog.total * 100) : 0;
+    const layers = prog.layers.map(lk => LAYER_NAME[lk]||lk).join(' ・ ');
+    body.innerHTML = `
+      <div class="bdprog-select-resume">
+        <div class="bdprog-select-resume-label">⏸ 途中のDLがあります</div>
+        <div class="bdprog-select-resume-layers">${layers}</div>
+        <div class="base-resume-bar-bg" style="margin:6px 0">
+          <div class="base-resume-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="bdprog-select-resume-pct">${pct}%</div>
+      </div>`;
+    // DL開始ボタンをレジューム用に差し替え
+    const startBtn = body.parentElement.querySelector('.btn.accent');
+    if(startBtn){
+      startBtn.textContent = '▶ 続きをDL';
+      startBtn.onclick = () => { _bdprogClose(); baseResumeStart(); };
+    }
+    // 破棄ボタンを追加
+    const btnRow = body.parentElement.querySelector('div[style]');
+    if(btnRow && !btnRow.querySelector('.btn.red')){
+      const discardBtn = document.createElement('button');
+      discardBtn.className = 'btn sm red';
+      discardBtn.textContent = '🗑 破棄';
+      discardBtn.onclick = () => { baseResumeDiscard(); _bdprogAddDl(); };
+      btnRow.insertBefore(discardBtn, btnRow.firstChild);
+    }
+
+  } else {
+    // ① 未DL/一部未完了: チェックボックス生成
+    const allSessions = (typeof dbGetAllSess === 'function') ? await dbGetAllSess() : [];
+    const rows = ALL_LAYERS.map(lk => {
+      const isDone = doneLayers.has(lk);
+      const sess   = isDone ? allSessions.find(s => s.mode==='base' && Array.isArray(s.srcKeys) && s.srcKeys.includes(lk)) : null;
+      const status = isDone
+        ? `DL済${sess ? ` <button class="base-saved-del" onclick="deleteSessionWithConfirm('${sess.id}')" title="削除">🗑</button>` : ''}`
+        : '';
+      return `
+        <label class="base-ck-row${isDone?' base-ck-row--done':''}">
+          <input type="checkbox" id="base-ck-${lk}" ${isDone?'checked disabled':'checked'} onchange="updBaseStatusEst()">
+          <span class="base-ck-name">${LAYER_NAME[lk]}</span>
+          <span class="base-ck-status">${status}</span>
+        </label>`;
+    }).join('');
+
+    // 推定MB計算
+    const undoneLayers = ALL_LAYERS.filter(lk => !doneLayers.has(lk));
+    const n  = cntTiles(JAPAN, 5, 9);
+    const mb = undoneLayers.length ? mbEstLayers(n, undoneLayers) : '—';
+
+    body.innerHTML = `
+      <div class="base-ck-list">${rows}</div>
+      <div class="base-status-est" id="base-status-est">約 ${mb} MB</div>
+      <div class="base-status-warn">⚠️ WiFi環境でのDLを推奨します</div>`;
+
+    // DL開始ボタンを通常に戻す
+    const startBtn = body.parentElement.querySelector('.btn.accent');
+    if(startBtn){
+      startBtn.style.display = '';
+      startBtn.textContent = '⬇ DL開始';
+      startBtn.onclick = startBaseDlFromStatus;
+    }
   }
 }
 
