@@ -1283,9 +1283,6 @@
       </div>
     </div>
 
-    <!-- ログ -->
-    <pre class="dld-log" id="cdld-log"></pre>
-
     <!-- 完了パネル -->
     <div id="cdld-done-panel" style="display:none">
       <div id="cdld-done-summary"></div>
@@ -1435,20 +1432,13 @@
 
     <!-- 進捗バー（DL中・停止中に表示） -->
     <div class="dld-pb-wrap" id="dld-s3-progress">
-      <!-- パーセント + 枚数・MB行 -->
       <div class="s3-pb-header">
         <span class="s3-pb-pct" id="dld-pb-pct">0%</span>
-        <span class="s3-pb-nums"><span id="dld-pb-done">0</span> / <span id="dld-pb-tot">0</span> 枚</span>
-        <span class="s3-pb-mb" id="dld-pb-mb">0 MB</span>
       </div>
-      <!-- プログレスバー本体 -->
       <div class="s3-pb-track">
         <div class="s3-pb-fill" id="dld-pb-bar" style="width:0%"></div>
       </div>
-      <!-- ETA行 -->
-      <div class="s3-pb-eta" id="dld-pb-eta"></div>
     </div>
-    <div class="dl-log" id="dld-log" style="display:none"></div>
 
     <!-- 停止中メッセージ -->
     <div class="dld-stopping-msg" id="dld-stopping-msg" style="display:none">
@@ -1509,14 +1499,12 @@
 <div id="base-dl-prog-overlay" style="display:none">
   <div id="base-dl-prog-dialog">
     <div class="bdprog-title" id="bdprog-title">⬇ 全国ベースマップをDL中…</div>
-    <div class="bdprog-layers" id="bdprog-layers"></div>
     <div class="bdprog-bar-wrap">
       <div class="bdprog-bar-bg">
         <div class="bdprog-bar-fill" id="bdprog-bar" style="width:0%"></div>
       </div>
       <div class="bdprog-pct" id="bdprog-pct">0%</div>
     </div>
-    <div class="bdprog-mb" id="bdprog-mb">0 MB</div>
     <!-- DL中 -->
     <div id="bdprog-btns-running">
       <button class="btn red" onclick="_bdprogStop()">■ 停止</button>
@@ -1531,8 +1519,17 @@
       <button class="btn accent" onclick="_bdprogResume()">▶ 再開</button>
     </div>
     <!-- 完了後 -->
-    <div id="bdprog-btns-done" style="display:none">
+    <div id="bdprog-btns-done" style="display:none;gap:8px">
+      <button class="btn sm" onclick="_bdprogAddDl()">📥 追加DL</button>
       <button class="btn accent" onclick="_bdprogClose()">✅ 閉じる</button>
+    </div>
+    <!-- 追加DL選択（selectフェーズ） -->
+    <div id="bdprog-btns-select" style="display:none">
+      <div id="bdprog-select-body"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+        <button class="btn sm" onclick="_bdprogClose()">閉じる</button>
+        <button class="btn accent" onclick="startBaseDlFromStatus()">⬇ DL開始</button>
+      </div>
     </div>
   </div>
 </div>

@@ -820,8 +820,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .stat-lbl { font-size: 10px; color: var(--txt-dim); margin-top: 1px; }
 .prog-bar-bg { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.06); margin: 4px 0 8px; overflow: hidden; }
 .prog-bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg,#a06010,#e8c040); transition: width .2s; }
-.dl-log { font-size: 10px; color: var(--txt-dim); max-height: 70px; overflow-y: auto; line-height: 1.8; }
-
 .btn-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
 
 /* ━━━ SETTINGS SHEET ━━━ */
@@ -3613,12 +3611,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   text-align: center;
   letter-spacing: .03em;
 }
-.bdprog-layers {
-  font-size: 12px;
-  color: var(--txt-sub);
-  text-align: center;
-  line-height: 1.5;
-}
 .bdprog-bar-wrap {
   display: flex;
   align-items: center;
@@ -3644,18 +3636,17 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   min-width: 38px;
   text-align: right;
 }
-.bdprog-mb {
-  font-size: 12px;
-  color: var(--txt-sub);
-  text-align: center;
-}
 #bdprog-btns-running,
 #bdprog-btns-stopping,
 #bdprog-btns-stopped,
-#bdprog-btns-done {
+#bdprog-btns-done,
+#bdprog-btns-select {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+#bdprog-select-body {
+  margin-bottom: 4px;
 }
 
 /* ━━━ ベースDL状況: 3状態UI ━━━ */
@@ -3948,19 +3939,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   letter-spacing: -0.5px;
 }
 
-/* 枚数 */
-.s3-pb-nums {
-  font-size: 12px;
-  color: var(--txt, #e8e0cc);
-  flex: 1;
-}
-
-/* MB */
-.s3-pb-mb {
-  font-size: 11px;
-  color: var(--txt-sub, #a09880);
-}
-
 /* バー本体 */
 .s3-pb-track {
   height: 14px;
@@ -3998,15 +3976,6 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 @keyframes s3-shimmer {
   0%   { left: -60%; }
   100% { left: 110%; }
-}
-
-/* ETA（残り時間）行 */
-.s3-pb-eta {
-  font-size: 11px;
-  color: var(--txt-sub, #a09880);
-  text-align: right;
-  margin-top: 4px;
-  min-height: 15px;
 }
 
 /* 停止後レジューム情報 */

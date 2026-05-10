@@ -563,15 +563,12 @@ async function _dldStartDl(){
 
 /** オーバーレイを開いてDL中フェーズに初期化 */
 function _bdprogOpen(layers){
-  const LAYER_NAME = {std:'地理院地図', photo:'航空写真', topo:'地形図', hill:'陰影起伏図', relief:'色別標高図'};
-  const layersEl = document.getElementById('bdprog-layers');
-  if(layersEl) layersEl.textContent = (layers||[]).map(lk=>LAYER_NAME[lk]||lk).join(' ・ ');
   _bdprogSetPhase('running');
-  _bdprogSyncProgress(0, 0, '0 MB');
+  _bdprogSyncProgress(0, 0);
   document.getElementById('base-dl-prog-overlay').style.display = 'flex';
 }
 
-/** フェーズ切替: 'running' | 'stopping' | 'stopped' | 'done' */
+/** フェーズ切替: 'running' | 'stopping' | 'stopped' | 'done' | 'select' */
 function _bdprogSetPhase(phase){
   const title = document.getElementById('bdprog-title');
   if(title){
@@ -579,28 +576,45 @@ function _bdprogSetPhase(phase){
       running:  '⬇ 全国ベースマップをDL中…',
       stopping: '⏳ 停止処理中です…',
       stopped:  '⏸ ダウンロードを停止しました',
-      done:     '✅ ダウンロード完了'
+      done:     '✅ ダウンロード完了',
+      select:   '📥 追加DLするレイヤーを選択'
     };
     title.textContent = map[phase] || '';
   }
-  ['running','stopping','stopped','done'].forEach(p=>{
+  ['running','stopping','stopped','done','select'].forEach(p=>{
     const el = document.getElementById('bdprog-btns-'+p);
     if(el) el.style.display = p===phase ? (p==='stopped'?'flex':'block') : 'none';
   });
-  // バー色: 完了時グリーン
+  // バー色: 完了時グリーン、select時は非表示
+  const barWrap = document.querySelector('#base-dl-prog-dialog .bdprog-bar-wrap');
+  if(barWrap) barWrap.style.display = phase === 'select' ? 'none' : 'flex';
   const bar = document.getElementById('bdprog-bar');
   if(bar) bar.style.background = phase==='done' ? '#4caf50' : '';
 }
 
-/** プログレスバー・パーセンテージ・MB更新 */
-function _bdprogSyncProgress(done, total, mb){
+/** プログレスバー・パーセンテージ更新 */
+function _bdprogSyncProgress(done, total){
   const pct = total > 0 ? Math.round(done / total * 100) : 0;
   const bar  = document.getElementById('bdprog-bar');
   const pctEl= document.getElementById('bdprog-pct');
-  const mbEl = document.getElementById('bdprog-mb');
   if(bar)   bar.style.width    = pct + '%';
   if(pctEl) pctEl.textContent  = pct + '%';
-  if(mbEl)  mbEl.textContent   = mb;
+}
+
+/** 追加DLボタン: selectフェーズへ遷移 */
+async function _bdprogAddDl(){
+  _bdprogSetPhase('select');
+  // チェックボックスの状態を最新に更新
+  await refreshBaseDlStatus();
+  // base-dl-state-partial の内容をオーバーレイ内にクローン表示
+  const src  = document.getElementById('base-dl-state-partial');
+  const body = document.getElementById('bdprog-select-body');
+  if(src && body){
+    body.innerHTML = src.innerHTML;
+    // クローン内のonchange属性はそのまま動作（updBaseStatusEst参照先は元のDOMのため非表示）
+    // 推定MB表示は元DOM側を参照するので別途inline表示を更新
+    updBaseStatusEst();
+  }
 }
 
 /** 停止ボタン */
@@ -747,7 +761,7 @@ async function baseResumeStart(){
   }
   _bdprogOpen(prog.layers);
   const pct = prog.total > 0 ? Math.round(prog.taskIndex / prog.total * 100) : 0;
-  _bdprogSyncProgress(prog.taskIndex || 0, prog.total || 0, '— MB');
+  _bdprogSyncProgress(prog.taskIndex || 0, prog.total || 0);
   _bdprogSetPhase('running');
   await runDl('base', JAPAN, prog.zmin || 5, prog.zmax || 9, prog.layers, 0);
 }
@@ -764,7 +778,7 @@ function checkResume(){
     // ベースDL: 専用プログレスオーバーレイをレジューム状態で表示
     _bdprogOpen(s.layers||[]);
     const pct = s.total>0 ? Math.round(s.taskIndex/s.total*100) : 0;
-    _bdprogSyncProgress(s.taskIndex||0, s.total||0, '— MB');
+    _bdprogSyncProgress(s.taskIndex||0, s.total||0);
     _bdprogSetPhase('stopped');
   } else if(s.subMode==='circle'){
     // 半径エリアDL: resume-banner を使用（矩形と同じ）
@@ -874,12 +888,8 @@ function _dldS3SetPhase(phase){
     }
   }
 
-  // プログレスバーのETAをリセット（停止・完了時）
+  // バー色: 完了時グリーン
   if(phase === 'stopped' || phase === 'done'){
-    _dldStartTime = 0;
-    const etaEl = _e('dld-pb-eta');
-    if(etaEl) etaEl.textContent = '';
-    // バー色: 完了時グリーン
     const bar = _e('dld-pb-bar');
     if(bar) bar.style.background = phase === 'done' ? '#4caf50' : '';
   }
@@ -908,10 +918,6 @@ async function _dldS3ResumeFromDialog(){
     ? JAPAN
     : L.latLngBounds([s.bounds.s, s.bounds.w], [s.bounds.n, s.bounds.e]);
 
-  // ETA計算用にリセット
-  _dldStartTime = Date.now();
-  _dldInitDone  = 0; // runDl内でキャッシュ済みスキャン後に再設定される
-
   _dldS3SetPhase('running');
   _dldSyncProgress(s.taskIndex || 0, s.total || 0, '— MB');
 
@@ -929,10 +935,6 @@ async function _dldS3ResumeFromDialog(){
   }
 }
 
-// ETA計算用: DL開始時刻を保持
-let _dldStartTime = 0;
-let _dldInitDone  = 0; // スキップ済み（キャッシュ済み）枚数
-
 /**
  * STEP3の進捗バーを更新する。パーセント・ETA付き。
  */
@@ -944,28 +946,8 @@ function _dldSyncProgress(done, total, mb){
   }
   const pct = total > 0 ? Math.round(done / total * 100) : 0;
   const _e = id => document.getElementById(id);
-  if(_e('dld-pb-done')) _e('dld-pb-done').textContent = done.toLocaleString();
-  if(_e('dld-pb-tot'))  _e('dld-pb-tot').textContent  = total.toLocaleString();
-  if(_e('dld-pb-bar'))  _e('dld-pb-bar').style.width  = pct + '%';
-  if(_e('dld-pb-pct'))  _e('dld-pb-pct').textContent  = pct + '%';
-  if(_e('dld-pb-mb'))   _e('dld-pb-mb').textContent   = mb;
-
-  // ETA計算（実際にfetchした枚数ベース）
-  const etaEl = _e('dld-pb-eta');
-  if(etaEl && _dldStartTime > 0){
-    const fetched   = done - _dldInitDone; // キャッシュ済みを除いた実fetch数
-    const remaining = total - done;
-    if(fetched > 5 && remaining > 0){
-      const elapsed = (Date.now() - _dldStartTime) / 1000; // 秒
-      const speed   = fetched / elapsed; // 枚/秒
-      const etaSec  = remaining / speed;
-      etaEl.textContent = etaSec < 60
-        ? `残り約 ${Math.ceil(etaSec)} 秒`
-        : `残り約 ${Math.ceil(etaSec / 60)} 分`;
-    } else if(fetched <= 5){
-      etaEl.textContent = '残り時間を計算中…';
-    }
-  }
+  if(_e('dld-pb-bar'))  _e('dld-pb-bar').style.width = pct + '%';
+  if(_e('dld-pb-pct'))  _e('dld-pb-pct').textContent = pct + '%';
 }
 
 /**
@@ -978,9 +960,9 @@ async function _dldShowDonePanel(done, realBytes, layers, zmin, zmax, sessId){
     const mb = (realBytes / 1024 / 1024).toFixed(1);
     const layerNames = _layerLabel(layers, '・');
     summary.innerHTML =
-      `<div class="dld-done-row">📦 <b>${done.toLocaleString()}</b> 枚 / 約 <b>${mb} MB</b></div>` +
       `<div class="dld-done-row">🗂 ${layerNames}</div>` +
-      `<div class="dld-done-row">🔍 Z${zmin}〜Z${zmax}</div>`;
+      `<div class="dld-done-row">🔍 Z${zmin}〜Z${zmax}</div>` +
+      `<div class="dld-done-row">💾 約 ${mb} MB</div>`;
   }
 
   const addBtn = document.getElementById('dld-btn-addlayer');
@@ -1375,12 +1357,6 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   dlRun=true; dlStop=false;
   _dlAbortCtrl = new AbortController();
 
-  // ETA計算用: detail モードのみタイマーをセット（_dldSyncProgress内で参照）
-  if(mode !== 'base'){
-    _dldStartTime = Date.now();
-    _dldInitDone  = cachedCount; // キャッシュ済み分を除いた実fetch開始点
-  }
-
   // ボタン切替（ベース/詳細タブ内）
   const SB=mode==='base'?document.getElementById('btn-stpbase'):document.getElementById('btn-stpdet');
   const DB2=mode==='base'?document.getElementById('btn-dlbase'):document.getElementById('btn-dldet');
@@ -1405,19 +1381,16 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   // 統計リセット（キャッシュ済み分を done の初期値に）
   const _initDone = cachedCount;
   if(mode==='base'){
-    _bdprogSyncProgress(_initDone, total, (_prevBytesForTick/1024/1024).toFixed(0)+' MB');
+    _bdprogSyncProgress(_initDone, total);
   } else {
-    _dldSyncProgress(_initDone, total, (_prevBytesForTick/1024/1024).toFixed(0)+' MB');
+    _dldSyncProgress(_initDone, total, '');
   }
 
   let done=_initDone, fail=0, realBytes=0;
-  const log=msg=>{
-    const el=document.getElementById('dld-log');
-    if(el){el.textContent=msg+'\n'+el.textContent;el.textContent=el.textContent.split('\n').slice(0,40).join('\n');}
-  };
+  const log=msg=>{};  // ログ廃止
 
   const _syncUI = (d, t, mb) => {
-    if(mode==='base') _bdprogSyncProgress(d, t, mb);
+    if(mode==='base') _bdprogSyncProgress(d, t);
     else              _dldSyncProgress(d, t, mb);
   };
   const tick=()=>{
@@ -1534,7 +1507,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     if(typeof updateMaxCachedZooms==='function') await updateMaxCachedZooms();
     // 完了UI表示（mode別）
     if(mode==='base'){
-      _bdprogSyncProgress(done, total, (realBytes/1024/1024).toFixed(0)+' MB');
+      _bdprogSyncProgress(done, total);
       _bdprogSetPhase('done');
     } else if(window._cdldActiveSession){
       // 半径エリアDL完了
@@ -2458,26 +2431,15 @@ function _adpShowProgress(sessId, layers){
 }
 
 function _adpMirrorDlProgress(sessId){
-  const dstCnt = document.getElementById(`adp-pcnt-${sessId}`);
   const dstBar = document.getElementById(`adp-pbar-${sessId}`);
-  const dstLog = document.getElementById(`adp-plog-${sessId}`);
+  const dstCnt = document.getElementById(`adp-pcnt-${sessId}`);
 
-  // dld-pb-* を参照（runDl が _dldSyncProgress() 経由で実際に更新する要素）
   const timer = setInterval(()=>{
     if(!document.getElementById(`adp-prog-${sessId}`)){ clearInterval(timer); return; }
-    const pgBar  = document.getElementById('dld-pb-bar');
-    const pgDone = document.getElementById('dld-pb-done');
-    const pgTot  = document.getElementById('dld-pb-tot');
-    const pgMb   = document.getElementById('dld-pb-mb');
-    const pct    = pgBar ? pgBar.style.width : '0%';
+    const pgBar = document.getElementById('dld-pb-bar');
+    const pct   = pgBar ? pgBar.style.width : '0%';
     if(dstBar && pgBar) dstBar.style.width = pgBar.style.width;
-    if(dstCnt && pgDone && pgTot)
-      dstCnt.textContent = `${pgDone.textContent} / ${pgTot.textContent}（${pct}）`;
-    const srcLog = document.getElementById('dld-log');
-    if(srcLog && dstLog){
-      const firstLine = srcLog.textContent.split('\n')[0] || '';
-      if(firstLine) dstLog.textContent = firstLine;
-    }
+    if(dstCnt) dstCnt.textContent = pct;
   }, 300);
 }
 
@@ -2765,9 +2727,9 @@ async function _cdldShowDonePanel(done, realBytes, layers, zmin, zmax, sessId){
     const mb = (realBytes / 1024 / 1024).toFixed(1);
     const layerNames = _layerLabel(layers, '・');
     summary.innerHTML =
-      `<div class="dld-done-row">📦 <b>${done.toLocaleString()}</b> 枚 / 約 <b>${mb} MB</b></div>` +
       `<div class="dld-done-row">🗂 ${layerNames}</div>` +
-      `<div class="dld-done-row">🔍 Z${zmin}〜Z${zmax}</div>`;
+      `<div class="dld-done-row">🔍 Z${zmin}〜Z${zmax}</div>` +
+      `<div class="dld-done-row">💾 約 ${mb} MB</div>`;
   }
 
   const addBtn = document.getElementById('cdld-btn-addlayer');
