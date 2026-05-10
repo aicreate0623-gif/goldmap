@@ -1199,11 +1199,12 @@ async function _dldRenderAddLayerPanel(sessId, sess, container){
            <button class="btn accent dldadp-btn" id="dldadp-btn-${sessId}"
              onclick="_dldAdpStart('${sessId}')" disabled>⬇ DL開始</button>
            <div class="dldadp-prog" id="dldadp-prog-${sessId}" style="display:none">
-             <div class="dldadp-prog-label" id="dldadp-prog-lbl-${sessId}">DL中…</div>
-             <div class="prog-bar-bg">
-               <div class="prog-bar-fill" id="dldadp-prog-bar-${sessId}" style="width:0%"></div>
+             <div class="dldadp-prog-bar-wrap">
+               <div class="s3-pb-track">
+                 <div class="s3-pb-fill" id="dldadp-prog-bar-${sessId}" style="width:0%"></div>
+               </div>
+               <div class="dldadp-prog-pct" id="dldadp-prog-pct-${sessId}">0%</div>
              </div>
-             <div class="dldadp-prog-cnt" id="dldadp-prog-cnt-${sessId}">0 / —</div>
            </div>`
       }
     </div>`;
@@ -1342,13 +1343,10 @@ async function _dldAdpStart(sessId){
   window._dldSyncProgressOverride = null;
 
   // DL完了 → 完了表示
-  const prog    = document.getElementById(`dldadp-prog-${sessId}`);
   const progBar = document.getElementById(`dldadp-prog-bar-${sessId}`);
-  const progCnt = document.getElementById(`dldadp-prog-cnt-${sessId}`);
-  const progLbl = document.getElementById(`dldadp-prog-lbl-${sessId}`);
+  const progPct = document.getElementById(`dldadp-prog-pct-${sessId}`);
   if(progBar){ progBar.style.width = '100%'; progBar.style.background = '#4caf50'; }
-  if(progCnt) progCnt.textContent = '✅ DL完了';
-  if(progLbl) progLbl.textContent = '';
+  if(progPct) progPct.textContent = '✅';
 
   // 誘導ボタンを非表示（矩形DL・円形DL両対応）
   ['dld-btn-addlayer', 'cdld-btn-addlayer'].forEach(id => {
@@ -1365,15 +1363,14 @@ async function _dldAdpStart(sessId){
  */
 function _dldAdpMirrorProgress(sessId){
   const bar = document.getElementById(`dldadp-prog-bar-${sessId}`);
-  const cnt = document.getElementById(`dldadp-prog-cnt-${sessId}`);
+  const pct = document.getElementById(`dldadp-prog-pct-${sessId}`);
 
-  // 既存のオーバーライドを保存して連鎖
   const _prev = window._dldSyncProgressOverride;
   window._dldSyncProgressOverride = (done, total, mb) => {
     if(typeof _prev === 'function') _prev(done, total, mb);
-    const pct = total > 0 ? Math.round(done / total * 100) : 0;
-    if(bar) bar.style.width = pct + '%';
-    if(cnt) cnt.textContent = `${done.toLocaleString()} / ${total.toLocaleString()}`;
+    const p = total > 0 ? Math.round(done / total * 100) : 0;
+    if(bar) bar.style.width = p + '%';
+    if(pct) pct.textContent = p + '%';
   };
 }
 
@@ -2495,9 +2492,8 @@ function _adpShowProgress(sessId, layers){
     <div class="adp-prog-label">⬇ DL中: ${layerNames}</div>
     <div class="adp-prog-bar-wrap">
       <div class="adp-prog-bar" id="adp-pbar-${sessId}" style="width:0%"></div>
+      <div class="adp-prog-pct" id="adp-pcnt-${sessId}">0%</div>
     </div>
-    <div class="adp-prog-count" id="adp-pcnt-${sessId}">0 / —</div>
-    <div class="adp-prog-log"  id="adp-plog-${sessId}"></div>
   `;
 
   // ui.jsのdl-logとdl-progを監視してミラーする（MutationObserver）
@@ -2506,14 +2502,14 @@ function _adpShowProgress(sessId, layers){
 
 function _adpMirrorDlProgress(sessId){
   const dstBar = document.getElementById(`adp-pbar-${sessId}`);
-  const dstCnt = document.getElementById(`adp-pcnt-${sessId}`);
+  const dstPct = document.getElementById(`adp-pcnt-${sessId}`);
 
   const timer = setInterval(()=>{
     if(!document.getElementById(`adp-prog-${sessId}`)){ clearInterval(timer); return; }
     const pgBar = document.getElementById('dld-pb-bar');
     const pct   = pgBar ? pgBar.style.width : '0%';
     if(dstBar && pgBar) dstBar.style.width = pgBar.style.width;
-    if(dstCnt) dstCnt.textContent = pct;
+    if(dstPct) dstPct.textContent = pct;
   }, 300);
 }
 
@@ -2527,10 +2523,8 @@ function _adpShowDone(sessId){
   if(prog){
     const bar = document.getElementById(`adp-pbar-${sessId}`);
     if(bar){ bar.style.width = '100%'; bar.style.background = '#4caf50'; }
-    const cnt = document.getElementById(`adp-pcnt-${sessId}`);
-    if(cnt) cnt.textContent = '✅ DL完了';
-    const log = document.getElementById(`adp-plog-${sessId}`);
-    if(log) log.textContent = '';
+    const pct = document.getElementById(`adp-pcnt-${sessId}`);
+    if(pct) pct.textContent = '✅';
   }
   // 閉じるボタンを表示
   let closeBtn = document.getElementById(`adp-close-${sessId}`);
