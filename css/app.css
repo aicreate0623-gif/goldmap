@@ -3540,10 +3540,48 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   text-align: right;
 }
 
-/* 誘導ボタン（dld-btn-addlayer） */
-#dld-btn-addlayer {
+/* 誘導ボタン（dld-btn-addlayer / cdld-btn-addlayer） */
+#dld-btn-addlayer,
+#cdld-btn-addlayer {
   font-size: 12px;
   padding: 7px 12px;
+}
+
+/* ━━━ 追加レイヤーDLダイアログ（円形・矩形完了後共通） ━━━ */
+#addlayer-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 9100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(4px);
+  padding: 16px;
+}
+#addlayer-dialog-inner {
+  background: var(--panel-bg, #1a1a1a);
+  border: 1px solid rgba(200,170,80,0.25);
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 360px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+#addlayer-dialog-body .dldadp-panel {
+  margin-top: 0;
+  border: none;
+  padding: 0;
+  background: none;
+}
+.addlayer-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.07);
 }
 
 /* ━━━ ベースDL専用プログレスオーバーレイ ━━━ */

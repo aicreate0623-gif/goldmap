@@ -983,36 +983,68 @@ async function _dldShowDonePanel(done, realBytes, layers, zmin, zmax, sessId){
       `<div class="dld-done-row">🔍 Z${zmin}〜Z${zmax}</div>`;
   }
 
-  const area = document.getElementById('dld-done-adddl-area');
   const addBtn = document.getElementById('dld-btn-addlayer');
-  if(!area){ if(addBtn) addBtn.style.display='none'; return; }
 
-  // detail モード + sessId がある場合のみ追加DLパネルを展開
   if(!sessId){
-    area.innerHTML = '';
     if(addBtn) addBtn.style.display = 'none';
     return;
   }
 
   const sess = await dbGetSess(sessId).catch(()=>null);
   if(!sess || !sess.bounds){
-    area.innerHTML = '';
     if(addBtn) addBtn.style.display = 'none';
     return;
   }
 
-  // 専用関数でパネルをレンダリング
-  await _dldRenderAddLayerPanel(sessId, sess, area);
+  // 追加DL可能レイヤーがあるか仮レンダリングで確認
+  const tmp = document.createElement('div');
+  await _dldRenderAddLayerPanel(sessId, sess, tmp);
+  const hasPending = tmp.querySelector('.dldadp-ck:not(:disabled)');
 
-  // 追加DL可能なレイヤーがある場合のみ誘導ボタンを表示
-  const hasPending = area.querySelector('.dldadp-ck:not(:disabled)');
-  if(addBtn) addBtn.style.display = hasPending ? 'inline-flex' : 'none';
+  if(addBtn){
+    addBtn.style.display = hasPending ? 'inline-flex' : 'none';
+    addBtn.dataset.sessId = sessId;
+  }
 }
 
-// ── 誘導ボタン → 追加DLエリアへスクロール ───────────────
+// ── 誘導ボタン → 追加レイヤーダイアログを開く ───────────────
 function _dldScrollToAddLayer(){
-  const area = document.getElementById('dld-done-adddl-area');
-  if(area) area.scrollIntoView({behavior:'smooth', block:'start'});
+  const addBtn = document.getElementById('dld-btn-addlayer');
+  const sessId = addBtn?.dataset.sessId;
+  _addlayerDialogOpen(sessId);
+}
+
+// ═══════════════════════════════════════════
+//  追加レイヤーDLダイアログ（円形・矩形共通）
+// ═══════════════════════════════════════════
+
+/** 追加レイヤーダイアログを開く */
+async function _addlayerDialogOpen(sessId){
+  const overlay = document.getElementById('addlayer-dialog');
+  const body    = document.getElementById('addlayer-dialog-body');
+  if(!overlay || !body) return;
+
+  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt-dim)">読み込み中…</div>';
+  overlay.style.display = 'flex';
+
+  if(!sessId){
+    body.innerHTML = '<div style="padding:12px;color:var(--txt-dim)">セッション情報が見つかりません</div>';
+    return;
+  }
+
+  const sess = await dbGetSess(sessId).catch(() => null);
+  if(!sess || !sess.bounds){
+    body.innerHTML = '<div style="padding:12px;color:var(--txt-dim)">セッション情報が見つかりません</div>';
+    return;
+  }
+
+  await _dldRenderAddLayerPanel(sessId, sess, body);
+}
+
+/** 追加レイヤーダイアログを閉じる */
+function _addlayerDialogClose(){
+  const overlay = document.getElementById('addlayer-dialog');
+  if(overlay) overlay.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════
@@ -2738,33 +2770,35 @@ async function _cdldShowDonePanel(done, realBytes, layers, zmin, zmax, sessId){
       `<div class="dld-done-row">🔍 Z${zmin}〜Z${zmax}</div>`;
   }
 
-  const area   = document.getElementById('cdld-done-adddl-area');
   const addBtn = document.getElementById('cdld-btn-addlayer');
-  if(!area){ if(addBtn) addBtn.style.display = 'none'; return; }
 
   if(!sessId){
-    area.innerHTML = '';
     if(addBtn) addBtn.style.display = 'none';
     return;
   }
 
   const sess = await dbGetSess(sessId).catch(() => null);
   if(!sess || !sess.bounds){
-    area.innerHTML = '';
     if(addBtn) addBtn.style.display = 'none';
     return;
   }
 
-  await _dldRenderAddLayerPanel(sessId, sess, area);
+  // 追加DL可能レイヤーがあるか仮レンダリングで確認
+  const tmp = document.createElement('div');
+  await _dldRenderAddLayerPanel(sessId, sess, tmp);
+  const hasPending = tmp.querySelector('.dldadp-ck:not(:disabled)');
 
-  const hasPending = area.querySelector('.dldadp-ck:not(:disabled)');
-  if(addBtn) addBtn.style.display = hasPending ? 'inline-flex' : 'none';
+  if(addBtn){
+    addBtn.style.display = hasPending ? 'inline-flex' : 'none';
+    addBtn.dataset.sessId = sessId;
+  }
 }
 
-/** 完了パネル内の追加DLエリアへスクロール */
+/** 完了パネル内の追加DLボタン → ダイアログを開く */
 function _cdldScrollToAddLayer(){
-  const area = document.getElementById('cdld-done-adddl-area');
-  if(area) area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const addBtn = document.getElementById('cdld-btn-addlayer');
+  const sessId = addBtn?.dataset.sessId;
+  _addlayerDialogOpen(sessId);
 }
 
 /** 停止ボタン */

@@ -1289,8 +1289,6 @@
     <!-- 完了パネル -->
     <div id="cdld-done-panel" style="display:none">
       <div id="cdld-done-summary"></div>
-      <!-- 追加DLエリア（_cdldShowDonePanel で動的生成） -->
-      <div id="cdld-done-adddl-area"></div>
     </div>
 
     <!-- フッターボタン -->
@@ -1466,8 +1464,6 @@
     <!-- 完了画面 -->
     <div id="dld-s3-done-panel" style="display:none">
       <div class="dld-done-summary" id="dld-done-summary"></div>
-      <!-- 追加DLエリア（専用関数で動的生成） -->
-      <div id="dld-done-adddl-area"></div>
     </div>
 
     <!-- フッターボタン -->
@@ -1497,6 +1493,16 @@
 
   </div>
 
+</div>
+
+<!-- ══ 追加レイヤーDLダイアログ（円形・矩形DL完了後共通） ══ -->
+<div id="addlayer-dialog" style="display:none">
+  <div id="addlayer-dialog-inner">
+    <div id="addlayer-dialog-body"></div>
+    <div class="addlayer-dialog-footer">
+      <button class="btn sm" onclick="_addlayerDialogClose()">✕ 閉じる</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══ ベースDL プログレスオーバーレイ ══ -->
