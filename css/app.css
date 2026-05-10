@@ -4002,3 +4002,44 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: #7ab4f0;
 }
 .btn.blue:hover { background: rgba(60, 130, 220, 0.28); }
+
+/* ━━━ 円形DL プログレスバー（dld-pb-track/fill/nums） ━━━ */
+
+.dld-pb-track {
+  height: 14px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.dld-pb-fill {
+  height: 100%;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #a06010, #c8a84b, #e8d060);
+  transition: width 0.3s ease, background 0.4s;
+  position: relative;
+  overflow: hidden;
+}
+
+.dld-pb-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -60%;
+  width: 50%; height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.22),
+    transparent
+  );
+  animation: s3-shimmer 1.6s ease-in-out infinite;
+}
+
+.dld-pb-nums {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold, #c8a84b);
+  text-align: center;
+}
