@@ -821,11 +821,11 @@ async function resumeDl(){
     document.getElementById('resume-banner').classList.remove('show');
     // オーバーライド設定（再開中も cdld 進捗バーを使う）
     window._dldSyncProgressOverride = (done, total, mb) => _cdldSyncProgress(done, total, mb);
-    await runDl('detail', bounds, s.zmin, s.zmax, layers, s.taskIndex||0);
+    await runDl('detail', bounds, s.zmin, s.zmax, layers, 0); // startIdx=0: IDBスキャンで自動スキップ
     window._dldSyncProgressOverride = null;
     if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
   } else {
-    await runDl(s.mode, bounds, s.zmin, s.zmax, layers, s.taskIndex||0);
+    await runDl(s.mode, bounds, s.zmin, s.zmax, layers, 0); // startIdx=0: IDBスキャンで自動スキップ
   }
 }
 
@@ -856,6 +856,34 @@ function _dldS3SetPhase(phase){
   const stopMsg = _e('dld-stopping-msg');
   if(stopMsg) stopMsg.style.display = phase === 'stopping' ? 'block' : 'none';
 
+  // 停止後: レジューム情報を表示
+  const resumeInfo = _e('dld-resume-info');
+  if(resumeInfo){
+    if(phase === 'stopped'){
+      const s = loadResume();
+      if(s){
+        const pct = s.total > 0 ? Math.round(s.taskIndex / s.total * 100) : 0;
+        const pctEl   = _e('dld-resume-pct-val');
+        const savedEl = _e('dld-resume-saved');
+        if(pctEl)   pctEl.textContent   = pct + '%';
+        if(savedEl) savedEl.textContent = s.savedAt ? '保存: ' + s.savedAt : '';
+      }
+      resumeInfo.style.display = 'block';
+    } else {
+      resumeInfo.style.display = 'none';
+    }
+  }
+
+  // プログレスバーのETAをリセット（停止・完了時）
+  if(phase === 'stopped' || phase === 'done'){
+    _dldStartTime = 0;
+    const etaEl = _e('dld-pb-eta');
+    if(etaEl) etaEl.textContent = '';
+    // バー色: 完了時グリーン
+    const bar = _e('dld-pb-bar');
+    if(bar) bar.style.background = phase === 'done' ? '#4caf50' : '';
+  }
+
   // 完了パネル
   const donePanel = _e('dld-s3-done-panel');
   if(donePanel) donePanel.style.display = phase === 'done' ? 'block' : 'none';
@@ -868,7 +896,45 @@ function _dldS3SetPhase(phase){
 }
 
 /**
- * STEP3の進捗バーを更新する。
+ * STEP3停止後「▶ 再開」ボタン: ダイアログを閉じずにそのまま再開する。
+ * loadResume()でdetail/circle両モード対応。
+ */
+async function _dldS3ResumeFromDialog(){
+  const s = loadResume();
+  if(!s){ showAlert('エラー','レジュームデータがありません'); return; }
+  if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません'); return; }
+
+  const bounds = s.mode === 'base'
+    ? JAPAN
+    : L.latLngBounds([s.bounds.s, s.bounds.w], [s.bounds.n, s.bounds.e]);
+
+  // ETA計算用にリセット
+  _dldStartTime = Date.now();
+  _dldInitDone  = 0; // runDl内でキャッシュ済みスキャン後に再設定される
+
+  _dldS3SetPhase('running');
+  _dldSyncProgress(s.taskIndex || 0, s.total || 0, '— MB');
+
+  if(s.subMode === 'circle'){
+    // 円形モード: cdld ルートで再開
+    _cdldCenter = s.center || null;
+    window._dldSyncProgressOverride = (done, total, mb) => _cdldSyncProgress(done, total, mb);
+    // startIdx=0: IDBキャッシュ済みスキャンで自動的に続きから再開
+    await runDl('detail', bounds, s.zmin, s.zmax, s.layers, 0);
+    window._dldSyncProgressOverride = null;
+  } else {
+    detRect = bounds;
+    // startIdx=0: IDBキャッシュ済みスキャンで自動的に続きから再開
+    await runDl(s.mode || 'detail', bounds, s.zmin, s.zmax, s.layers, 0);
+  }
+}
+
+// ETA計算用: DL開始時刻を保持
+let _dldStartTime = 0;
+let _dldInitDone  = 0; // スキップ済み（キャッシュ済み）枚数
+
+/**
+ * STEP3の進捗バーを更新する。パーセント・ETA付き。
  */
 function _dldSyncProgress(done, total, mb){
   // 半径エリアDL中は cdld-ph3 の進捗バーに転送
@@ -881,7 +947,25 @@ function _dldSyncProgress(done, total, mb){
   if(_e('dld-pb-done')) _e('dld-pb-done').textContent = done.toLocaleString();
   if(_e('dld-pb-tot'))  _e('dld-pb-tot').textContent  = total.toLocaleString();
   if(_e('dld-pb-bar'))  _e('dld-pb-bar').style.width  = pct + '%';
+  if(_e('dld-pb-pct'))  _e('dld-pb-pct').textContent  = pct + '%';
   if(_e('dld-pb-mb'))   _e('dld-pb-mb').textContent   = mb;
+
+  // ETA計算（実際にfetchした枚数ベース）
+  const etaEl = _e('dld-pb-eta');
+  if(etaEl && _dldStartTime > 0){
+    const fetched   = done - _dldInitDone; // キャッシュ済みを除いた実fetch数
+    const remaining = total - done;
+    if(fetched > 5 && remaining > 0){
+      const elapsed = (Date.now() - _dldStartTime) / 1000; // 秒
+      const speed   = fetched / elapsed; // 枚/秒
+      const etaSec  = remaining / speed;
+      etaEl.textContent = etaSec < 60
+        ? `残り約 ${Math.ceil(etaSec)} 秒`
+        : `残り約 ${Math.ceil(etaSec / 60)} 分`;
+    } else if(fetched <= 5){
+      etaEl.textContent = '残り時間を計算中…';
+    }
+  }
 }
 
 /**
@@ -1258,6 +1342,12 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
 
   dlRun=true; dlStop=false;
   _dlAbortCtrl = new AbortController();
+
+  // ETA計算用: detail モードのみタイマーをセット（_dldSyncProgress内で参照）
+  if(mode !== 'base'){
+    _dldStartTime = Date.now();
+    _dldInitDone  = cachedCount; // キャッシュ済み分を除いた実fetch開始点
+  }
 
   // ボタン切替（ベース/詳細タブ内）
   const SB=mode==='base'?document.getElementById('btn-stpbase'):document.getElementById('btn-stpdet');
@@ -2706,7 +2796,7 @@ async function _cdldResume(){
   window._cdldActiveSession = { center: s.center, radiusKm: s.radiusKm };
   window._dldSyncProgressOverride = (done, total, mb) => _cdldSyncProgress(done, total, mb);
 
-  await runDl('detail', bounds, s.zmin, s.zmax, s.layers, s.taskIndex || 0);
+  await runDl('detail', bounds, s.zmin, s.zmax, s.layers, 0); // startIdx=0: IDBスキャンで自動スキップ
 
   window._dldSyncProgressOverride = null;
   window._cdldActiveSession = null;

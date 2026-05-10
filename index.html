@@ -1437,18 +1437,30 @@
 
     <!-- 進捗バー（DL中・停止中に表示） -->
     <div class="dld-pb-wrap" id="dld-s3-progress">
-      <div class="dl-pb-row">
-        <span class="dl-pb-label">進捗</span>
-        <span class="dl-pb-nums"><span id="dld-pb-done">0</span> / <span id="dld-pb-tot">0</span> 枚</span>
-        <span class="dl-pb-mb" id="dld-pb-mb">0 MB</span>
+      <!-- パーセント + 枚数・MB行 -->
+      <div class="s3-pb-header">
+        <span class="s3-pb-pct" id="dld-pb-pct">0%</span>
+        <span class="s3-pb-nums"><span id="dld-pb-done">0</span> / <span id="dld-pb-tot">0</span> 枚</span>
+        <span class="s3-pb-mb" id="dld-pb-mb">0 MB</span>
       </div>
-      <div class="prog-bar-bg"><div class="prog-bar-fill" id="dld-pb-bar" style="width:0%"></div></div>
+      <!-- プログレスバー本体 -->
+      <div class="s3-pb-track">
+        <div class="s3-pb-fill" id="dld-pb-bar" style="width:0%"></div>
+      </div>
+      <!-- ETA行 -->
+      <div class="s3-pb-eta" id="dld-pb-eta"></div>
     </div>
     <div class="dl-log" id="dld-log" style="display:none"></div>
 
     <!-- 停止中メッセージ -->
     <div class="dld-stopping-msg" id="dld-stopping-msg" style="display:none">
       ⏳ 実行中のDLが完了するまでお待ちください…
+    </div>
+
+    <!-- 停止後 レジューム情報 -->
+    <div class="s3-resume-info" id="dld-resume-info" style="display:none">
+      <span class="s3-resume-pct-lbl">⏸ <span id="dld-resume-pct-val">0%</span> まで完了</span>
+      <span class="s3-resume-saved" id="dld-resume-saved"></span>
     </div>
 
     <!-- 完了画面 -->
@@ -1468,11 +1480,12 @@
       <div id="dld-btns-stopping" style="display:none;gap:6px;width:100%;justify-content:flex-end">
         <button class="btn red" disabled>⏳ 停止中…</button>
       </div>
-      <!-- 停止後 -->
+      <!-- 停止後: 戻る・再開・閉じる -->
       <div id="dld-btns-stopped" style="display:none;gap:6px;width:100%">
         <button class="btn sm" onclick="_dldGoStep(2)">← 戻る</button>
         <span style="flex:1"></span>
-        <button class="btn accent" onclick="_dldCancel()">閉じる</button>
+        <button class="btn blue" onclick="_dldS3ResumeFromDialog()">▶ 再開</button>
+        <button class="btn sm" onclick="_dldCancel()">閉じる</button>
       </div>
       <!-- 完了後 -->
       <div id="dld-btns-done" style="display:none;gap:6px;width:100%;flex-wrap:wrap">
