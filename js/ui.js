@@ -663,6 +663,10 @@ function switchTab(tab){
 }
 
 function _openTab(tab){
+  // mapタブを離れる際にエリア確認の矩形プレビューを削除
+  if(tab !== 'map' && typeof _sessRectLayer !== 'undefined' && _sessRectLayer){
+    map.removeLayer(_sessRectLayer); _sessRectLayer = null;
+  }
   // 前のタブのシートを閉じる
   if(curTab!=='map' && SHEETS[curTab]){
     document.getElementById(SHEETS[curTab]).classList.remove('open');
