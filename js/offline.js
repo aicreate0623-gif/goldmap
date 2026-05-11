@@ -1773,10 +1773,12 @@ async function renderSessionList(){
     const lat  = s.center?.[0]?.toFixed(4)||'—';
     const lng  = s.center?.[1]?.toFixed(4)||'—';
     const srcs  = (s.srcKeys||[]).map(k=>LAYER_LABEL[k]||k).join('・')||'—';
-    // 既存セッションのlabelにキー名（std/photo/topo）が残っている場合は日本語で再構築
-    const label = s.srcKeys && s.srcKeys.length
-      ? `${s.srcKeys.map(k=>LAYER_LABEL[k]||k).join('・')} Z${s.zmin||'—'}〜Z${s.zmax||'—'} ${new Date(s.createdAt).toLocaleDateString('ja-JP')}`
-      : (s.label || '名称未設定');
+    // リネーム済みラベルを最優先。未設定の場合のみ自動生成
+    const label = (s.label && s.label !== '名称未設定')
+      ? s.label
+      : (s.srcKeys && s.srcKeys.length
+        ? `${s.srcKeys.map(k=>LAYER_LABEL[k]||k).join('・')} Z${s.zmin||'—'}〜Z${s.zmax||'—'} ${new Date(s.createdAt).toLocaleDateString('ja-JP')}`
+        : '名称未設定');
     const hasBounds = !!s.bounds;
     const addDlBtn = hasBounds
       ? `<button class="sess-adddl-btn" onclick="openAddLayerPanel('${s.id}')">＋</button>`

@@ -560,11 +560,18 @@
         </div>
 
         <!-- 保存済みエリア一覧 -->
-        <div class="cfg-label" style="margin-top:14px;margin-bottom:6px;">📂 保存済みエリア一覧</div>
-        <div class="cfg-sub" style="margin-bottom:8px;font-size:11px;">
-          タップすると地図がそのエリアに移動します。最終使用日が更新されます。
+        <div class="cfg-accordion" style="margin-top:14px;">
+          <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
+            <span class="cfg-accordion-title">📂 保存済みエリア一覧</span>
+            <span class="cfg-accordion-arrow">▶</span>
+          </div>
+          <div class="cfg-accordion-body" style="display:none;">
+            <div class="cfg-sub" style="margin-bottom:8px;font-size:11px;">
+              タップすると地図がそのエリアに移動します。最終使用日が更新されます。
+            </div>
+            <div id="session-list"><div class="sess-empty">読み込み中…</div></div>
+          </div>
         </div>
-        <div id="session-list"><div class="sess-empty">読み込み中…</div></div>
 
       </div>
     </div>
