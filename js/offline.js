@@ -294,6 +294,17 @@ function _dldCancel(){
 
 function _goToBaseDl(){
   _openTab('offline');
+  // 保存済みエリア一覧を閉じる
+  const savedAcc = document.getElementById('saved-area-accordion');
+  if (savedAcc) {
+    const savedBody  = savedAcc.querySelector('.cfg-accordion-body');
+    const savedArrow = savedAcc.querySelector('.cfg-accordion-arrow');
+    if (savedBody && savedBody.classList.contains('open')) {
+      savedBody.classList.remove('open');
+      if (savedArrow) savedArrow.textContent = '▶';
+    }
+  }
+  // ベースDLアコーディオンを展開してスクロール
   const acc = document.getElementById('base-dl-accordion');
   if (!acc) return;
   const body  = acc.querySelector('.cfg-accordion-body');
