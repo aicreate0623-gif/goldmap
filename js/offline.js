@@ -2194,10 +2194,13 @@ async function openAddLayerPanel(sessId){
     _updateAdpCheckboxes(sessId, sess, scanResult);  // ①チェックボックス状態を確定
     await _setAdpZoomDefaults(sessId);               // ②ズームデフォルト値を自動セット（スキャン結果ベース）
 
-    // ③全レイヤー・全ズーム完了チェック
+    // ③全レイヤー・全ズーム完了チェック（ベースDL済みも確認）
     const allCks = panel.querySelectorAll('.adp-ck');
+    const allLayerKeys = [...allCks].map(ck => ck.dataset.lk).filter(Boolean);
+    const allBaseOk = allLayerKeys.every(lk => baseDone.has(lk));
     const allComplete = allCks.length > 0 &&
-      [...allCks].every(ck => ck.disabled && ck.checked);
+      [...allCks].every(ck => ck.disabled && ck.checked) &&
+      allBaseOk;
     if(allComplete){
       // ズーム行・レイヤー行・DL開始ボタンを隠して完了メッセージ表示
       // キャンセル（閉じる）ボタンは残す
