@@ -1141,9 +1141,10 @@ async function _dldRenderAddLayerPanel(sessId, sess, container){
     }
     if(!hasAnyTile) allDone = false;
 
-    const reachedMax = maxDoneZ !== null && maxDoneZ >= maxNative;
+    const layerZmax = sess.layerStatus?.[lk]?.zmax ?? null;
+    const reachedMax = layerZmax !== null && maxDoneZ !== null && maxDoneZ >= layerZmax;
     const badge = maxDoneZ !== null
-      ? (reachedMax ? '✅ MAXまで完了' : `Z${maxDoneZ}まで完了`)
+      ? (reachedMax ? `✅ 完了 Z${layerZmax}` : `Z${maxDoneZ}まで完了`)
       : '';
     layerStates[lk] = {done: allDone, maxDoneZ, badge, reachedMax};
   });
@@ -1641,13 +1642,8 @@ async function addLayersToSession(sessId, newLayers, newTileKeys, addedBytes, ne
     sess.tileKeys  = [...new Set([...(sess.tileKeys||[]), ...newTileKeys])];
     sess.totalSize = (sess.totalSize||0) + addedBytes;
     sess.lastUsed  = Date.now();
-    // zmax をセッション全体のsrcKeysに対応したmaxNativeZoomの最大値で再計算
-    // 例: std(18)+hill(16) → zmax=18、relief(15)のみ → zmax=15
-    const _MAX_NATIVE = {std:18, photo:18, topo:17, hill:16, relief:15};
-    const allKeys = [...new Set([...(sess.srcKeys||[])])];
-    sess.zmax = allKeys.length
-      ? Math.max(...allKeys.map(k => _MAX_NATIVE[k] ?? 18))
-      : (newZmax ?? sess.zmax ?? 15);
+    // zmax はユーザーが選んだDL時のMAXズームを使用
+    sess.zmax = newZmax ?? sess.zmax ?? 15;
     sess.label = `${_layerLabel(sess.srcKeys)} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
     // layerStatus を更新：追加レイヤーの zmin/zmax を記録
     if(!sess.layerStatus) sess.layerStatus = {};
@@ -1793,7 +1789,7 @@ async function renderSessionList(){
             <span class="adp-lk-badge" id="adp-ls-${s.id}-${lk}">${(()=>{
               if(!done) return '';
               const ls = (s.layerStatus||{})[lk];
-              if(ls) return `<span class="adp-ls-badge">Z${ls.zmin}〜Z${ls.zmax}</span>`;
+              if(ls) return `<span class="adp-ls-badge">✅ 完了 Z${ls.zmax}</span>`;
               return '✅ 済';
             })()}</span>
           </label>`;
@@ -1852,6 +1848,7 @@ function _sessRenameStart(id){
   input.addEventListener('blur', commit, {once: true});
   input.addEventListener('keydown', e => {
     if(e.key === 'Enter')  { input.blur(); }
+    if(e.key === 'Escape') {
     if(e.key === 'Escape') {
       input.removeEventListener('blur', commit);
       row.replaceChild(labelEl, input);
