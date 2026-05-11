@@ -292,6 +292,19 @@ function _dldCancel(){
   _pushHistory();
 }
 
+function _goToBaseDl(){
+  _openTab('offline');
+  const acc = document.getElementById('base-dl-accordion');
+  if (!acc) return;
+  const body  = acc.querySelector('.cfg-accordion-body');
+  const arrow = acc.querySelector('.cfg-accordion-arrow');
+  if (body && !body.classList.contains('open')) {
+    body.classList.add('open');
+    if (arrow) arrow.textContent = '▼';
+  }
+  setTimeout(() => acc.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+
 // ── ステップ描画 ────────────────────────────────────────
 function _dldRenderStep(step){
   _dldStep = step;
@@ -466,7 +479,7 @@ async function _dldConfirmDraw(){
       if(tot) tot.innerHTML =
         `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
         `<br><button class="btn sm" style="margin-top:6px"
-          onclick="_dldCancel();_openTab('offline')">📥 ベースDLへ</button>`;
+          onclick="_goToBaseDl()">📥 ベースDLへ</button>`;
       return; // STEP3には進まない
     }
   }
@@ -2449,7 +2462,7 @@ async function updAddLayerEst(sessId){
       </span>
       <span class="adp-est-line">
         <button class="btn sm" style="margin-top:4px"
-          onclick="_openTab('offline')">📥 ベースDLへ</button>
+          onclick="_goToBaseDl()">📥 ベースDLへ</button>
       </span>`;
     if(btn) btn.disabled = true;
     return;
