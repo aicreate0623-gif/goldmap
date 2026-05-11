@@ -2844,17 +2844,17 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .sess-card {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 10px;
-  margin-bottom: 8px;
+  padding: 7px 8px;
+  margin-bottom: 6px;
 }
 .sess-map-thumb {
   flex-shrink: 0;
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   background: rgba(0,60,130,0.45);
   border-radius: var(--radius-sm);
   border: 1px solid rgba(100,180,255,0.35);
@@ -2862,7 +2862,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
@@ -2871,12 +2871,12 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .sess-map-thumb:hover { background: rgba(0,80,160,0.6); border-color: rgba(100,180,255,0.6); }
 .sess-map-thumb:active { background: rgba(0,80,160,0.75); }
 .sess-thumb-icon {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
 }
 .sess-thumb-label {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   color: rgba(200,240,255,0.9);
   letter-spacing: 0.03em;
@@ -2884,18 +2884,18 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 .sess-info { flex: 1; min-width: 0; }
 .sess-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--txt);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 .sess-meta {
   font-size: 11px;
   color: var(--txt-sub);
-  line-height: 1.5;
+  line-height: 1.4;
 }
 .sess-del-btn {
   flex-shrink: 0;
@@ -2903,8 +2903,8 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   border: 1px solid rgba(255,60,60,0.3);
   color: var(--red);
   border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  font-size: 14px;
+  padding: 6px 8px;
+  font-size: 13px;
   cursor: pointer;
   transition: background .2s;
 }
@@ -2975,7 +2975,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .sess-btns {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
 }
 .sess-adddl-btn {
@@ -2983,8 +2983,8 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   border: 1px solid rgba(200,168,75,0.4);
   color: var(--gold, #c8a84b);
   border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  font-size: 16px;
+  padding: 6px 8px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition: background .2s;
