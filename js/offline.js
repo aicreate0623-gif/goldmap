@@ -2236,7 +2236,7 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
     const maxNative = _ADP_MAX_NATIVE[lk] ?? 18;
     const reachedMax = maxDoneZ !== null && maxDoneZ >= maxNative;
     const badgeText = maxDoneZ !== null
-      ? (reachedMax ? '✅ MAXズームまでDLしました' : `Z${maxDoneZ}まで完了`)
+      ? (reachedMax ? '✅ 完了' : `Z${maxDoneZ}まで完了`)
       : '';
 
     if(allDone){
@@ -2244,8 +2244,8 @@ function _updateAdpCheckboxes(sessId, sess, scanResult){
       ck.checked  = true;
       if(badgeEl){
         badgeEl.textContent = badgeText;
-        badgeEl.style.fontSize   = reachedMax ? '13px' : '';
-        badgeEl.style.fontWeight = reachedMax ? '700'  : '';
+        badgeEl.style.fontSize   = '';
+        badgeEl.style.fontWeight = '';
         badgeEl.style.color      = reachedMax ? '#4caf50' : '#aaa';
       }
       if(labelEl) labelEl.classList.add('adp-layer--done');
