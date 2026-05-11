@@ -1827,8 +1827,6 @@ async function renderSessionList(){
           <button class="sess-rename-btn" onclick="_sessRenameStart('${s.id}')" title="リネーム">✏️</button>
         </div>
         <div class="sess-meta">約${mb}MB · ${srcs}</div>
-        <div class="sess-meta">DL: ${date}</div>
-        <div class="sess-meta">最終使用: ${used}</div>
       </div>
       <div class="sess-btns">
         ${addDlBtn}
