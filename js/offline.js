@@ -854,6 +854,14 @@ function checkResume(){
     const pct = s.total>0 ? Math.round(s.taskIndex/s.total*100) : 0;
     _bdprogSyncProgress(s.taskIndex||0, s.total||0);
     _bdprogSetPhase('stopped');
+  } else if(s.subMode==='addlayer'){
+    // 追加レイヤーDL: resume-bannerを使用
+    const banner=document.getElementById('resume-banner');
+    const layerStr=_layerLabel(s.layers);
+    const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
+    document.getElementById('resume-desc').innerHTML=
+      `追加レイヤー / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
+    banner.classList.add('show');
   } else if(s.subMode==='circle'){
     // 半径エリアDL: resume-banner を使用（矩形と同じ）
     const banner=document.getElementById('resume-banner');
@@ -889,7 +897,20 @@ async function resumeDl(){
     bounds=L.latLngBounds([s.bounds.s,s.bounds.w],[s.bounds.n,s.bounds.e]);
     if(s.subMode!=='circle'){ detRect=bounds; showRect(); }
   }
-  if(s.subMode==='circle'){
+  if(s.subMode==='addlayer'){
+    // 追加レイヤーDL再開: 追加レイヤーダイアログを開いてDL再開
+    document.getElementById('resume-banner').classList.remove('show');
+    const parentSessId = s.parentSessId || null;
+    if(!parentSessId){ showAlert('エラー','セッション情報がありません'); return; }
+    await _addlayerDialogOpen(parentSessId);
+    // ダイアログが描画されたあとにDL再開
+    const sess = await dbGetSess(parentSessId).catch(()=>null);
+    if(!sess||!sess.bounds){ showAlert('エラー','セッション情報がありません'); return; }
+    const b = sess.bounds;
+    const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
+    _addlayerDialogClose();
+    await runDl('detail', bounds, s.zmin, s.zmax, s.layers, 0, parentSessId);
+  } else if(s.subMode==='circle'){
     // 半径エリアDL: cdld-panel フェーズ③を開いてDL再開
     _cdldCenter = s.center || null;
     // プレビュー円を復元
@@ -1332,7 +1353,24 @@ async function _dldAdpStart(sessId){
     if(zoomRow)  zoomRow.style.display  = 'none';
     if(estEl)    estEl.style.display    = 'none';
     if(btn)      btn.style.display      = 'none';
-    if(prog)     prog.style.display     = 'block';
+    if(prog){
+      prog.style.display     = 'block';
+      // 停止ボタンを追加（既存でなければ）
+      if(!document.getElementById(`dldadp-stop-${sessId}`)){
+        const stopBtn = document.createElement('button');
+        stopBtn.id = `dldadp-stop-${sessId}`;
+        stopBtn.className = 'btn sm red';
+        stopBtn.style.cssText = 'margin-top:8px;width:100%';
+        stopBtn.textContent = '⏹ 停止';
+        stopBtn.onclick = () => {
+          dlStop = true;
+          if(_dlAbortCtrl) _dlAbortCtrl.abort();
+          stopBtn.disabled = true;
+          stopBtn.textContent = '⏳ 停止中…';
+        };
+        prog.appendChild(stopBtn);
+      }
+    }
     // STEP3プログレスバーをミラーリング
     _dldAdpMirrorProgress(sessId);
   }
@@ -1341,6 +1379,9 @@ async function _dldAdpStart(sessId){
 
   // ミラーリング用オーバーライドをリセット
   window._dldSyncProgressOverride = null;
+  // 停止ボタンを除去
+  const stopBtn = document.getElementById(`dldadp-stop-${sessId}`);
+  if(stopBtn) stopBtn.remove();
 
   // DL完了 → 完了表示
   const progBar = document.getElementById(`dldadp-prog-bar-${sessId}`);
@@ -1517,7 +1558,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
             if(active===0){
               // 全fetch完了後に停止処理
               const now=new Date().toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-              saveResume({mode,subMode:window._cdldActiveSession?'circle':undefined,center:window._cdldActiveSession?.center,radiusKm:window._cdldActiveSession?.radiusKm,bounds:boundsData,zmin,zmax,layers,taskIndex:done,total,savedAt:now});
+              saveResume({mode,subMode:window._cdldActiveSession?'circle':(parentSessId?'addlayer':undefined),center:window._cdldActiveSession?.center,radiusKm:window._cdldActiveSession?.radiusKm,bounds:boundsData,zmin,zmax,layers,taskIndex:done,total,savedAt:now,parentSessId:parentSessId||null});
               // ベースDLの場合は専用キーにも保存
               if(mode==='base'){
                 saveBaseDlProgress({layers,zmin,zmax,taskIndex:done,total,savedAt:now});
@@ -1980,7 +2021,6 @@ async function refreshCache(){
     const sb = document.getElementById('sb-cache');
     if(sb) sb.textContent = `キャッシュ: 約${mb}MB`;
     await renderSessionList();
-    if(typeof checkCacheWarn === 'function') checkCacheWarn();
   } catch(e){ el.textContent = '取得失敗'; }
 }
 
