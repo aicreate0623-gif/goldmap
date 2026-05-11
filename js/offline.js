@@ -1849,10 +1849,11 @@ function _sessRenameStart(id){
     row.replaceChild(labelEl, input);
     if(renameBtn) renameBtn.style.display = '';
   };
-  input.addEventListener('blur', commit);
+  input.addEventListener('blur', commit, {once: true});
   input.addEventListener('keydown', e => {
     if(e.key === 'Enter')  { input.blur(); }
     if(e.key === 'Escape') {
+      input.removeEventListener('blur', commit);
       row.replaceChild(labelEl, input);
       if(renameBtn) renameBtn.style.display = '';
     }
