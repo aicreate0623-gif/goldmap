@@ -922,18 +922,27 @@ async function resumeDl(){
     if(s.subMode!=='circle'){ detRect=bounds; showRect(); }
   }
   if(s.subMode==='addlayer'){
-    // 追加レイヤーDL再開: 追加レイヤーダイアログを開いてDL再開
+    // 追加レイヤーDL再開: adpパネルを開いてそのまま再開
     document.getElementById('resume-banner').classList.remove('show');
     const parentSessId = s.parentSessId || null;
     if(!parentSessId){ showAlert('エラー','セッション情報がありません'); return; }
+    // セッション一覧タブを開いてパネルを表示
+    _openTab('offline');
     await _addlayerDialogOpen(parentSessId);
-    // ダイアログが描画されたあとにDL再開
-    const sess = await dbGetSess(parentSessId).catch(()=>null);
-    if(!sess||!sess.bounds){ showAlert('エラー','セッション情報がありません'); return; }
-    const b = sess.bounds;
-    const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
-    _addlayerDialogClose();
-    await runDl('detail', bounds, s.zmin, s.zmax, s.layers, 0, parentSessId);
+    // adpパネルをDL中UIに切り替えて再開（_adpResumeFromPanel と同処理）
+    const sess2 = await dbGetSess(parentSessId).catch(()=>null);
+    if(!sess2||!sess2.bounds){ showAlert('エラー','セッション情報がありません'); return; }
+    const b2 = sess2.bounds;
+    const bounds2 = L.latLngBounds([[b2.s,b2.w],[b2.n,b2.e]]);
+    _adpShowProgress(parentSessId, s.layers);
+    window._dldSyncProgressOverride = null; // 二重フック防止
+    _adpMirrorDlProgress(parentSessId);
+    _adpSetPhase(parentSessId, 'running');
+    await runDl('detail', bounds2, s.zmin, s.zmax, s.layers, 0, parentSessId);
+    window._dldSyncProgressOverride = null;
+    if(dlStop){ _adpSetPhase(parentSessId, 'stopped'); return; }
+    _adpSetPhase(parentSessId, 'done');
+    await refreshCache();
   } else if(s.subMode==='circle'){
     // 半径エリアDL: cdld-panel フェーズ③を開いてDL再開
     _cdldCenter = s.center || null;
@@ -2554,11 +2563,23 @@ async function startAddLayerDl(sessId){
 
   // パネルをDL中UIに切り替え（パネルは閉じない）
   _adpShowProgress(sessId, selected);
+  window._dldSyncProgressOverride = null; // 二重フック防止
+  _adpMirrorDlProgress(sessId);
+  _adpSetPhase(sessId, 'running');
 
   // parentSessId を渡すことで runDl 内で直接 addLayersToSession を呼ぶ
   await runDl('detail', bounds, zmin, zmax, selected, 0, sessId);
 
-  _adpShowDone(sessId);
+  // override解放
+  window._dldSyncProgressOverride = null;
+
+  // 停止された場合
+  if(dlStop){
+    _adpSetPhase(sessId, 'stopped');
+    return;
+  }
+
+  _adpSetPhase(sessId, 'done');
   await refreshCache();
 }
 
@@ -2566,11 +2587,14 @@ async function startAddLayerDl(sessId){
  * 追加DLパネルをDL中モードに切り替える。
  * ui.js の _dldLog / _dldProg を監視して進捗を表示する。
  */
+/**
+ * 追加DLパネルをDL中モードに切り替える。
+ * フェーズ対応ボタン群（running/stopping/stopped/done）を生成する。
+ */
 function _adpShowProgress(sessId, layers){
   const panel = document.getElementById('adp-'+sessId);
   if(!panel) return;
 
-  // 選択UI → プログレスUIに差し替え
   const layerNames = layers.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
   panel.querySelector('.adp-layers').style.display = 'none';
   panel.querySelector('.adp-footer').style.display = 'none';
@@ -2583,67 +2607,144 @@ function _adpShowProgress(sessId, layers){
     panel.appendChild(prog);
   }
   prog.style.display = 'block';
+  prog.dataset.layerNames = layerNames;
   prog.innerHTML = `
-    <div class="adp-prog-label">⬇ DL中: ${layerNames}</div>
+    <div class="adp-prog-label" id="adp-prog-label-${sessId}">⬇ DL中: ${layerNames}</div>
     <div class="dldadp-prog-bar-wrap">
       <div class="s3-pb-track" style="flex:1">
         <div class="s3-pb-fill" id="adp-pbar-${sessId}" style="width:0%"></div>
       </div>
       <div class="dldadp-prog-pct" id="adp-pcnt-${sessId}">0%</div>
     </div>
+    <div id="adp-resume-info-${sessId}" style="display:none;font-size:11px;color:var(--txt-dim);margin-top:4px"></div>
+    <div id="adp-btns-running-${sessId}"  style="display:none;margin-top:8px;gap:6px;justify-content:flex-end;width:100%">
+      <button class="btn red" onclick="_adpStopDl('${sessId}')">■ 停止</button>
+    </div>
+    <div id="adp-btns-stopping-${sessId}" style="display:none;margin-top:8px;gap:6px;justify-content:flex-end;width:100%">
+      <button class="btn red" disabled>⏳ 停止中…</button>
+    </div>
+    <div id="adp-btns-stopped-${sessId}"  style="display:none;margin-top:8px;gap:6px;width:100%">
+      <button class="btn blue" onclick="_adpResumeFromPanel('${sessId}')">▶ 再開</button>
+      <span style="flex:1"></span>
+      <button class="btn sm"   onclick="_adpCloseAndReset('${sessId}')">閉じる</button>
+    </div>
+    <div id="adp-btns-done-${sessId}"     style="display:none;margin-top:8px;gap:6px;justify-content:flex-end;width:100%">
+      <button class="btn accent" onclick="_adpCloseAndReset('${sessId}')">✅ 閉じる</button>
+    </div>
   `;
-
-  // ui.jsのdl-logとdl-progを監視してミラーする（MutationObserver）
-  _adpMirrorDlProgress(sessId);
+  // フック設定は呼び出し元で明示管理（二重セット防止）
 }
 
-function _adpMirrorDlProgress(sessId){
-  const dstBar = document.getElementById(`adp-pbar-${sessId}`);
-  const dstPct = document.getElementById(`adp-pcnt-${sessId}`);
+/**
+ * adpパネルのフェーズ切り替え（running / stopping / stopped / done）
+ */
+function _adpSetPhase(sessId, phase){
+  const bar   = document.getElementById(`adp-pbar-${sessId}`);
+  const pct   = document.getElementById(`adp-pcnt-${sessId}`);
+  const label = document.getElementById(`adp-prog-label-${sessId}`);
+  const info  = document.getElementById(`adp-resume-info-${sessId}`);
 
-  const timer = setInterval(()=>{
-    if(!document.getElementById(`adp-prog-${sessId}`)){ clearInterval(timer); return; }
-    const pgBar = document.getElementById('dld-pb-bar');
-    const pct   = pgBar ? pgBar.style.width : '0%';
-    if(dstBar && pgBar) dstBar.style.width = pgBar.style.width;
-    if(dstPct) dstPct.textContent = pct;
-  }, 300);
-}
+  ['running','stopping','stopped','done'].forEach(p => {
+    const el = document.getElementById(`adp-btns-${p}-${sessId}`);
+    if(el) el.style.display = p === phase ? 'flex' : 'none';
+  });
 
-function _adpShowDone(sessId){
-  const panel = document.getElementById('adp-'+sessId);
-  if(!panel) return;
-  // 二重呼び出し防止（startAddLayerDl から複数回呼ばれるケースへの安全ガード）
-  if(panel.dataset.adpDone === '1') return;
-  panel.dataset.adpDone = '1';
-  const prog = document.getElementById(`adp-prog-${sessId}`);
-  if(prog){
-    const bar = document.getElementById(`adp-pbar-${sessId}`);
+  if(phase === 'running'){
+    const prog = document.getElementById(`adp-prog-${sessId}`);
+    if(label) label.textContent = '⬇ DL中: ' + (prog?.dataset.layerNames || '');
+    if(bar) bar.style.background = '';
+    if(info) info.style.display = 'none';
+  } else if(phase === 'stopping'){
+    if(label) label.textContent = '⏳ 停止処理中…';
+  } else if(phase === 'stopped'){
+    if(label) label.textContent = '⏸ ダウンロードを停止しました';
+    if(bar) bar.style.background = '';
+    if(info){
+      const s = loadResume();
+      if(s && s.total > 0){
+        const p = Math.round(s.taskIndex / s.total * 100);
+        info.textContent = `進捗 ${p}%（${fmt(s.taskIndex)} / ${fmt(s.total)}）`;
+        info.style.display = 'block';
+      }
+    }
+  } else if(phase === 'done'){
+    if(label) label.textContent = '✅ ダウンロード完了';
     if(bar){ bar.style.width = '100%'; bar.style.background = '#4caf50'; }
-    const pct = document.getElementById(`adp-pcnt-${sessId}`);
     if(pct) pct.textContent = '✅';
-  }
-  // 閉じるボタンを表示
-  let closeBtn = document.getElementById(`adp-close-${sessId}`);
-  if(!closeBtn){
-    closeBtn = document.createElement('button');
-    closeBtn.id = `adp-close-${sessId}`;
-    closeBtn.className = 'btn accent';
-    closeBtn.style.cssText = 'margin-top:10px;width:100%';
-    closeBtn.textContent = '閉じる';
-    closeBtn.onclick = ()=>{
-      closeAddLayerPanel(sessId);
-      // プログレスエリアをリセット（次回オープン用）
-      const p = document.getElementById(`adp-prog-${sessId}`);
-      if(p) p.remove();
-      const lays = panel.querySelector('.adp-layers');
-      const foot = panel.querySelector('.adp-footer');
-      if(lays) lays.style.display = '';
-      if(foot) foot.style.display = '';
-    };
-    panel.appendChild(closeBtn);
+    if(info) info.style.display = 'none';
   }
 }
+
+/** adp 停止ボタン押下 */
+function _adpStopDl(sessId){
+  dlStop = true;
+  if(_dlAbortCtrl) _dlAbortCtrl.abort();
+  _adpSetPhase(sessId, 'stopping');
+}
+
+/** adp 再開ボタン押下（stopped フェーズから再開） */
+async function _adpResumeFromPanel(sessId){
+  const s = loadResume();
+  if(!s || s.subMode !== 'addlayer'){
+    showAlert('エラー', 'レジュームデータがありません'); return;
+  }
+  if(!navigator.onLine){ showAlert('オフライン', 'インターネット接続がありません'); return; }
+
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(!sess||!sess.bounds){ showAlert('エラー','セッション情報がありません'); return; }
+  const b = sess.bounds;
+  const bounds = L.latLngBounds([[b.s,b.w],[b.n,b.e]]);
+
+  _adpSetPhase(sessId, 'running');
+  window._dldSyncProgressOverride = null; // 二重フック防止
+  _adpMirrorDlProgress(sessId);
+
+  await runDl('detail', bounds, s.zmin, s.zmax, s.layers, 0, sessId);
+
+  window._dldSyncProgressOverride = null;
+
+  if(dlStop){
+    _adpSetPhase(sessId, 'stopped');
+    return;
+  }
+  _adpSetPhase(sessId, 'done');
+  await refreshCache();
+}
+
+/** adp パネルを閉じてリセット（停止後・完了後共通） */
+function _adpCloseAndReset(sessId){
+  const panel = document.getElementById('adp-'+sessId);
+  closeAddLayerPanel(sessId);
+  if(!panel) return;
+  const p = document.getElementById(`adp-prog-${sessId}`);
+  if(p) p.remove();
+  const lays = panel.querySelector('.adp-layers');
+  const foot = panel.querySelector('.adp-footer');
+  if(lays) lays.style.display = '';
+  if(foot) foot.style.display = '';
+}
+
+/**
+ * adp 追加DL中の進捗をフックで受け取りバーに反映する。
+ * ポーリング方式を廃止し _dldSyncProgressOverride コールバック方式に統一。
+ */
+function _adpMirrorDlProgress(sessId){
+  const bar = document.getElementById(`adp-pbar-${sessId}`);
+  const pct = document.getElementById(`adp-pcnt-${sessId}`);
+
+  const _prev = window._dldSyncProgressOverride;
+  window._dldSyncProgressOverride = (done, total, mb) => {
+    if(typeof _prev === 'function') _prev(done, total, mb);
+    if(dlStop){
+      if(pct) pct.textContent = '⏳';
+      return;
+    }
+    const p = total > 0 ? Math.round(done / total * 100) : 0;
+    if(bar) bar.style.width = p + '%';
+    if(pct) pct.textContent = p + '%';
+  };
+}
+
 
 /**
  * ベースDLセクションの各レイヤー行にステータスを表示する。
