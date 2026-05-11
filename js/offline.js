@@ -913,12 +913,13 @@ async function resumeDl(){
   } else if(s.subMode==='circle'){
     // 半径エリアDL: cdld-panel フェーズ③を開いてDL再開
     _cdldCenter = s.center || null;
-    // プレビュー円を復元
+    // プレビュー矩形を復元（実DL範囲と一致）
     if(_cdldCenter){
       if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
-      _cdldCircle = L.circle([_cdldCenter.lat, _cdldCenter.lng], {
-        radius: (s.radiusKm || 5) * 1000,
+      const _resumeBounds2 = _cdldBounds(_cdldCenter.lat, _cdldCenter.lng, s.radiusKm || 5);
+      _cdldCircle = L.rectangle(_resumeBounds2, {
         color: '#c8a84b', weight: 2,
+        dashArray: '4 3',
         fillColor: '#c8a84b', fillOpacity: 0.10
       }).addTo(map);
     }
@@ -2666,15 +2667,16 @@ function _cdldBounds(lat, lng, km){
   );
 }
 
-/** 地図上の円プレビューを更新 */
+/** 地図上の正方形プレビューを更新（実DL範囲と一致） */
 function _cdldUpdateCircle(){
   if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
   if(!_cdldCenter) return;
   const km = _cdldRadiusKm();
-  _cdldCircle = L.circle([_cdldCenter.lat, _cdldCenter.lng], {
-    radius: km * 1000,
+  const bounds = _cdldBounds(_cdldCenter.lat, _cdldCenter.lng, km);
+  _cdldCircle = L.rectangle(bounds, {
     color: '#c8a84b',
     weight: 2,
+    dashArray: '4 3',
     fillColor: '#c8a84b',
     fillOpacity: 0.10
   }).addTo(map);
@@ -2907,9 +2909,10 @@ async function _cdldResume(){
 
   if(_cdldCenter){
     if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
-    _cdldCircle = L.circle([_cdldCenter.lat, _cdldCenter.lng], {
-      radius: (s.radiusKm || 5) * 1000,
+    const _resumeBounds = _cdldBounds(_cdldCenter.lat, _cdldCenter.lng, s.radiusKm || 5);
+    _cdldCircle = L.rectangle(_resumeBounds, {
       color: '#c8a84b', weight: 2,
+      dashArray: '4 3',
       fillColor: '#c8a84b', fillOpacity: 0.10
     }).addTo(map);
   }
