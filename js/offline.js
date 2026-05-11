@@ -1827,6 +1827,8 @@ async function renderSessionList(){
           <button class="sess-rename-btn" onclick="_sessRenameStart('${s.id}')" title="リネーム">✏️</button>
         </div>
         <div class="sess-meta">約${mb}MB · ${srcs}</div>
+        <div class="sess-meta">DL: ${date}</div>
+        <div class="sess-meta">最終使用: ${used}</div>
       </div>
       <div class="sess-btns">
         ${addDlBtn}
@@ -2583,9 +2585,11 @@ function _adpShowProgress(sessId, layers){
   prog.style.display = 'block';
   prog.innerHTML = `
     <div class="adp-prog-label">⬇ DL中: ${layerNames}</div>
-    <div class="adp-prog-bar-wrap">
-      <div class="adp-prog-bar" id="adp-pbar-${sessId}" style="width:0%"></div>
-      <div class="adp-prog-pct" id="adp-pcnt-${sessId}">0%</div>
+    <div class="dldadp-prog-bar-wrap">
+      <div class="s3-pb-track" style="flex:1">
+        <div class="s3-pb-fill" id="adp-pbar-${sessId}" style="width:0%"></div>
+      </div>
+      <div class="dldadp-prog-pct" id="adp-pcnt-${sessId}">0%</div>
     </div>
   `;
 
