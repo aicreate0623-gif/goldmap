@@ -202,42 +202,25 @@ async function calcTotalCacheSize(){
   return sessions.reduce((sum,s)=>sum+(s.totalSize||0), 0);
 }
 
-/** 全セッション一覧をlastUsed昇順（古い順）で返す */
-async function getSessionsSorted(){
-  const sessions = await dbGetAllSess();
-  return sessions.sort((a,b)=>a.lastUsed - b.lastUsed);
-}
 
 /**
- * LRU追い出し：上限超過時に最古セッションを確認ダイアログ付きで削除。
- * @returns {boolean} 続行可能か
+ * キャッシュ使用量を確認し、上限に近づいていたらトーストで警告する。
+ * 自動削除は行わない。削除はユーザーが手動で行う。
  */
-async function evictIfNeeded(incomingSize){
-  const cacheMax = getCacheMax();
-  let total = await calcTotalCacheSize();
-  if(total + incomingSize <= cacheMax) return true;
-
-  const sessions = await getSessionsSorted();
-  for(const sess of sessions){
-    const freed = sess.totalSize || 0;
-    const label = sess.label || '名称未設定';
-    const mb    = (freed/1024/1024).toFixed(1);
-    const date  = new Date(sess.createdAt).toLocaleDateString('ja-JP');
-
-    const ok = await showConfirmDialog(
-      `💾 キャッシュ容量が不足しています\n\n「${label}」(${mb}MB · ${date}) を\n削除して容量を確保してよいですか？`,
-      '削除して続行', 'キャンセル'
-    );
-    if(!ok) return false;
-
-    if(Array.isArray(sess.tileKeys)){
-      for(const k of sess.tileKeys){ await dbDel(k).catch(()=>{}); }
+async function checkCacheWarn(){
+  try {
+    const cacheMax = getCacheMax();
+    const total    = await calcTotalCacheSize();
+    const ratio    = total / cacheMax;
+    if(ratio >= 1.0){
+      if(typeof showToast === 'function')
+        showToast('⚠️ キャッシュが上限に達しています。不要なセッションを削除してください。', 4000);
+    } else if(ratio >= CACHE_MAX_WARN_RATIO){
+      const pct = Math.round(ratio * 100);
+      if(typeof showToast === 'function')
+        showToast(`💾 キャッシュ使用量が ${pct}% です。空き容量にご注意ください。`, 3000);
     }
-    await dbDelSess(sess.id);
-    total -= freed;
-    if(total + incomingSize <= cacheMax) return true;
-  }
-  return true;
+  } catch(e){}
 }
 
 /**

@@ -1980,6 +1980,7 @@ async function refreshCache(){
     const sb = document.getElementById('sb-cache');
     if(sb) sb.textContent = `キャッシュ: 約${mb}MB`;
     await renderSessionList();
+    if(typeof checkCacheWarn === 'function') checkCacheWarn();
   } catch(e){ el.textContent = '取得失敗'; }
 }
 
