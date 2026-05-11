@@ -1622,7 +1622,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
         const _center = mode==='base'
           ? [35.0, 136.0]
           : [bounds.getCenter().lat, bounds.getCenter().lng];
-        const _zoom   = zmax;
+        const _zoom   = mode==='base' ? zmax : (typeof map!=='undefined' ? map.getZoom() : zmax);
         const _bounds = mode==='base' ? null : {n:bounds.getNorth(),s:bounds.getSouth(),e:bounds.getEast(),w:bounds.getWest()};
         if(mode==='base'){
           // ベースDL → レイヤーごとに個別セッション（既存があればマージ）
@@ -1811,8 +1811,15 @@ async function renderSessionList(){
     return `
     <div class="sess-card" id="sc-${s.id}">
       <div class="sess-map-thumb" onclick="jumpToSession('${s.id}')">
-        <div class="sess-coord">${lat}<br>${lng}</div>
-        <div class="sess-zoom-badge">Z${s.zoom||'—'}</div>
+        <svg class="sess-thumb-icon" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+          <line x1="0" y1="12" x2="36" y2="12" stroke="rgba(100,180,255,0.45)" stroke-width="1"/>
+          <line x1="0" y1="24" x2="36" y2="24" stroke="rgba(100,180,255,0.45)" stroke-width="1"/>
+          <line x1="12" y1="0" x2="12" y2="36" stroke="rgba(100,180,255,0.45)" stroke-width="1"/>
+          <line x1="24" y1="0" x2="24" y2="36" stroke="rgba(100,180,255,0.45)" stroke-width="1"/>
+          <circle cx="18" cy="14" r="5" fill="none" stroke="var(--gold)" stroke-width="1.8"/>
+          <line x1="18" y1="19" x2="18" y2="25" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <span class="sess-thumb-label">エリア確認</span>
       </div>
       <div class="sess-info">
         <div class="sess-label-row">

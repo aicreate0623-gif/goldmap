@@ -2853,34 +2853,34 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 .sess-map-thumb {
   flex-shrink: 0;
-  width: 60px;
-  height: 60px;
-  background: rgba(0,80,160,0.35);
+  width: 64px;
+  height: 64px;
+  background: rgba(0,60,130,0.45);
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(100,180,255,0.2);
+  border: 1px solid rgba(100,180,255,0.35);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: background .2s;
+  transition: background .2s, border-color .2s;
 }
-.sess-map-thumb:active { background: rgba(0,80,160,0.55); }
-.sess-coord {
-  font-size: 9px;
-  color: rgba(200,240,255,0.85);
-  text-align: center;
-  line-height: 1.4;
+.sess-map-thumb:hover { background: rgba(0,80,160,0.6); border-color: rgba(100,180,255,0.6); }
+.sess-map-thumb:active { background: rgba(0,80,160,0.75); }
+.sess-thumb-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
 }
-.sess-zoom-badge {
-  position: absolute;
-  bottom: 3px;
-  right: 4px;
+.sess-thumb-label {
   font-size: 9px;
   font-weight: 700;
-  color: var(--gold);
+  color: rgba(200,240,255,0.9);
+  letter-spacing: 0.03em;
+  line-height: 1;
 }
 .sess-info { flex: 1; min-width: 0; }
 .sess-label {
