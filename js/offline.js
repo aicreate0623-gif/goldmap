@@ -1348,11 +1348,22 @@ async function _dldAdpStart(sessId){
   if(progBar){ progBar.style.width = '100%'; progBar.style.background = '#4caf50'; }
   if(progPct) progPct.textContent = '✅';
 
-  // 誘導ボタンを非表示（矩形DL・円形DL両対応）
-  ['dld-btn-addlayer', 'cdld-btn-addlayer'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.style.display = 'none';
-  });
+  // 誘導ボタンを再判定（追加DL後にまだ残レイヤーがあれば再表示）
+  for(const btnId of ['dld-btn-addlayer', 'cdld-btn-addlayer']){
+    const addBtn = document.getElementById(btnId);
+    if(!addBtn) continue;
+    const latestSessId = addBtn.dataset.sessId || sessId;
+    const latestSess = await dbGetSess(latestSessId).catch(()=>null);
+    if(!latestSess || !latestSess.bounds){
+      addBtn.style.display = 'none';
+      continue;
+    }
+    const tmp = document.createElement('div');
+    await _dldRenderAddLayerPanel(latestSessId, latestSess, tmp);
+    const hasPending = tmp.querySelector('.dldadp-ck:not(:disabled)');
+    addBtn.style.display = hasPending ? 'inline-flex' : 'none';
+    addBtn.dataset.sessId = latestSessId;
+  }
 
   await refreshCache();
 }
@@ -1368,6 +1379,11 @@ function _dldAdpMirrorProgress(sessId){
   const _prev = window._dldSyncProgressOverride;
   window._dldSyncProgressOverride = (done, total, mb) => {
     if(typeof _prev === 'function') _prev(done, total, mb);
+    // 停止ボタン押下直後は pct に即フィードバック
+    if(dlStop){
+      if(pct) pct.textContent = '⏳';
+      return;
+    }
     const p = total > 0 ? Math.round(done / total * 100) : 0;
     if(bar) bar.style.width = p + '%';
     if(pct) pct.textContent = p + '%';
