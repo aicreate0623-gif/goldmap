@@ -561,11 +561,11 @@
 
         <!-- 保存済みエリア一覧 -->
         <div class="cfg-accordion" style="margin-top:14px;">
-          <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this); if(this.nextElementSibling.style.display!=='none' && typeof renderSessionList==='function') renderSessionList();">
+          <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this); if(this.nextElementSibling.classList.contains('open') && typeof renderSessionList==='function') renderSessionList();">
             <span class="cfg-accordion-title">📂 保存済みエリア一覧</span>
             <span class="cfg-accordion-arrow">▶</span>
           </div>
-          <div class="cfg-accordion-body" style="display:none;">
+          <div class="cfg-accordion-body">
             <div class="cfg-sub" style="margin-bottom:8px;font-size:11px;">
               タップすると地図がそのエリアに移動します。最終使用日が更新されます。
             </div>
