@@ -105,12 +105,12 @@ function getMaxCachedZoom(sk){
   return isNaN(v) ? null : v;
 }
 
-/** 全セッションを走査してレイヤーごとの最大zmaxをlocalStorageに書き込む */
+/** 全セッションを走査してレイヤーごとの最大zmaxをlocalStorageに書き込む（baseモードのみ対象） */
 async function updateMaxCachedZooms(){
   const sessions = await dbGetAllSess();
   LAYERS_ALL.forEach(lk => {
     const max = sessions
-      .filter(s => (s.srcKeys||[]).includes(lk))
+      .filter(s => s.mode === 'base' && (s.srcKeys||[]).includes(lk))
       .reduce((m, s) => Math.max(m, s.zmax||0), 0);
     if(max > 0) localStorage.setItem('cachedMaxZoom_' + lk, max);
     else        localStorage.removeItem('cachedMaxZoom_' + lk);
