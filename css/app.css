@@ -734,7 +734,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 /* オフラインシート内アコーディオンのpadding調整 */
 #dl-sheet .cfg-accordion-header { padding: 12px 18px; }
 #dl-sheet .cfg-accordion-body   { padding: 0 18px 14px; }
-#dl-sheet .cfg-accordion { border-bottom: 1px solid rgba(255,255,255,0.07); }
+#dl-sheet .cfg-accordion { border-bottom: 1px solid rgba(200,168,75,0.35); }
 .dl-section {
   padding: 16px 18px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -856,7 +856,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 
 /* ━━━ 設定タブ アコーディオン ━━━ */
 .cfg-accordion {
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid rgba(200,168,75,0.35);
 }
 .cfg-accordion-header {
   display: flex; align-items: center; gap: 8px;
