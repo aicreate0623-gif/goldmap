@@ -349,7 +349,7 @@ function _dldWatchDraw(){
       if(clrBtn) clrBtn.disabled = false;
       const hint = document.getElementById('dld-draw-hint');
       if(hint) hint.textContent = '範囲が選択されました。概算を確認して確定してください';
-      // OKボタンをいったん有効化 → _dldSyncAndCalc内で120MB超過なら無効化
+      // OKボタンをいったん有効化 → _dldSyncAndCalc内で200MB超過なら無効化
       const ok = document.getElementById('dld-draw-ok');
       if(ok) ok.disabled = false;
       _dldSyncAndCalc();
@@ -426,10 +426,10 @@ function _dldSyncAndCalc(){
   const eb  = estBytesLayers(base, chkLayers);
   const mb  = (eb / 1024 / 1024).toFixed(0);
   const over = eb > DL_SESSION_MAX;
-  tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB${over ? ' — 120MB超過' : ''}`;
+  tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB${over ? ' — 200MB超過' : ''}`;
   tot.style.color = over ? '#ff5a47' : '';
 
-  // 120MB超過時は確定ボタンを無効化・解消時は再有効化
+  // 200MB超過時は確定ボタンを無効化・解消時は再有効化
   // （_drawPendingがある＝ドラッグ完了済みの場合のみボタン状態を操作）
   if(_drawPending){
     const ok = document.getElementById('dld-draw-ok');
@@ -437,7 +437,7 @@ function _dldSyncAndCalc(){
   }
 }
 
-// ── 120MB超過チェック共通（true=超過）──────────────────────
+// ── 200MB超過チェック共通（true=超過）──────────────────────
 // layers: 文字列配列['std','photo',...] または件数(後方互換)
 // ※ _dldStartDl では分割DLに移行するためブロックしない。
 //    STEP2（ドラッグ直後）の再ドラッグ要求にのみ使う。
@@ -451,7 +451,7 @@ function _dldCheckSize(bounds, zmaxVal, layers){
   if(eb > DL_SESSION_MAX){
     const mb = (eb / 1024 / 1024).toFixed(0);
     showAlert('⚠️ サイズ超過',
-      `推定サイズ 約${mb}MB は1回のDL上限（120MB）を超えています。\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`);
+      `推定サイズ 約${mb}MB は1回のDL上限（200MB）を超えています。\nズームレベルを下げるか、レイヤー数を減らして再度お試しください。`);
     return true;
   }
   return false;
@@ -1443,7 +1443,7 @@ async function _dldAdpUpdEst(sessId){
   const overLimit = netTiles * avgKb * 1024 > DL_SESSION_MAX;
 
   if(estEl) estEl.innerHTML =
-    `<span${overLimit?' style="color:#ff5a47"':''}>未DL: 約 ${netMb} MB（${netTiles.toLocaleString()}枚）${overLimit?' — 120MB超過':''}</span>`;
+    `<span${overLimit?' style="color:#ff5a47"':''}>未DL: 約 ${netMb} MB（${netTiles.toLocaleString()}枚）${overLimit?' — 200MB超過':''}</span>`;
 
   if(btn) btn.disabled = overLimit || netTiles === 0;
 }
@@ -1560,6 +1560,7 @@ function _dldAdpMirrorProgress(sessId){
 let dlRun=false, dlStop=false;
 let _dlAbortCtrl = null; // AbortController（実行中fetch一括キャンセル用）
 const CONCUR=6;
+const CONCUR_TOPO=3; // topo単独DL時の並列数制限（OpenTopoMapサーバー配慮）
 
 async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=null){
   if(dlRun)return;
@@ -1607,6 +1608,8 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
 
   dlRun=true; dlStop=false;
   _dlAbortCtrl = new AbortController();
+  // topo単独DLの場合のみ並列数を3に制限（OpenTopoMapサーバー配慮）
+  const _concur = (layers.length === 1 && layers[0] === 'topo') ? CONCUR_TOPO : CONCUR;
 
   // ボタン切替（ベース/詳細タブ内）
   const SB=mode==='base'?document.getElementById('btn-stpbase'):document.getElementById('btn-stpdet');
@@ -1658,7 +1661,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   await new Promise(resolve=>{
     const next=()=>{
       if(dlStop){resolve();return;}
-      while(active<CONCUR&&q.length){
+      while(active<_concur&&q.length){
         active++;
         const t=q.shift();
         const k=tileKey(t.lk,t.z,t.x,t.y);
@@ -1847,7 +1850,7 @@ function checkDlSizeLimit(estimatedBytes){
     const mb = (estimatedBytes/1024/1024).toFixed(0);
     return {
       ok:false, warn:false,
-      msg:`❌ 推定サイズ 約${mb}MB は1回のDL上限(120MB)を超えています。\nエリアかズームレベルを絞ってください。`
+      msg:`❌ 推定サイズ 約${mb}MB は1回のDL上限(200MB)を超えています。\nエリアかズームレベルを絞ってください。`
     };
   }
   if(estimatedBytes > DL_SESSION_MAX * CACHE_MAX_WARN_RATIO){
@@ -2628,7 +2631,7 @@ async function updAddLayerEst(sessId){
   if(estEl){
     estEl.innerHTML = `
       <span class="adp-est-line adp-est-net${overLimit?' adp-est-over':''}">
-        未DL: 約 ${netMb} MB（${netTiles.toLocaleString()}枚）${overLimit?' — 120MB超過':''}
+        未DL: 約 ${netMb} MB（${netTiles.toLocaleString()}枚）${overLimit?' — 200MB超過':''}
       </span>
       <span class="adp-est-line adp-est-total">
         合計: 約 ${totalMb} MB（${totalTiles.toLocaleString()}枚） Z${zmin}〜Z${zmax}

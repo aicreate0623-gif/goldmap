@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════
 const CACHE_MAX_DEFAULT  = 500 * 1024 * 1024;  // 500MB
 const CACHE_MAX_HARD     = 2048 * 1024 * 1024; // 2GB（スライダー上限）
-const DL_SESSION_MAX     = 120 * 1024 * 1024;  // 1回DL上限 120MB（固定）
+const DL_SESSION_MAX     = 200 * 1024 * 1024;  // 1回DL上限 200MB（固定）
 const CACHE_MAX_WARN_RATIO = 0.80;              // 80%超で警告
 
 // ─── キャッシュ上限（localStorageで永続化）
