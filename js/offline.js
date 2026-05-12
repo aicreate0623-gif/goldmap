@@ -1815,7 +1815,10 @@ async function addLayersToSession(sessId, newLayers, newTileKeys, addedBytes, ne
     sess.zmax = allKeys.length
       ? Math.max(...allKeys.map(k => _MAX_NATIVE[k] ?? 18))
       : (newZmax ?? sess.zmax ?? 15);
-    sess.label = `${_layerLabel(sess.srcKeys)} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
+    // ユーザーが手動リネーム済みの場合はlabelを上書きしない
+    if(!sess.userRenamed){
+      sess.label = `${_layerLabel(sess.srcKeys)} Z${sess.zmin||11}〜Z${sess.zmax||15} ${new Date(sess.createdAt).toLocaleDateString('ja-JP')}`;
+    }
     // layerStatus を更新：追加レイヤーの zmin/zmax を記録
     if(!sess.layerStatus) sess.layerStatus = {};
     const _addZmin = sess.zmin || 11;
@@ -1992,6 +1995,7 @@ async function _renameSession(id, newLabel){
     const sess = await dbGetSess(id);
     if(!sess) return;
     sess.label = newLabel.trim() || '名称未設定';
+    sess.userRenamed = true; // ユーザーが手動リネーム済みフラグ
     await dbPutSess(id, sess);
   } catch(e){ console.warn('renameSession error', e); }
 }
