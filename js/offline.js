@@ -1608,10 +1608,6 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
       }
     };
     next();
-    // fetchTasks が空（全タイルキャッシュ済み）の場合、
-    // promise.finally が一度も実行されず resolve() が呼ばれないためフリーズする。
-    // next() 呼び出し直後に空チェックして即 resolve する。
-    if(!q.length && active === 0){ resolve(); }
   });
 
   dlRun=false; if(SB) SB.style.display='none'; if(DB2) DB2.disabled=false;
@@ -1840,8 +1836,6 @@ async function renderSessionList(){
           <button class="sess-rename-btn" onclick="_sessRenameStart('${s.id}')" title="リネーム">✏️</button>
         </div>
         <div class="sess-meta">約${mb}MB · ${srcs}</div>
-        <div class="sess-meta">DL: ${date}</div>
-        <div class="sess-meta">最終使用: ${used}</div>
       </div>
       <div class="sess-btns">
         ${addDlBtn}
