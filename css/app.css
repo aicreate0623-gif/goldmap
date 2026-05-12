@@ -4058,3 +4058,96 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   color: var(--gold, #c8a84b);
   text-align: center;
 }
+/* ══ 重複DL確認ダイアログ ══════════════════════════════ */
+.dup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.dup-modal {
+  background: var(--panel, #1a2030);
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  border-radius: var(--radius-lg, 14px);
+  padding: 20px 18px 16px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.dup-modal-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gold, #c8a84b);
+  margin-bottom: 14px;
+}
+.dup-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+.dup-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.dup-name {
+  width: 84px;
+  flex-shrink: 0;
+  color: var(--txt, #ccc);
+}
+.dup-bar {
+  flex: 1;
+  font-family: monospace;
+  letter-spacing: -1px;
+  color: rgba(255,255,255,0.35);
+  font-size: 11px;
+}
+.dup-pct {
+  width: 36px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.dup-pct.high { color: #ff6b6b; }
+.dup-pct.mid  { color: var(--gold, #c8a84b); }
+.dup-pct.low  { color: rgba(255,255,255,0.35); }
+.dup-note {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+.dup-modal-btns {
+  display: flex;
+  gap: 8px;
+}
+.dup-cancel-btn {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  color: var(--txt, #ccc);
+  border-radius: var(--radius-sm, 8px);
+  padding: 9px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.dup-ok-btn {
+  flex: 1;
+  background: rgba(200,168,75,0.2);
+  border: 1px solid rgba(200,168,75,0.5);
+  color: var(--gold, #c8a84b);
+  border-radius: var(--radius-sm, 8px);
+  padding: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dup-ok-btn:active    { background: rgba(200,168,75,0.35); }
+.dup-cancel-btn:active { background: rgba(255,255,255,0.12); }

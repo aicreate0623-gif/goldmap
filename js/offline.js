@@ -551,6 +551,91 @@ function _dldUpdEst(){
     `<div class="dld-est-range">Z${zmin}〜Z${zmax}</div>${rows}`;
 }
 
+// ── 重複DL確認ダイアログ ──────────────────────────────
+/**
+ * 指定範囲・レイヤーのキャッシュ重複率を計算し、重複があればダイアログを表示。
+ * @returns {Promise<boolean>} true=保存続行 / false=キャンセル
+ */
+async function _checkDupAndConfirm(bounds, zmin, zmax, layers){
+  if(!db) return true; // DB未初期化時はスキップ
+
+  const LAYER_NAMES = {std:'地理院地図', photo:'航空写真', topo:'OpenTopo', hill:'陰影起伏図', relief:'色別標高図'};
+
+  // レイヤーごとに全タイル数・キャッシュ済み数を集計
+  const stats = [];
+  for(const lk of layers){
+    let total = 0, cached = 0;
+    for(let z = zmin; z <= zmax; z++){
+      const x0 = lon2x(bounds.getWest(), z),  x1 = lon2x(bounds.getEast(), z);
+      const y0 = lat2y(bounds.getNorth(), z),  y1 = lat2y(bounds.getSouth(), z);
+      const count = (x1 - x0 + 1) * (y1 - y0 + 1);
+      total += count;
+
+      // IDBキャッシュスキャン
+      try{
+        const prefix = `${lk}/${z}/`;
+        const keys = await new Promise((res, rej) => {
+          const tx  = db.transaction(ST, 'readonly');
+          const req = tx.objectStore(ST).openKeyCursor(
+            IDBKeyRange.bound(prefix, prefix + '\uffff', false, false)
+          );
+          const buf = [];
+          req.onsuccess = e => { const c = e.target.result; if(c){ buf.push(c.key); c.continue(); } else res(buf); };
+          req.onerror  = e => rej(e);
+        });
+        // bounds内に入るキーのみカウント
+        for(const k of keys){
+          const parts = k.split('/');
+          if(parts.length < 4) continue;
+          const kx = parseInt(parts[2]), ky = parseInt(parts[3]);
+          if(kx >= x0 && kx <= x1 && ky >= y0 && ky <= y1) cached++;
+        }
+      }catch(e){ /* スキャン失敗は0件扱い */ }
+    }
+    const pct = total > 0 ? Math.round(cached / total * 100) : 0;
+    stats.push({ lk, name: LAYER_NAMES[lk] || lk, total, cached, pct });
+  }
+
+  // 重複が1%未満なら確認不要
+  const anyDup = stats.some(s => s.pct >= 1);
+  if(!anyDup) return true;
+
+  // ダイアログHTML生成
+  const rows = stats.map(s => {
+    const filled = Math.round(s.pct / 10); // 10段階
+    const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+    const cls = s.pct >= 80 ? 'dup-pct high' : s.pct >= 1 ? 'dup-pct mid' : 'dup-pct low';
+    return `<div class="dup-row">
+      <span class="dup-name">${s.name}</span>
+      <span class="dup-bar">${bar}</span>
+      <span class="${cls}">${s.pct}%</span>
+    </div>`;
+  }).join('');
+
+  const html = `<div class="dup-dialog-body">
+    <div class="dup-rows">${rows}</div>
+    <p class="dup-note">このまま保存すると、重複分も含め新しいセッションカードとして保存されます。</p>
+  </div>`;
+
+  return new Promise(resolve => {
+    // showConfirm がある場合は流用、なければ独自モーダル
+    const overlay = document.createElement('div');
+    overlay.className = 'dup-overlay';
+    overlay.innerHTML = `
+      <div class="dup-modal">
+        <div class="dup-modal-title">⚠️ 保存済みのデータが含まれています</div>
+        ${html}
+        <div class="dup-modal-btns">
+          <button class="btn dup-cancel-btn">キャンセル</button>
+          <button class="btn dup-ok-btn">保存する</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('.dup-cancel-btn').onclick = () => { overlay.remove(); resolve(false); };
+    overlay.querySelector('.dup-ok-btn').onclick    = () => { overlay.remove(); resolve(true);  };
+  });
+}
+
 // ── STEP3: DL開始 → STEP4へ ──────────────────────────
 async function _dldStartDl(){
   const layers = ['std','photo','topo','hill','relief'].filter(k=>
@@ -575,6 +660,10 @@ async function _dldStartDl(){
   const zmax = parseInt(document.getElementById('dlg-det-zmax').value);
 
   if(_dldCheckSize(_dldBounds, zmax, layers)) return;
+
+  // ── 重複DL確認 ──
+  const proceed = await _checkDupAndConfirm(_dldBounds, zmin, zmax, layers);
+  if(!proceed) return;
 
   detRect = _dldBounds;
   _dldRenderStep(3);
@@ -1610,7 +1699,6 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     next();
     // fetchTasks が空（全タイルキャッシュ済み）の場合、
     // promise.finally が一度も実行されず resolve() が呼ばれないためフリーズする。
-    // next() 呼び出し直後に空チェックして即 resolve する。
     if(!q.length && active === 0){ resolve(); }
   });
 
@@ -3098,6 +3186,10 @@ async function _cdldStartDl(){
 
   // 容量チェック（既存関数流用）
   if(_dldCheckSize(bounds, zmax, layers)) return;
+
+  // ── 重複DL確認 ──
+  const proceed = await _checkDupAndConfirm(bounds, 10, zmax, layers);
+  if(!proceed) return;
 
   // フェーズ④へ
   _cdldShowPhase('cdld-ph4');
