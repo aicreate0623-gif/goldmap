@@ -1608,6 +1608,10 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
       }
     };
     next();
+    // fetchTasks が空（全タイルキャッシュ済み）の場合、
+    // promise.finally が一度も実行されず resolve() が呼ばれないためフリーズする。
+    // next() 呼び出し直後に空チェックして即 resolve する。
+    if(!q.length && active === 0){ resolve(); }
   });
 
   dlRun=false; if(SB) SB.style.display='none'; if(DB2) DB2.disabled=false;
