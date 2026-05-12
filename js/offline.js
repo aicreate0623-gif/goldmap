@@ -1241,10 +1241,28 @@ async function _addlayerDialogOpen(sessId){
   await _dldRenderAddLayerPanel(sessId, sess, body);
 }
 
-/** 追加レイヤーダイアログを閉じる */
+/** 追加レイヤーダイアログを閉じる（DL完了パネル経由） */
 function _addlayerDialogClose(){
   const overlay = document.getElementById('addlayer-dialog');
   if(overlay) overlay.style.display = 'none';
+}
+
+/**
+ * ダイアログの✕・閉じるボタン共通クローズ関数。
+ * セッション一覧＋ボタン経由（adp-パネルを移動済み）の場合は
+ * closeAddLayerPanel でパネルを元の位置に戻す。
+ * DL完了パネル経由の場合は _addlayerDialogClose で単純に閉じる。
+ */
+function _addlayerDialogCloseAny(){
+  const dlg = document.getElementById('addlayer-dialog');
+  if(!dlg) return;
+  if(dlg.dataset.adpSessId){
+    // セッション一覧＋ボタン経由: パネルを元に戻す
+    closeAddLayerPanel(dlg.dataset.adpSessId);
+  } else {
+    // DL完了パネル経由: 単純に閉じる
+    _addlayerDialogClose();
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -2282,7 +2300,21 @@ async function openAddLayerPanel(sessId){
   const estEl = document.getElementById('adp-est-'+sessId);
   if(estEl) estEl.textContent = '⏳ DL状態を確認中…';
 
-  panel.style.display = 'block';
+  // ── ダイアログに物理移動して表示 ──────────────────────────
+  const dlg  = document.getElementById('addlayer-dialog');
+  const body = document.getElementById('addlayer-dialog-body');
+  if(dlg && body){
+    // 以前のパネルが残っていれば元に戻す
+    _adpRestorePanel();
+    // パネルをダイアログbodyに移動（IDはそのまま保持）
+    panel.style.display = 'block';
+    body.appendChild(panel);
+    dlg.dataset.adpSessId = sessId;
+    dlg.style.display = 'flex';
+  } else {
+    // フォールバック: ダイアログがなければ従来通りカード下展開
+    panel.style.display = 'block';
+  }
 
   // IDBスキャン
   const sess = await dbGetSess(sessId).catch(()=>null);
@@ -2363,12 +2395,40 @@ function _renderAdpZoomHint(sessId, scanResult){
 }
 
 function closeAddLayerPanel(sessId){
+  // ダイアログ経由で開いていた場合はパネルを元の位置に戻してダイアログを閉じる
+  _adpRestorePanel();
+  const dlg = document.getElementById('addlayer-dialog');
+  if(dlg) dlg.style.display = 'none';
+  // パネル自体も確実に非表示
   const panel = document.getElementById('adp-'+sessId);
   if(panel){
     panel.style.display='none';
     delete panel.dataset.adpDone; // 次回オープン用にフラグリセット
   }
-  delete _adpScanCache[sessId];
+  if(sessId) delete _adpScanCache[sessId];
+}
+
+/**
+ * ダイアログbody内に移動したadp-パネルを元のsess-card直後に戻す。
+ * 元の親が消えていれば session-list に append してフォールバック。
+ */
+function _adpRestorePanel(){
+  const dlg  = document.getElementById('addlayer-dialog');
+  const body = document.getElementById('addlayer-dialog-body');
+  if(!dlg || !body) return;
+  const panel = body.querySelector('.sess-adddl-panel');
+  if(!panel) return;
+  const sessId = dlg.dataset.adpSessId || '';
+  const card   = document.getElementById('sc-' + sessId);
+  if(card && card.parentNode){
+    card.parentNode.insertBefore(panel, card.nextSibling);
+  } else {
+    // フォールバック: session-list に戻す
+    const list = document.getElementById('session-list');
+    if(list) list.appendChild(panel);
+  }
+  panel.style.display = 'none';
+  delete dlg.dataset.adpSessId;
 }
 
 /**

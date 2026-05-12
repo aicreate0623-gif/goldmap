@@ -3561,6 +3561,47 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   padding-top: 10px;
   border-top: 1px solid rgba(255,255,255,0.07);
 }
+/* ダイアログヘッダー（タイトル＋✕ボタン） */
+#addlayer-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+#addlayer-dialog-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gold, #c8a84b);
+  letter-spacing: 0.02em;
+}
+.addlayer-dialog-close-btn {
+  background: none;
+  border: none;
+  color: var(--txt-dim, #888);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.addlayer-dialog-close-btn:hover {
+  color: var(--txt, #eee);
+}
+/* セッション一覧の adp パネルがダイアログ内に入ったときのリセット */
+#addlayer-dialog-body .sess-adddl-panel {
+  margin: 0;
+  border: none;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+}
+/* ダイアログ経由で開いた際はパネル内タイトル行を非表示（ダイアログヘッダーで代替） */
+#addlayer-dialog-body .sess-adddl-panel .adp-title {
+  display: none;
+}
 
 /* ━━━ ベースDL専用プログレスオーバーレイ ━━━ */
 #base-dl-prog-overlay {

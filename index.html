@@ -1489,12 +1489,16 @@
 
 </div>
 
-<!-- ══ 追加レイヤーDLダイアログ（円形・矩形DL完了後共通） ══ -->
+<!-- ══ 追加レイヤーDLダイアログ（円形・矩形DL完了後＋セッション一覧＋ボタン共通） ══ -->
 <div id="addlayer-dialog" style="display:none">
   <div id="addlayer-dialog-inner">
+    <div id="addlayer-dialog-header">
+      <span id="addlayer-dialog-title">追加ダウンロード</span>
+      <button class="addlayer-dialog-close-btn" onclick="_addlayerDialogCloseAny()" title="閉じる">✕</button>
+    </div>
     <div id="addlayer-dialog-body"></div>
-    <div class="addlayer-dialog-footer">
-      <button class="btn sm" onclick="_addlayerDialogClose()">✕ 閉じる</button>
+    <div class="addlayer-dialog-footer" id="addlayer-dialog-footer-default">
+      <button class="btn sm" onclick="_addlayerDialogCloseAny()">✕ 閉じる</button>
     </div>
   </div>
 </div>
