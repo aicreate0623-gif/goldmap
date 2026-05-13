@@ -3789,7 +3789,9 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
-.base-ck-row input[type="checkbox"] { flex-shrink: 0; }
+.base-ck-row input[type="checkbox"],
+.base-ck-row input[type="radio"] { flex-shrink: 0; accent-color: var(--gold); width: 15px; height: 15px; cursor: pointer; }
+.base-ck-row--done input[type="radio"] { cursor: not-allowed; }
 .base-ck-name {
   flex: 1;
   font-size: 13px;

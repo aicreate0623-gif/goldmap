@@ -39,7 +39,8 @@ function estBytesLayers(tileCount, layers){
 
 /** レイヤーチェックボックス（全国ベースセクション用）を読む */
 function _ckBaseLayers(){
-  return ['std','photo','topo','hill','relief'].filter(k=>document.getElementById('base-ck-'+k)?.checked);
+  const sel = document.querySelector('[name="base-layer-select"]:checked');
+  return sel ? [sel.value] : [];
 }
 
 /** 推定MB表示を更新（アコーディオン展開時・チェック変更時に呼ばれる） */
@@ -68,8 +69,9 @@ async function startBaseNDl(){
 function updBaseStatusEst(){
   const el = document.getElementById('base-status-est');
   if(!el) return;
-  const layers = ['std','photo','topo','hill','relief'].filter(lk => document.getElementById('base-ck-' + lk)?.checked);
-  if(!layers.length){ el.textContent = '— MB'; return; }
+  const sel = document.querySelector('[name="base-layer-select"]:checked');
+  if(!sel){ el.textContent = '— MB'; return; }
+  const layers = [sel.value];
   const n  = cntTiles(JAPAN, 5, 9);
   const mb = mbEstLayers(n, layers);
   el.textContent = `約 ${mb} MB`;
@@ -77,8 +79,9 @@ function updBaseStatusEst(){
 
 /** DL開始ボタン（状況UI内） */
 async function startBaseDlFromStatus(){
-  const layers = ['std','photo','topo','hill','relief'].filter(lk => document.getElementById('base-ck-' + lk)?.checked);
-  if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
+  const sel = document.querySelector('[name="base-layer-select"]:checked');
+  const layers = sel ? [sel.value] : [];
+  if(!layers.length){ showAlert('エラー','レイヤーを選択してください'); return; }
   if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
   if(_guardResume()) return;
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
@@ -784,7 +787,7 @@ async function _bdprogAddDl(){
         : '';
       return `
         <label class="base-ck-row${isDone?' base-ck-row--done':''}">
-          <input type="checkbox" id="base-ck-${lk}" ${isDone?'checked disabled':'checked'} onchange="updBaseStatusEst()">
+          <input type="radio" name="base-layer-select" id="base-ck-${lk}" value="${lk}" ${isDone?'disabled':''} onchange="updBaseStatusEst()">
           <span class="base-ck-name">${LAYER_NAME[lk]}</span>
           <span class="base-ck-status">${status}</span>
         </label>`;
@@ -943,11 +946,11 @@ async function refreshBaseDlStatus(){
     // ゴミ箱表示のためセッション一覧を取得
     const allSessions = (typeof dbGetAllSess === 'function') ? await dbGetAllSess() : [];
     ALL_LAYERS.forEach(lk => {
-      // チェックボックス: DL済みのものはチェック済み・無効化
+      // radio: DL済みはchecked+disabled、未DLはdisabledのみ解除（選択状態は維持）
       const ck = document.getElementById('base-ck-' + lk);
       if(ck){
-        ck.checked  = !done.has(lk); // 未DLのみチェック
         ck.disabled = done.has(lk);  // DL済みは変更不可
+        if(done.has(lk)) ck.checked = false; // DL済みは選択解除
       }
       // ステータス表示 + DL済みにはゴミ箱
       const st = document.getElementById('base-status-' + lk);
