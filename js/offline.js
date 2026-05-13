@@ -1072,7 +1072,7 @@ async function resumeDl(){
   document.getElementById('resume-banner').classList.remove('show');
 
   if(s.subMode==='addlayer'){
-    // addlayer resume: reuse adpRoute (same as startAddLayerDl)
+    // ── 追加レイヤーDL再開: adpパネルを開いてそのまま再開 ──
     const parentSessId = s.parentSessId || null;
     if(!parentSessId){ showAlert('エラー','セッション情報がありません'); return; }
     _openTab('offline');
@@ -2948,8 +2948,10 @@ async function _adpResumeFromPanel(sessId){
 /** adp パネルを閉じてリセット（停止後・完了後共通） */
 function _adpCloseAndReset(sessId){
   const panel = document.getElementById('adp-'+sessId);
-  closeAddLayerPanel(sessId);
   if(!panel) return;
+  // adp-prog と layers/footer を closeAddLayerPanel より先に復元する
+  // （closeAddLayerPanel 内の _adpRestorePanel がパネルを元位置に戻す前に
+  //   DOM を整理しておかないと、次回 openAddLayerPanel 時に adp-prog が残留する）
   const p = document.getElementById(`adp-prog-${sessId}`);
   if(p) p.remove();
   const lays = panel.querySelector('.adp-layers');
@@ -2957,8 +2959,9 @@ function _adpCloseAndReset(sessId){
   if(lays) lays.style.display = '';
   if(foot) foot.style.display = '';
   // restore dialog default-close button
-  const dlgFooter = document.getElementById('addlayer-dialog-footer-default');
-  if(dlgFooter) dlgFooter.style.display = '';
+  const dlgFooterR = document.getElementById('addlayer-dialog-footer-default');
+  if(dlgFooterR) dlgFooterR.style.display = '';
+  closeAddLayerPanel(sessId);
 }
 
 /**
