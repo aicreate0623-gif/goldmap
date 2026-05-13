@@ -2418,6 +2418,8 @@ async function openAddLayerPanel(sessId){
   if(dlg && body){
     // 以前のパネルが残っていれば元に戻す
     _adpRestorePanel();
+    // DL完了パネル経由で残ったHTML残骸をクリアしてから移動
+    body.innerHTML = '';
     // パネルをダイアログbodyに移動（IDはそのまま保持）
     panel.style.display = 'block';
     body.appendChild(panel);
