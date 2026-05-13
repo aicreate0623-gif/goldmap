@@ -671,6 +671,12 @@ function _openTab(tab){
   if(curTab!=='map' && SHEETS[curTab]){
     document.getElementById(SHEETS[curTab]).classList.remove('open');
   }
+  // 全アコーディオンを閉じる
+  document.querySelectorAll('.cfg-accordion-body.open').forEach(body => {
+    body.classList.remove('open');
+    const arrow = body.previousElementSibling?.querySelector('.cfg-accordion-arrow');
+    if(arrow) arrow.textContent = '▶';
+  });
   curTab=tab;
   // タブボタンのアクティブ状態
   ['map','pts','offline','cfg','community'].forEach(t=>{
