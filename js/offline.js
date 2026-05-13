@@ -450,7 +450,7 @@ function _dldSyncAndCalc(){
         const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
         tot.innerHTML =
           `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
-          `<br><button class="btn sm" style="margin-top:6px" onclick="_goToBaseDl()">📥 ベースDLへ</button>`;
+          `<br><button class="btn sm" style="margin-top:6px" onclick="_dldCancel();_goToBaseDl()">📥 ベースDLへ</button>`;
         tot.style.color = '';
         if(ok && _drawPending) ok.disabled = true;
       } else {
@@ -519,7 +519,7 @@ async function _dldConfirmDraw(){
       if(tot) tot.innerHTML =
         `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
         `<br><button class="btn sm" style="margin-top:6px"
-          onclick="_goToBaseDl()">📥 ベースDLへ</button>`;
+          onclick="_dldCancel();_goToBaseDl()">📥 ベースDLへ</button>`;
       return; // STEP3には進まない
     }
   }
@@ -3207,7 +3207,7 @@ function _cdldCalc(){
         const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
         if(el) el.innerHTML =
           `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
-          `<br><button class="btn sm" style="margin-top:6px" onclick="_goToBaseDl()">📥 ベースDLへ</button>`;
+          `<br><button class="btn sm" style="margin-top:6px" onclick="_cdldCancel();_goToBaseDl()">📥 ベースDLへ</button>`;
         if(btn) btn.disabled = true;
       } else {
         if(el) el.textContent = `推定 約 ${mb} MB`;
@@ -3490,7 +3490,7 @@ async function _cdldStartDl(){
       const btn = document.getElementById('cdld-dl-btn');
       if(el) el.innerHTML =
         `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
-        `<br><button class="btn sm" style="margin-top:6px" onclick="_goToBaseDl()">📥 ベースDLへ</button>`;
+        `<br><button class="btn sm" style="margin-top:6px" onclick="_cdldCancel();_goToBaseDl()">📥 ベースDLへ</button>`;
       if(btn) btn.disabled = true;
       return;
     }
