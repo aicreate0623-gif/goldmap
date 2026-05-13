@@ -58,6 +58,8 @@ function updBaseNDlEst(){
 async function startBaseNDl(){
   const layers = _ckBaseLayers();
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
+  if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
+  if(_guardResume()) return;
   await runDl('base', JAPAN, 5, 9, layers, 0);
 }
 
@@ -653,6 +655,7 @@ async function _dldStartDl(){
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!_dldBounds){    showAlert('エラー','範囲が選択されていません'); return; }
   if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
+  if(_guardResume()) return;
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
 
   // ── ベースDL未完了チェック（STEP3でレイヤーを変更した場合も必ずガード）──
@@ -726,6 +729,8 @@ function _bdprogSyncProgress(done, total){
 
 /** 追加DLボタン: selectフェーズへ遷移 */
 async function _bdprogAddDl(){
+  if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
+  if(_guardResume()) return;
   _bdprogSetPhase('select');
   const body = document.getElementById('bdprog-select-body');
   if(!body) return;
@@ -2901,18 +2906,20 @@ function _adpShowProgress(sessId, layers){
       <div class="dldadp-prog-pct" id="adp-pcnt-${sessId}">0%</div>
     </div>
     <div id="adp-resume-info-${sessId}" style="display:none;font-size:11px;color:var(--txt-dim);margin-top:4px"></div>
-    <div id="adp-btns-running-${sessId}"  style="display:none;margin-top:8px;gap:6px;justify-content:flex-end;width:100%">
+    <div id="adp-btns-running-${sessId}"  style="display:flex;margin-top:8px;gap:6px;justify-content:flex-end;width:100%">
       <button class="btn red" onclick="_adpStopDl('${sessId}')">■ 停止</button>
     </div>
     <div id="adp-btns-stopping-${sessId}" style="display:none;margin-top:8px;gap:6px;justify-content:flex-end;width:100%">
       <button class="btn red" disabled>⏳ 停止中…</button>
     </div>
     <div id="adp-btns-stopped-${sessId}"  style="display:none;margin-top:8px;gap:6px;width:100%">
-      <button class="btn blue" onclick="_adpResumeFromPanel('${sessId}')">▶ 再開</button>
       <span style="flex:1"></span>
       <button class="btn sm"   onclick="_adpCloseAndReset('${sessId}')">閉じる</button>
+      <button class="btn blue" onclick="_adpResumeFromPanel('${sessId}')">▶ 再開</button>
     </div>
-    <div id="adp-btns-done-${sessId}"     style="display:none;margin-top:8px;gap:6px;justify-content:flex-end;width:100%">
+    <div id="adp-btns-done-${sessId}"     style="display:none;margin-top:8px;gap:6px;width:100%;flex-wrap:wrap">
+      <button class="btn sm" id="adp-btn-addlayer-${sessId}" onclick="_adpStartNext('${sessId}')" style="display:none">📥 レイヤーを追加DL</button>
+      <span style="flex:1"></span>
       <button class="btn accent" onclick="_adpCloseAndReset('${sessId}')">✅ 閉じる</button>
     </div>
   `;
@@ -2956,6 +2963,18 @@ function _adpSetPhase(sessId, phase){
     if(bar){ bar.style.transition = 'none'; bar.style.width = '100%'; bar.style.background = ''; bar.classList.add('--done'); }
     if(pct) pct.textContent = '✅';
     if(info) info.style.display = 'none';
+    // 残レイヤーがあれば追加DLボタンを表示
+    const addBtn = document.getElementById(`adp-btn-addlayer-${sessId}`);
+    if(addBtn){
+      dbGetSess(sessId).then(sess => {
+        if(!sess || !sess.bounds){ addBtn.style.display = 'none'; return; }
+        const tmp = document.createElement('div');
+        _dldRenderAddLayerPanel(sessId, sess, tmp).then(() => {
+          const hasPending = tmp.querySelector('.dldadp-ck:not(:disabled)');
+          addBtn.style.display = hasPending ? 'inline-flex' : 'none';
+        });
+      }).catch(() => { addBtn.style.display = 'none'; });
+    }
   }
 }
 
@@ -3000,6 +3019,35 @@ async function _adpResumeFromPanel(sessId){
   }
   _adpSetPhase(sessId, 'done');
   await refreshCache();
+}
+
+/**
+ * adp 完了後「📥 レイヤーを追加DL」ボタン押下
+ * 現在のプログレスUIをリセットして同じダイアログ内で次の追加DLへ連鎖
+ */
+async function _adpStartNext(sessId){
+  if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
+  if(_guardResume()) return;
+  const panel = document.getElementById('adp-'+sessId);
+  if(!panel) return;
+  // progエリアを除去してレイヤー選択UIに戻す
+  const prog = document.getElementById(`adp-prog-${sessId}`);
+  if(prog) prog.remove();
+  // adp-layers / adp-footer を再表示
+  const lays = panel.querySelector('.adp-layers');
+  const foot = panel.querySelector('.adp-footer');
+  if(lays) lays.style.display = '';
+  if(foot) foot.style.display = '';
+  // スキャンキャッシュをクリアして最新状態で再描画
+  delete _adpScanCache[sessId];
+  const sess = await dbGetSess(sessId).catch(()=>null);
+  if(!sess) return;
+  // ダイアログbodyを再レンダリング
+  const body = document.getElementById('addlayer-dialog-body');
+  if(body) await _dldRenderAddLayerPanel(sessId, sess, body);
+  // footer閉じるボタンを再表示
+  const dlgFooter = document.getElementById('addlayer-dialog-footer-default');
+  if(dlgFooter) dlgFooter.style.display = '';
 }
 
 /** adp パネルを閉じてリセット（停止後・完了後共通） */
