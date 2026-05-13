@@ -2763,7 +2763,7 @@ async function updAddLayerEst(sessId){
       </span>
       <span class="adp-est-line">
         <button class="btn sm" style="margin-top:4px"
-          onclick="_goToBaseDl()">📥 ベースDLへ</button>
+          onclick="_addlayerDialogCloseAny();_goToBaseDl()">📥 ベースDLへ</button>
       </span>`;
     if(btn) btn.disabled = true;
     return;
