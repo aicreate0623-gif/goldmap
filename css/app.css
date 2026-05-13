@@ -3434,9 +3434,10 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   margin-bottom: 10px;
 }
 .dldadp-layer {
-  display: flex;
+  display: grid;
+  grid-template-columns: 20px 1fr 72px 72px;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 7px 10px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
@@ -3466,6 +3467,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   font-size: 11px;
   color: var(--txt-dim);
   white-space: nowrap;
+  text-align: right;
 }
 .dldadp-zoom-row {
   display: flex;
