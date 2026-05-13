@@ -2790,6 +2790,14 @@ async function updAddLayerEst(sessId){
 async function startAddLayerDl(sessId){
   const sess = await dbGetSess(sessId).catch(()=>null);
   if(!sess||!sess.bounds){ showAlert('エラー','範囲情報がありません'); return; }
+  // 同セッションの未完了DLがある場合は警告
+  const rs = loadResume();
+  if(rs && rs.parentSessId === sessId){
+    const pct = rs.total > 0 ? Math.round(rs.taskIndex / rs.total * 100) : 0;
+    showAlert('⚠️ 未完了のDLがあります',
+      `このエリアのDLが途中で停止しています（進捗 ${pct}%）。\nオフラインタブの再開バナーから再開してください。`);
+    return;
+  }
   const selected = [...document.querySelectorAll(`.adp-ck[data-sess="${sessId}"]:not(:disabled):checked`)]
     .map(el=>el.dataset.lk);
   if(!selected.length){ showAlert('エラー','レイヤーを選択してください'); return; }
@@ -2959,11 +2967,6 @@ async function _adpResumeFromPanel(sessId){
 function _adpCloseAndReset(sessId){
   const panel = document.getElementById('adp-'+sessId);
   if(!panel) return;
-  // adp-prog と layers/footer を closeAddLayerPanel より先に復元する
-  // （closeAddLayerPanel 内の _adpRestorePanel がパネルを元位置に戻す前に
-  //   DOM を整理しておかないと、次回 openAddLayerPanel 時に adp-prog が残留する）
-  const p = document.getElementById(`adp-prog-${sessId}`);
-  if(p) p.remove();
   const lays = panel.querySelector('.adp-layers');
   const foot = panel.querySelector('.adp-footer');
   if(lays) lays.style.display = '';
@@ -2971,7 +2974,10 @@ function _adpCloseAndReset(sessId){
   // restore dialog default-close button
   const dlgFooterR = document.getElementById('addlayer-dialog-footer-default');
   if(dlgFooterR) dlgFooterR.style.display = '';
+  // パネルを元位置に戻してからadp-progを削除（順序が重要）
   closeAddLayerPanel(sessId);
+  const p = document.getElementById(`adp-prog-${sessId}`);
+  if(p) p.remove();
   // 停止中のレジュームがあればバナーを表示
   if(typeof checkResume === 'function') checkResume();
 }
