@@ -2828,6 +2828,9 @@ function _adpShowProgress(sessId, layers){
   const layerNames = layers.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
   panel.querySelector('.adp-layers').style.display = 'none';
   panel.querySelector('.adp-footer').style.display = 'none';
+  // DL進捗表示中は外枠ダイアログのデフォルト閉じるボタンを隠す
+  const dlgFooter = document.getElementById('addlayer-dialog-footer-default');
+  if(dlgFooter) dlgFooter.style.display = 'none';
 
   let prog = document.getElementById(`adp-prog-${sessId}`);
   if(!prog){
@@ -2952,6 +2955,9 @@ function _adpCloseAndReset(sessId){
   const foot = panel.querySelector('.adp-footer');
   if(lays) lays.style.display = '';
   if(foot) foot.style.display = '';
+  // 外枠ダイアログのデフォルト閉じるボタンを復元
+  const dlgFooter = document.getElementById('addlayer-dialog-footer-default');
+  if(dlgFooter) dlgFooter.style.display = '';
 }
 
 /**
