@@ -1777,9 +1777,12 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
   let active=0;
 
   await new Promise(resolve=>{
+    let _forceResolveTimer = null;
+    const _resolveOnce=(()=>{let done=false;return()=>{if(!done){done=true;if(_forceResolveTimer)clearTimeout(_forceResolveTimer);resolve();}};})();
     const next=()=>{
-      if(dlStop){resolve();return;}
+      if(dlStop){_resolveOnce();return;}
       while(active<_concur&&q.length){
+        if(dlStop){_resolveOnce();return;}
         active++;
         const t=q.shift();
         const k=tileKey(t.lk,t.z,t.x,t.y);
@@ -1788,6 +1791,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
           ?fetch(url2,{signal:_dlAbortCtrl.signal})
               .then(r=>r.ok?r.arrayBuffer():null)
               .then(buf=>{if(buf)return dbPut(k,buf).then(()=>{done++;realBytes+=buf.byteLength;tick();});else{fail++;tick();}})
+
               .catch(()=>{fail++;tick();})
           :fetch(url2,{signal:_dlAbortCtrl.signal})
               .then(r=>r.ok?r.arrayBuffer():null)
@@ -1807,10 +1811,10 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
               if(mode==='base'){
                 saveBaseDlProgress({layers,zmin,zmax,taskIndex:done,total,savedAt:now});
               }
-              resolve();
+              _resolveOnce();
             }
           } else if(!q.length&&active===0){
-            resolve();
+            _resolveOnce();
           } else {
             next();
           }
@@ -1820,7 +1824,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     next();
     // fetchTasks が空（全タイルキャッシュ済み）の場合、
     // promise.finally が一度も実行されず resolve() が呼ばれないためフリーズする。
-    if(!q.length && active === 0){ resolve(); }
+    if(!q.length && active === 0){ _resolveOnce(); }
   });
 
   dlRun=false; if(SB) SB.style.display='none'; if(DB2) DB2.disabled=false;
@@ -1914,6 +1918,13 @@ function _dldStopWithFeedback(){
   dlStop = true;
   if(_dlAbortCtrl) _dlAbortCtrl.abort();
   _dldS3SetPhase('stopping');
+  // fetchがハングした場合の保険: 8秒後に強制リセット
+  setTimeout(()=>{
+    if(dlStop && dlRun){
+      dlRun = false;
+      _dldS3SetPhase('stopped');
+    }
+  }, 8000);
 }
 
 /** 後方互換: stopDl() も引き続き動作 */
@@ -2943,6 +2954,13 @@ function _adpStopDl(sessId){
   dlStop = true;
   if(_dlAbortCtrl) _dlAbortCtrl.abort();
   _adpSetPhase(sessId, 'stopping');
+  // fetchがハングした場合の保険: 8秒後に強制リセット
+  setTimeout(()=>{
+    if(dlStop && dlRun){
+      dlRun = false;
+      _adpSetPhase(sessId, 'stopped');
+    }
+  }, 8000);
 }
 
 /** adp 再開ボタン押下（stopped フェーズから再開） */
@@ -3308,6 +3326,14 @@ function _cdldScrollToAddLayer(){
 function _cdldStop(){
   _cdldPh3SetPhase('stopping');
   dlStop = true;
+  if(_dlAbortCtrl) _dlAbortCtrl.abort();
+  // fetchがハングした場合の保険: 8秒後に強制リセット
+  setTimeout(()=>{
+    if(dlStop && dlRun){
+      dlRun = false;
+      _cdldPh3SetPhase('stopped');
+    }
+  }, 8000);
 }
 
 /** stopped フェーズ: 再開ボタン */
