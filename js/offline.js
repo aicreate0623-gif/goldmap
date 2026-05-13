@@ -302,16 +302,17 @@ function _dldCancel(){
 
 function _goToBaseDl(){
   _openTab('offline');
-  // 保存済みエリア一覧を閉じる
-  const savedAcc = document.getElementById('saved-area-accordion');
-  if (savedAcc) {
-    const savedBody  = savedAcc.querySelector('.cfg-accordion-body');
-    const savedArrow = savedAcc.querySelector('.cfg-accordion-arrow');
-    if (savedBody && savedBody.classList.contains('open')) {
-      savedBody.classList.remove('open');
-      if (savedArrow) savedArrow.textContent = '▶';
+  // 保存済みエリア一覧・エリアタイル管理を閉じる
+  ['saved-area-accordion', 'area-tile-accordion'].forEach(id => {
+    const acc = document.getElementById(id);
+    if (!acc) return;
+    const body  = acc.querySelector('.cfg-accordion-body');
+    const arrow = acc.querySelector('.cfg-accordion-arrow');
+    if (body && body.classList.contains('open')) {
+      body.classList.remove('open');
+      if (arrow) arrow.textContent = '▶';
     }
-  }
+  });
   // ベースDLアコーディオンを展開してスクロール
   const acc = document.getElementById('base-dl-accordion');
   if (!acc) return;
