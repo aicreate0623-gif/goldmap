@@ -1513,24 +1513,24 @@
         <div class="bdprog-bar-fill" id="bdprog-bar" style="width:0%"></div>
       </div>
       <div class="bdprog-pct" id="bdprog-pct">0%</div>
-    </div>
-    <!-- DL中 -->
-    <div id="bdprog-btns-running">
-      <button class="btn red" onclick="_bdprogStop()">■ 停止</button>
-    </div>
-    <!-- 停止中 -->
-    <div id="bdprog-btns-stopping" style="display:none">
-      <button class="btn red" disabled>⏳ 停止中…</button>
-    </div>
-    <!-- 停止後 -->
-    <div id="bdprog-btns-stopped" style="display:none;gap:8px">
-      <button class="btn sm" onclick="_bdprogClose()">閉じる</button>
-      <button class="btn accent" onclick="_bdprogResume()">▶ 再開</button>
-    </div>
-    <!-- 完了後 -->
-    <div id="bdprog-btns-done" style="display:none;gap:8px">
-      <button class="btn sm" onclick="_bdprogAddDl()">📥 追加DL</button>
-      <button class="btn accent" onclick="_bdprogClose()">✅ 閉じる</button>
+      <!-- DL中 -->
+      <div id="bdprog-btns-running">
+        <button class="btn red sm" onclick="_bdprogStop()">■ 停止</button>
+      </div>
+      <!-- 停止中 -->
+      <div id="bdprog-btns-stopping" style="display:none">
+        <button class="btn red sm" disabled>⏳ 停止中…</button>
+      </div>
+      <!-- 停止後 -->
+      <div id="bdprog-btns-stopped" style="display:none;gap:4px">
+        <button class="btn sm" onclick="_bdprogClose()">閉じる</button>
+        <button class="btn accent sm" onclick="_bdprogResume()">▶ 再開</button>
+      </div>
+      <!-- 完了後 -->
+      <div id="bdprog-btns-done" style="display:none;gap:4px">
+        <button class="btn sm" onclick="_bdprogAddDl()">📥 追加DL</button>
+        <button class="btn accent sm" onclick="_bdprogClose()">✅ 閉じる</button>
+      </div>
     </div>
     <!-- 追加DL選択（selectフェーズ） -->
     <div id="bdprog-btns-select" style="display:none">

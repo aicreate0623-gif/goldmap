@@ -706,7 +706,7 @@ function _bdprogSetPhase(phase){
   const barWrap = document.querySelector('#base-dl-prog-dialog .bdprog-bar-wrap');
   if(barWrap) barWrap.style.display = phase === 'select' ? 'none' : 'flex';
   const bar = document.getElementById('bdprog-bar');
-  if(bar) bar.style.background = phase==='done' ? '#4caf50' : '';
+  if(bar) bar.style.background = '';
 }
 
 /** プログレスバー・パーセンテージ更新 */

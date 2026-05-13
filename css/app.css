@@ -3635,7 +3635,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .bdprog-bar-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 .bdprog-bar-bg {
   flex: 1;
@@ -3660,7 +3660,12 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 #bdprog-btns-running,
 #bdprog-btns-stopping,
 #bdprog-btns-stopped,
-#bdprog-btns-done,
+#bdprog-btns-done {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
 #bdprog-btns-select {
   display: flex;
   justify-content: flex-end;
