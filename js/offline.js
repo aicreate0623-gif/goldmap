@@ -3176,8 +3176,26 @@ function _cdldCalc(){
   const tiles  = cntTiles(bounds, 10, zmax);
   const bytes  = estBytesLayers(tiles, layers);
   const mb     = (bytes / 1024 / 1024).toFixed(1);
-  if(el)  el.textContent = `推定 約 ${mb} MB`;
-  if(btn) btn.disabled = false;
+
+  // ベースDL未完了チェック（非同期・警告表示）
+  if(typeof getBaseDlDoneLayers === 'function'){
+    getBaseDlDoneLayers().then(baseDone => {
+      const needBase = layers.filter(lk => !baseDone.has(lk));
+      if(needBase.length){
+        const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
+        if(el) el.innerHTML =
+          `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
+          `<br><button class="btn sm" style="margin-top:6px" onclick="_goToBaseDl()">📥 ベースDLへ</button>`;
+        if(btn) btn.disabled = true;
+      } else {
+        if(el) el.textContent = `推定 約 ${mb} MB`;
+        if(btn) btn.disabled = false;
+      }
+    });
+  } else {
+    if(el) el.textContent = `推定 約 ${mb} MB`;
+    if(btn) btn.disabled = false;
+  }
 }
 
 /** レイヤー1択制御 */
@@ -3446,7 +3464,12 @@ async function _cdldStartDl(){
     const needBase = layers.filter(lk => !baseDone.has(lk));
     if(needBase.length){
       const names = needBase.map(lk => ({'std':'地理院地図','photo':'航空写真','topo':'地形図'}[lk]||lk)).join('・');
-      showAlert('ベースDLが必要です',`「${names}」はベースDL（Z5〜Z9 全国版）が完了していません。\nオフラインタブのベースDLを先に行ってください。`);
+      const el = document.getElementById('cdld-est');
+      const btn = document.getElementById('cdld-dl-btn');
+      if(el) el.innerHTML =
+        `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
+        `<br><button class="btn sm" style="margin-top:6px" onclick="_goToBaseDl()">📥 ベースDLへ</button>`;
+      if(btn) btn.disabled = true;
       return;
     }
   }
