@@ -604,8 +604,8 @@ async function _checkDupAndConfirm(bounds, zmin, zmax, layers){
     stats.push({ lk, name: LAYER_NAMES[lk] || lk, total, cached, pct });
   }
 
-  // 重複が1%未満なら確認不要
-  const anyDup = stats.some(s => s.pct >= 1);
+  // 重複が10%未満なら確認不要
+  const anyDup = stats.some(s => s.pct >= 10);
   if(!anyDup) return true;
 
   // ダイアログHTML生成
