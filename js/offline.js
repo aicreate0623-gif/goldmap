@@ -1886,6 +1886,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
       _dldS3SetPhase('stopped');
     }
   }
+  dlRun = false;
   refreshCache();
   // ベースDL状況UIを最新状態に更新
   if(typeof refreshBaseDlStatus === 'function') refreshBaseDlStatus();
@@ -2971,6 +2972,8 @@ function _adpCloseAndReset(sessId){
   const dlgFooterR = document.getElementById('addlayer-dialog-footer-default');
   if(dlgFooterR) dlgFooterR.style.display = '';
   closeAddLayerPanel(sessId);
+  // 停止中のレジュームがあればバナーを表示
+  if(typeof checkResume === 'function') checkResume();
 }
 
 /**
