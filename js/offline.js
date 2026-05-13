@@ -79,6 +79,7 @@ function updBaseStatusEst(){
 async function startBaseDlFromStatus(){
   const layers = ['std','photo','topo','hill','relief'].filter(lk => document.getElementById('base-ck-' + lk)?.checked);
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
+  if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
   _bdprogOpen(layers);
   await runDl('base', JAPAN, 5, 9, layers, 0);
@@ -643,6 +644,7 @@ async function _dldStartDl(){
   );
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(!_dldBounds){    showAlert('エラー','範囲が選択されていません'); return; }
+  if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
 
   // ── ベースDL未完了チェック（STEP3でレイヤーを変更した場合も必ずガード）──
@@ -942,6 +944,7 @@ async function baseResumeStart(){
     showAlert('エラー','レジュームデータがありません');
     return;
   }
+  if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
   if(!navigator.onLine){
     showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。');
     return;
@@ -972,26 +975,46 @@ function checkResume(){
     const banner=document.getElementById('resume-banner');
     const layerStr=_layerLabel(s.layers);
     const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
+    // bounds中心座標を表示
+    let areaStr = '';
+    if(s.bounds){
+      const clat = ((s.bounds.n + s.bounds.s) / 2).toFixed(2);
+      const clng = ((s.bounds.e + s.bounds.w) / 2).toFixed(2);
+      areaStr = `<br>📍 ${clat}, ${clng}`;
+    }
     document.getElementById('resume-desc').innerHTML=
-      `追加レイヤー / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
+      `追加レイヤー / ${layerStr}${areaStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
     banner.classList.add('show');
   } else if(s.subMode==='circle'){
-    // 半径エリアDL: resume-banner を使用（矩形と同じ）
+    // 半径エリアDL: resume-banner を使用
     const banner=document.getElementById('resume-banner');
-    const modeStr='半径エリア';
     const layerStr=_layerLabel(s.layers);
     const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
+    // 中心座標・半径を表示
+    let areaStr = '';
+    if(s.center){
+      const clat = s.center.lat.toFixed(2);
+      const clng = s.center.lng.toFixed(2);
+      const km   = s.radiusKm ? `半径 ${s.radiusKm} km` : '';
+      areaStr = `<br>📍 ${clat}, ${clng}${km ? ' / ' + km : ''}`;
+    }
     document.getElementById('resume-desc').innerHTML=
-      `${modeStr} / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
+      `半径エリア / ${layerStr}${areaStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
     banner.classList.add('show');
   } else {
-    // detail（矩形）: 既存のresume-bannerを使用
+    // detail（矩形）: resume-bannerを使用
     const banner=document.getElementById('resume-banner');
-    const modeStr='詳細範囲';
     const layerStr=_layerLabel(s.layers);
     const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
+    // bounds中心座標を表示
+    let areaStr = '';
+    if(s.bounds){
+      const clat = ((s.bounds.n + s.bounds.s) / 2).toFixed(2);
+      const clng = ((s.bounds.e + s.bounds.w) / 2).toFixed(2);
+      areaStr = `<br>📍 ${clat}, ${clng}`;
+    }
     document.getElementById('resume-desc').innerHTML=
-      `${modeStr} / ${layerStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
+      `詳細範囲 / ${layerStr}${areaStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
     banner.classList.add('show');
   }
 }
@@ -1001,24 +1024,45 @@ function clearResume(){
   document.getElementById('resume-banner').classList.remove('show');
 }
 
+/**
+ * detail矩形モード専用: dl-dialogをSTEP3で再オープンしてDLを再開する。
+ * openDlDialog()はリセット処理が入るため別関数で管理する。
+ */
+function _openDlDialogForResume(s){
+  // プレビュー矩形を復元
+  const bounds = L.latLngBounds([s.bounds.s, s.bounds.w], [s.bounds.n, s.bounds.e]);
+  detRect      = bounds;
+  _dldBounds   = bounds;
+  showRect();
+  // STEP3を直接表示（STEP0〜2はスキップ）
+  _dldStep = 3;
+  ['dld-s0','dld-s1','dld-s2','dld-s3'].forEach((id,i)=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = (i===3) ? 'block' : 'none';
+  });
+  [0,1,2,3].forEach(n=>{
+    const el = document.getElementById('dld-si-'+n);
+    if(!el) return;
+    el.classList.toggle('active', n===3);
+    el.classList.toggle('done',   n<3);
+  });
+  document.getElementById('dl-dialog').style.display = 'block';
+  _openTab('map');
+}
+
 async function resumeDl(){
   const s=loadResume(); if(!s)return;
-  const layers=s.layers; if(!layers.length)return;
-  let bounds;
-  if(s.mode==='base') bounds=JAPAN;
-  else {
-    bounds=L.latLngBounds([s.bounds.s,s.bounds.w],[s.bounds.n,s.bounds.e]);
-    if(s.subMode!=='circle'){ detRect=bounds; showRect(); }
-  }
+  const layers=s.layers; if(!layers||!layers.length)return;
+  if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
+
+  document.getElementById('resume-banner').classList.remove('show');
+
   if(s.subMode==='addlayer'){
-    // 追加レイヤーDL再開: adpパネルを開いてそのまま再開
-    document.getElementById('resume-banner').classList.remove('show');
+    // ── 追加レイヤーDL再開: adpパネルを開いてそのまま再開 ──
     const parentSessId = s.parentSessId || null;
     if(!parentSessId){ showAlert('エラー','セッション情報がありません'); return; }
-    // セッション一覧タブを開いてパネルを表示
     _openTab('offline');
     await _addlayerDialogOpen(parentSessId);
-    // adpパネルをDL中UIに切り替えて再開（_adpResumeFromPanel と同処理）
     const sess2 = await dbGetSess(parentSessId).catch(()=>null);
     if(!sess2||!sess2.bounds){ showAlert('エラー','セッション情報がありません'); return; }
     const b2 = sess2.bounds;
@@ -1032,10 +1076,11 @@ async function resumeDl(){
     if(dlStop){ _adpSetPhase(parentSessId, 'stopped'); return; }
     _adpSetPhase(parentSessId, 'done');
     await refreshCache();
+
   } else if(s.subMode==='circle'){
-    // 半径エリアDL: cdld-panel フェーズ③を開いてDL再開
+    // ── 半径エリアDL再開: cdld-panelフェーズ④を開いてDL再開 ──
     _cdldCenter = s.center || null;
-    // プレビュー矩形を復元（実DL範囲と一致）
+    // プレビュー矩形を復元
     if(_cdldCenter){
       if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
       const _resumeBounds2 = _cdldBounds(_cdldCenter.lat, _cdldCenter.lng, s.radiusKm || 5);
@@ -1045,19 +1090,29 @@ async function resumeDl(){
         fillColor: '#c8a84b', fillOpacity: 0.10
       }).addTo(map);
     }
+    // パネルをフェーズ④（進捗画面）で表示してから再開
     _cdldShowPhase('cdld-ph4');
     _cdldPh3SetPhase('running');
-    const pct = s.total>0 ? Math.round(s.taskIndex/s.total*100) : 0;
     _cdldSyncProgress(s.taskIndex||0, s.total||0, '— MB');
     _openTab('map');
-    document.getElementById('resume-banner').classList.remove('show');
-    // オーバーライド設定（再開中も cdld 進捗バーを使う）
+    // _cdldActiveSessionを復元（runDl内の完了分岐判定に使われる）
+    window._cdldActiveSession = { center: s.center, radiusKm: s.radiusKm };
     window._dldSyncProgressOverride = (done, total, mb) => _cdldSyncProgress(done, total, mb);
-    await runDl('detail', bounds, s.zmin, s.zmax, layers, 0); // startIdx=0: IDBスキャンで自動スキップ
+    const bounds = L.latLngBounds([s.bounds.s, s.bounds.w], [s.bounds.n, s.bounds.e]);
+    await runDl('detail', bounds, s.zmin, s.zmax, layers, 0);
     window._dldSyncProgressOverride = null;
+    window._cdldActiveSession = null;
     if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+    // ※ runDl内で _cdldPh3SetPhase('done') + _cdldShowDonePanel() が自動で呼ばれる
+
   } else {
-    await runDl(s.mode, bounds, s.zmin, s.zmax, layers, 0); // startIdx=0: IDBスキャンで自動スキップ
+    // ── detail矩形DL再開: dl-dialogをSTEP3で再オープン ──
+    _openDlDialogForResume(s);
+    _dldS3SetPhase('running');
+    _dldSyncProgress(s.taskIndex||0, s.total||0, '— MB');
+    const bounds = L.latLngBounds([s.bounds.s, s.bounds.w], [s.bounds.n, s.bounds.e]);
+    await runDl(s.mode || 'detail', bounds, s.zmin, s.zmax, layers, 0);
+    // ※ runDl内で _dldS3SetPhase('done') + _dldShowDonePanel() が自動で呼ばれる
   }
 }
 
@@ -1140,16 +1195,19 @@ async function _dldS3ResumeFromDialog(){
   _dldSyncProgress(s.taskIndex || 0, s.total || 0, '— MB');
 
   if(s.subMode === 'circle'){
-    // 円形モード: cdld ルートで再開
+    // 円形モード: _cdldActiveSessionを復元してcdldルートで完了処理が走るようにする
     _cdldCenter = s.center || null;
+    window._cdldActiveSession = { center: s.center, radiusKm: s.radiusKm };
     window._dldSyncProgressOverride = (done, total, mb) => _cdldSyncProgress(done, total, mb);
-    // startIdx=0: IDBキャッシュ済みスキャンで自動的に続きから再開
     await runDl('detail', bounds, s.zmin, s.zmax, s.layers, 0);
     window._dldSyncProgressOverride = null;
+    window._cdldActiveSession = null;
+    if(_cdldCircle){ _cdldCircle.remove(); _cdldCircle = null; }
+    // ※ runDl内で _cdldPh3SetPhase('done') + _cdldShowDonePanel() が自動で呼ばれる
   } else {
     detRect = bounds;
-    // startIdx=0: IDBキャッシュ済みスキャンで自動的に続きから再開
     await runDl(s.mode || 'detail', bounds, s.zmin, s.zmax, s.layers, 0);
+    // ※ runDl内で _dldS3SetPhase('done') + _dldShowDonePanel() が自動で呼ばれる
   }
 }
 
@@ -1471,6 +1529,7 @@ async function _dldAdpStart(sessId){
   const checked = [...document.querySelectorAll(`#dldadp-${sessId} .dldadp-ck:not(:disabled):checked`)]
     .map(el => el.dataset.lk);
   if(!checked.length){ showAlert('エラー','レイヤーを選択してください'); return; }
+  if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません'); return; }
 
   const sess = await dbGetSess(sessId).catch(()=>null);
@@ -2709,7 +2768,7 @@ async function startAddLayerDl(sessId){
   const selected = [...document.querySelectorAll(`.adp-ck[data-sess="${sessId}"]:not(:disabled):checked`)]
     .map(el=>el.dataset.lk);
   if(!selected.length){ showAlert('エラー','レイヤーを選択してください'); return; }
-
+  if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
   if(typeof runDl !== 'function'){ showAlert('エラー','DL機能が読み込まれていません'); return; }
 
   const b = sess.bounds;
@@ -3235,6 +3294,7 @@ async function _cdldStartDl(){
   if(!_cdldCenter){ showAlert('エラー','中心座標を選択してください'); return; }
   const layers = ['std','photo','topo'].filter(k => document.getElementById('cdld-ck-'+k)?.checked);
   if(!layers.length){ showAlert('エラー','レイヤーを選択してください'); return; }
+  if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません'); return; }
 
   // ベースDL完了チェック
