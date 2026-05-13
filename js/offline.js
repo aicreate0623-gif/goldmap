@@ -1434,12 +1434,17 @@ async function _dldRenderAddLayerPanel(sessId, sess, container){
       ? (reachedMax ? '#4caf50' : '#888')
       : (badge ? '#888' : '');
     const badgeWeight  = reachedMax ? '700' : '';
+    const baseOk = localStorage.getItem('cachedMaxZoom_' + lk) !== null;
+    const baseBadge = baseOk
+      ? `<span class="adp-base-badge adp-base-ok">✅ベース済</span>`
+      : `<span class="adp-base-badge adp-base-ng">⚠️ベース未</span>`;
     return `
       <label class="dldadp-layer${doneClass}">
         <input type="checkbox" class="dldadp-ck" data-lk="${lk}"
           ${disabledAttr}
           onchange="_dldAdpOnChange('${sessId}')">
         <span class="dldadp-name">${LAYER_NAME[lk]}</span>
+        ${baseBadge}
         <span class="dldadp-badge" style="color:${badgeColor};font-weight:${badgeWeight}">${badge}</span>
       </label>`;
   }).join('');
