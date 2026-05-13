@@ -1793,13 +1793,12 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
         const promise=db
           ?fetch(url2,{signal:_dlAbortCtrl.signal})
               .then(r=>r.ok?r.arrayBuffer():null)
-              .then(buf=>{if(buf)return dbPut(k,buf).then(()=>{done++;realBytes+=buf.byteLength;tick();});else{fail++;tick();}})
-
-              .catch(()=>{fail++;tick();})
+              .then(buf=>{if(buf)return dbPut(k,buf).then(()=>{done++;realBytes+=buf.byteLength;tick();});else{done++;fail++;tick();}})
+              .catch(()=>{done++;fail++;tick();})
           :fetch(url2,{signal:_dlAbortCtrl.signal})
               .then(r=>r.ok?r.arrayBuffer():null)
-              .then(buf=>{if(buf){done++;realBytes+=buf.byteLength;tick();}else{fail++;tick();}})
-              .catch(()=>{fail++;tick();});
+              .then(buf=>{if(buf){done++;realBytes+=buf.byteLength;tick();}else{done++;fail++;tick();}})
+              .catch(()=>{done++;fail++;tick();});
 
         promise.finally(()=>{
           active--;
