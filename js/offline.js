@@ -894,6 +894,18 @@ async function refreshBaseDlStatus(){
     elPartial.style.display = 'none';
     elResume.style.display  = 'none';
     elDone.style.display    = 'block';
+    // 各レイヤー行のステータスにゴミ箱ボタンを動的挿入
+    const allSessions = (typeof dbGetAllSess === 'function') ? await dbGetAllSess() : [];
+    ALL_LAYERS.forEach((lk, i) => {
+      const rows = elDone.querySelectorAll('.base-ck-row--done');
+      const st   = rows[i]?.querySelector('.base-ck-status');
+      if(!st) return;
+      const sess = allSessions.find(s =>
+        s.mode === 'base' && Array.isArray(s.srcKeys) && s.srcKeys.includes(lk)
+      );
+      st.innerHTML = 'DL済' +
+        (sess ? ` <button class="base-saved-del" onclick="deleteSessionWithConfirm('${sess.id}')" title="削除">🗑</button>` : '');
+    });
   } else if(hasResume){
     // ② 途中
     elPartial.style.display = 'none';
