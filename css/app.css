@@ -3323,7 +3323,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 .sess-del-prog-label {
   font-size: 11px;
-  color: var(--text-sub);
+  color: var(--txt);
   white-space: nowrap;
 }
 .sess-del-prog-bar-bg {
