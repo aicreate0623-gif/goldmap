@@ -4033,6 +4033,17 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   100% { left: 110%; }
 }
 
+/* 完了時: アニメ・transition停止 */
+.s3-pb-fill.--done,
+.dld-pb-fill.--done {
+  transition: none;
+}
+.s3-pb-fill.--done::after,
+.dld-pb-fill.--done::after {
+  animation: none;
+  display: none;
+}
+
 /* 停止後レジューム情報 */
 .s3-resume-info {
   display: flex;

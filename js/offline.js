@@ -1176,10 +1176,19 @@ function _dldS3SetPhase(phase){
     }
   }
 
-  // バー色: 完了時グリーン
+  // バー色: 完了時は金色・アニメなし / 停止時はリセット
   if(phase === 'stopped' || phase === 'done'){
     const bar = _e('dld-pb-bar');
-    if(bar) bar.style.background = phase === 'done' ? '#4caf50' : '';
+    if(bar){
+      if(phase === 'done'){
+        bar.style.transition = 'none';
+        bar.style.background = '';
+        bar.classList.add('--done');
+      } else {
+        bar.style.background = '';
+        bar.classList.remove('--done');
+      }
+    }
   }
 
   // 完了パネル
@@ -1601,7 +1610,7 @@ async function _dldAdpStart(sessId){
   // DL完了 → 完了表示
   const progBar = document.getElementById(`dldadp-prog-bar-${sessId}`);
   const progPct = document.getElementById(`dldadp-prog-pct-${sessId}`);
-  if(progBar){ progBar.style.width = '100%'; progBar.style.background = '#4caf50'; }
+  if(progBar){ progBar.style.transition = 'none'; progBar.style.width = '100%'; progBar.style.background = ''; progBar.classList.add('--done'); }
   if(progPct) progPct.textContent = '✅';
 
   // 誘導ボタンを再判定（追加DL後にまだ残レイヤーがあれば再表示）
@@ -2903,7 +2912,7 @@ function _adpSetPhase(sessId, phase){
     }
   } else if(phase === 'done'){
     if(label) label.textContent = '✅ ダウンロード完了';
-    if(bar){ bar.style.width = '100%'; bar.style.background = '#4caf50'; }
+    if(bar){ bar.style.transition = 'none'; bar.style.width = '100%'; bar.style.background = ''; bar.classList.add('--done'); }
     if(pct) pct.textContent = '✅';
     if(info) info.style.display = 'none';
   }
@@ -3231,6 +3240,9 @@ function _cdldSyncProgress(done, total, mb){
 
 /** フェーズ③ 完了パネル表示（矩形 _dldShowDonePanel 相当） */
 async function _cdldShowDonePanel(done, realBytes, layers, zmin, zmax, sessId){
+  // バー: 完了時はアニメ停止・金色維持
+  const pbBar = document.getElementById('cdld-pb-bar');
+  if(pbBar){ pbBar.style.transition = 'none'; pbBar.style.width = '100%'; pbBar.classList.add('--done'); }
   const summary = document.getElementById('cdld-done-summary');
   if(summary){
     const mb = (realBytes / 1024 / 1024).toFixed(1);
