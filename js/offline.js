@@ -80,6 +80,7 @@ async function startBaseDlFromStatus(){
   const layers = ['std','photo','topo','hill','relief'].filter(lk => document.getElementById('base-ck-' + lk)?.checked);
   if(!layers.length){ showAlert('エラー','レイヤーを1つ以上選択してください'); return; }
   if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
+  if(_guardResume()) return;
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
   _bdprogOpen(layers);
   await runDl('base', JAPAN, 5, 9, layers, 0);
@@ -234,6 +235,7 @@ function _layerLabel(keys, sep){ return (keys||[]).map(k=>_DLD_LAYER_LABEL[k]||k
 // ── ダイアログ開く ──────────────────────────────────────
 function openDlDialog(){
   if(!navigator.onLine){ showAlert('オフライン', 'インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
+  if(_guardResume()) return;
   isPremiumUser().then(premium=>{
     if(!premium){ showPremiumGate('offline'); return; }
     _dldStep   = 0;
@@ -835,6 +837,20 @@ async function _bdprogResume(){
 //  レジューム管理
 // ═══════════════════════════════════════════
 const RESUME_KEY='gm_dl_resume';
+
+/** 未完了レジュームがあればアラートを出してtrueを返す（DL開始ガード共通） */
+function _guardResume(){
+  const s = loadResume();
+  if(!s) return false;
+  const pct  = s.total > 0 ? Math.round(s.taskIndex / s.total * 100) : 0;
+  const kind = s.mode === 'base'           ? 'ベースDL'
+             : s.subMode === 'circle'      ? '半径エリアDL'
+             : s.subMode === 'addlayer'    ? '追加レイヤーDL'
+             : '矩形エリアDL';
+  showAlert('⚠️ 未完了のDLがあります',
+    `${kind}が途中で停止しています（進捗 ${pct}%）。\n再開バナーから再開または破棄してから操作してください。`);
+  return true;
+}
 
 function saveResume(state){
   try{ localStorage.setItem(RESUME_KEY,JSON.stringify(state)); }catch(e){}
@@ -1554,6 +1570,7 @@ async function _dldAdpStart(sessId){
     .map(el => el.dataset.lk);
   if(!checked.length){ showAlert('エラー','レイヤーを選択してください'); return; }
   if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
+  if(_guardResume()) return;
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません'); return; }
 
   const sess = await dbGetSess(sessId).catch(()=>null);
@@ -2790,14 +2807,8 @@ async function updAddLayerEst(sessId){
 async function startAddLayerDl(sessId){
   const sess = await dbGetSess(sessId).catch(()=>null);
   if(!sess||!sess.bounds){ showAlert('エラー','範囲情報がありません'); return; }
-  // 同セッションの未完了DLがある場合は警告
-  const rs = loadResume();
-  if(rs && rs.parentSessId === sessId){
-    const pct = rs.total > 0 ? Math.round(rs.taskIndex / rs.total * 100) : 0;
-    showAlert('⚠️ 未完了のDLがあります',
-      `このエリアのDLが途中で停止しています（進捗 ${pct}%）。\nオフラインタブの再開バナーから再開してください。`);
-    return;
-  }
+  if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
+  if(_guardResume()) return;
   const selected = [...document.querySelectorAll(`.adp-ck[data-sess="${sessId}"]:not(:disabled):checked`)]
     .map(el=>el.dataset.lk);
   if(!selected.length){ showAlert('エラー','レイヤーを選択してください'); return; }
@@ -3342,6 +3353,7 @@ async function _cdldStartDl(){
   const layers = ['std','photo','topo'].filter(k => document.getElementById('cdld-ck-'+k)?.checked);
   if(!layers.length){ showAlert('エラー','レイヤーを選択してください'); return; }
   if(dlRun){ showAlert('DL中','ダウンロードが実行中です。\n完了または停止してから再試みてください。'); return; }
+  if(_guardResume()) return;
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません'); return; }
 
   // ベースDL完了チェック
