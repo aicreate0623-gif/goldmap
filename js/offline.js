@@ -291,6 +291,8 @@ function _dldCancel(){
   _dldClose();
   _openTab('offline');
   _pushHistory();
+  // 停止中のレジュームがあればバナーを表示
+  checkResume();
 }
 
 function _goToBaseDl(){
@@ -3163,6 +3165,8 @@ function _cdldCancel(){
   _cdldCenter  = null;
   _cdldTapping = false;
   _cdldShowPhase(null); // パネルを隠す
+  // 停止中のレジュームがあればバナーを表示
+  checkResume();
 }
 
 /** フェーズ③完了後の閉じるボタン */
