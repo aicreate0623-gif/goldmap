@@ -1072,11 +1072,12 @@ async function resumeDl(){
   document.getElementById('resume-banner').classList.remove('show');
 
   if(s.subMode==='addlayer'){
-    // ── 追加レイヤーDL再開: adpパネルを開いてそのまま再開 ──
+    // addlayer resume: reuse adpRoute (same as startAddLayerDl)
     const parentSessId = s.parentSessId || null;
     if(!parentSessId){ showAlert('エラー','セッション情報がありません'); return; }
     _openTab('offline');
-    await _addlayerDialogOpen(parentSessId);
+    // move adp-{sessId} panel to dialog (adpRoute unified)
+    await openAddLayerPanel(parentSessId);
     const sess2 = await dbGetSess(parentSessId).catch(()=>null);
     if(!sess2||!sess2.bounds){ showAlert('エラー','セッション情報がありません'); return; }
     const b2 = sess2.bounds;
@@ -2828,7 +2829,7 @@ function _adpShowProgress(sessId, layers){
   const layerNames = layers.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
   panel.querySelector('.adp-layers').style.display = 'none';
   panel.querySelector('.adp-footer').style.display = 'none';
-  // DL進捗表示中は外枠ダイアログのデフォルト閉じるボタンを隠す
+  // hide dialog default-close button while DL progress is shown
   const dlgFooter = document.getElementById('addlayer-dialog-footer-default');
   if(dlgFooter) dlgFooter.style.display = 'none';
 
@@ -2955,7 +2956,7 @@ function _adpCloseAndReset(sessId){
   const foot = panel.querySelector('.adp-footer');
   if(lays) lays.style.display = '';
   if(foot) foot.style.display = '';
-  // 外枠ダイアログのデフォルト閉じるボタンを復元
+  // restore dialog default-close button
   const dlgFooter = document.getElementById('addlayer-dialog-footer-default');
   if(dlgFooter) dlgFooter.style.display = '';
 }
