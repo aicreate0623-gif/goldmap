@@ -357,5 +357,7 @@ async function clearCacheWithConfirm(){
   await updateMaxCachedZooms();
   await renderSessionList();
   await refreshCache();
+  deleteBaseDlProgress();
+  if(typeof refreshBaseDlStatus === 'function') refreshBaseDlStatus();
 }
 // SVGサムネイル・リネーム関連は offline.js に集約
