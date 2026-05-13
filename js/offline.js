@@ -437,14 +437,32 @@ function _dldSyncAndCalc(){
   const eb  = estBytesLayers(base, chkLayers);
   const mb  = (eb / 1024 / 1024).toFixed(0);
   const over = eb > DL_SESSION_MAX;
-  tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB${over ? ' — 200MB超過' : ''}`;
-  tot.style.color = over ? '#ff5a47' : '';
 
-  // 200MB超過時は確定ボタンを無効化・解消時は再有効化
-  // （_drawPendingがある＝ドラッグ完了済みの場合のみボタン状態を操作）
-  if(_drawPending){
-    const ok = document.getElementById('dld-draw-ok');
-    if(ok) ok.disabled = over;
+  // 非同期チェック中は確定ボタンを無効化
+  const ok = document.getElementById('dld-draw-ok');
+  if(ok && _drawPending) ok.disabled = true;
+
+  // ベースDL未完了チェック（非同期・警告表示）
+  if(typeof getBaseDlDoneLayers === 'function'){
+    getBaseDlDoneLayers().then(baseDone => {
+      const needBase = chkLayers.filter(lk => !baseDone.has(lk));
+      if(needBase.length){
+        const names = needBase.map(lk=>({'std':'地理院地図','photo':'航空写真','topo':'地形図','hill':'陰影起伏図','relief':'色別標高図'}[lk]||lk)).join('・');
+        tot.innerHTML =
+          `<span style="color:#ffaa00">⚠️ 「${names}」はベースDL（Z5〜Z9 全国版）が必要です。</span>` +
+          `<br><button class="btn sm" style="margin-top:6px" onclick="_goToBaseDl()">📥 ベースDLへ</button>`;
+        tot.style.color = '';
+        if(ok && _drawPending) ok.disabled = true;
+      } else {
+        tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB${over ? ' — 200MB超過' : ''}`;
+        tot.style.color = over ? '#ff5a47' : '';
+        if(ok && _drawPending) ok.disabled = over;
+      }
+    });
+  } else {
+    tot.textContent = `${chkLayers.length}レイヤー · Z10〜Z${zmax} · 約 ${mb} MB${over ? ' — 200MB超過' : ''}`;
+    tot.style.color = over ? '#ff5a47' : '';
+    if(ok && _drawPending) ok.disabled = over;
   }
 }
 
@@ -1549,7 +1567,8 @@ async function _dldAdpUpdEst(sessId){
   if(needBase.length){
     const names = needBase.map(lk=>_DLD_LAYER_LABEL[lk]||lk).join('・');
     if(estEl) estEl.innerHTML =
-      `<span style="color:#ffaa00">⚠️「${names}」はベースDL（全国Z5〜Z9）が必要です</span>`;
+      `<span style="color:#ffaa00">⚠️「${names}」はベースDL（全国Z5〜Z9）が必要です</span>` +
+      `<br><button class="btn sm" style="margin-top:6px" onclick="_dldCancel();_goToBaseDl()">📥 ベースDLへ</button>`;
     if(btn) btn.disabled = true;
     return;
   }
@@ -3176,6 +3195,9 @@ function _cdldCalc(){
   const tiles  = cntTiles(bounds, 10, zmax);
   const bytes  = estBytesLayers(tiles, layers);
   const mb     = (bytes / 1024 / 1024).toFixed(1);
+
+  // 非同期チェック中はボタンを無効化しておく
+  if(btn) btn.disabled = true;
 
   // ベースDL未完了チェック（非同期・警告表示）
   if(typeof getBaseDlDoneLayers === 'function'){
