@@ -1568,7 +1568,7 @@ async function _dldAdpUpdEst(sessId){
     const names = needBase.map(lk=>_DLD_LAYER_LABEL[lk]||lk).join('・');
     if(estEl) estEl.innerHTML =
       `<span style="color:#ffaa00">⚠️「${names}」はベースDL（全国Z5〜Z9）が必要です</span>` +
-      `<br><button class="btn sm" style="margin-top:6px" onclick="_dldCancel();_goToBaseDl()">📥 ベースDLへ</button>`;
+      `<br><button class="btn sm" style="margin-top:6px" onclick="_addlayerDialogCloseAny();_dldCancel();_goToBaseDl()">📥 ベースDLへ</button>`;
     if(btn) btn.disabled = true;
     return;
   }
