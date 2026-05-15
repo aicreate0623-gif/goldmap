@@ -785,13 +785,13 @@ async function _bdprogAddDl(){
         <div class="bdprog-select-resume-pct">${pct}%</div>
       </div>`;
     // DL開始ボタンをレジューム用に差し替え
-    const startBtn = body.parentElement.querySelector('.btn.accent');
+    const btnRow = document.getElementById('bdprog-btns-select');
+    const startBtn = btnRow ? btnRow.querySelector('.btn.accent') : null;
     if(startBtn){
       startBtn.textContent = '▶ 続きをDL';
       startBtn.onclick = () => { _bdprogClose(); baseResumeStart(); };
     }
-    // 破棄ボタンを追加
-    const btnRow = body.parentElement.querySelector('div[style]');
+    // 破棄ボタンを追加（既存でなければ）
     if(btnRow && !btnRow.querySelector('.btn.red')){
       const discardBtn = document.createElement('button');
       discardBtn.className = 'btn sm red';
@@ -996,8 +996,10 @@ async function refreshBaseDlStatus(){
 
 /** ② 途中: 続きをDL */
 async function baseResumeStart(){
-  const prog = loadBaseDlProgress();
-  if(!prog || !prog.layers || !prog.layers.length){
+  // RESUME_KEY（gm_dl_resume）を正とする。
+  // BASE_DL_PROG_KEY（gm_base_dl_progress）はUIの進捗表示用のみ。
+  const prog = loadResume();
+  if(!prog || prog.mode !== 'base' || !prog.layers || !prog.layers.length){
     showAlert('エラー','レジュームデータがありません');
     return;
   }
@@ -1007,7 +1009,6 @@ async function baseResumeStart(){
     return;
   }
   _bdprogOpen(prog.layers);
-  const pct = prog.total > 0 ? Math.round(prog.taskIndex / prog.total * 100) : 0;
   _bdprogSyncProgress(prog.taskIndex || 0, prog.total || 0);
   _bdprogSetPhase('running');
   await runDl('base', JAPAN, prog.zmin || 5, prog.zmax || 9, prog.layers, 0);
@@ -1016,6 +1017,7 @@ async function baseResumeStart(){
 /** ② 途中: 破棄 */
 function baseResumeDiscard(){
   deleteBaseDlProgress();
+  deleteResume();          // _guardResume() が見る RESUME_KEY も必ず削除
   refreshBaseDlStatus();
 }
 
