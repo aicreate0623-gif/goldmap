@@ -825,6 +825,94 @@ def fetch_niigata_arcgis() -> list[dict]:
     return records
 
 
+# ---------------------------------------------------------------------------
+# kumamap.com API（全国・ニュースベース）
+# エンドポイント: https://kumamap.com/api/sightings
+# フィールド:
+#   location.lat / location.lng → 座標 (WGS84)
+#   location.jp.prefecture      → 都道府県
+#   location.jp.locality        → 市区町村
+#   timestamp                   → ISO8601 日時
+#   bearType                    → blackBear / brownBear
+#   bearCount                   → 頭数
+#   additionalData.summary.jp   → 状況説明
+# ---------------------------------------------------------------------------
+
+def fetch_kumamap() -> list[dict]:
+    url = "https://kumamap.com/api/sightings"
+    print("  [API] kumamap.com (全国) ...", end=" ", flush=True)
+
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as e:
+        print(f"SKIP ({e})")
+        return []
+    except json.JSONDecodeError as e:
+        print(f"SKIP (JSON parse error: {e})")
+        return []
+
+    if not isinstance(data, list):
+        print("SKIP (unexpected format)")
+        return []
+
+    species_map = {
+        "blackBear": "ツキノワグマ",
+        "brownBear": "ヒグマ",
+    }
+
+    records: list[dict] = []
+    fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    for item in data:
+        # hidden フラグが立っているものはスキップ
+        if item.get("hidden"):
+            continue
+
+        loc = item.get("location") or {}
+        try:
+            lat = float(loc.get("lat") or 0)
+            lng = float(loc.get("lng") or 0)
+        except (TypeError, ValueError):
+            continue
+        if not (20.0 <= lat <= 46.0 and 122.0 <= lng <= 154.0):
+            continue
+
+        jp = loc.get("jp") or {}
+        pref     = str(jp.get("prefecture") or "不明").strip()
+        locality = str(jp.get("locality")   or "").strip()
+
+        date_str = _parse_date(str(item.get("timestamp") or ""))
+
+        bear_type = item.get("bearType") or "blackBear"
+        species   = species_map.get(bear_type, "クマ")
+
+        summary = (
+            (item.get("additionalData") or {})
+            .get("summary", {})
+            .get("jp", "")
+        ) or str((item.get("description") or {}).get("jp", ""))
+
+        record_id = f"kumamap_{item.get('id') or abs(hash(f'{lat:.5f}{lng:.5f}{date_str}')) % 10**8:08d}"
+
+        records.append({
+            "id":         record_id,
+            "lat":        round(lat, 6),
+            "lng":        round(lng, 6),
+            "date":       date_str,
+            "pref":       pref,
+            "place":      locality[:100],
+            "species":    species,
+            "detail":     summary[:200],
+            "source_url": url,
+            "fetched_at": fetched_at,
+        })
+
+    print(f"OK ({len(records)} records)")
+    return records
+
+
 # 重複除去
 # ---------------------------------------------------------------------------
 
@@ -899,6 +987,14 @@ def main() -> int:
             print(f"  ERROR: {name}")
             traceback.print_exc()
         time.sleep(1)
+
+    # kumamap.com 全国APIソース
+    print("\n[kumamap.com 全国API処理]")
+    try:
+        all_records.extend(fetch_kumamap())
+    except Exception:
+        traceback.print_exc()
+    time.sleep(1)
 
     # 重複除去
     before = len(all_records)
