@@ -584,6 +584,20 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
+    <div class="comm-gold-row" id="comm-gold-row">
+      <button class="btn accent comm-gold-btn" id="comm-gold-btn" onclick="commShowGoldPrice()">💰 金相場</button>
+      <span class="comm-gold-hint">前日LBMA終値ベース・円/g換算</span>
+    </div>
+
+    <div class="comm-premium-banner" onclick="commShowPremium()">
+      <span class="comm-premium-icon">✨</span>
+      <div class="comm-premium-text">
+        <b>GOLD MAP プレミアム</b>
+        <span>高精度ヒートマップ・熊域警告・オフライン完全対応</span>
+      </div>
+      <span class="comm-premium-arrow">›</span>
+    </div>
+
     <!-- 🗺️ ヒートマップ投稿 アコーディオン -->
     <div class="cfg-accordion" id="contrib-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
@@ -814,20 +828,6 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
-
-    <div class="comm-gold-row" id="comm-gold-row">
-      <button class="btn accent comm-gold-btn" id="comm-gold-btn" onclick="commShowGoldPrice()">💰 金相場</button>
-      <span class="comm-gold-hint">前日LBMA終値ベース・円/g換算</span>
-    </div>
-
-    <div class="comm-premium-banner" onclick="commShowPremium()">
-      <span class="comm-premium-icon">✨</span>
-      <div class="comm-premium-text">
-        <b>GOLD MAP プレミアム</b>
-        <span>高精度ヒートマップ・熊域警告・オフライン完全対応</span>
-      </div>
-      <span class="comm-premium-arrow">›</span>
-    </div>
 
     <div class="comm-rule-box">
       <div class="comm-rule-head" onclick="commToggleRule()">
