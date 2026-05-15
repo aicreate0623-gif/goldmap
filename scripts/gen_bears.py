@@ -894,7 +894,8 @@ def fetch_kumamap() -> list[dict]:
             .get("jp", "")
         ) or str((item.get("description") or {}).get("jp", ""))
 
-        record_id = f"kumamap_{item.get('id') or abs(hash(f'{lat:.5f}{lng:.5f}{date_str}')) % 10**8:08d}"
+        _raw_id = item.get('id')
+        record_id = f"kumamap_{_raw_id}" if _raw_id else f"kumamap_{abs(hash(f'{lat:.5f}{lng:.5f}{date_str}')) % 10**8:08d}"
 
         records.append({
             "id":         record_id,
