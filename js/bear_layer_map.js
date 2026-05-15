@@ -16,11 +16,11 @@ const BEAR_COLOR_RECENT = "#fb8c00"; // 90日以内  → オレンジ
 
 // ヒートマップ設定
 const BEAR_HEAT_OPTIONS = {
-  radius:     20,
-  blur:       15,
+  radius:     22,
+  blur:       12,
   maxZoom:    13,
-  max:        1.0,
-  minOpacity: 0.4,
+  max:        0.05,
+  minOpacity: 0.5,
   pane:       'paneBearHeat',
   gradient:   { 0.2: "#9c27b0", 0.5: "#e91e8c", 0.8: "#f44336", 1.0: "#8b0000" },
 };
