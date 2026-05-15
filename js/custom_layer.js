@@ -187,6 +187,7 @@ function _clSetHTML(s){
     <div class="cl-set-header" onclick="clToggleSetBody('${s.id}')" style="cursor:pointer">
       <span class="cl-set-icon">${s.icon}</span>
       <span class="cl-set-name">${s.name}</span>
+      <button class="btn sm cl-action-btn" onclick="event.stopPropagation();openClEdit('${s.id}')">✏️</button>
       <span class="cl-set-count">${countLabel}</span>
       <span class="cl-set-hd-arrow" id="cl-set-arrow-${s.id}">▶</span>
       <button class="cl-vis-mini${s.visible?' on':''}" onclick="event.stopPropagation();clToggleVisible('${s.id}')" title="地図に表示">
@@ -197,7 +198,7 @@ function _clSetHTML(s){
 
     <!-- ② セット設定アコーディオン（デフォルト閉じ） -->
     <div class="cl-set-body" id="cl-set-body-${s.id}" style="display:none">
-      <!-- フィルター行 + 件数 + 編集 + 削除 -->
+      <!-- フィルター行 -->
       <div class="cl-filter-row">
         <span class="cl-filter-ico">🔍</span>
         <input class="cl-filter-input" type="text" placeholder="フィルター…"
@@ -205,13 +206,12 @@ function _clSetHTML(s){
           oninput="clFilter('${s.id}',this.value)">
         ${(_clFilterMap[s.id]||'') ? `<button class="cl-filter-clear" onclick="clFilterClear('${s.id}')">✕</button>` : ''}
         ${filteredCount !== null ? `<span class="cl-filter-badge">${filteredCount}件</span>` : ''}
-        <button class="btn sm cl-action-btn" onclick="openClEdit('${s.id}')">✏️</button>
-        <button class="btn sm red cl-action-btn" onclick="confirmClDelete('${s.id}')">🗑</button>
       </div>
-      <!-- インポート/エクスポート -->
+      <!-- インポート/エクスポート/削除 -->
       <div class="cl-import-row">
         <button class="btn sm blue" onclick="document.getElementById('cl-imp-${s.id}').click()">📥 追加インポート</button>
         <button class="btn sm" onclick="clExport('${s.id}')">📤 エクスポート</button>
+        <button class="btn sm red cl-action-btn" onclick="confirmClDelete('${s.id}')">🗑</button>
         <input type="file" id="cl-imp-${s.id}" accept=".geojson,.json,.csv"
           style="display:none" onchange="clImport('${s.id}',event)">
       </div>
