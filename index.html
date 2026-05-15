@@ -145,7 +145,7 @@
     <span class="t-ico">💬</span>コミュニティ
   </button>
   <button class="tab-btn"        id="tab-pts"       onclick="switchTab('pts')">
-    <span class="t-ico">📍</span>ポイント
+    <span class="t-ico">📍</span>マイポイント
   </button>
   <button class="tab-btn"        id="tab-cfg"       onclick="switchTab('cfg')">
     <span class="t-ico">⚙</span>設定
@@ -253,12 +253,12 @@
 
 <div class="sheet" id="pt-sheet">
   <div class="sheet-head">
-    <h2>📍 ポイント一覧</h2>
+    <h2>📍 マイポイント一覧</h2>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
 
   <div class="pt-actions">
-    <button class="btn accent" onclick="startAddPt(); switchTab('map')">＋ ポイント追加</button>
+    <button class="btn accent" onclick="startAddPt(); switchTab('map')">＋ マイポイント追加</button>
     <button class="btn sm" onclick="exportPts()">📤 書出</button>
     <button class="btn sm" onclick="openImpDlg()">📥 読込</button>
   </div>
@@ -271,7 +271,7 @@
   <!-- ポイント機能説明 -->
   <div class="cfg-accordion" style="margin:10px 12px 0">
     <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-      <span class="cfg-accordion-title">📖 ポイント機能について</span>
+      <span class="cfg-accordion-title">📖 マイポイント機能について</span>
       <span class="cfg-accordion-arrow">▶</span>
     </div>
     <div class="cfg-accordion-body">
@@ -329,7 +329,7 @@
     </div>
     <div class="cfg-accordion-body">
       <div class="pt-list" id="pt-list">
-        <div class="pt-empty">まだポイントがありません<br>「＋ ポイント追加」で地図上に登録できます</div>
+        <div class="pt-empty">まだポイントがありません<br>「＋ マイポイント追加」で地図上に登録できます</div>
       </div>
     </div>
   </div>
@@ -584,20 +584,6 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
-    <div class="comm-gold-row" id="comm-gold-row">
-      <button class="btn accent comm-gold-btn" id="comm-gold-btn" onclick="commShowGoldPrice()">💰 金相場</button>
-      <span class="comm-gold-hint">前日LBMA終値ベース・円/g換算</span>
-    </div>
-
-    <div class="comm-premium-banner" onclick="commShowPremium()">
-      <span class="comm-premium-icon">✨</span>
-      <div class="comm-premium-text">
-        <b>GOLD MAP プレミアム</b>
-        <span>高精度ヒートマップ・熊域警告・オフライン完全対応</span>
-      </div>
-      <span class="comm-premium-arrow">›</span>
-    </div>
-
     <!-- 🗺️ ヒートマップ投稿 アコーディオン -->
     <div class="cfg-accordion" id="contrib-accordion">
       <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
@@ -828,6 +814,20 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
+
+    <div class="comm-gold-row" id="comm-gold-row">
+      <button class="btn accent comm-gold-btn" id="comm-gold-btn" onclick="commShowGoldPrice()">💰 金相場</button>
+      <span class="comm-gold-hint">前日LBMA終値ベース・円/g換算</span>
+    </div>
+
+    <div class="comm-premium-banner" onclick="commShowPremium()">
+      <span class="comm-premium-icon">✨</span>
+      <div class="comm-premium-text">
+        <b>GOLD MAP プレミアム</b>
+        <span>高精度ヒートマップ・熊域警告・オフライン完全対応</span>
+      </div>
+      <span class="comm-premium-arrow">›</span>
+    </div>
 
     <div class="comm-rule-box">
       <div class="comm-rule-head" onclick="commToggleRule()">
