@@ -695,9 +695,53 @@ function _openTab(tab){
 //  ダイアログ
 // ═══════════════════════════════════════════
 const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp2','dlg-alr','dlg-contrib-off','dlg-premium-gate','dlg-heatpro-gate','dlg-gps-lost','dlg-cl-edit','dlg-cl-delete','dlg-cl-point-edit','dlg-cl-point-del','dlg-gold','dlg-cfg-heatmap','dlg-cfg-mine','dlg-cfg-wiki','dlg-cfg-kinno','dlg-cfg-geology','dlg-cfg-mineral','dlg-cfg-disclaimer'];
-function showDlg(id){DLGS.forEach(d=>document.getElementById(d).style.display='none');document.getElementById(id).style.display='block';document.getElementById('overlay').classList.add('open');}
+function showDlg(id){
+  DLGS.forEach(d=>document.getElementById(d).style.display='none');
+  document.getElementById(id).style.display='block';
+  document.getElementById('overlay').classList.add('open');
+  // ヒートマップ投稿ダイアログを開く際はtoggle UIを最新状態に更新
+  if (id === 'dlg-cfg-heatmap') _updateContribUI();
+}
 function closeOv(){document.getElementById('overlay').classList.remove('open');DLGS.forEach(d=>document.getElementById(d).style.display='none');eid=null;}
 function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;document.getElementById('alr-msg').textContent=msg;showDlg('dlg-alr');}
+
+// ═══════════════════════════════════════════
+//  ヒートマップ投稿 contrib トグル
+// ═══════════════════════════════════════════
+const CONTRIB_KEY = 'gm_contrib_on';
+
+/** 投稿協力フラグを取得 */
+function isContribOn() {
+  return localStorage.getItem(CONTRIB_KEY) === '1';
+}
+
+/** 投稿協力フラグを設定 */
+function _setContribOn(val) {
+  localStorage.setItem(CONTRIB_KEY, val ? '1' : '0');
+}
+
+/** トグルボタンUIを現在の状態に合わせて更新（ダイアログを閉じない） */
+function _updateContribUI() {
+  const on = isContribOn();
+  // ダイアログ内トグル
+  const btn = document.getElementById('contrib-toggle-cfg');
+  if (btn) btn.classList.toggle('on', on);
+  // ステータスラベル
+  const lbl = document.getElementById('contrib-status-lbl');
+  if (lbl) lbl.textContent = '現在: ' + (on ? 'ON' : 'OFF');
+}
+
+/** ダイアログ内トグルボタン押下ハンドラ */
+function onContribToggle() {
+  const next = !isContribOn();
+  _setContribOn(next);
+  _updateContribUI();
+}
+
+// DOMContentLoaded後にcontrib UIを初期状態に合わせる
+document.addEventListener('DOMContentLoaded', () => {
+  _updateContribUI();
+});
 
 // ═══════════════════════════════════════════
 //  バックボタン制御

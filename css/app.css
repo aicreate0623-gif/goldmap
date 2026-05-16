@@ -4373,6 +4373,8 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* cfg-info-dlg内でのスクロール保証 */
+  min-height: 0;
 }
 .cfg-dlg-body {
   padding: 16px 18px 20px;
