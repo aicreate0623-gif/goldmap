@@ -36,7 +36,18 @@ function updateScaleBar(){
   }
 }
 map.on('zoomend moveend', updateScaleBar);
-map.whenReady(()=>{ setTimeout(updateScaleBar, 100); });
+map.whenReady(()=>{
+  // float-ctrl-leftのtransitionend後に初回計算（位置確定してから）
+  const elL = document.getElementById('float-ctrl-left');
+  if (elL) {
+    elL.addEventListener('transitionend', function onFirstTransition() {
+      elL.removeEventListener('transitionend', onFirstTransition);
+      updateScaleBar();
+    });
+  }
+  // フォールバック：transitionendが発火しない場合（非アニメ時など）
+  setTimeout(updateScaleBar, 1200);
+});
 
 // ズーム値バッジ更新
 function _updZoomBadge(){
@@ -117,7 +128,7 @@ async function initMap(){
   initCustomLayer();
   // 右フロートボタン位置をシームレスバー分下にオフセット
   // レイアウト確定後に計算するため requestAnimationFrame を使う
-  requestAnimationFrame(()=>{ updateRightFloatTop(); updateScaleBar(); setTimeout(updateScaleBar, 300); });
+  requestAnimationFrame(()=>{ updateRightFloatTop(); });
 }
 
 function setBase(k){

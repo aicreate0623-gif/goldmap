@@ -1074,10 +1074,10 @@ function _fcLeftShow(animate) {
     elC.classList.add('fc-snap');
     elL.style.transform = 'translateX(0)';
     elC.style.transform = 'translateX(0)';
-    // transitionend競合を避けるため次フレームで更新
-    requestAnimationFrame(() => {
+    // transitionend完了後にupdateScaleBar（位置確定してから）
+    elL.addEventListener('transitionend', () => {
       if(typeof updateScaleBar === 'function') updateScaleBar();
-    });
+    }, { once: true });
   }));
 }
 
@@ -1097,6 +1097,7 @@ function _fcRightHide(animate) {
   const elL = document.getElementById('float-ctrl-left');
   const elC = document.getElementById('float-ctrl');
   const elR = document.getElementById('float-ctrl-right');
+  const elTab = document.getElementById('float-tab-bar');
   const onEnd = () => {
     elR.removeEventListener('transitionend', onEnd);
     elL.classList.add('fc-hidden');
@@ -1105,6 +1106,7 @@ function _fcRightHide(animate) {
     document.getElementById('zoom-level-badge').classList.add('fc-hidden');
     const scale = document.getElementById('scale-bar');
     if (scale) scale.classList.add('fc-hidden');
+    if (elTab) elTab.classList.add('fc-hidden');
     const bar = document.getElementById('fc-bar-right');
     _buildBarDots(bar, FC_ALL_BTNS);
     bar.classList.add('show');
@@ -1114,15 +1116,21 @@ function _fcRightHide(animate) {
       bar.style.transform = 'translateY(0)';
     }));
   };
+  // 全シートを閉じてmapタブに戻す
+  if (curTab !== 'map') _openTab('map');
   if (animate) {
     elR.addEventListener('transitionend', onEnd, { once: true });
   }
-  // タブバーをフロートボタンと同時に下へスライドアウト
-  const tabbar = document.getElementById('tabbar');
-  if (tabbar) tabbar.style.transform = 'translateY(100%)';
   _setTransform(elL, 'translateY(-120%)', animate);
   _setTransform(elC, 'translateY(-120%)', animate);
   _setTransform(elR, 'translateY(-120%)', animate);
+  // タブバーは下へスライドアウト
+  if (elTab) {
+    elTab.classList.remove('fc-hidden');
+    elTab.classList.toggle('fc-snap', animate);
+    elTab.classList.remove('fc-intro');
+    elTab.style.transform = 'translateY(100%)';
+  }
   if (!animate) onEnd();
 }
 
@@ -1132,6 +1140,7 @@ function _fcRightShow(animate) {
   const elL = document.getElementById('float-ctrl-left');
   const elC = document.getElementById('float-ctrl');
   const elR = document.getElementById('float-ctrl-right');
+  const elTab = document.getElementById('float-tab-bar');
   const bar = document.getElementById('fc-bar-right');
   // バー収納
   bar.classList.add('fc-snap');
@@ -1140,9 +1149,6 @@ function _fcRightShow(animate) {
     bar.classList.remove('show', 'fc-snap');
     bar.style.transform = '';
   }, { once: true });
-  // タブバーを同時に復帰
-  const tabbar = document.getElementById('tabbar');
-  if (tabbar) tabbar.style.transform = 'translateY(0)';
   // 左列・中央・右列を一緒に展開
   [elL, elC, elR].forEach(el => {
     el.classList.remove('fc-hidden', 'fc-snap', 'fc-intro');
@@ -1151,15 +1157,22 @@ function _fcRightShow(animate) {
   document.getElementById('zoom-level-badge').classList.remove('fc-hidden');
   const scale = document.getElementById('scale-bar');
   if (scale) scale.classList.remove('fc-hidden');
+  // タブバーを下から展開
+  if (elTab) {
+    elTab.classList.remove('fc-hidden', 'fc-intro');
+    elTab.style.transform = 'translateY(100%)';
+    elTab.classList.toggle('fc-snap', animate);
+  }
   requestAnimationFrame(() => requestAnimationFrame(() => {
     [elL, elC, elR].forEach(el => {
       el.classList.add('fc-snap');
       el.style.transform = 'translateY(0)';
     });
-    // transitionend競合を避けるため次フレームで更新
-    requestAnimationFrame(() => {
-      if(typeof updateScaleBar === 'function') updateScaleBar();
-    });
+    if (elTab) elTab.style.transform = 'translateY(0)';
+    // transitionend完了後にupdateScaleBar（位置確定してから）
+    elL.addEventListener('transitionend', () => {
+      if (typeof updateScaleBar === 'function') updateScaleBar();
+    }, { once: true });
   }));
 }
 
@@ -1260,18 +1273,21 @@ function initFcToggle() {
   const elL  = document.getElementById('float-ctrl-left');
   const elC  = document.getElementById('float-ctrl');
   const elR  = document.getElementById('float-ctrl-right');
+  const elTab = document.getElementById('float-tab-bar');
 
   // 右バー：タップ/下スワイプで全体展開
   _addSwipeY(barR, () => _fcRightShow(true), null);
   barR.addEventListener('click', () => _fcRightShow(true));
 
-  // 右列・左列・中央：上スワイプで全体収納
+  // 右列・左列・中央・タブバー：上スワイプで全体収納
   _addDragY(elR, () => _fcRightHide(true), null);
   _addDragY(elL, () => _fcRightHide(true), null);
   _addDragY(elC, () => _fcRightHide(true), null);
+  if (elTab) _addSwipeY(elTab, null, () => _fcRightHide(true));
 
-  // ── 起動時スライドイン（全エリア上から下へ統一）──
+  // ── 起動時スライドイン（フロートボタン＋タブバー同時）──
   [elL, elC, elR].forEach(el => { el.style.transform = 'translateY(-120%)'; });
+  if (elTab) elTab.style.transform = 'translateY(100%)';
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
     [elL, elC, elR].forEach(el => {
@@ -1279,6 +1295,15 @@ function initFcToggle() {
       el.style.transform = 'translateY(0)';
       el.addEventListener('transitionend', () => el.classList.remove('fc-intro'), { once: true });
     });
+    if (elTab) {
+      elTab.classList.add('fc-intro');
+      elTab.style.transform = 'translateY(0)';
+      elTab.addEventListener('transitionend', () => {
+        elTab.classList.remove('fc-intro');
+        // タブバーのtransition完了後にupdateScaleBar
+        if (typeof updateScaleBar === 'function') updateScaleBar();
+      }, { once: true });
+    }
   }));
 }
 
