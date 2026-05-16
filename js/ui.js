@@ -700,47 +700,15 @@ function showDlg(id){
   document.getElementById(id).style.display='block';
   document.getElementById('overlay').classList.add('open');
   // ヒートマップ投稿ダイアログを開く際はtoggle UIを最新状態に更新
-  if (id === 'dlg-cfg-heatmap') _updateContribUI();
+  if (id === 'dlg-cfg-heatmap') { if (typeof applyContribUI === 'function') applyContribUI(); }
 }
 function closeOv(){document.getElementById('overlay').classList.remove('open');DLGS.forEach(d=>document.getElementById(d).style.display='none');eid=null;}
 function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;document.getElementById('alr-msg').textContent=msg;showDlg('dlg-alr');}
 
-// ═══════════════════════════════════════════
-//  ヒートマップ投稿 contrib トグル
-// ═══════════════════════════════════════════
-const CONTRIB_KEY = 'gm_contrib_on';
-
-/** 投稿協力フラグを取得 */
-function isContribOn() {
-  return localStorage.getItem(CONTRIB_KEY) === '1';
-}
-
-/** 投稿協力フラグを設定 */
-function _setContribOn(val) {
-  localStorage.setItem(CONTRIB_KEY, val ? '1' : '0');
-}
-
-/** トグルボタンUIを現在の状態に合わせて更新（ダイアログを閉じない） */
-function _updateContribUI() {
-  const on = isContribOn();
-  // ダイアログ内トグル
-  const btn = document.getElementById('contrib-toggle-cfg');
-  if (btn) btn.classList.toggle('on', on);
-  // ステータスラベル
-  const lbl = document.getElementById('contrib-status-lbl');
-  if (lbl) lbl.textContent = '現在: ' + (on ? 'ON' : 'OFF');
-}
-
-/** ダイアログ内トグルボタン押下ハンドラ */
-function onContribToggle() {
-  const next = !isContribOn();
-  _setContribOn(next);
-  _updateContribUI();
-}
-
+// ヒートマップ投稿contrib UI同期はpoints.jsのapplyContribUI()を使用
 // DOMContentLoaded後にcontrib UIを初期状態に合わせる
 document.addEventListener('DOMContentLoaded', () => {
-  _updateContribUI();
+  if (typeof applyContribUI === 'function') applyContribUI();
 });
 
 // ═══════════════════════════════════════════
