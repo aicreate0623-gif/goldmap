@@ -92,6 +92,28 @@ const MINES=[
   {lat:32.217,lng:130.767,name:'人吉市（球磨川支流）',note:'熊本県人吉市。球磨川支流での砂金採取情報あり。既存「五木村」エントリーとのエリア重複確認要。【座標要検証：概略値】'},
 ];
 const mineLayer=L.layerGroup({pane:'paneMine'}); let mineV=false;
+// ── Googleマップ連携ボタン共通ヘルパー ──────────────────────────
+function _gmapBtns(lat, lng) {
+  const la = parseFloat(lat).toFixed(6);
+  const ln = parseFloat(lng).toFixed(6);
+  return `<div style="display:flex;gap:6px;margin-top:9px;">
+    <a href="https://maps.google.com/?q=${la},${ln}"
+       target="_blank" rel="noopener"
+       style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
+              padding:5px 4px;border-radius:5px;font-size:11px;font-weight:700;
+              text-decoration:none;color:#fff;background:#1a73e8;">
+      🗺 周辺確認
+    </a>
+    <a href="https://www.google.com/maps/dir/?api=1&destination=${la},${ln}"
+       target="_blank" rel="noopener"
+       style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
+              padding:5px 4px;border-radius:5px;font-size:11px;font-weight:700;
+              text-decoration:none;color:#fff;background:#34a853;">
+      🧭 ナビ
+    </a>
+  </div>`;
+}
+
 const mIco=()=>L.divIcon({html:'<div class="mpin"></div>',className:'',iconSize:[14,28],iconAnchor:[7,28],popupAnchor:[0,-28]});
 const mIcoAlert=()=>L.divIcon({html:'<div class="mpin mpin-alert"></div>',className:'',iconSize:[14,28],iconAnchor:[7,28],popupAnchor:[0,-28]});
 
@@ -114,7 +136,7 @@ function _minePopup(m,withWater){
   const link=withWater||alert
     ?`<br><a href="https://www.river.go.jp" target="_blank" rel="noopener" style="font-size:11px;color:#4af">💧 確認する</a>`
     :'';
-  return `<b style="color:#c06030">${m.name}</b><br><small>${m.note}</small>${alertNote}${link}`;
+  return `<b style="color:#c06030">${m.name}</b><br><small>${m.note}</small>${alertNote}${link}${_gmapBtns(m.lat,m.lng)}`;
 }
 
 // マーカー生成（水位ON/OFFで切替）
@@ -398,6 +420,7 @@ function makeWikiMarker(d){
       <div style="font-size:10px;color:#888;margin-top:6px;text-align:right;">
         出典: Wikidata (CC0)
       </div>
+      ${_gmapBtns(d.lat,d.lng)}
     </div>`;
 
   return L.marker([d.lat, d.lng], {
@@ -848,6 +871,7 @@ function kinnoPopupHtml(d){
     <div style="font-size:10px;color:#999;margin-top:6px;text-align:right;">
       出典: kinno lab.
     </div>
+    ${_gmapBtns(d.lat,d.lng)}
   </div>`;
 }
 

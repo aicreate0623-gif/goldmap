@@ -508,6 +508,23 @@ function openDet(id){
   document.getElementById('det-stars').innerHTML=starsToHtml(p.stars||0);
   document.getElementById('det-memo').textContent=p.memo||'';
   document.getElementById('det-coord').textContent='📍 '+p.lat.toFixed(5)+', '+p.lng.toFixed(5);
+  // Googleマップボタン
+  const la=p.lat.toFixed(6), ln=p.lng.toFixed(6);
+  document.getElementById('det-gmap-btns').innerHTML=`
+    <a href="https://maps.google.com/?q=${la},${ln}"
+       target="_blank" rel="noopener"
+       style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
+              padding:5px 4px;border-radius:5px;font-size:11px;font-weight:700;
+              text-decoration:none;color:#fff;background:#1a73e8;">
+      🗺 周辺確認
+    </a>
+    <a href="https://www.google.com/maps/dir/?api=1&destination=${la},${ln}"
+       target="_blank" rel="noopener"
+       style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
+              padding:5px 4px;border-radius:5px;font-size:11px;font-weight:700;
+              text-decoration:none;color:#fff;background:#34a853;">
+      🧭 ナビ
+    </a>`;
   showDlg('dlg-detail');
 }
 // 編集時のバックアップ（キャンセル用）

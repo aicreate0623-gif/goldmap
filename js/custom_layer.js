@@ -150,11 +150,28 @@ function _buildLayer(set, filterText){
 }
 function _clShowPopup(p, set){
   const pIcon = p.icon || set.icon;
+  const gmapBtns = `<div style="display:flex;gap:6px;margin-top:9px;">
+    <a href="https://maps.google.com/?q=${parseFloat(p.lat).toFixed(6)},${parseFloat(p.lng).toFixed(6)}"
+       target="_blank" rel="noopener"
+       style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
+              padding:5px 4px;border-radius:5px;font-size:11px;font-weight:700;
+              text-decoration:none;color:#fff;background:#1a73e8;">
+      🗺 周辺確認
+    </a>
+    <a href="https://www.google.com/maps/dir/?api=1&destination=${parseFloat(p.lat).toFixed(6)},${parseFloat(p.lng).toFixed(6)}"
+       target="_blank" rel="noopener"
+       style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
+              padding:5px 4px;border-radius:5px;font-size:11px;font-weight:700;
+              text-decoration:none;color:#fff;background:#34a853;">
+      🧭 ナビ
+    </a>
+  </div>`;
   const content = `
     <div class="mine-popup">
       <div class="mine-popup-name">${pIcon} ${p.name||'（無名）'}</div>
       ${p.note ? `<div class="mine-popup-note">${p.note}</div>` : ''}
       <div class="mine-popup-meta">${set.name}</div>
+      ${gmapBtns}
     </div>`;
   L.popup({maxWidth:280, className:'mine-pop'})
     .setLatLng([p.lat,p.lng])
