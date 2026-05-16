@@ -1015,7 +1015,7 @@ function _fcLeftHide(animate) {
     elL.classList.add('fc-hidden');
     elC.classList.add('fc-hidden');
     document.getElementById('zoom-level-badge').classList.add('fc-hidden');
-    const scale = document.querySelector('.leaflet-control-scale');
+    const scale = document.getElementById('scale-bar');
     if (scale) scale.classList.add('fc-hidden');
     const bar = document.getElementById('fc-bar-left');
     _buildBarDots(bar, FC_LEFT_BTNS);
@@ -1050,7 +1050,7 @@ function _fcLeftShow(animate) {
   elL.classList.remove('fc-hidden');
   elC.classList.remove('fc-hidden');
   document.getElementById('zoom-level-badge').classList.remove('fc-hidden');
-  const scale = document.querySelector('.leaflet-control-scale');
+  const scale = document.getElementById('scale-bar');
   if (scale) scale.classList.remove('fc-hidden');
   // 左外から右へスライドイン
   elL.classList.remove('fc-snap', 'fc-intro');
@@ -1087,7 +1087,7 @@ function _fcRightHide(animate) {
     elC.classList.add('fc-hidden');
     elR.classList.add('fc-hidden');
     document.getElementById('zoom-level-badge').classList.add('fc-hidden');
-    const scale = document.querySelector('.leaflet-control-scale');
+    const scale = document.getElementById('scale-bar');
     if (scale) scale.classList.add('fc-hidden');
     const bar = document.getElementById('fc-bar-right');
     _buildBarDots(bar, FC_ALL_BTNS);
@@ -1127,7 +1127,7 @@ function _fcRightShow(animate) {
     el.style.transform = 'translateY(-120%)';
   });
   document.getElementById('zoom-level-badge').classList.remove('fc-hidden');
-  const scale = document.querySelector('.leaflet-control-scale');
+  const scale = document.getElementById('scale-bar');
   if (scale) scale.classList.remove('fc-hidden');
   requestAnimationFrame(() => requestAnimationFrame(() => {
     [elL, elC, elR].forEach(el => {
