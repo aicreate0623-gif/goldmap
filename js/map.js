@@ -549,3 +549,5 @@ function _checkNearbyFloodAlert(userLat, userLng){
     {html:true, autoClose:false}
   );
 }
+// ── 初期化 ──────────────────────────────────
+initMap();

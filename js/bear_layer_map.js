@@ -289,3 +289,9 @@ function setBearPrefFilter(prefValue) {
 
 function getBearPrefFilter()  { return bearFilteredPref; }
 function getBearPrefList()    { return BEAR_PREF_LIST; }
+// ── 初期化 ──────────────────────────────────
+initBearLayer().then(() => {
+  if (document.getElementById('bear-settings-section')) {
+    initBearToggle();
+  }
+});

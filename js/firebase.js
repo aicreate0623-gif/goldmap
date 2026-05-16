@@ -424,3 +424,12 @@ async function fetchHeatPoints() {
   console.log('[firebase.js] fetchHeatPoints OK tier=', tier, 'points=', points.length,
               'generated_at=', json.generated_at);
 }
+// ── 初期化 ──────────────────────────────────
+(async () => {
+  try {
+    await initFirebase();
+    await fetchHeatPoints();
+  } catch (e) {
+    console.warn('[firebase.js] Firebase init / fetchHeatPoints 失敗', e);
+  }
+})();
