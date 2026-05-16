@@ -77,6 +77,18 @@
   <div id="zoom-level-badge">Z<span id="zoom-level-val">7</span></div>
 </div>
 
+<!-- カスタムスケールバー（JS動的配置） -->
+<div id="scale-bar" aria-label="距離スケール">
+  <div id="scale-bar-inner">
+    <div id="scale-bar-track">
+      <div id="scale-bar-half-l"></div>
+      <div id="scale-bar-half-r"></div>
+      <span id="scale-bar-mid"></span>
+    </div>
+    <span id="scale-bar-label"></span>
+  </div>
+</div>
+
 <div id="float-ctrl">
   <div class="fc-row">
     <button class="fc-btn fc-grp-map base-active active" id="btn-photo" onclick="setBase('photo')" title="航空写真">
