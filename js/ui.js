@@ -701,7 +701,9 @@ function _openTab(tab){
 const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp2','dlg-alr','dlg-contrib-off','dlg-premium-gate','dlg-heatpro-gate','dlg-gps-lost','dlg-cl-edit','dlg-cl-delete','dlg-cl-point-edit','dlg-cl-point-del','dlg-gold','dlg-cfg-heatmap','dlg-cfg-mine','dlg-cfg-wiki','dlg-cfg-kinno','dlg-cfg-geology','dlg-cfg-mineral','dlg-cfg-disclaimer'];
 function showDlg(id){
   DLGS.forEach(d=>document.getElementById(d).style.display='none');
-  document.getElementById(id).style.display='block';
+  const el = document.getElementById(id);
+  // cfg-info-dlgはflexレイアウトのためflexで表示（blockだとdlg-bodyのスクロールが機能しない）
+  el.style.display = el.classList.contains('cfg-info-dlg') ? 'flex' : 'block';
   document.getElementById('overlay').classList.add('open');
   // ヒートマップ投稿ダイアログを開く際はtoggle UIを最新状態に更新
   if (id === 'dlg-cfg-heatmap') { if (typeof applyContribUI === 'function') applyContribUI(); }
