@@ -46,6 +46,8 @@ function updateScaleBar(){
   }
 }
 map.on('zoomend moveend', updateScaleBar);
+// タイル読み込み完了後にも更新（初期表示用）
+map.whenReady(()=>{ setTimeout(updateScaleBar, 100); });
 
 // ズーム値バッジ更新
 function _updZoomBadge(){
@@ -126,7 +128,7 @@ async function initMap(){
   initCustomLayer();
   // 右フロートボタン位置をシームレスバー分下にオフセット
   // レイアウト確定後に計算するため requestAnimationFrame を使う
-  requestAnimationFrame(()=>{ updateRightFloatTop(); updateScaleBar(); });
+  requestAnimationFrame(()=>{ updateRightFloatTop(); updateScaleBar(); setTimeout(updateScaleBar, 300); });
 }
 
 function setBase(k){

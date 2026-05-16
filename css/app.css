@@ -3403,11 +3403,12 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   z-index: 900;
   pointer-events: none;
   transition: opacity .25s;
+  min-width: 40px; /* JS計算前の崩れ防止 */
 }
 #scale-bar-inner {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch; /* barの幅に追従 */
   gap: 2px;
 }
 /* バー本体（左右2分割・定規スタイル） */
@@ -3421,8 +3422,7 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   overflow: visible;
   background: transparent;
   box-shadow: 0 1px 6px rgba(0,0,0,0.45);
-  /* 幅はJSで #scale-bar のwidthに従う */
-  width: 100%;
+  width: 100%; /* #scale-barのwidthに追従 */
 }
 #scale-bar-half-l {
   flex: 1;
