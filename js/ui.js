@@ -1106,6 +1106,10 @@ function _fcLeftShow(animate) {
     elC.classList.add('fc-snap');
     elL.style.transform = 'translateX(0)';
     elC.style.transform = 'translateX(0)';
+    // アニメーション完了後にスケールバー位置を確定
+    elL.addEventListener('transitionend', () => {
+      if(typeof updateScaleBar === 'function') updateScaleBar();
+    }, { once: true });
   }));
 }
 
@@ -1178,6 +1182,10 @@ function _fcRightShow(animate) {
       el.classList.add('fc-snap');
       el.style.transform = 'translateY(0)';
     });
+    // アニメーション完了後にスケールバー位置を確定
+    elL.addEventListener('transitionend', () => {
+      if(typeof updateScaleBar === 'function') updateScaleBar();
+    }, { once: true });
   }));
 }
 

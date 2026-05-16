@@ -6,47 +6,36 @@ map.zoomControl.setPosition('bottomright');
 function updateScaleBar(){
   const bar   = document.getElementById('scale-bar');
   const label = document.getElementById('scale-bar-label');
-  const mid   = document.getElementById('scale-bar-mid');
-  if(!bar || !label || !mid) return;
+  if(!bar || !label) return;
 
   // 画面中央の緯度経度を基準に、バー幅ぶんの実距離を計算
-  const W    = map.getContainer().clientWidth;
-  const H    = map.getContainer().clientHeight;
+  const W   = map.getContainer().clientWidth;
+  const H   = map.getContainer().clientHeight;
   const ctr  = map.containerPointToLatLng([W/2, H/2]);
-  const edge = map.containerPointToLatLng([W/2 + 80, H/2]); // 80px相当の実距離
-  const rawM = ctr.distanceTo(edge); // 80px = rawM メートル
+  const edge = map.containerPointToLatLng([W/2 + 80, H/2]);
+  const rawM = ctr.distanceTo(edge);
 
-  // バー全体 = rawMを "キリのいい値" に丸める
+  // キリのいい値に丸める
   const steps = [1,2,5,10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,100000];
-  const target = rawM;
   let niceDist = steps[0];
-  for(const s of steps){ if(s <= target) niceDist = s; else break; }
+  for(const s of steps){ if(s <= rawM) niceDist = s; else break; }
 
-  // バー幅(px) = niceDist / rawM * 80
+  // バー幅
   const barPx = (niceDist / rawM) * 80;
-
   bar.style.width = barPx + 'px';
 
-  // 単位表示
-  const half = niceDist / 2;
-  if(niceDist >= 1000){
-    mid.textContent   = (half / 1000) + 'km';
-    label.textContent = (niceDist / 1000) + 'km';
-  } else {
-    mid.textContent   = half + 'm';
-    label.textContent = niceDist + 'm';
-  }
+  // ラベル（右端のみ）
+  label.textContent = niceDist >= 1000 ? (niceDist/1000)+'km' : niceDist+'m';
 
-  // 位置: float-ctrl-leftの直下 + 6px
-  const leftBar = document.getElementById('float-ctrl-left');
-  if(leftBar){
-    const rect = leftBar.getBoundingClientRect();
+  // 位置: float-ctrl-leftの直下 + 6px（transition付きで自然追従）
+  const leftEl = document.getElementById('float-ctrl-left');
+  if(leftEl){
+    const rect = leftEl.getBoundingClientRect();
     bar.style.top  = (rect.bottom + 6) + 'px';
     bar.style.left = '10px';
   }
 }
 map.on('zoomend moveend', updateScaleBar);
-// タイル読み込み完了後にも更新（初期表示用）
 map.whenReady(()=>{ setTimeout(updateScaleBar, 100); });
 
 // ズーム値バッジ更新
