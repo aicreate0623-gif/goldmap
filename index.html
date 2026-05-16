@@ -621,125 +621,292 @@
       <span class="comm-premium-arrow">›</span>
     </div>
 
-    <!-- 🗺️ ヒートマップ投稿 アコーディオン -->
-    <div class="cfg-accordion" id="contrib-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🗺️ ヒートマップ投稿</span>
-        <span class="cfg-accordion-sub">砂金分布の精度向上に協力</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <div style="padding:4px 0 8px;">
-          <div style="font-size:12px;color:var(--txt-sub);line-height:1.8;margin-bottom:12px;">
-            <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🔥 分布PRO とは</p>
-            <p style="margin:0 0 10px;">本アプリの匿名投稿データをAIロジックによってフィルター、集計、編集して生成された高精度ヒートマップです。迷惑行為防止等の観点からピンポイントで特定できない仕様となっており、ランダムにkm単位でずらして表示しています。フリー版のヒートマップに上乗せして表示されます。</p>
-            <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">📋 ご利用条件</p>
-            <p style="margin:0 0 4px;">・プレミアム会員であること</p>
-            <p style="margin:0 0 10px;">・投稿をONにして1件以上ポイントを登録していること</p>
-            <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🔒 プライバシーについて</p>
-            <p style="margin:0 0 4px;">座標は数kmランダムにずらして公開されます。</p>
-            <p style="margin:0 0 4px;">個人を特定する情報は一切収集しません。</p>
-            <p style="margin:0 0 10px;">元のデータを削除するとサーバーのデータも一緒に削除されます。</p>
-          </div>
-          <!-- contrib トグル -->
-          <div class="cfg-row" style="align-items:center;">
-            <div>
-              <div class="cfg-label">投稿協力</div>
-              <div class="cfg-sub" id="contrib-status-lbl">現在: OFF</div>
-            </div>
-            <button class="contrib-toggle" id="contrib-toggle-cfg" onclick="onContribToggle()">
-              <span class="contrib-off-lbl">OFF</span>
-              <span class="contrib-thumb"></span>
-              <span class="contrib-on-lbl">ON</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ① 熊出没情報 -->
+    <!-- 熊出没情報（動的挿入エリア） -->
     <div class="settings-section" id="bear-settings-section"></div>
 
-    <!-- ② キャッシュ管理はオフラインタブに移動 -->
+    <!-- 設定メニューリスト -->
+    <div class="cfg-menu-list">
 
-    <!-- ④ 鉱床・鉱徴地データ -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🔶 鉱床・鉱徴地データ</span>
-        <span class="cfg-accordion-arrow">▶</span>
+      <button class="cfg-menu-item" onclick="showDlg('dlg-cfg-heatmap')">
+        <span class="cfg-menu-icon">🗺️</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">ヒートマップ投稿</span>
+          <span class="cfg-menu-sub">砂金分布の精度向上に協力</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
+
+      <button class="cfg-menu-item" onclick="showDlg('dlg-cfg-mine')">
+        <span class="cfg-menu-icon">🔶</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">鉱床・鉱徴地データ</span>
+          <span class="cfg-menu-sub">産総研 フィルター設定</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
+
+      <button class="cfg-menu-item" onclick="showDlg('dlg-cfg-wiki')">
+        <span class="cfg-menu-icon">🌐</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">Wikidata 日本鉱山</span>
+          <span class="cfg-menu-sub">起動時に自動読み込み</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
+
+      <button class="cfg-menu-item" onclick="showDlg('dlg-cfg-kinno')">
+        <span class="cfg-menu-icon">📌</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">kinno調査記</span>
+          <span class="cfg-menu-sub">215地点・組み込み済み</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
+
+      <button class="cfg-menu-item" onclick="showDlg('dlg-cfg-geology')">
+        <span class="cfg-menu-icon">🪨</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">地質図 凡例</span>
+          <span class="cfg-menu-sub">産総研 V2</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
+
+      <button class="cfg-menu-item" onclick="showDlg('dlg-cfg-mineral')">
+        <span class="cfg-menu-icon">⛏️</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">鉱物資源図 凡例</span>
+          <span class="cfg-menu-sub">産総研 100万図</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
+
+      <button class="cfg-menu-item" onclick="showDlg('dlg-cfg-disclaimer')">
+        <span class="cfg-menu-icon">📋</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">免責事項・ご利用にあたって</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
+<div class="sheet" id="comm-sheet">
+  <div class="sheet-head">
+    <h2>💬 コミュニティ</h2>
+    <button class="sheet-close" onclick="switchTab('map')">✕</button>
+  </div>
+  <div class="sheet-body">
+
+    <div class="comm-rule-box">
+      <div class="comm-rule-head" onclick="commToggleRule()">
+        <span>📋 掲示板ルール</span>
+        <span id="comm-rule-arrow">▶</span>
       </div>
-      <div class="cfg-accordion-body">
-        <div class="dl-section">
-          <div class="info-box">
-            産総研地質調査総合センターの鉱床・鉱徴地データ
-          </div>
-          <div id="mine-prog-wrap" style="display:none;margin-top:8px;">
-            <div style="font-size:11px;color:var(--txt-sub);margin-bottom:4px;">読込中… <span id="mine-prog-pct">0%</span></div>
-            <div class="prog-bar-bg"><div class="prog-bar-fill" id="mine-prog-bar" style="width:0%"></div></div>
+      <div id="comm-rule-body" style="display:none">
+        <ol class="comm-rule-list">
+          <li>秘密スポットなど特定の場所の詳細な情報公開はご遠慮ください</li>
+          <li>鉱物採取に関するイベント・告知は歓迎します</li>
+          <li>誹謗中傷・荒らし・スパム行為は禁止です</li>
+          <li>違法・危険行為を助長する投稿は禁止です</li>
+          <li>投稿・返信・更新は<b>3分間に1回</b>までです</li>
+          <li>不快な書き込みは🚫ボタンで非表示にできます</li>
+          <li>仕様上、返信への返信はできません</li>
+          <li>返信がついた投稿は削除できません</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="comm-accordion">
+      <div class="comm-accordion-header" onclick="toggleCommAccordion(this)">
+        <span class="comm-accordion-title">💬 掲示板を開く</span>
+        <span class="comm-accordion-arrow">▶</span>
+      </div>
+      <div class="comm-accordion-body">
+
+        <div class="comm-scope-tabs">
+          <button class="comm-scope-btn active" id="comm-tab-national" onclick="commSwitchScope('national')">🌏 全国</button>
+          <button class="comm-scope-btn"        id="comm-tab-regional" onclick="commSwitchScope('regional')">📍 地方</button>
+        </div>
+
+        <div id="comm-regional-selector" style="display:none">
+          <div class="comm-sel-row">
+            <select id="comm-region-sel" onchange="commOnRegionChange(this.value)" class="comm-select">
+            </select>
+            <select id="comm-pref-sel" onchange="commOnPrefChange(this.value)" class="comm-select">
+            </select>
           </div>
         </div>
-        <div class="dl-section" id="mine-filter-section">
-          <div class="sec-ttl">鉱床フィルター</div>
-          <div class="ck-row"><input type="checkbox" id="mf-metal" checked onchange="applyMineFilter()"><label for="mf-metal">🔴 金属鉱物</label></div>
-          <div class="ck-row"><input type="checkbox" id="mf-nonmetal" checked onchange="applyMineFilter()"><label for="mf-nonmetal">🟧 非金属鉱物</label></div>
-          <div class="ck-row"><input type="checkbox" id="mf-fuel" checked onchange="applyMineFilter()"><label for="mf-fuel">✖ 燃料鉱物</label></div>
-          <div class="ck-row"><input type="checkbox" id="mf-trace" checked onchange="applyMineFilter()"><label for="mf-trace">鉱徴を含む</label></div>
-          <div class="btn-row" style="margin-top:8px;">
-            <button class="btn sm" onclick="openMineLegend()">📋 凡例を見る</button>
+
+        <div class="comm-form">
+          <input type="text" id="comm-nick-input" class="comm-input" placeholder="ニックネーム（空欄で匿名さん）" maxlength="20">
+          <textarea id="comm-text-input" class="comm-textarea"
+            placeholder="採取報告・イベント告知・雑談など気軽にどうぞ"
+            maxlength="200"
+            oninput="_updateCharCount()"></textarea>
+          <div class="comm-form-footer">
+            <span id="comm-char-count" class="comm-char-count">0/200</span>
+            <button class="btn accent comm-submit-btn" onclick="commSubmit()">投稿する</button>
           </div>
+        </div>
+
+        <div class="comm-refresh-row">
+          <button class="btn sm" id="comm-refresh-btn" onclick="commRefresh()">🔄 更新</button>
+          <span class="comm-refresh-hint">タップで最新の投稿を取得します</span>
+        </div>
+        <div id="comm-post-list" class="comm-post-list">
+          <div class="comm-empty">「🔄 更新」で投稿を読み込んでください</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="mine-legend-overlay" onclick="if(event.target===this)closeMineLegend()">
+  <div id="mine-legend-box">
+    <div id="mine-legend-head">
+      <h3>⛏ 鉱種 凡例</h3>
+      <button class="sheet-close" onclick="closeMineLegend()">✕</button>
+    </div>
+    <div id="mine-legend-body">
+      <img id="mine-legend-img" src="" alt="鉱種凡例">
+      <p style="font-size:10px;color:var(--txt-dim);margin-top:8px;line-height:1.7;">
+        出典: 産総研 シームレス地質図 鉱床・鉱徴地データ<br>
+        ※ 同色は金属/非金属で共通の場合あり
+      </p>
+    </div>
+  </div>
+</div>
+
+<div id="overlay">
+
+  <!-- 金相場ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-gold" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">💰 金相場</span>
+      <button class="dlg-close" onclick="hideDlg('dlg-gold')">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <div id="dlg-gold-content" class="cfg-gold-content">
+        <div class="cfg-gold-loading">取得中…</div>
+      </div>
+      <div class="cfg-gold-note-row">前日LBMA終値ベース・円/g換算</div>
+    </div>
+  </div>
+
+  <!-- ヒートマップ投稿ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-cfg-heatmap" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">🗺️ ヒートマップ投稿</span>
+      <button class="dlg-close" onclick="hideDlg('dlg-cfg-heatmap')">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <div style="font-size:12px;color:var(--txt-sub);line-height:1.8;margin-bottom:12px;">
+        <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🔥 分布PRO とは</p>
+        <p style="margin:0 0 10px;">本アプリの匿名投稿データをAIロジックによってフィルター、集計、編集して生成された高精度ヒートマップです。迷惑行為防止等の観点からピンポイントで特定できない仕様となっており、ランダムにkm単位でずらして表示しています。フリー版のヒートマップに上乗せして表示されます。</p>
+        <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">📋 ご利用条件</p>
+        <p style="margin:0 0 4px;">・プレミアム会員であること</p>
+        <p style="margin:0 0 10px;">・投稿をONにして1件以上ポイントを登録していること</p>
+        <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🔒 プライバシーについて</p>
+        <p style="margin:0 0 4px;">座標は数kmランダムにずらして公開されます。</p>
+        <p style="margin:0 0 4px;">個人を特定する情報は一切収集しません。</p>
+        <p style="margin:0 0 10px;">元のデータを削除するとサーバーのデータも一緒に削除されます。</p>
+      </div>
+      <div class="cfg-row" style="align-items:center;">
+        <div>
+          <div class="cfg-label">投稿協力</div>
+          <div class="cfg-sub" id="contrib-status-lbl">現在: OFF</div>
+        </div>
+        <button class="contrib-toggle" id="contrib-toggle-cfg" onclick="onContribToggle()">
+          <span class="contrib-off-lbl">OFF</span>
+          <span class="contrib-thumb"></span>
+          <span class="contrib-on-lbl">ON</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 鉱床・鉱徴地データダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-cfg-mine" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">🔶 鉱床・鉱徴地データ</span>
+      <button class="dlg-close" onclick="hideDlg('dlg-cfg-mine')">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <div class="dl-section">
+        <div class="info-box">
+          産総研地質調査総合センターの鉱床・鉱徴地データ
+        </div>
+        <div id="mine-prog-wrap" style="display:none;margin-top:8px;">
+          <div style="font-size:11px;color:var(--txt-sub);margin-bottom:4px;">読込中… <span id="mine-prog-pct">0%</span></div>
+          <div class="prog-bar-bg"><div class="prog-bar-fill" id="mine-prog-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="dl-section" id="mine-filter-section">
+        <div class="sec-ttl">鉱床フィルター</div>
+        <div class="ck-row"><input type="checkbox" id="mf-metal" checked onchange="applyMineFilter()"><label for="mf-metal">🔴 金属鉱物</label></div>
+        <div class="ck-row"><input type="checkbox" id="mf-nonmetal" checked onchange="applyMineFilter()"><label for="mf-nonmetal">🟧 非金属鉱物</label></div>
+        <div class="ck-row"><input type="checkbox" id="mf-fuel" checked onchange="applyMineFilter()"><label for="mf-fuel">✖ 燃料鉱物</label></div>
+        <div class="ck-row"><input type="checkbox" id="mf-trace" checked onchange="applyMineFilter()"><label for="mf-trace">鉱徴を含む</label></div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn sm" onclick="openMineLegend()">📋 凡例を見る</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Wikidata日本鉱山ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-cfg-wiki" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">🌐 Wikidata 日本鉱山</span>
+      <button class="dlg-close" onclick="hideDlg('dlg-cfg-wiki')">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <div class="dl-section">
+        <div class="info-box">
+          Wikidataに登録された日本国内の鉱山データ（静的組み込み）。<br>
+          起動時に即座に読み込まれます。
+        </div>
+        <div id="wiki-status" style="font-size:11px;padding:4px 6px;margin-top:4px;color:var(--txt-sub);">
+          ステータス: 確認中…
+        </div>
+        <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
+          出典: <a href="https://www.wikidata.org/" target="_blank" style="color:#4a90d9">Wikidata</a>（CC0）
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- kinno調査記ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-cfg-kinno" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">📌 kinno調査記</span>
+      <button class="dlg-close" onclick="hideDlg('dlg-cfg-kinno')">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <div class="dl-section">
+        <div class="info-box">
+          kinno lab.（金野実）氏による鉱山調査記の位置プロット（215地点・組み込み済み）。<br>
+          地図画面の「📌調査記」ボタンでON/OFFできます。
+        </div>
+        <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
+          出典: <a href="https://kinno-homepage.sakura.ne.jp/kinno_mineral.html" target="_blank" style="color:#4a90d9">kinno-homepage.sakura.ne.jp</a>
         </div>
       </div>
     </div>
 
-    <!-- ⑤ Wikidata鉱山 -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🌐 Wikidata 日本鉱山</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <div class="dl-section">
-          <div class="info-box">
-            Wikidataに登録された日本国内の鉱山データ（静的組み込み）。<br>
-            起動時に即座に読み込まれます。
-          </div>
-          <div id="wiki-status" style="font-size:11px;padding:4px 6px;margin-top:4px;color:var(--txt-sub);">
-            ステータス: 確認中…
-          </div>
-          <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
-            出典: <a href="https://www.wikidata.org/" target="_blank" style="color:#4a90d9">Wikidata</a>（CC0）
-          </div>
-        </div>
-      </div>
+  <!-- 地質図凡例ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-cfg-geology" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">🪨 地質図 凡例</span>
+      <button class="dlg-close" onclick="hideDlg('dlg-cfg-geology')">✕</button>
     </div>
-
-    <!-- ⑥ kinno調査記 -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">📌 kinno調査記</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <div class="dl-section">
-          <div class="info-box">
-            kinno lab.（金野実）氏による鉱山調査記の位置プロット（215地点・組み込み済み）。<br>
-            地図画面の「📌調査記」ボタンでON/OFFできます。
-          </div>
-          <div class="info-box" style="margin-top:6px;color:var(--txt-sub)">
-            出典: <a href="https://kinno-homepage.sakura.ne.jp/kinno_mineral.html" target="_blank" style="color:#4a90d9">kinno-homepage.sakura.ne.jp</a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ⑦ 地質図凡例 -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🪨 地質図 凡例</span>
-        <span class="cfg-accordion-sub">産総研 V2</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
+    <div class="dlg-body cfg-dlg-body">
       <div style="padding: 4px 0 8px;">
 
       <div style="font-size:11px;color:var(--txt-sub);background:rgba(255,255,255,0.04);
@@ -849,12 +1016,16 @@
 
     <!-- ⑦-2 鉱物資源図凡例 -->
     <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">⛏️ 鉱物資源図 凡例</span>
-        <span class="cfg-accordion-sub">産総研 100万図</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
+    </div>
+  </div>
+
+  <!-- 鉱物資源図凡例ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-cfg-mineral" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">⛏️ 鉱物資源図 凡例</span>
+      <button class="dlg-close" onclick="hideDlg('dlg-cfg-mineral')">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
       <div style="padding:4px 0 8px;">
 
         <!-- 概要説明 -->
@@ -1114,12 +1285,16 @@
     </div>
 
     <!-- 免責事項 -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">📋 免責事項・ご利用にあたって</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
+    </div>
+  </div>
+
+  <!-- 免責事項ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-cfg-disclaimer" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">📋 免責事項・ご利用にあたって</span>
+      <button class="dlg-close" onclick="hideDlg('dlg-cfg-disclaimer')">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
         <div style="padding:4px 0 8px;font-size:11px;color:var(--txt-sub);line-height:1.9;">
 
           <div style="background:rgba(255,200,50,0.07);border:1px solid rgba(255,200,50,0.2);
@@ -1151,100 +1326,8 @@
         </div>
       </div>
     </div>
-
   </div>
-</div>
-
-<div class="sheet" id="comm-sheet">
-  <div class="sheet-head">
-    <h2>💬 コミュニティ</h2>
-    <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
-  <div class="sheet-body">
-
-    <div class="comm-rule-box">
-      <div class="comm-rule-head" onclick="commToggleRule()">
-        <span>📋 掲示板ルール</span>
-        <span id="comm-rule-arrow">▶</span>
-      </div>
-      <div id="comm-rule-body" style="display:none">
-        <ol class="comm-rule-list">
-          <li>秘密スポットなど特定の場所の詳細な情報公開はご遠慮ください</li>
-          <li>鉱物採取に関するイベント・告知は歓迎します</li>
-          <li>誹謗中傷・荒らし・スパム行為は禁止です</li>
-          <li>違法・危険行為を助長する投稿は禁止です</li>
-          <li>投稿・返信・更新は<b>3分間に1回</b>までです</li>
-          <li>不快な書き込みは🚫ボタンで非表示にできます</li>
-          <li>仕様上、返信への返信はできません</li>
-          <li>返信がついた投稿は削除できません</li>
-        </ol>
-      </div>
-    </div>
-
-    <div class="comm-accordion">
-      <div class="comm-accordion-header" onclick="toggleCommAccordion(this)">
-        <span class="comm-accordion-title">💬 掲示板を開く</span>
-        <span class="comm-accordion-arrow">▶</span>
-      </div>
-      <div class="comm-accordion-body">
-
-        <div class="comm-scope-tabs">
-          <button class="comm-scope-btn active" id="comm-tab-national" onclick="commSwitchScope('national')">🌏 全国</button>
-          <button class="comm-scope-btn"        id="comm-tab-regional" onclick="commSwitchScope('regional')">📍 地方</button>
-        </div>
-
-        <div id="comm-regional-selector" style="display:none">
-          <div class="comm-sel-row">
-            <select id="comm-region-sel" onchange="commOnRegionChange(this.value)" class="comm-select">
-            </select>
-            <select id="comm-pref-sel" onchange="commOnPrefChange(this.value)" class="comm-select">
-            </select>
-          </div>
-        </div>
-
-        <div class="comm-form">
-          <input type="text" id="comm-nick-input" class="comm-input" placeholder="ニックネーム（空欄で匿名さん）" maxlength="20">
-          <textarea id="comm-text-input" class="comm-textarea"
-            placeholder="採取報告・イベント告知・雑談など気軽にどうぞ"
-            maxlength="200"
-            oninput="_updateCharCount()"></textarea>
-          <div class="comm-form-footer">
-            <span id="comm-char-count" class="comm-char-count">0/200</span>
-            <button class="btn accent comm-submit-btn" onclick="commSubmit()">投稿する</button>
-          </div>
-        </div>
-
-        <div class="comm-refresh-row">
-          <button class="btn sm" id="comm-refresh-btn" onclick="commRefresh()">🔄 更新</button>
-          <span class="comm-refresh-hint">タップで最新の投稿を取得します</span>
-        </div>
-        <div id="comm-post-list" class="comm-post-list">
-          <div class="comm-empty">「🔄 更新」で投稿を読み込んでください</div>
-        </div>
-
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<div id="mine-legend-overlay" onclick="if(event.target===this)closeMineLegend()">
-  <div id="mine-legend-box">
-    <div id="mine-legend-head">
-      <h3>⛏ 鉱種 凡例</h3>
-      <button class="sheet-close" onclick="closeMineLegend()">✕</button>
-    </div>
-    <div id="mine-legend-body">
-      <img id="mine-legend-img" src="" alt="鉱種凡例">
-      <p style="font-size:10px;color:var(--txt-dim);margin-top:8px;line-height:1.7;">
-        出典: 産総研 シームレス地質図 鉱床・鉱徴地データ<br>
-        ※ 同色は金属/非金属で共通の場合あり
-      </p>
-    </div>
-  </div>
-</div>
-
-<div id="overlay">
 
   <!-- カスタムレイヤー：セット追加・編集ダイアログ -->
   <div class="dialog" id="dlg-cl-edit" style="display:none">

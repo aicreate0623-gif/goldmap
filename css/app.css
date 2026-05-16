@@ -4277,3 +4277,146 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 .fc-collapse-btn:active {
   color: rgba(255,255,255,0.7);
 }
+
+/* ━━━ 設定メニューリスト ━━━ */
+.cfg-menu-list {
+  margin: 14px 0 0;
+}
+.cfg-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background .15s, border-color .15s;
+  color: var(--txt);
+}
+.cfg-menu-item:hover,
+.cfg-menu-item:active {
+  background: rgba(200,170,80,0.08);
+  border-color: rgba(200,170,80,0.25);
+}
+.cfg-menu-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+}
+.cfg-menu-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.cfg-menu-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--txt);
+  line-height: 1.3;
+}
+.cfg-menu-sub {
+  font-size: 11px;
+  color: var(--txt-sub);
+}
+.cfg-menu-arrow {
+  font-size: 20px;
+  color: var(--txt-sub);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ━━━ 設定系ダイアログ共通 ━━━ */
+.cfg-info-dlg {
+  width: min(420px, 96vw);
+  max-height: 86vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dlg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+.dlg-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--txt);
+  letter-spacing: .02em;
+}
+.dlg-close {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 50%;
+  color: var(--txt-sub);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+.dlg-close:hover  { background: rgba(255,255,255,0.14); color: var(--txt); }
+.dlg-close:active { transform: scale(0.9); }
+.dlg-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.cfg-dlg-body {
+  padding: 16px 18px 20px;
+}
+
+/* ━━━ 金相場ダイアログ内 ━━━ */
+.cfg-gold-content {
+  text-align: center;
+  padding: 16px 0 12px;
+}
+.cfg-gold-loading {
+  font-size: 13px;
+  color: var(--txt-sub);
+  padding: 24px 0;
+}
+.cfg-gold-note-row {
+  font-size: 11px;
+  color: var(--txt-dim, rgba(255,255,255,0.3));
+  text-align: center;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+/* 既存の金相場表示スタイルをダイアログ内でも再利用 */
+.cfg-gold-content .comm-gold-price {
+  display: block;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: .02em;
+  margin-bottom: 8px;
+}
+.cfg-gold-content .comm-gold-price small {
+  font-size: 15px;
+  font-weight: 600;
+}
+.cfg-gold-content .comm-gold-date {
+  display: block;
+  font-size: 11px;
+  color: var(--txt-sub);
+  margin-bottom: 4px;
+}
+.cfg-gold-content .comm-gold-note {
+  display: block;
+  font-size: 10px;
+  color: var(--txt-dim, rgba(255,255,255,0.3));
+}

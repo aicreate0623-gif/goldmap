@@ -482,6 +482,10 @@ function _buildTagSelector(){ /* タグ機能削除済み */ }
 async function commShowGoldPrice(){
   const btn = document.getElementById('comm-gold-btn');
   btn.disabled = true; btn.textContent = '取得中…';
+  // ダイアログを先に開き、ローディング表示
+  const dlgContent = document.getElementById('dlg-gold-content');
+  if(dlgContent) dlgContent.innerHTML = '<div class="cfg-gold-loading">取得中…</div>';
+  showDlg('dlg-gold');
   try{
     const goldRes = await fetch('https://api.gold-api.com/price/XAU');
     if(!goldRes.ok) throw new Error('gold-api ' + goldRes.status);
@@ -505,19 +509,16 @@ async function commShowGoldPrice(){
   btn.disabled = false; btn.textContent = '💰 金相場';
 }
 function _renderGoldDisplay(d){
-  let el = document.getElementById('comm-gold-display');
-  if(!el){
-    el = document.createElement('div'); el.id = 'comm-gold-display'; el.className = 'comm-gold-display';
-    const row = document.getElementById('comm-gold-row');
-    if(row) row.insertAdjacentElement('afterend', el);
-  }
+  const el = document.getElementById('dlg-gold-content');
+  if(!el) return;
   el.innerHTML =
     `<span class="comm-gold-price">¥${d.price_jpy_g.toLocaleString()}<small>/g</small></span>` +
     `<span class="comm-gold-date">${d.date} 取得　USD/oz $${Math.round(d.price_usd).toLocaleString()}　USD/JPY ${d.rate_jpy.toFixed(1)}</span>` +
     `<span class="comm-gold-note">※参考値。実際の価格は業者により異なります</span>`;
+  showDlg('dlg-gold');
 }
 function _initGoldDisplay(){
-  try{ const c = JSON.parse(localStorage.getItem(SK_GOLD)||'null'); if(c) _renderGoldDisplay(c); }catch(e){}
+  // 起動時は自動表示しない（ボタン押下時のみ）
 }
 
 // ── ルール折りたたみ・プレミアム ─────────────
