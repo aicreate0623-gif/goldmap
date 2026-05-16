@@ -663,6 +663,10 @@ function switchTab(tab){
 }
 
 function _openTab(tab){
+  // 同じタブを再タップ → 閉じてmapに戻す（トグル）
+  if(tab === curTab && tab !== 'map'){
+    tab = 'map';
+  }
   // mapタブを離れる際にエリア確認の矩形プレビューを削除
   if(tab !== 'map' && typeof _sessRectLayer !== 'undefined' && _sessRectLayer){
     map.removeLayer(_sessRectLayer); _sessRectLayer = null;
@@ -1094,6 +1098,7 @@ const FC_ALL_BTNS = [
 function _fcRightHide(animate) {
   _fcRightOpen = false;
   _fcLeftOpen = false;
+  document.body.classList.add('tab-hidden');
   const elL = document.getElementById('float-ctrl-left');
   const elC = document.getElementById('float-ctrl');
   const elR = document.getElementById('float-ctrl-right');
@@ -1137,6 +1142,7 @@ function _fcRightHide(animate) {
 function _fcRightShow(animate) {
   _fcRightOpen = true;
   _fcLeftOpen = true;
+  document.body.classList.remove('tab-hidden');
   const elL = document.getElementById('float-ctrl-left');
   const elC = document.getElementById('float-ctrl');
   const elR = document.getElementById('float-ctrl-right');

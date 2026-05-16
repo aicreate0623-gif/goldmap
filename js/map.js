@@ -143,16 +143,16 @@ function setBase(k){
 
 
 
-// ── 右フロートボタン位置をシームレスバー分下にオフセット ──
+// ── 右フロートボタン位置：ステータスバー直下に固定 ──
 function updateRightFloatTop(){
-  const bar = document.getElementById('float-ctrl');
-  if(!bar) return;
   const sbH = parseInt(getComputedStyle(document.documentElement)
                 .getPropertyValue('--sb-h')) || 30;
-  const barBottom = bar.getBoundingClientRect().bottom;
-  const top = barBottom + 8;
+  const top = sbH + 8;
   document.getElementById('float-ctrl-right').style.top = top + 'px';
 }
+
+// ── LeafletズームコントロールをCSS管理に委譲（JS制御不要）──
+// zoom は bottomright 固定、CSS の .leaflet-bottom.leaflet-right で位置を制御
 
 // ── 透過値のlocalStorage保存・復元ユーティリティ ──
 function _loadOp(key){ return parseFloat(localStorage.getItem(key) ?? '50'); }
