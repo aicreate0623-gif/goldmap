@@ -513,17 +513,9 @@ function openDet(id){
   document.getElementById('det-gmap-btns').innerHTML=`
     <a href="https://maps.google.com/?q=${la},${ln}"
        target="_blank" rel="noopener"
-       style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
-              padding:5px 4px;border-radius:5px;font-size:11px;font-weight:700;
-              text-decoration:none;color:#fff;background:#1a73e8;">
-      🗺 周辺確認
-    </a>
-    <a href="https://www.google.com/maps/dir/?api=1&destination=${la},${ln}"
-       target="_blank" rel="noopener"
-       style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
-              padding:5px 4px;border-radius:5px;font-size:11px;font-weight:700;
-              text-decoration:none;color:#fff;background:#34a853;">
-      🧭 ナビ
+       onclick="return confirm('Googleマップを開きます')"
+       style="font-size:11px;color:#1a73e8;text-decoration:none;font-weight:700;">
+      🗺 Googleマップで確認
     </a>`;
   showDlg('dlg-detail');
 }

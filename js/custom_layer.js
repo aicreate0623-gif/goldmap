@@ -150,20 +150,13 @@ function _buildLayer(set, filterText){
 }
 function _clShowPopup(p, set){
   const pIcon = p.icon || set.icon;
-  const gmapBtns = `<div style="display:flex;gap:6px;margin-top:9px;">
-    <a href="https://maps.google.com/?q=${parseFloat(p.lat).toFixed(6)},${parseFloat(p.lng).toFixed(6)}"
-       target="_blank" rel="noopener"
-       style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
-              padding:5px 4px;border-radius:5px;font-size:11px;font-weight:700;
-              text-decoration:none;color:#fff;background:#1a73e8;">
-      🗺 周辺確認
-    </a>
-    <a href="https://www.google.com/maps/dir/?api=1&destination=${parseFloat(p.lat).toFixed(6)},${parseFloat(p.lng).toFixed(6)}"
-       target="_blank" rel="noopener"
-       style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;
-              padding:5px 4px;border-radius:5px;font-size:11px;font-weight:700;
-              text-decoration:none;color:#fff;background:#34a853;">
-      🧭 ナビ
+  const la = parseFloat(p.lat).toFixed(6);
+  const ln = parseFloat(p.lng).toFixed(6);
+  const gmapBtns = `<div style="margin-top:8px;text-align:right;">
+    <a href="https://maps.google.com/?q=${la},${ln}" target="_blank" rel="noopener"
+       onclick="return confirm('Googleマップを開きます')"
+       style="font-size:11px;color:#1a73e8;text-decoration:none;font-weight:700;">
+      🗺 Googleマップで確認
     </a>
   </div>`;
   const content = `
