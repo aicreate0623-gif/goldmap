@@ -1,6 +1,6 @@
 'use strict';
 // ═══════════════════════════════════════════
-//  COMMUNITY  掲示板・金相場
+//  COMMUNITY  掲示板
 //  Firestore版: 手動更新・差分取得・バッチ削除
 //  v2: 通報・自分投稿削除・更新クールダウン
 // ═══════════════════════════════════════════
@@ -24,7 +24,6 @@ const SK_REACTIONS     = 'comm_reactions';
 const SK_SCOPE         = 'comm_scope';
 const SK_PREF          = 'comm_pref';
 const SK_REGION        = 'comm_region';
-const SK_GOLD          = 'comm_gold_cache';
 const SK_CACHE_NAT     = 'comm_cache_national';
 const SK_CACHE_PREF    = 'comm_cache_pref_';
 const SK_HIDDEN        = 'comm_hidden';        // 非表示投稿IDリスト
@@ -149,7 +148,6 @@ function initCommunity(){
   _renderRegionSelector();
   _loadNickname();
   _updateCharCount();
-  _initGoldDisplay();
   _renderPostsFromCache();
   _initRefreshCooldown();
 }
@@ -478,50 +476,7 @@ function _updateCharCount(){
 }
 function _buildTagSelector(){ /* タグ機能削除済み */ }
 
-// ── 金相場 ───────────────────────────────────
-async function commShowGoldPrice(){
-  const btn = document.getElementById('comm-gold-btn');
-  btn.disabled = true; btn.textContent = '取得中…';
-  // ダイアログを先に開き、ローディング表示
-  const dlgContent = document.getElementById('dlg-gold-content');
-  if(dlgContent) dlgContent.innerHTML = '<div class="cfg-gold-loading">取得中…</div>';
-  showDlg('dlg-gold');
-  try{
-    const goldRes = await fetch('https://api.gold-api.com/price/XAU');
-    if(!goldRes.ok) throw new Error('gold-api ' + goldRes.status);
-    const goldJson = await goldRes.json();
-    const priceUsdOz = parseFloat(goldJson.price);
-    if(!priceUsdOz || isNaN(priceUsdOz)) throw new Error('invalid price');
-    const fxRes = await fetch('https://open.er-api.com/v6/latest/USD');
-    if(!fxRes.ok) throw new Error('er-api ' + fxRes.status);
-    const fxJson = await fxRes.json();
-    const rateJpy = fxJson.rates.JPY;
-    const priceJpyG = Math.round(priceUsdOz / 31.1035 * rateJpy);
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}/${today.getMonth()+1}/${today.getDate()}`;
-    const cacheData = { price_usd: priceUsdOz, rate_jpy: rateJpy, price_jpy_g: priceJpyG, date: dateStr, ts: Date.now() };
-    localStorage.setItem(SK_GOLD, JSON.stringify(cacheData));
-    _renderGoldDisplay(cacheData);
-  } catch(e){
-    _commToast('相場の取得に失敗しました。通信を確認してください。');
-    console.warn('[GOLD]', e);
-  }
-  btn.disabled = false; btn.textContent = '💰 金相場';
-}
-function _renderGoldDisplay(d){
-  const el = document.getElementById('dlg-gold-content');
-  if(!el) return;
-  el.innerHTML =
-    `<span class="comm-gold-price">¥${d.price_jpy_g.toLocaleString()}<small>/g</small></span>` +
-    `<span class="comm-gold-date">${d.date} 取得　USD/oz $${Math.round(d.price_usd).toLocaleString()}　USD/JPY ${d.rate_jpy.toFixed(1)}</span>` +
-    `<span class="comm-gold-note">※参考値。実際の価格は業者により異なります</span>`;
-  showDlg('dlg-gold');
-}
-function _initGoldDisplay(){
-  // 起動時は自動表示しない（ボタン押下時のみ）
-}
-
-// ── ルール折りたたみ・プレミアム ─────────────
+// ── ルール折りたたみ ─────────────────────────
 function commToggleRule(){
   const body = document.getElementById('comm-rule-body');
   const arrow = document.getElementById('comm-rule-arrow');
@@ -529,22 +484,6 @@ function commToggleRule(){
   body.style.display = open ? 'none' : 'block';
   arrow.textContent  = open ? '▶' : '▼';
 }
-function commShowPremium(){
-  const body = document.getElementById('premium-gate-body');
-  const title = document.getElementById('premium-gate-title');
-  const icon  = document.getElementById('premium-gate-icon');
-  icon.textContent = '✨'; title.textContent = 'GOLD MAP プレミアム';
-  body.innerHTML =
-    '<div style="text-align:left;font-size:12px;line-height:2;padding:4px 0;">' +
-    '砂金採取をもっと本格的に。<br><br>' +
-    '<b>🗺 高精度ヒートマップ</b><br>　全国の砂金採取確率をAI解析でマップ表示<br>' +
-    '<b>🐻 熊域リアルタイム警告</b><br>　現在地周辺の熊出没エリアを地図に表示<br>' +
-    '<b>📥 オフライン完全対応</b><br>　圏外エリアでも地図・データを完全使用可能<br>' +
-    '<b>🔓 広告非表示・全機能解放</b><br>　すべてのデータレイヤーを制限なく利用<br><br>' +
-    '<span style="font-size:13px;font-weight:700;color:var(--gold);">月額 ¥480 ／ 年額 ¥3,800</span></div>';
-  showDlg('dlg-premium-gate');
-}
-
 // ── ツリーユーティリティ ────────────────────
 function _getReplyByPath(replies, path){
   let cur = replies;
