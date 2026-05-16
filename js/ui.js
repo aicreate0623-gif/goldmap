@@ -707,6 +707,13 @@ function showDlg(id){
   document.getElementById('overlay').classList.add('open');
   // ヒートマップ投稿ダイアログを開く際はtoggle UIを最新状態に更新
   if (id === 'dlg-cfg-heatmap') { if (typeof applyContribUI === 'function') applyContribUI(); }
+  // 地質図凡例：tbodyが空の場合はbuildGeoLegendを再実行
+  if (id === 'dlg-cfg-geology') {
+    const tbody = document.getElementById('geo-legend-body');
+    if (tbody && tbody.children.length === 0 && typeof buildGeoLegend === 'function') {
+      buildGeoLegend();
+    }
+  }
 }
 function closeOv(){document.getElementById('overlay').classList.remove('open');DLGS.forEach(d=>document.getElementById(d).style.display='none');eid=null;}
 function showAlert(ttl,msg){document.getElementById('alr-ttl').textContent=ttl;document.getElementById('alr-msg').textContent=msg;showDlg('dlg-alr');}

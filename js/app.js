@@ -17,7 +17,7 @@ initMap();
 //  出典: 産総研 シームレス地質図 V2 簡略版
 //  色は公式タイルの実測値に準拠
 // ═══════════════════════════════════════════
-(function buildGeoLegend(){
+function buildGeoLegend(){
   // [時代ラベル, 時代コード]
   const AGES = [
     ['第四紀',       'Q',  '（約260万年前〜現在）'],
@@ -127,7 +127,10 @@ initMap();
     </span>`).join('');
   trOther.appendChild(tdOtherVal);
   tbody.appendChild(trOther);
-})();
+}
+
+// DOMContentLoaded後に実行（確実にtbodyを取得するため）
+document.addEventListener('DOMContentLoaded', buildGeoLegend);
 
 // ── クマ出没レイヤーの初期化（追記箇所） ──────────────────
 initBearLayer().then(() => {
