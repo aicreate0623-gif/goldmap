@@ -64,6 +64,16 @@
       <span id="geo-opv">50%</span>
     </div>
   </div>
+  <div class="fcl-geo-wrap">
+    <button class="fc-btn fc-grp-map" id="btn-geo50k" onclick="toggleGeo50k()" title="5万分の1地質図">
+      <span class="fc-ico">🗺️</span><span>5万地質</span>
+    </button>
+    <div id="geo50k-row">
+      <label>透過</label>
+      <input type="range" class="gold" id="geo50k-op" min="0" max="100" value="50" oninput="setGeo50kOp(this.value)">
+      <span id="geo50k-opv">50%</span>
+    </div>
+  </div>
   <div id="zoom-level-badge">Z<span id="zoom-level-val">7</span></div>
 </div>
 

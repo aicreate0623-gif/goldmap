@@ -456,6 +456,19 @@ html, body {
 input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer; }
 #geo-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
 
+/* 5万分の1地質図透過スライダー行 */
+#geo50k-row {
+  display: none; align-items: center; gap: 5px;
+  background: rgba(13,12,8,0.88); backdrop-filter: blur(6px);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 5px 8px;
+  height: 42px;
+  flex-shrink: 0;
+}
+#geo50k-row.show { display: flex; }
+#geo50k-row label { font-size: 9px; color: var(--txt-sub); white-space: nowrap; }
+#geo50k-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
+
 /* ━━━ ヒートマップ調整パネル（地図上フロート） ━━━ */
 #heat-ctrl-panel {
   position: fixed;

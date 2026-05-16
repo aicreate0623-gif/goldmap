@@ -193,6 +193,33 @@ function setGeoOp(v){
   _saveOp('gm_op_geo', v);
   if(geoL) geoL.setOpacity(v/100);
 }
+
+// 5万分の1地質図（産総研 MR_500K04）
+let geo50kL=null, geo50kState=0;
+function toggleGeo50k(){
+  geo50kState=(geo50kState+1)%3;
+  const btn=document.getElementById('btn-geo50k');
+  btn.classList.toggle('active', geo50kState>0);
+  document.getElementById('geo50k-row').classList.toggle('show', geo50kState===1);
+  if(geo50kState===1){
+    const op = _loadOp('gm_op_geo50k');
+    _applySlider('geo50k-op','geo50k-opv', op);
+    if(!geo50kL) geo50kL=L.tileLayer(
+      'https://tiles.gsj.jp/tiles/geomap/MR_500K04/{z}/{x}/{y}.webp',
+      {attribution:'産総研 5万分の1地質図 MR_500K04',maxNativeZoom:15,maxZoom:18,opacity:op/100,pane:'paneGeo'});
+    else geo50kL.setOpacity(op/100);
+    geo50kL.addTo(map);
+  } else if(geo50kState===2){
+    // スライダーを閉じるだけ・レイヤーはそのまま
+  } else {
+    if(geo50kL){ map.removeLayer(geo50kL); }
+  }
+}
+function setGeo50kOp(v){
+  _applySlider('geo50k-op','geo50k-opv', v);
+  _saveOp('gm_op_geo50k', v);
+  if(geo50kL) geo50kL.setOpacity(v/100);
+}
 // ━━━ 水位警戒情報（気象庁XML） ━━━
 // 洪水予報XML一覧フィード
 const JMA_FLOOD_INDEX = 'https://www.data.jma.go.jp/developer/xml/feed/extra.xml';
