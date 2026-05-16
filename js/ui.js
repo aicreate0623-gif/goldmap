@@ -1105,9 +1105,6 @@ function _fcRightHide(animate) {
     document.getElementById('zoom-level-badge').classList.add('fc-hidden');
     const scale = document.getElementById('scale-bar');
     if (scale) scale.classList.add('fc-hidden');
-    // タブバーを下へスライドアウト
-    const tabbar = document.getElementById('tabbar');
-    if (tabbar) tabbar.style.transform = 'translateY(100%)';
     const bar = document.getElementById('fc-bar-right');
     _buildBarDots(bar, FC_ALL_BTNS);
     bar.classList.add('show');
@@ -1120,6 +1117,9 @@ function _fcRightHide(animate) {
   if (animate) {
     elR.addEventListener('transitionend', onEnd, { once: true });
   }
+  // タブバーをフロートボタンと同時に下へスライドアウト
+  const tabbar = document.getElementById('tabbar');
+  if (tabbar) tabbar.style.transform = 'translateY(100%)';
   _setTransform(elL, 'translateY(-120%)', animate);
   _setTransform(elC, 'translateY(-120%)', animate);
   _setTransform(elR, 'translateY(-120%)', animate);
