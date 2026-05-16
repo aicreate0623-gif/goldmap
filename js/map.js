@@ -194,8 +194,17 @@ function setGeoOp(v){
   if(geoL) geoL.setOpacity(v/100);
 }
 
-// 5万分の1地質図（産総研 MR_500K04）
-let geo50kL=null, geo50kState=0;
+// 鉱物資源図 1:50万（産総研 MR_500K01〜07 全国7枚）
+const _GEO50K_URLS = [
+  'https://tiles.gsj.jp/tiles/geomap/MR_500K01/{z}/{x}/{y}.webp',
+  'https://tiles.gsj.jp/tiles/geomap/MR_500K02/{z}/{x}/{y}.webp',
+  'https://tiles.gsj.jp/tiles/geomap/MR_500K03/{z}/{x}/{y}.webp',
+  'https://tiles.gsj.jp/tiles/geomap/MR_500K04/{z}/{x}/{y}.webp',
+  'https://tiles.gsj.jp/tiles/geomap/MR_500K05/{z}/{x}/{y}.webp',
+  'https://tiles.gsj.jp/tiles/geomap/MR_500K06/{z}/{x}/{y}.webp',
+  'https://tiles.gsj.jp/tiles/geomap/MR_500K07/{z}/{x}/{y}.webp',
+];
+let geo50kLayers=[], geo50kState=0;
 function toggleGeo50k(){
   geo50kState=(geo50kState+1)%3;
   const btn=document.getElementById('btn-geo50k');
@@ -204,21 +213,28 @@ function toggleGeo50k(){
   if(geo50kState===1){
     const op = _loadOp('gm_op_geo50k');
     _applySlider('geo50k-op','geo50k-opv', op);
-    if(!geo50kL) geo50kL=L.tileLayer(
-      'https://tiles.gsj.jp/tiles/geomap/MR_500K04/{z}/{x}/{y}.webp',
-      {attribution:'産総研 5万分の1地質図 MR_500K04',maxNativeZoom:15,maxZoom:18,opacity:op/100,pane:'paneGeo'});
-    else geo50kL.setOpacity(op/100);
-    geo50kL.addTo(map);
+    if(!geo50kLayers.length){
+      geo50kLayers = _GEO50K_URLS.map(url =>
+        L.tileLayer(url, {
+          attribution:'産総研 鉱物資源図 1:50万',
+          maxNativeZoom:15, maxZoom:18,
+          opacity: op/100, pane:'paneGeo'
+        })
+      );
+    } else {
+      geo50kLayers.forEach(l => l.setOpacity(op/100));
+    }
+    geo50kLayers.forEach(l => l.addTo(map));
   } else if(geo50kState===2){
     // スライダーを閉じるだけ・レイヤーはそのまま
   } else {
-    if(geo50kL){ map.removeLayer(geo50kL); }
+    geo50kLayers.forEach(l => map.removeLayer(l));
   }
 }
 function setGeo50kOp(v){
   _applySlider('geo50k-op','geo50k-opv', v);
   _saveOp('gm_op_geo50k', v);
-  if(geo50kL) geo50kL.setOpacity(v/100);
+  geo50kLayers.forEach(l => l.setOpacity(v/100));
 }
 // ━━━ 水位警戒情報（気象庁XML） ━━━
 // 洪水予報XML一覧フィード
