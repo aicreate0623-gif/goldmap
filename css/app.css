@@ -136,7 +136,7 @@ html, body {
 }
 
 /* スケールバー: float-ctrl-leftの下端に合わせて配置 */
-/* float-ctrl-left: top=sb-h+8px、高さ=4×42px+4×5px+28px=216px → 下端=sb-h+230px */
+/* float-ctrl-left: top=sb-h+8px、高さ=5×42px+5×5px+28px=263px → 下端=sb-h+277px */
 /* 各行: 横スクロール可能な1行 */
 .fc-row {
   display: flex;
@@ -3398,10 +3398,10 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
 }
 
 /* ── 距離スケールバー（float-ctrl-left直下にCSS固定配置） ── */
-/* float-ctrl-left top: sb-h+8px、高さ: 4×42px+4×5px+28px=216px → 下端sb-h+230px */
+/* float-ctrl-left top: sb-h+8px、高さ: 5×42px+5×5px+28px=263px → 下端sb-h+277px */
 .leaflet-control-scale {
   position: fixed !important;
-  top: calc(var(--sb-h) + 8px + 216px + 6px) !important;
+  top: calc(var(--sb-h) + 8px + 263px + 6px) !important;
   left: 10px !important;
   bottom: auto !important;
   margin: 0 !important;
