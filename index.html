@@ -231,185 +231,42 @@
   </div>
   <div class="sheet-body">
 
-    <!-- ━━━ ご利用上の説明・ルール ━━━ -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">📋 ご利用上の説明・ルール</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <ul class="offline-rules-list">
-          <li>🗾 <b>詳細DLの前に全国ベースDLが必要です</b><br>
-            エリア指定DLには、まず「全国ベースマップ管理（Z5〜Z9）」のDLが必要です。ベースDL未完了のレイヤーは詳細DLに進めません。</li>
-          <li>📦 <b>1回のDL上限は200MB</b><br>
-            通信量・サーバー負荷の観点から1回のダウンロードは200MBまでに制限されています。広いエリアや複数レイヤーは分割してDLしてください。中断しても「再開バナー」から続きからDLできます。</li>
-          <li>💾 <b>キャッシュ上限はデフォルト500MB</b><br>
-            設定から最大2GBまで拡張できます。使用量が80%を超えると警告が表示されます。自動削除はされないため、不要なエリアは手動で削除してください。</li>
-          <li>📍 <b>DL済みの範囲・ズームレベルのみオフライン表示できます</b><br>
-            オフライン時はDL済みの範囲・ズームレベルのみ地図が表示されます。DL範囲外や未DLのズームは電波が必要です。<br>
-            レイヤー別の保存上限：陰影起伏 Z16まで／色別標高 Z15まで／OpenTopo Z17まで</li>
-          <li>📶 <b>WiFi環境でのDLを推奨</b><br>
-            モバイル通信では通信量にご注意ください。容量確認後にDLを開始してください。</li>
-          <li>⚠️ <b>削除の取り消しはできません</b><br>
-            エリア削除・全削除は確認ダイアログ後も元に戻すことができません。</li>
-          <li>🗑 <b>ブラウザのデータ消去でキャッシュが失われます</b><br>
-            ブラウザの「閲覧データを削除」やアプリの再インストールを行うと、DL済みのオフラインデータがすべて消去されます。</li>
-        </ul>
-      </div>
-    </div>
+    <!-- ━━━ オフラインメニューリスト ━━━ -->
+    <div class="cfg-menu-list">
 
-    <!-- ━━━ キャッシュ診断 ━━━ -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🔍 キャッシュ診断</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <button class="btn" onclick="diagCache()" style="width:100%;margin-bottom:8px">診断を実行</button>
-        <pre id="diag-out" style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;font-size:11px;color:#ccc;white-space:pre-wrap;word-break:break-all;min-height:40px;display:block"></pre>
-      </div>
-    </div>
+      <button class="cfg-menu-item" onclick="showDlg('dlg-offline-rules')">
+        <span class="cfg-menu-icon">📋</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">ご利用上の説明・ルール</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
 
-    <!-- ━━━ 地図キャッシュ管理 ━━━ -->
-    <div class="cfg-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">💾 地図キャッシュ管理</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <!-- 使用量 -->
-        <div class="cfg-row">
-          <div>
-            <div class="cfg-label">キャッシュ容量</div>
-            <div class="cfg-sub cfg-val" id="cache-info">読み込み中…</div>
-          </div>
-          <button class="btn sm" onclick="refreshCache()">更新</button>
-        </div>
-        <!-- 使用量バー -->
-        <div class="sess-usage-bar-bg">
-          <div class="sess-usage-bar-fill" id="sess-usage-bar-fill"></div>
-        </div>
-        <div class="sess-usage-info" id="sess-usage-info">—</div>
+      <button class="cfg-menu-item" onclick="showDlg('dlg-cache-diag')">
+        <span class="cfg-menu-icon">🔍</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">キャッシュ診断</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
 
-        <!-- キャッシュ上限スライダー -->
-        <div class="cfg-row" style="margin-top:12px;align-items:center;">
-          <div>
-            <div class="cfg-label">キャッシュ上限</div>
-            <div class="cfg-sub">200MB〜2GB（デフォルト500MB）</div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:80px;">
-            <span id="cache-limit-val" style="font-size:13px;color:var(--gold,#c8a84b);font-weight:700;">500MB</span>
-            <input type="range" id="cache-limit-slider" min="0" max="4" step="1" value="1"
-              style="width:80px;accent-color:var(--gold,#c8a84b);">
-          </div>
-        </div>
+      <button class="cfg-menu-item" onclick="showDlg('dlg-cache-mgmt')">
+        <span class="cfg-menu-icon">💾</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">地図キャッシュ管理</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
 
+      <button class="cfg-menu-item" id="base-dl-accordion" onclick="showDlg('dlg-base-dl')">
+        <span class="cfg-menu-icon">🗾</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">全国ベースマップダウンロードと管理</span>
+          <span class="cfg-menu-sub" id="base-dl-menu-sub">Z5〜Z9 全国版</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
 
-        <!-- 全削除 -->
-        <div class="cfg-row">
-          <div>
-            <div class="cfg-label">キャッシュ全削除</div>
-            <div class="cfg-sub">保存済み地図タイルを全て削除します</div>
-          </div>
-          <button class="btn sm red" onclick="clearCacheWithConfirm()">全削除</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ━━━ 全国ベースマップ管理（Z5〜Z9） ━━━ -->
-    <div class="cfg-accordion" id="base-dl-accordion">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">🗾 全国ベースマップ管理（Z5〜Z9）</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <!-- 状態コンテナ: JS が内容を差し替える -->
-        <div id="base-dl-status-container">
-          <!-- ① 未DL/一部未完了 -->
-          <div id="base-dl-state-partial">
-            <div class="base-ck-list">
-              <label class="base-ck-row">
-                <input type="radio" name="base-layer-select" id="base-ck-std" value="std" checked onchange="updBaseStatusEst()">
-                <span class="base-ck-name">地理院地図</span>
-                <span class="base-ck-status" id="base-status-std"></span>
-              </label>
-              <label class="base-ck-row">
-                <input type="radio" name="base-layer-select" id="base-ck-photo" value="photo" onchange="updBaseStatusEst()">
-                <span class="base-ck-name">航空写真</span>
-                <span class="base-ck-status" id="base-status-photo"></span>
-              </label>
-              <label class="base-ck-row">
-                <input type="radio" name="base-layer-select" id="base-ck-topo" value="topo" onchange="updBaseStatusEst()">
-                <span class="base-ck-name">地形図</span>
-                <span class="base-ck-status" id="base-status-topo"></span>
-              </label>
-              <label class="base-ck-row">
-                <input type="radio" name="base-layer-select" id="base-ck-hill" value="hill" onchange="updBaseStatusEst()">
-                <span class="base-ck-name">陰影起伏図</span>
-                <span class="base-ck-status" id="base-status-hill"></span>
-              </label>
-              <label class="base-ck-row">
-                <input type="radio" name="base-layer-select" id="base-ck-relief" value="relief" onchange="updBaseStatusEst()">
-                <span class="base-ck-name">色別標高図</span>
-                <span class="base-ck-status" id="base-status-relief"></span>
-              </label>
-            </div>
-            <div class="base-status-est" id="base-status-est">— MB</div>
-            <div class="base-status-warn">⚠️ WiFi環境でのDLを推奨します</div>
-            <button class="btn accent dl-start-btn" onclick="startBaseDlFromStatus()" style="margin-top:8px">
-              ⬇ DL開始
-            </button>
-          </div>
-          <!-- ② DL途中（レジューム有） -->
-          <div id="base-dl-state-resume" style="display:none">
-            <div class="base-resume-banner">
-              <div class="base-resume-info">
-                <span class="base-resume-label">⏸ ベースDLが途中です</span>
-                <span class="base-resume-pct" id="base-resume-pct">—%</span>
-              </div>
-              <div class="base-resume-bar-bg">
-                <div class="base-resume-bar-fill" id="base-resume-bar-fill"></div>
-              </div>
-              <div class="base-resume-layers" id="base-resume-layers"></div>
-            </div>
-            <div class="base-resume-btns">
-              <button class="btn accent" onclick="baseResumeStart()">▶ 続きをDL</button>
-              <button class="btn sm red"  onclick="baseResumeDiscard()">🗑 破棄</button>
-            </div>
-          </div>
-          <!-- ③ 全完了 -->
-          <div id="base-dl-state-done" style="display:none">
-            <div class="base-ck-list base-ck-list--done">
-              <div class="base-ck-row base-ck-row--done">
-                <span class="base-ck-done-icon">✅</span>
-                <span class="base-ck-name">地理院地図</span>
-                <span class="base-ck-status">DL済</span>
-              </div>
-              <div class="base-ck-row base-ck-row--done">
-                <span class="base-ck-done-icon">✅</span>
-                <span class="base-ck-name">航空写真</span>
-                <span class="base-ck-status">DL済</span>
-              </div>
-              <div class="base-ck-row base-ck-row--done">
-                <span class="base-ck-done-icon">✅</span>
-                <span class="base-ck-name">地形図</span>
-                <span class="base-ck-status">DL済</span>
-              </div>
-              <div class="base-ck-row base-ck-row--done">
-                <span class="base-ck-done-icon">✅</span>
-                <span class="base-ck-name">陰影起伏図</span>
-                <span class="base-ck-status">DL済</span>
-              </div>
-              <div class="base-ck-row base-ck-row--done">
-                <span class="base-ck-done-icon">✅</span>
-                <span class="base-ck-name">色別標高図</span>
-                <span class="base-ck-status">DL済</span>
-              </div>
-            </div>
-            <div class="base-dl-done-badge">✅ 全国ベースDL完了済み</div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- ━━━ エリアタイル管理（Z10〜Z18） ━━━ -->
@@ -663,6 +520,184 @@
 </div>
 
 <div id="overlay">
+
+  <!-- ご利用上の説明・ルール ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-offline-rules" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">📋 ご利用上の説明・ルール</span>
+      <button class="dlg-close" onclick="closeOv()">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <ul class="offline-rules-list">
+        <li>🗾 <b>詳細DLの前に全国ベースDLが必要です</b><br>
+          エリア指定DLには、まず「全国ベースマップダウンロードと管理」のDLが必要です。ベースDL未完了のレイヤーは詳細DLに進めません。</li>
+        <li>📦 <b>1回のDL上限は200MB</b><br>
+          通信量・サーバー負荷の観点から1回のダウンロードは200MBまでに制限されています。広いエリアや複数レイヤーは分割してDLしてください。中断しても「再開バナー」から続きからDLできます。</li>
+        <li>💾 <b>キャッシュ上限はデフォルト500MB</b><br>
+          設定から最大2GBまで拡張できます。使用量が80%を超えると警告が表示されます。自動削除はされないため、不要なエリアは手動で削除してください。</li>
+        <li>📍 <b>DL済みの範囲・ズームレベルのみオフライン表示できます</b><br>
+          オフライン時はDL済みの範囲・ズームレベルのみ地図が表示されます。DL範囲外や未DLのズームは電波が必要です。<br>
+          レイヤー別の保存上限：陰影起伏 Z16まで／色別標高 Z15まで／OpenTopo Z17まで</li>
+        <li>📶 <b>WiFi環境でのDLを推奨</b><br>
+          モバイル通信では通信量にご注意ください。容量確認後にDLを開始してください。</li>
+        <li>⚠️ <b>削除の取り消しはできません</b><br>
+          エリア削除・全削除は確認ダイアログ後も元に戻すことができません。</li>
+        <li>🗑 <b>ブラウザのデータ消去でキャッシュが失われます</b><br>
+          ブラウザの「閲覧データを削除」やアプリの再インストールを行うと、DL済みのオフラインデータがすべて消去されます。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- キャッシュ診断 ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-cache-diag" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">🔍 キャッシュ診断</span>
+      <button class="dlg-close" onclick="closeOv()">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <button class="btn" onclick="diagCache()" style="width:100%;margin-bottom:8px">診断を実行</button>
+      <pre id="diag-out" style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;font-size:11px;color:#ccc;white-space:pre-wrap;word-break:break-all;min-height:40px;display:block"></pre>
+    </div>
+  </div>
+
+  <!-- 地図キャッシュ管理 ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-cache-mgmt" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">💾 地図キャッシュ管理</span>
+      <button class="dlg-close" onclick="closeOv()">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <!-- 使用量 -->
+      <div class="cfg-row">
+        <div>
+          <div class="cfg-label">キャッシュ容量</div>
+          <div class="cfg-sub cfg-val" id="cache-info">読み込み中…</div>
+        </div>
+        <button class="btn sm" onclick="refreshCache()">更新</button>
+      </div>
+      <!-- 使用量バー -->
+      <div class="sess-usage-bar-bg">
+        <div class="sess-usage-bar-fill" id="sess-usage-bar-fill"></div>
+      </div>
+      <div class="sess-usage-info" id="sess-usage-info">—</div>
+      <!-- キャッシュ上限スライダー -->
+      <div class="cfg-row" style="margin-top:12px;align-items:center;">
+        <div>
+          <div class="cfg-label">キャッシュ上限</div>
+          <div class="cfg-sub">200MB〜2GB（デフォルト500MB）</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:80px;">
+          <span id="cache-limit-val" style="font-size:13px;color:var(--gold,#c8a84b);font-weight:700;">500MB</span>
+          <input type="range" id="cache-limit-slider" min="0" max="4" step="1" value="1"
+            style="width:80px;accent-color:var(--gold,#c8a84b);">
+        </div>
+      </div>
+      <!-- 全削除 -->
+      <div class="cfg-row">
+        <div>
+          <div class="cfg-label">キャッシュ全削除</div>
+          <div class="cfg-sub">保存済み地図タイルを全て削除します</div>
+        </div>
+        <button class="btn sm red" onclick="clearCacheWithConfirm()">全削除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全国ベースマップダウンロードと管理 ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-base-dl" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">🗾 全国ベースマップダウンロードと管理</span>
+      <button class="dlg-close" onclick="closeOv()">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <!-- 状態コンテナ: JS が内容を差し替える -->
+      <div id="base-dl-status-container">
+        <!-- ① 未DL/一部未完了 -->
+        <div id="base-dl-state-partial">
+          <div class="base-ck-list">
+            <label class="base-ck-row">
+              <input type="radio" name="base-layer-select" id="base-ck-std" value="std" checked onchange="updBaseStatusEst()">
+              <span class="base-ck-name">地理院地図</span>
+              <span class="base-ck-status" id="base-status-std"></span>
+            </label>
+            <label class="base-ck-row">
+              <input type="radio" name="base-layer-select" id="base-ck-photo" value="photo" onchange="updBaseStatusEst()">
+              <span class="base-ck-name">航空写真</span>
+              <span class="base-ck-status" id="base-status-photo"></span>
+            </label>
+            <label class="base-ck-row">
+              <input type="radio" name="base-layer-select" id="base-ck-topo" value="topo" onchange="updBaseStatusEst()">
+              <span class="base-ck-name">地形図</span>
+              <span class="base-ck-status" id="base-status-topo"></span>
+            </label>
+            <label class="base-ck-row">
+              <input type="radio" name="base-layer-select" id="base-ck-hill" value="hill" onchange="updBaseStatusEst()">
+              <span class="base-ck-name">陰影起伏図</span>
+              <span class="base-ck-status" id="base-status-hill"></span>
+            </label>
+            <label class="base-ck-row">
+              <input type="radio" name="base-layer-select" id="base-ck-relief" value="relief" onchange="updBaseStatusEst()">
+              <span class="base-ck-name">色別標高図</span>
+              <span class="base-ck-status" id="base-status-relief"></span>
+            </label>
+          </div>
+          <div class="base-status-est" id="base-status-est">— MB</div>
+          <div class="base-status-warn">⚠️ WiFi環境でのDLを推奨します</div>
+          <button class="btn accent dl-start-btn" onclick="startBaseDlFromStatus()" style="margin-top:8px">
+            ⬇ DL開始
+          </button>
+        </div>
+        <!-- ② DL途中（レジューム有） -->
+        <div id="base-dl-state-resume" style="display:none">
+          <div class="base-resume-banner">
+            <div class="base-resume-info">
+              <span class="base-resume-label">⏸ ベースDLが途中です</span>
+              <span class="base-resume-pct" id="base-resume-pct">—%</span>
+            </div>
+            <div class="base-resume-bar-bg">
+              <div class="base-resume-bar-fill" id="base-resume-bar-fill"></div>
+            </div>
+            <div class="base-resume-layers" id="base-resume-layers"></div>
+          </div>
+          <div class="base-resume-btns">
+            <button class="btn accent" onclick="baseResumeStart()">▶ 続きをDL</button>
+            <button class="btn sm red"  onclick="baseResumeDiscard()">🗑 破棄</button>
+          </div>
+        </div>
+        <!-- ③ 全完了 -->
+        <div id="base-dl-state-done" style="display:none">
+          <div class="base-ck-list base-ck-list--done">
+            <div class="base-ck-row base-ck-row--done">
+              <span class="base-ck-done-icon">✅</span>
+              <span class="base-ck-name">地理院地図</span>
+              <span class="base-ck-status">DL済</span>
+            </div>
+            <div class="base-ck-row base-ck-row--done">
+              <span class="base-ck-done-icon">✅</span>
+              <span class="base-ck-name">航空写真</span>
+              <span class="base-ck-status">DL済</span>
+            </div>
+            <div class="base-ck-row base-ck-row--done">
+              <span class="base-ck-done-icon">✅</span>
+              <span class="base-ck-name">地形図</span>
+              <span class="base-ck-status">DL済</span>
+            </div>
+            <div class="base-ck-row base-ck-row--done">
+              <span class="base-ck-done-icon">✅</span>
+              <span class="base-ck-name">陰影起伏図</span>
+              <span class="base-ck-status">DL済</span>
+            </div>
+            <div class="base-ck-row base-ck-row--done">
+              <span class="base-ck-done-icon">✅</span>
+              <span class="base-ck-name">色別標高図</span>
+              <span class="base-ck-status">DL済</span>
+            </div>
+          </div>
+          <div class="base-dl-done-badge">✅ 全国ベースDL完了済み</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- 金相場ダイアログ -->
   <div class="dialog cfg-info-dlg" id="dlg-gold" style="display:none">

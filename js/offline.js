@@ -304,27 +304,8 @@ function _dldCancel(){
 
 function _goToBaseDl(){
   _openTab('offline');
-  // 保存済みエリア一覧・エリアタイル管理を閉じる
-  ['saved-area-accordion', 'area-tile-accordion'].forEach(id => {
-    const acc = document.getElementById(id);
-    if (!acc) return;
-    const body  = acc.querySelector('.cfg-accordion-body');
-    const arrow = acc.querySelector('.cfg-accordion-arrow');
-    if (body && body.classList.contains('open')) {
-      body.classList.remove('open');
-      if (arrow) arrow.textContent = '▶';
-    }
-  });
-  // ベースDLアコーディオンを展開してスクロール
-  const acc = document.getElementById('base-dl-accordion');
-  if (!acc) return;
-  const body  = acc.querySelector('.cfg-accordion-body');
-  const arrow = acc.querySelector('.cfg-accordion-arrow');
-  if (body && !body.classList.contains('open')) {
-    body.classList.add('open');
-    if (arrow) arrow.textContent = '▼';
-  }
-  setTimeout(() => acc.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  // 全国ベースマップダウンロードと管理ダイアログを開く
+  if(typeof showDlg === 'function') showDlg('dlg-base-dl');
 }
 
 // ── ステップ描画 ────────────────────────────────────────
