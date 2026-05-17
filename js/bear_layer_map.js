@@ -85,7 +85,7 @@ let bearHeatLayer    = null;             // L.heatLayer インスタンス
 let bearPinLayer     = null;              // L.markerClusterGroup（initBearLayer内で初期化）
 let bearHeatData     = [];               // [[lat,lng], ...] 全件
 let bearPinsData     = [];               // 直近90日・全フィールド
-let bearFilteredPref = BEAR_PREF_ALL_VALUE;
+let bearFilteredPrefs = [BEAR_PREF_ALL_VALUE]; // 選択中の県配列（"__all__"は全KML対応県）
 let bearVisible      = false;
 
 // ---------------------------------------------------------------------------
@@ -157,10 +157,24 @@ function _renderBearHeat() {
   if (!bearVisible) return;
 
   const kmlSet = _kmlPrefSet();
+  const isAll  = bearFilteredPrefs.includes(BEAR_PREF_ALL_VALUE);
 
-  // 県フィルタ：heat は座標のみなのでフィルタなし（全件表示）
-  // ただし将来的に県フィルタに対応する場合は pins データと突合が必要
-  const points = bearHeatData.map(([lat, lng]) => [lat, lng, 1]);
+  // 県フィルター適用（heatは座標のみなのでpinsデータの県で絞る）
+  let filteredLatLngs;
+  if (isAll) {
+    // 全KML対応県：全件表示
+    filteredLatLngs = bearHeatData;
+  } else {
+    // 選択県のピンデータから座標セットを作成して絞る
+    const prefSet = new Set(bearFilteredPrefs);
+    // pinsデータに county情報があるのでそれで絞り、lat/lngをheatに使う
+    const filtered = bearPinsData.filter(r => prefSet.has(r.pref));
+    filteredLatLngs = filtered.map(r => [r.lat, r.lng]);
+    // pinsにない県はheatDataからは除外できないため全件にフォールバック
+    if (filteredLatLngs.length === 0) filteredLatLngs = bearHeatData;
+  }
+
+  const points = filteredLatLngs.map(([lat, lng]) => [lat, lng, 1]);
   if (points.length === 0) return;
 
   bearHeatLayer = L.heatLayer(points, BEAR_HEAT_OPTIONS).addTo(map);
@@ -172,15 +186,16 @@ function _renderBearPins() {
   if (!bearVisible) return;
 
   const kmlSet = _kmlPrefSet();
+  const isAll  = bearFilteredPrefs.includes(BEAR_PREF_ALL_VALUE);
   let records = bearPinsData;
 
-  // 県フィルタ適用
-  if (bearFilteredPref === BEAR_PREF_ALL_VALUE) {
-    // 全県：KMLソースのみ表示
+  if (isAll) {
+    // 全KML対応県：KMLソースのみ表示
     records = records.filter(r => kmlSet.has(r.pref));
   } else {
-    // 県指定：全ソース（kumamap含む）を県名で絞る
-    records = records.filter(r => r.pref === bearFilteredPref);
+    // 選択県のみ表示（複数可）
+    const prefSet = new Set(bearFilteredPrefs);
+    records = records.filter(r => prefSet.has(r.pref));
   }
 
   records.forEach(r => {
@@ -270,28 +285,38 @@ function isBearLayerVisible() {
   return bearVisible;
 }
 
-/** 県フィルタを変更してピンを再描画する（ヒートマップは全県固定） */
-function setBearPrefFilter(prefValue) {
-  bearFilteredPref = prefValue;
+/** 県フィルタを変更してピン・ヒートマップを再描画する
+ *  prefValues: 文字列配列 or "__all__" 文字列
+ */
+function setBearPrefFilter(prefValues) {
+  // 旧API互換：文字列が来た場合は配列に変換
+  if (typeof prefValues === 'string') {
+    bearFilteredPrefs = [prefValues];
+  } else {
+    bearFilteredPrefs = prefValues.length > 0 ? prefValues : [BEAR_PREF_ALL_VALUE];
+  }
 
-  // カウントバッジ更新
+  const isAll  = bearFilteredPrefs.includes(BEAR_PREF_ALL_VALUE);
   const kmlSet = _kmlPrefSet();
-  let records = bearPinsData;
-  if (prefValue === BEAR_PREF_ALL_VALUE) {
-    // 全県：KMLソースのみカウント
+  let records  = bearPinsData;
+
+  if (isAll) {
     records = records.filter(r => kmlSet.has(r.pref));
   } else {
-    // 県指定：全ソース（kumamap含む）を県名で絞る
-    records = records.filter(r => r.pref === prefValue);
+    const prefSet = new Set(bearFilteredPrefs);
+    records = records.filter(r => prefSet.has(r.pref));
   }
+
   const counter = document.getElementById('bear-count-badge');
   if (counter) counter.textContent = `直近${records.length}件`;
 
-  // 表示中のときのみピンを再描画
-  if (bearVisible) _renderBearPins();
+  if (bearVisible) {
+    _renderBearHeat();
+    _renderBearPins();
+  }
 }
 
-function getBearPrefFilter()  { return bearFilteredPref; }
+function getBearPrefFilter()  { return bearFilteredPrefs; }
 function getBearPrefList()    { return BEAR_PREF_LIST; }
 // ── 初期化 ──────────────────────────────────
 initBearLayer().then(() => {
