@@ -622,11 +622,17 @@
       <span class="comm-premium-arrow">›</span>
     </div>
 
-    <!-- 熊出没情報（動的挿入エリア） -->
-    <div class="settings-section" id="bear-settings-section"></div>
-
     <!-- 設定メニューリスト -->
     <div class="cfg-menu-list">
+
+      <button class="cfg-menu-item" id="bear-cfg-menu-item" onclick="showDlg('dlg-cfg-bear')" style="display:none">
+        <span class="cfg-menu-icon">🐻</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">熊出没情報</span>
+          <span class="cfg-menu-sub" id="bear-cfg-menu-sub">県フィルター・凡例</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
 
       <button class="cfg-menu-item" onclick="showDlg('dlg-cfg-heatmap')">
         <span class="cfg-menu-icon">🗺️</span>
@@ -909,7 +915,6 @@
         </div>
       </div>
     </div>
-  </div>
 
   <!-- 地質図凡例ダイアログ -->
   <div class="dialog cfg-info-dlg" id="dlg-cfg-geology" style="display:none">
@@ -1340,7 +1345,6 @@
       </div>
       </div>
     </div>
-  </div>
 
   <!-- 免責事項ダイアログ -->
   <div class="dialog cfg-info-dlg" id="dlg-cfg-disclaimer" style="display:none">
@@ -1380,6 +1384,20 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- 熊出没情報ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-cfg-bear" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">🐻 熊出没情報</span>
+      <button class="dlg-close" onclick="closeOv()">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <div id="dlg-cfg-bear-body">
+        <!-- bear_toggle_ui.js から動的に挿入 -->
+      </div>
+    </div>
+  </div>
 
   <!-- カスタムレイヤー：セット追加・編集ダイアログ -->
   <div class="dialog" id="dlg-cl-edit" style="display:none">

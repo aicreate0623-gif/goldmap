@@ -176,8 +176,10 @@ function _renderBearPins() {
 
   // 県フィルタ適用
   if (bearFilteredPref === BEAR_PREF_ALL_VALUE) {
+    // 全県：KMLソースのみ表示
     records = records.filter(r => kmlSet.has(r.pref));
   } else {
+    // 県指定：全ソース（kumamap含む）を県名で絞る
     records = records.filter(r => r.pref === bearFilteredPref);
   }
 
@@ -272,12 +274,14 @@ function isBearLayerVisible() {
 function setBearPrefFilter(prefValue) {
   bearFilteredPref = prefValue;
 
-  // bearVisible に関わらずカウントバッジだけは常に更新する
+  // カウントバッジ更新
   const kmlSet = _kmlPrefSet();
   let records = bearPinsData;
   if (prefValue === BEAR_PREF_ALL_VALUE) {
+    // 全県：KMLソースのみカウント
     records = records.filter(r => kmlSet.has(r.pref));
   } else {
+    // 県指定：全ソース（kumamap含む）を県名で絞る
     records = records.filter(r => r.pref === prefValue);
   }
   const counter = document.getElementById('bear-count-badge');
@@ -291,7 +295,7 @@ function getBearPrefFilter()  { return bearFilteredPref; }
 function getBearPrefList()    { return BEAR_PREF_LIST; }
 // ── 初期化 ──────────────────────────────────
 initBearLayer().then(() => {
-  if (document.getElementById('bear-settings-section')) {
+  if (typeof initBearToggle === 'function') {
     initBearToggle();
   }
 });
