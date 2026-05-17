@@ -1,5 +1,6 @@
 // =============================================================================
-// 熊レイヤートグル UI v5 - 地方アコーディオン＋都道府県チェックボックス版
+// 熊レイヤートグル UI v6 - 動的データ有無判定版
+// kmlフラグ廃止 → getBearAvailPrefs() でデータ実在県を動的取得
 // =============================================================================
 
 const BEAR_REGION_GROUPS = [
@@ -27,14 +28,13 @@ function initBearToggle() {
   const menuItem = document.getElementById("bear-cfg-menu-item");
   if (menuItem) menuItem.style.display = '';
 
-  const prefList = getBearPrefList();
-  const prefMap  = {};
-  prefList.forEach(p => { prefMap[p.pref] = p.kml; });
+  // データ実在県をpinsから動的取得（kmlフラグ不要）
+  const availSet = getBearAvailPrefs();
 
-  const current = getBearPrefFilter();
+  const current   = getBearPrefFilter();
   const isAllMode = Array.isArray(current) ? current.includes('__all__') : current === '__all__';
   const checkedSet = isAllMode
-    ? new Set(prefList.filter(p => p.kml).map(p => p.pref))
+    ? new Set(availSet)  // 全データ対応県をチェック済みにする
     : new Set(Array.isArray(current) ? current : [current]);
 
   let html = `
@@ -49,8 +49,9 @@ function initBearToggle() {
     <div class="bear-region-list">`;
 
   BEAR_REGION_GROUPS.forEach((group, gi) => {
-    const kmlCount     = group.prefs.filter(p => prefMap[p]).length;
-    const checkedCount = group.prefs.filter(p => prefMap[p] && checkedSet.has(p)).length;
+    // データが実在する県のみカウント
+    const availCount   = group.prefs.filter(p => availSet.has(p)).length;
+    const checkedCount = group.prefs.filter(p => availSet.has(p) && checkedSet.has(p)).length;
     const regionId = `bear-region-${gi}`;
 
     html += `
@@ -58,17 +59,18 @@ function initBearToggle() {
         <div class="bear-region-header" onclick="_bearToggleRegion(${gi})">
           <span class="bear-region-icon">${group.icon}</span>
           <span class="bear-region-label">${group.label}</span>
-          <span class="bear-region-count" id="bear-rcount-${gi}">${checkedCount}/${kmlCount}</span>
+          <span class="bear-region-count" id="bear-rcount-${gi}">${checkedCount}/${availCount}</span>
           <span class="bear-region-arrow" id="bear-rarrow-${gi}">▶</span>
         </div>
         <div class="bear-region-body" id="${regionId}" style="display:none">
           <div class="bear-pref-grid">`;
 
     group.prefs.forEach(pref => {
-      const hasKml  = !!prefMap[pref];
-      const checked = hasKml && checkedSet.has(pref) ? 'checked' : '';
-      const disabled = hasKml ? '' : 'disabled';
-      const cls = hasKml ? 'bear-pref-item' : 'bear-pref-item bear-pref-item--disabled';
+      // データが実在する県のみ有効、それ以外はdisabled
+      const hasData  = availSet.has(pref);
+      const checked  = hasData && checkedSet.has(pref) ? 'checked' : '';
+      const disabled = hasData ? '' : 'disabled';
+      const cls      = hasData ? 'bear-pref-item' : 'bear-pref-item bear-pref-item--disabled';
       html += `
             <label class="${cls}">
               <input type="checkbox" class="bear-pref-ck" data-pref="${pref}" data-gi="${gi}"
@@ -113,14 +115,13 @@ function _bearOnCheck() {
   const allCks  = document.querySelectorAll('.bear-pref-ck:not(:disabled)');
   const checked = Array.from(allCks).filter(ck => ck.checked).map(ck => ck.dataset.pref);
 
+  // 地方ごとのカウント表示を更新
+  const availSet = getBearAvailPrefs();
   BEAR_REGION_GROUPS.forEach((group, gi) => {
-    const prefList = getBearPrefList();
-    const prefMap  = {};
-    prefList.forEach(p => { prefMap[p.pref] = p.kml; });
-    const kmlCount     = group.prefs.filter(p => prefMap[p]).length;
-    const checkedCount = group.prefs.filter(p => prefMap[p] && checked.includes(p)).length;
+    const availCount   = group.prefs.filter(p => availSet.has(p)).length;
+    const checkedCount = group.prefs.filter(p => availSet.has(p) && checked.includes(p)).length;
     const el = document.getElementById(`bear-rcount-${gi}`);
-    if (el) el.textContent = `${checkedCount}/${kmlCount}`;
+    if (el) el.textContent = `${checkedCount}/${availCount}`;
   });
 
   const filterVal = checked.length > 0 ? checked : ['__all__'];
@@ -148,7 +149,7 @@ function _updateBearMenuSub(filterVal) {
   const sub = document.getElementById('bear-cfg-menu-sub');
   if (!sub) return;
   if (!filterVal || filterVal.includes('__all__')) {
-    sub.textContent = '全KML対応県表示中';
+    sub.textContent = '全データ対応県表示中';
   } else if (filterVal.length === 1) {
     sub.textContent = `${filterVal[0]}表示中`;
   } else {
