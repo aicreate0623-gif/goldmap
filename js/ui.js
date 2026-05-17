@@ -1393,8 +1393,8 @@ function commShowPremium(){
   const TUTORIAL_KEY   = 'goldmap_tutorial_done';
   const SLIDE_COUNT    = 13;
   const IMG_BASE       = 'images/tutorial/';
-  // ファイル拡張子マップ（11・12はpng）
-  const IMG_EXT = {11:'png', 12:'png'};
+  // 全スライドwebp統一（convert_tutorial_webp.pyで変換済み前提）
+  const IMG_EXT = {}; // 空=全てwebp
   // スワイプ判定しきい値(px)
   const SWIPE_THRESHOLD = 50;
 
@@ -1415,7 +1415,7 @@ function commShowPremium(){
     const dotsWrap   = _el('tutorial-dots');
 
     for(let i = 0; i < SLIDE_COUNT; i++){
-      const ext = IMG_EXT[i] || 'jpg';
+      const ext = IMG_EXT[i] || 'webp';
       const num = String(i).padStart(2,'0');
       const path = IMG_BASE + num + '.' + ext;
 
