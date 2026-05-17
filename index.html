@@ -182,92 +182,10 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
-    <!-- マイMAP機能説明 -->
-    <div class="cfg-accordion" style="margin:0 0 10px">
-      <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)">
-        <span class="cfg-accordion-title">📖 マイMAP機能について</span>
-        <span class="cfg-accordion-arrow">▶</span>
-      </div>
-      <div class="cfg-accordion-body">
-        <div style="font-size:12px;color:var(--txt-sub);line-height:1.8;padding:4px 2px;">
-          <p style="margin:0 0 10px;color:var(--txt);font-weight:600;">📂 マイMAPとは</p>
-          <p style="margin:0 0 6px;">GeoJSONやCSVファイルをインポートして地図上に表示できる機能です。採取ポイントとは独立した<b>独自のデータセット</b>を最大10セット管理できます。データはすべて端末内（IndexedDB）に保存されます。</p>
-          <p style="margin:0 0 10px;color:rgba(200,170,80,0.7);font-size:11px;">⚠️ ポイントに設定したアイコン・マーカーカラーはアプリ内管理のみのため、書き出したJSONには含まれません。</p>
-
-          <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🗂 セットとポイントの概念</p>
-          <p style="margin:0 0 10px;">「セット」は複数ポイントをまとめるフォルダです。例：「○○川流域調査」「気になる鉱山リスト」など用途別に作れます。各セットに対してアイコン・色・表示ON/OFFを個別設定できます。</p>
-
-          <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">📥 インポート対応形式</p>
-          <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;">
-            <tr style="background:rgba(255,255,255,0.05);">
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">GeoJSON</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">Point型フィーチャーを読み込みます。<code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">name</code> <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">note</code> プロパティを自動取得</td>
-            </tr>
-            <tr>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">CSV</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">列順：<code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">緯度,経度,名前,メモ</code><br>1行目がヘッダーの場合は自動スキップ</td>
-            </tr>
-          </table>
-
-          <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">✏️ ポイントの各項目</p>
-          <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;">
-            <tr style="background:rgba(255,255,255,0.05);">
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">name</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">ポイントの名前。地図のポップアップに表示</td>
-            </tr>
-            <tr>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">note</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">メモ・備考。ポップアップのサブテキストに表示</td>
-            </tr>
-            <tr style="background:rgba(255,255,255,0.05);">
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">lat</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">緯度（例：36.123456）。小数点6桁程度が目安</td>
-            </tr>
-            <tr>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">lng</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">経度（例：138.123456）。日本国内は136〜146付近</td>
-            </tr>
-          </table>
-
-          <p style="margin:0 0 4px;color:var(--txt);font-weight:600;">🔍 フィルター機能</p>
-          <p style="margin:0 0 6px;">セットごとにキーワードで絞り込み表示できます。名前・メモを対象に部分一致で検索します。組み合わせ検索にも対応しています。</p>
-          <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px;">
-            <tr style="background:rgba(255,255,255,0.05);">
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">通常</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山」→ 名前・メモに「金山」を含むポイントを表示</td>
-            </tr>
-            <tr>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">OR検索 <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">|</code></td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山|銀山」→ 金山 <b>または</b> 銀山を含むポイントを表示</td>
-            </tr>
-            <tr style="background:rgba(255,255,255,0.05);">
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">AND検索 <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">スペース</code></td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山 福島」→ 金山 <b>かつ</b> 福島を含むポイントを表示</td>
-            </tr>
-            <tr>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">除外 <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">-</code></td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山 -廃坑」→ 金山を含み、廃坑を<b>含まない</b>ポイントを表示</td>
-            </tr>
-            <tr style="background:rgba(255,255,255,0.05);">
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">組み合わせ</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山|銀山 -廃坑」→ 金山を含む <b>または</b>（銀山を含みかつ廃坑を含まない）</td>
-            </tr>
-            <tr>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">件数表示</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">フィルター中は「10件 → 3件」のように絞り込み件数を表示</td>
-            </tr>
-            <tr style="background:rgba(255,255,255,0.05);">
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">記憶</td>
-              <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">入力した文字列は端末に保存され、次回起動時も引き継がれます</td>
-            </tr>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="cl-add-row" style="margin-top:12px">
+    <div class="cl-add-row">
       <button class="btn accent sm" onclick="openClAdd()" id="cl-add-btn">＋ 新規セット追加</button>
       <span class="cl-limit-note" id="cl-limit-note"></span>
+      <button class="btn sm" onclick="showDlg('dlg-mymap-about')" style="margin-left:auto;">📖 機能説明</button>
     </div>
     <div id="cl-sets-body">
       <div id="cl-sets-list"></div>
@@ -1325,6 +1243,89 @@
         </div>
       </div>
     </div>
+
+  <!-- マイMAP機能説明ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-mymap-about" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">📖 マイMAP機能について</span>
+      <button class="dlg-close" onclick="closeOv()">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <div style="font-size:12px;color:var(--txt-sub);line-height:1.8;padding:4px 2px;">
+        <p style="margin:0 0 10px;color:var(--txt);font-weight:600;">📂 マイMAPとは</p>
+        <p style="margin:0 0 6px;">GeoJSONやCSVファイルをインポートして地図上に表示できる機能です。採取ポイントとは独立した<b>独自のデータセット</b>を最大10セット管理できます。データはすべて端末内（IndexedDB）に保存されます。</p>
+        <p style="margin:0 0 10px;color:rgba(200,170,80,0.7);font-size:11px;">⚠️ ポイントに設定したアイコン・マーカーカラーはアプリ内管理のみのため、書き出したJSONには含まれません。</p>
+
+        <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🗂 セットとポイントの概念</p>
+        <p style="margin:0 0 10px;">「セット」は複数ポイントをまとめるフォルダです。例：「○○川流域調査」「気になる鉱山リスト」など用途別に作れます。各セットに対してアイコン・色・表示ON/OFFを個別設定できます。</p>
+
+        <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">📥 インポート対応形式</p>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;">
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">GeoJSON</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">Point型フィーチャーを読み込みます。<code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">name</code> <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">note</code> プロパティを自動取得</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">CSV</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">列順：<code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">緯度,経度,名前,メモ</code><br>1行目がヘッダーの場合は自動スキップ</td>
+          </tr>
+        </table>
+
+        <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">✏️ ポイントの各項目</p>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;">
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">name</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">ポイントの名前。地図のポップアップに表示</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">note</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">メモ・備考。ポップアップのサブテキストに表示</td>
+          </tr>
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">lat</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">緯度（例：36.123456）。小数点6桁程度が目安</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">lng</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">経度（例：138.123456）。日本国内は136〜146付近</td>
+          </tr>
+        </table>
+
+        <p style="margin:0 0 4px;color:var(--txt);font-weight:600;">🔍 フィルター機能</p>
+        <p style="margin:0 0 6px;">セットごとにキーワードで絞り込み表示できます。名前・メモを対象に部分一致で検索します。組み合わせ検索にも対応しています。</p>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px;">
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">通常</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山」→ 名前・メモに「金山」を含むポイントを表示</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">OR検索 <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">|</code></td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山|銀山」→ 金山 <b>または</b> 銀山を含むポイントを表示</td>
+          </tr>
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">AND検索 <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">スペース</code></td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山 福島」→ 金山 <b>かつ</b> 福島を含むポイントを表示</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">除外 <code style="font-size:10px;background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:3px;">-</code></td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山 -廃坑」→ 金山を含み、廃坑を<b>含まない</b>ポイントを表示</td>
+          </tr>
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">組み合わせ</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">「金山|銀山 -廃坑」→ 金山を含む <b>または</b>（銀山を含みかつ廃坑を含まない）</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">件数表示</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">フィルター中は「10件 → 3件」のように絞り込み件数を表示</td>
+          </tr>
+          <tr style="background:rgba(255,255,255,0.05);">
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">記憶</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">入力した文字列は端末に保存され、次回起動時も引き継がれます</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
 
   <!-- マイポイント追加メニューダイアログ -->
   <div class="dialog cfg-info-dlg" id="dlg-pt-add" style="display:none">
