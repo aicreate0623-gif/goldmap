@@ -476,14 +476,8 @@ function _updateCharCount(){
 }
 function _buildTagSelector(){ /* タグ機能削除済み */ }
 
-// ── ルール折りたたみ ─────────────────────────
-function commToggleRule(){
-  const body = document.getElementById('comm-rule-body');
-  const arrow = document.getElementById('comm-rule-arrow');
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
-  arrow.textContent  = open ? '▶' : '▼';
-}
+// ── ルール折りたたみ（ダイアログ化） ──────────────
+function commToggleRule(){ showDlg('dlg-comm-rules'); }
 // ── ツリーユーティリティ ────────────────────
 function _getReplyByPath(replies, path){
   let cur = replies;

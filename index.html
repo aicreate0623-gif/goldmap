@@ -437,67 +437,17 @@
   </div>
   <div class="sheet-body">
 
-    <div class="comm-rule-box">
-      <div class="comm-rule-head" onclick="commToggleRule()">
-        <span>📋 掲示板ルール</span>
-        <span id="comm-rule-arrow">▶</span>
-      </div>
-      <div id="comm-rule-body" style="display:none">
-        <ol class="comm-rule-list">
-          <li>秘密スポットなど特定の場所の詳細な情報公開はご遠慮ください</li>
-          <li>鉱物採取に関するイベント・告知は歓迎します</li>
-          <li>誹謗中傷・荒らし・スパム行為は禁止です</li>
-          <li>違法・危険行為を助長する投稿は禁止です</li>
-          <li>投稿・返信・更新は<b>3分間に1回</b>までです</li>
-          <li>不快な書き込みは🚫ボタンで非表示にできます</li>
-          <li>仕様上、返信への返信はできません</li>
-          <li>返信がついた投稿は削除できません</li>
-        </ol>
-      </div>
-    </div>
-
-    <div class="comm-accordion">
-      <div class="comm-accordion-header" onclick="toggleCommAccordion(this)">
-        <span class="comm-accordion-title">💬 掲示板を開く</span>
-        <span class="comm-accordion-arrow">▶</span>
-      </div>
-      <div class="comm-accordion-body">
-
-        <div class="comm-scope-tabs">
-          <button class="comm-scope-btn active" id="comm-tab-national" onclick="commSwitchScope('national')">🌏 全国</button>
-          <button class="comm-scope-btn"        id="comm-tab-regional" onclick="commSwitchScope('regional')">📍 地方</button>
-        </div>
-
-        <div id="comm-regional-selector" style="display:none">
-          <div class="comm-sel-row">
-            <select id="comm-region-sel" onchange="commOnRegionChange(this.value)" class="comm-select">
-            </select>
-            <select id="comm-pref-sel" onchange="commOnPrefChange(this.value)" class="comm-select">
-            </select>
-          </div>
-        </div>
-
-        <div class="comm-form">
-          <input type="text" id="comm-nick-input" class="comm-input" placeholder="ニックネーム（空欄で匿名さん）" maxlength="20">
-          <textarea id="comm-text-input" class="comm-textarea"
-            placeholder="採取報告・イベント告知・雑談など気軽にどうぞ"
-            maxlength="200"
-            oninput="_updateCharCount()"></textarea>
-          <div class="comm-form-footer">
-            <span id="comm-char-count" class="comm-char-count">0/200</span>
-            <button class="btn accent comm-submit-btn" onclick="commSubmit()">投稿する</button>
-          </div>
-        </div>
-
-        <div class="comm-refresh-row">
-          <button class="btn sm" id="comm-refresh-btn" onclick="commRefresh()">🔄 更新</button>
-          <span class="comm-refresh-hint">タップで最新の投稿を取得します</span>
-        </div>
-        <div id="comm-post-list" class="comm-post-list">
-          <div class="comm-empty">「🔄 更新」で投稿を読み込んでください</div>
-        </div>
-
-      </div>
+    <div class="cfg-menu-list">
+      <button class="cfg-menu-item" onclick="showDlg('dlg-comm-rules')">
+        <span class="cfg-menu-icon">📋</span>
+        <span class="cfg-menu-label">掲示板ルール</span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
+      <button class="cfg-menu-item" onclick="showDlg('dlg-comm-board')">
+        <span class="cfg-menu-icon">💬</span>
+        <span class="cfg-menu-label">掲示板を開く</span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
     </div>
 
   </div>
@@ -2050,6 +2000,70 @@
         <button class="btn accent" onclick="_dldCancel()">✅ 閉じる</button>
       </div>
     </div>
+
+  <!-- 掲示板ルール ダイアログ -->
+  <div class="dialog cfg-info-dlg" id="dlg-comm-rules" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">📋 掲示板ルール</span>
+      <button class="dlg-close" onclick="closeOv()">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body">
+      <ol class="comm-rule-list">
+        <li>秘密スポットなど特定の場所の詳細な情報公開はご遠慮ください</li>
+        <li>鉱物採取に関するイベント・告知は歓迎します</li>
+        <li>誹謗中傷・荒らし・スパム行為は禁止です</li>
+        <li>違法・危険行為を助長する投稿は禁止です</li>
+        <li>投稿・返信・更新は<b>3分間に1回</b>までです</li>
+        <li>不快な書き込みは🚫ボタンで非表示にできます</li>
+        <li>仕様上、返信への返信はできません</li>
+        <li>返信がついた投稿は削除できません</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- 掲示板 ダイアログ -->
+  <div class="dialog" id="dlg-comm-board" style="display:none; height:85vh; flex-direction:column">
+    <div class="dlg-head">
+      <span class="dlg-title">💬 掲示板</span>
+      <button class="dlg-close" onclick="closeOv()">✕</button>
+    </div>
+    <div class="dlg-body" style="flex:1; overflow:hidden; display:flex; flex-direction:column; padding:8px 12px; gap:8px">
+
+      <div class="comm-scope-tabs">
+        <button class="comm-scope-btn active" id="comm-tab-national" onclick="commSwitchScope('national')">🌏 全国</button>
+        <button class="comm-scope-btn"        id="comm-tab-regional" onclick="commSwitchScope('regional')">📍 地方</button>
+      </div>
+
+      <div id="comm-regional-selector" style="display:none">
+        <div class="comm-sel-row">
+          <select id="comm-region-sel" onchange="commOnRegionChange(this.value)" class="comm-select"></select>
+          <select id="comm-pref-sel"   onchange="commOnPrefChange(this.value)"   class="comm-select"></select>
+        </div>
+      </div>
+
+      <div class="comm-form">
+        <input type="text" id="comm-nick-input" class="comm-input" placeholder="ニックネーム（空欄で匿名さん）" maxlength="20">
+        <textarea id="comm-text-input" class="comm-textarea"
+          placeholder="採取報告・イベント告知・雑談など気軽にどうぞ"
+          maxlength="200"
+          oninput="_updateCharCount()"></textarea>
+        <div class="comm-form-footer">
+          <span id="comm-char-count" class="comm-char-count">0/200</span>
+          <button class="btn accent comm-submit-btn" onclick="commSubmit()">投稿する</button>
+        </div>
+      </div>
+
+      <div class="comm-refresh-row">
+        <button class="btn sm" id="comm-refresh-btn" onclick="commRefresh()">🔄 更新</button>
+        <span class="comm-refresh-hint">タップで最新の投稿を取得します</span>
+      </div>
+
+      <div id="comm-post-list" class="comm-post-list" style="flex:1; overflow-y:auto">
+        <div class="comm-empty">「🔄 更新」で投稿を読み込んでください</div>
+      </div>
+
+    </div>
+  </div>
 
   </div>
 
