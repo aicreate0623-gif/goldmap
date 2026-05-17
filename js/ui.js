@@ -698,7 +698,7 @@ function _openTab(tab){
 // ═══════════════════════════════════════════
 //  ダイアログ
 // ═══════════════════════════════════════════
-const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp2','dlg-alr','dlg-contrib-off','dlg-premium-gate','dlg-heatpro-gate','dlg-gps-lost','dlg-cl-edit','dlg-cl-delete','dlg-cl-point-edit','dlg-cl-point-del','dlg-gold','dlg-cfg-heatmap','dlg-cfg-mine','dlg-cfg-wiki','dlg-cfg-kinno','dlg-cfg-geology','dlg-cfg-mineral','dlg-cfg-disclaimer','dlg-cfg-bear'];
+const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp2','dlg-alr','dlg-contrib-off','dlg-premium-gate','dlg-heatpro-gate','dlg-gps-lost','dlg-cl-edit','dlg-cl-delete','dlg-cl-point-edit','dlg-cl-point-del','dlg-gold','dlg-cfg-heatmap','dlg-cfg-mine','dlg-cfg-wiki','dlg-cfg-kinno','dlg-cfg-geology','dlg-cfg-mineral','dlg-cfg-disclaimer','dlg-cfg-bear','dlg-offline-rules','dlg-cache-diag','dlg-cache-mgmt','dlg-base-dl'];
 function showDlg(id){
   DLGS.forEach(d=>document.getElementById(d).style.display='none');
   const el = document.getElementById(id);
