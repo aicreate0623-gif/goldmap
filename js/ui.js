@@ -1378,3 +1378,170 @@ function commShowPremium(){
     '<span style="font-size:13px;font-weight:700;color:var(--gold);">月額 ¥480 ／ 年額 ¥3,800</span></div>';
   showDlg('dlg-premium-gate');
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  チュートリアル スライドショー
+//  ・初回起動時のみ自動表示（localStorage管理）
+//  ・設定タブの「使い方ガイドを見る」から再表示可能
+//  ・画像: images/tutorial/00.jpg ~ 12.jpg (13枚)
+//  ・スワイプ + 矢印ボタン + ドットインジケーター
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+(function(){
+  'use strict';
+
+  // ── 定数 ──────────────────────────────────
+  const TUTORIAL_KEY   = 'goldmap_tutorial_done';
+  const SLIDE_COUNT    = 13;
+  const IMG_BASE       = 'images/tutorial/';
+  // ファイル拡張子マップ（11・12はpng）
+  const IMG_EXT = {11:'png', 12:'png'};
+  // スワイプ判定しきい値(px)
+  const SWIPE_THRESHOLD = 50;
+
+  // ── 状態 ──────────────────────────────────
+  let _curIdx  = 0;
+  let _built   = false;
+  let _touchSX = null;
+
+  // ── DOM取得ヘルパー ────────────────────────
+  function _el(id){ return document.getElementById(id); }
+
+  // ── スライドHTML構築（初回のみ）──────────────
+  function _build(){
+    if(_built) return;
+    _built = true;
+
+    const slidesWrap = _el('tutorial-slides');
+    const dotsWrap   = _el('tutorial-dots');
+
+    for(let i = 0; i < SLIDE_COUNT; i++){
+      const ext = IMG_EXT[i] || 'jpg';
+      const num = String(i).padStart(2,'0');
+      const path = IMG_BASE + num + '.' + ext;
+
+      // スライド img
+      const slide = document.createElement('div');
+      slide.className = 'tutorial-slide';
+      slide.dataset.idx = i;
+
+      const img = document.createElement('img');
+      img.alt = '使い方ガイド ' + (i+1) + '枚目';
+      img.width  = 820;
+      img.height = 1456;
+      // 最初の2枚は即時読み込み、残りは遅延
+      img.loading = (i < 2) ? 'eager' : 'lazy';
+      img.src = path;
+      img.style.willChange = 'transform';
+
+      slide.appendChild(img);
+      slidesWrap.appendChild(slide);
+
+      // ドット
+      const dot = document.createElement('button');
+      dot.className = 'tutorial-dot';
+      dot.setAttribute('aria-label', (i+1) + '枚目へ');
+      dot.dataset.idx = i;
+      dot.addEventListener('click', function(){
+        _goTo(parseInt(this.dataset.idx), _curIdx > parseInt(this.dataset.idx) ? 'prev' : 'next');
+      });
+      dotsWrap.appendChild(dot);
+    }
+
+    // スワイプ対応
+    const overlay = _el('tutorial-overlay');
+    overlay.addEventListener('touchstart', _onTouchStart, {passive:true});
+    overlay.addEventListener('touchend',   _onTouchEnd,   {passive:true});
+  }
+
+  // ── 表示更新 ──────────────────────────────
+  function _render(dir){
+    const slides = document.querySelectorAll('.tutorial-slide');
+    const dots   = document.querySelectorAll('.tutorial-dot');
+
+    slides.forEach((s, i) => {
+      s.classList.remove('active','prev-anim');
+      if(i === _curIdx){
+        s.classList.add(dir === 'prev' ? 'prev-anim' : 'active');
+      }
+    });
+    dots.forEach((d, i) => {
+      d.classList.toggle('active', i === _curIdx);
+    });
+
+    // 矢印の表示/非表示
+    _el('tutorial-prev').style.visibility = _curIdx === 0 ? 'hidden' : 'visible';
+    _el('tutorial-next').style.visibility = _curIdx === SLIDE_COUNT - 1 ? 'hidden' : 'visible';
+
+    // 最終スライドで「はじめる」ボタン表示
+    const startBtn = _el('tutorial-start');
+    if(startBtn){
+      startBtn.style.display = _curIdx === SLIDE_COUNT - 1 ? 'block' : 'none';
+    }
+  }
+
+  // ── スライド移動 ──────────────────────────
+  function _goTo(idx, dir){
+    if(idx < 0 || idx >= SLIDE_COUNT) return;
+    _curIdx = idx;
+    _render(dir || 'next');
+  }
+
+  // ── スワイプ処理 ──────────────────────────
+  function _onTouchStart(e){
+    // スライド領域内のみ受け付ける
+    if(!e.target.closest('#tutorial-slides') && !e.target.closest('#tutorial-nav')) return;
+    _touchSX = e.touches[0].clientX;
+  }
+  function _onTouchEnd(e){
+    if(_touchSX === null) return;
+    const dx = e.changedTouches[0].clientX - _touchSX;
+    _touchSX = null;
+    if(Math.abs(dx) < SWIPE_THRESHOLD) return;
+    if(dx < 0) tutorialNext();
+    else        tutorialPrev();
+  }
+
+  // ── 公開API ───────────────────────────────
+  window.tutorialNext = function(){
+    if(_curIdx < SLIDE_COUNT - 1) _goTo(_curIdx + 1, 'next');
+  };
+  window.tutorialPrev = function(){
+    if(_curIdx > 0) _goTo(_curIdx - 1, 'prev');
+  };
+
+  window.tutorialOpen = function(){
+    _build();
+    _curIdx = 0;
+    _render('next');
+    const ov = _el('tutorial-overlay');
+    ov.style.display = 'flex';
+    // スクロールロック
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.tutorialClose = function(){
+    const ov = _el('tutorial-overlay');
+    ov.style.display = 'none';
+    document.body.style.overflow = '';
+    // 既読フラグを保存
+    try{ localStorage.setItem(TUTORIAL_KEY, '1'); }catch(e){}
+  };
+
+  // ── 初回起動チェック ──────────────────────
+  function _checkFirstRun(){
+    try{
+      if(!localStorage.getItem(TUTORIAL_KEY)){
+        // DOMが完全に構築されてから表示（マップ初期化と競合しないよう少し遅延）
+        setTimeout(tutorialOpen, 600);
+      }
+    }catch(e){}
+  }
+
+  // DOM準備後に実行
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _checkFirstRun);
+  } else {
+    _checkFirstRun();
+  }
+
+})();

@@ -690,6 +690,15 @@
         <span class="cfg-menu-arrow">›</span>
       </button>
 
+      <button class="cfg-menu-item" onclick="tutorialOpen()">
+        <span class="cfg-menu-icon">📖</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">使い方ガイドを見る</span>
+          <span class="cfg-menu-sub">操作マニュアル（全13枚）</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
+
     </div>
 
   </div>
@@ -2016,6 +2025,20 @@
       <button class="dbtn" onclick="closeExitDlg()">キャンセル</button>
       <button class="dbtn del" onclick="doExitApp()">閉じる</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ チュートリアル スライドショー ══ -->
+<div id="tutorial-overlay" style="display:none" aria-modal="true" role="dialog" aria-label="使い方ガイド">
+  <div id="tutorial-inner">
+    <button id="tutorial-close" onclick="tutorialClose()" aria-label="閉じる">✕</button>
+    <div id="tutorial-slides"></div>
+    <div id="tutorial-dots"></div>
+    <div id="tutorial-nav">
+      <button id="tutorial-prev" onclick="tutorialPrev()" aria-label="前へ">‹</button>
+      <button id="tutorial-next" onclick="tutorialNext()" aria-label="次へ">›</button>
+    </div>
+    <button id="tutorial-start" onclick="tutorialClose()" style="display:none">はじめる ›</button>
   </div>
 </div>
 

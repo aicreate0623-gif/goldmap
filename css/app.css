@@ -4477,3 +4477,159 @@ input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer
   font-size: 10px;
   color: var(--txt-dim, rgba(255,255,255,0.3));
 }
+/* ━━━ チュートリアル スライドショー ━━━ */
+#tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  background: rgba(0,0,0,0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  touch-action: pan-y;
+}
+#tutorial-inner {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+/* 閉じるボタン */
+#tutorial-close {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  z-index: 10;
+  background: rgba(30,20,10,0.85);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: var(--txt);
+  font-size: 18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+#tutorial-close:active { background: rgba(60,40,10,0.95); }
+
+/* スライドラッパー */
+#tutorial-slides {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  /* 縦長画像を画面に収める */
+  max-height: calc(100vh - 130px);
+  background: #000;
+}
+/* 各スライド */
+.tutorial-slide {
+  display: none;
+  width: 100%;
+}
+.tutorial-slide.active {
+  display: block;
+  animation: tsl-fadein 0.25s ease;
+}
+@keyframes tsl-fadein {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.tutorial-slide.prev-anim {
+  display: block;
+  animation: tsl-fadein-prev 0.25s ease;
+}
+@keyframes tsl-fadein-prev {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.tutorial-slide img {
+  width: 100%;
+  height: auto;
+  max-height: calc(100vh - 130px);
+  object-fit: contain;
+  display: block;
+  border-radius: 12px;
+}
+
+/* ドットインジケーター */
+#tutorial-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 0 4px;
+}
+.tutorial-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.28);
+  transition: background 0.2s, transform 0.2s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tutorial-dot.active {
+  background: var(--gold);
+  transform: scale(1.4);
+}
+
+/* 左右ナビ */
+#tutorial-nav {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  padding: 0 4px;
+}
+#tutorial-nav button {
+  pointer-events: all;
+  background: rgba(0,0,0,0.52);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 28px;
+  width: 40px;
+  height: 56px;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+#tutorial-nav button:active { background: rgba(200,170,80,0.3); }
+#tutorial-prev { margin-left: 4px; }
+#tutorial-next { margin-right: 4px; }
+
+/* はじめるボタン（最終スライド） */
+#tutorial-start {
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  color: #080807;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: 24px;
+  padding: 11px 36px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 20px rgba(200,170,80,0.35);
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+}
+#tutorial-start:active { opacity: 0.8; }
