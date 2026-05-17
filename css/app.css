@@ -154,7 +154,7 @@ html, body {
 /* ━━━ FLOATING CONTROLS RIGHT (右縦並び・top はJS動的計算) ━━━ */
 #float-ctrl-right {
   position: fixed; right: 10px;
-  top: calc(var(--sb-h) + 60px); /* JS未実行時のフォールバック */
+  top: calc(var(--sb-h) + 8px); /* JS未実行時のフォールバック */
   z-index: 900;
   display: flex; flex-direction: column; gap: 5px; align-items: flex-end;
   will-change: transform;
