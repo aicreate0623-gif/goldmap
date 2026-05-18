@@ -129,6 +129,16 @@ function _showOfflineToast(){
     _offlineToastTimer = setTimeout(()=>{ _offlineToastTimer = null; }, 4000);
   }, 1000);
 }
+let _onlineToastTimer = null;
+let _onlineToastDelay = null;
+function _showOnlineToast(){
+  if(_onlineToastTimer || _onlineToastDelay) return;
+  _onlineToastDelay = setTimeout(()=>{
+    _onlineToastDelay = null;
+    if(typeof showToast === 'function') showToast('⚠ 通信状態を確認してください', 2500);
+    _onlineToastTimer = setTimeout(()=>{ _onlineToastTimer = null; }, 4000);
+  }, 1000);
+}
 
 function makeCachedLayer(srcKey){
   return L.TileLayer.extend({
@@ -153,8 +163,10 @@ function makeCachedLayer(srcKey){
 
       // ── オンライン優先：ネット取得を試み失敗したらキャッシュにフォールバック ──
       const type=this._sk==='photo'?'image/jpeg':'image/png';
+      const isOnline = navigator.onLine;
+      const tileTimeout = isOnline ? 8000 : 3000;
       const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(), 5000);
+      const tid=setTimeout(()=>ctrl.abort(), tileTimeout);
       fetch(net,{signal:ctrl.signal})
         .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
         .then(buf=>{
@@ -168,7 +180,7 @@ function makeCachedLayer(srcKey){
             img.src=URL.createObjectURL(new Blob([cached],{type}));
             img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
           } else {
-            _showOfflineToast();
+            if(isOnline){ _showOnlineToast(); } else { _showOfflineToast(); }
             img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
           }
         });
