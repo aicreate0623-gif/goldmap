@@ -52,7 +52,7 @@ map.whenReady(()=>{
 // ズーム値バッジ更新
 function _updZoomBadge(){
   const el = document.getElementById('zoom-level-val');
-  if(el) el.textContent = map.getZoom();
+  if(el) el.textContent = Math.round(map.getZoom() * 10) / 10;
 }
 map.on('zoomend', _updZoomBadge);
 _updZoomBadge();
