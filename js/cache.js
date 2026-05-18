@@ -78,7 +78,6 @@ const SRCS={
   std:   {url:'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',              ext:'png', attr:'地理院タイル',   maxNative:18},
   photo: {url:'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',    ext:'jpg', attr:'地理院写真',     maxNative:18},
   topo:  {url:'https://tile.opentopomap.org/{z}/{x}/{y}.png',                          ext:'png', attr:'OpenTopoMap',   maxNative:17},
-  otopo: {url:'https://tile.opentopomap.org/{z}/{x}/{y}.png',                          ext:'png', attr:'OpenTopoMap (登山地形)', maxNative:17},
   hill:  {url:'https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png',     ext:'png', attr:'地理院陰影',     maxNative:16},
   relief:{url:'https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png',           ext:'png', attr:'地理院色別標高', maxNative:15},
 };
@@ -98,7 +97,7 @@ function tileKey(key,z,x,y){ return key+'/'+z+'/'+x+'/'+y; }
 // ═══════════════════════════════════════════
 //  オフラインフォールバック用: 最大キャッシュズーム管理
 // ═══════════════════════════════════════════
-const LAYERS_ALL = ['std','photo','topo','otopo','hill','relief'];
+const LAYERS_ALL = ['std','photo','topo','hill','relief'];
 
 /** localStorageからレイヤーごとの最大キャッシュズームを読む */
 function getMaxCachedZoom(sk){
