@@ -75,13 +75,23 @@
     </div>
   </div>
   <div class="fcl-geo-wrap">
-    <button class="fc-btn fc-grp-map" id="btn-trail" onclick="toggleTrail()" title="治水地形分類図（地理院）">
-      <span class="fc-ico">🌊</span><span>治水地形</span>
+    <button class="fc-btn fc-grp-map" id="btn-trail" onclick="toggleTrail()" title="登山道（地理院）">
+      <span class="fc-ico">🥾</span><span>登山道</span>
     </button>
     <div id="trail-row">
       <label>透過</label>
       <input type="range" class="gold" id="trail-op" min="0" max="100" value="80" oninput="setTrailOp(this.value)">
       <span id="trail-opv">80%</span>
+    </div>
+  </div>
+  <div class="fcl-geo-wrap">
+    <button class="fc-btn fc-grp-map" id="btn-chisui" onclick="toggleChisui()" title="治水地形分類図（地理院）">
+      <span class="fc-ico">🌊</span><span>治水地形</span>
+    </button>
+    <div id="chisui-row">
+      <label>透過</label>
+      <input type="range" class="gold" id="chisui-op" min="0" max="100" value="80" oninput="setChisuiOp(this.value)">
+      <span id="chisui-opv">80%</span>
     </div>
   </div>
   <div id="zoom-level-badge">Z<span id="zoom-level-val">7</span></div>

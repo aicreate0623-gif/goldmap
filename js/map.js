@@ -69,8 +69,12 @@ async function initMap(){
   map.getPane('paneRelief').style.zIndex = 440;
   map.createPane('paneHill'); // 陰影起伏図（色別標高の上・地質図の下）
   map.getPane('paneHill').style.zIndex = 445;
-  map.createPane('paneGeo');  // 地質図タイル（ベースの上・マーカーの下）
+  map.createPane('paneGeo');    // 地質図・鉱物資源図（ベースの上・マーカーの下）
   map.getPane('paneGeo').style.zIndex = 450;
+  map.createPane('paneTrail');  // 登山道（地理院）
+  map.getPane('paneTrail').style.zIndex = 452;
+  map.createPane('paneChisui'); // 治水地形分類図（地理院）
+  map.getPane('paneChisui').style.zIndex = 454;
   map.createPane('paneBearHeat'); // 熊ヒートマップ（地質図の上・砂金の下）
   map.getPane('paneBearHeat').style.zIndex = 459;
   map.createPane('paneHeat'); // ヒートマップ（地質図の上・マーカーの下）
@@ -282,7 +286,7 @@ function setGeo50kOp(v){
   _saveOp('gm_op_geo50k', v);
   geo50kLayers.forEach(l => l.setOpacity(v/100));
 }
-// 治水地形分類図（地理院）
+// 登山道（地理院）
 let trailL=null,trailState=0;
 function toggleTrail(){
   trailState=(trailState+1)%3;
@@ -292,9 +296,9 @@ function toggleTrail(){
   if(trailState===1){
     const op = _loadOp('gm_op_trail');
     _applySlider('trail-op','trail-opv', op);
-    if(!trailL) trailL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/chisui5/{z}/{x}/{y}.png',
-      {attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル（治水地形分類図）</a>',
-       maxNativeZoom:16,maxZoom:18,opacity:op/100,pane:'paneGeo'});
+    if(!trailL) trailL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/hiking_osm/{z}/{x}/{y}.png',
+      {attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル（登山道）</a>',
+       maxNativeZoom:16,maxZoom:18,opacity:op/100,pane:'paneTrail'});
     else trailL.setOpacity(op/100);
     trailL.addTo(map);
   } else if(trailState===2){
@@ -307,6 +311,33 @@ function setTrailOp(v){
   _applySlider('trail-op','trail-opv', v);
   _saveOp('gm_op_trail', v);
   if(trailL) trailL.setOpacity(v/100);
+}
+
+// 治水地形分類図（地理院）
+let chisuiL=null,chisuiState=0;
+function toggleChisui(){
+  chisuiState=(chisuiState+1)%3;
+  const btn=document.getElementById('btn-chisui');
+  btn.classList.toggle('active', chisuiState>0);
+  document.getElementById('chisui-row').classList.toggle('show', chisuiState===1);
+  if(chisuiState===1){
+    const op = _loadOp('gm_op_chisui');
+    _applySlider('chisui-op','chisui-opv', op);
+    if(!chisuiL) chisuiL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/chisui5/{z}/{x}/{y}.png',
+      {attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル（治水地形分類図）</a>',
+       maxNativeZoom:16,maxZoom:18,opacity:op/100,pane:'paneChisui'});
+    else chisuiL.setOpacity(op/100);
+    chisuiL.addTo(map);
+  } else if(chisuiState===2){
+    // スライダーを閉じるだけ・レイヤーはそのまま
+  } else {
+    if(chisuiL){ map.removeLayer(chisuiL); }
+  }
+}
+function setChisuiOp(v){
+  _applySlider('chisui-op','chisui-opv', v);
+  _saveOp('gm_op_chisui', v);
+  if(chisuiL) chisuiL.setOpacity(v/100);
 }
 
 // ━━━ 水位警戒情報（気象庁XML） ━━━
