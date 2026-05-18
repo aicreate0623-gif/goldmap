@@ -373,3 +373,9 @@ async function clearCacheWithConfirm(){
   if(typeof refreshBaseDlStatus === 'function') refreshBaseDlStatus();
 }
 // SVGサムネイル・リネーム関連は offline.js に集約
+
+// ═══════════════════════════════════════════
+//  DB初期化（起動時に必ず一度実行）
+//  ここで開いておかないと dbGet/dbPut 系が全滅する
+// ═══════════════════════════════════════════
+openDB().catch(e => console.warn('[cache] DB初期化失敗', e));
