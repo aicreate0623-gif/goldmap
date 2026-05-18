@@ -168,6 +168,14 @@ function _applySlider(idSlider, idLabel, v){
   if(lb) lb.textContent = v + '%';
 }
 
+// ◀▶ 微調整ボタン共通ハンドラ
+function stepOp(sliderId, setFn, delta){
+  const el = document.getElementById(sliderId);
+  if(!el) return;
+  const v = Math.min(100, Math.max(0, parseInt(el.value) + delta));
+  el.value = v;
+  setFn(v);
+}
 // 色別標高図
 let reliefL=null,reliefState=0;
 function toggleRelief(){
@@ -296,8 +304,8 @@ function toggleTrail(){
   if(trailState===1){
     const op = _loadOp('gm_op_trail');
     _applySlider('trail-op','trail-opv', op);
-    if(!trailL) trailL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/hiking_osm/{z}/{x}/{y}.png',
-      {attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル（登山道）</a>',
+    if(!trailL) trailL=L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png',
+      {attribution:'<a href="https://www.waymarkedtrails.org" target="_blank">Waymarked Trails</a> (ODbL)',
        maxNativeZoom:16,maxZoom:18,opacity:op/100,pane:'paneTrail'});
     else trailL.setOpacity(op/100);
     trailL.addTo(map);
@@ -323,7 +331,7 @@ function toggleChisui(){
   if(chisuiState===1){
     const op = _loadOp('gm_op_chisui');
     _applySlider('chisui-op','chisui-opv', op);
-    if(!chisuiL) chisuiL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/chisui5/{z}/{x}/{y}.png',
+    if(!chisuiL) chisuiL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png',
       {attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル（治水地形分類図）</a>',
        maxNativeZoom:16,maxZoom:18,opacity:op/100,pane:'paneChisui'});
     else chisuiL.setOpacity(op/100);

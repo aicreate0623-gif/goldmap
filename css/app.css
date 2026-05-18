@@ -466,7 +466,26 @@ body.tab-hidden .leaflet-bottom.leaflet-right {
 }
 #geo-row.show { display: flex; }
 #geo-row label { font-size: 9px; color: var(--txt-sub); white-space: nowrap; }
-input[type=range].gold { width: 70px; accent-color: var(--gold); cursor: pointer; }
+input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer; }
+
+/* 透過スライダー ◀▶ 微調整ボタン */
+.op-step-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  padding: 0;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--gold);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.op-step-btn:active { background: rgba(200,168,75,0.25); transform: scale(0.9); }
 #geo-opv { font-size: 9px; color: var(--txt-sub); min-width: 26px; }
 
 /* 5万分の1地質図透過スライダー行 */

@@ -40,7 +40,9 @@
     </button>
     <div id="hill-row">
       <label>透過</label>
+      <button class="op-step-btn" onclick="stepOp('hill-op',setHillOp,-5)">◀</button>
       <input type="range" class="gold" id="hill-op" min="0" max="100" value="50" oninput="setHillOp(this.value)">
+      <button class="op-step-btn" onclick="stepOp('hill-op',setHillOp,+5)">▶</button>
       <span id="hill-opv">50%</span>
     </div>
   </div>
@@ -50,7 +52,9 @@
     </button>
     <div id="relief-row">
       <label>透過</label>
+      <button class="op-step-btn" onclick="stepOp('relief-op',setReliefOp,-5)">◀</button>
       <input type="range" class="gold" id="relief-op" min="0" max="100" value="50" oninput="setReliefOp(this.value)">
+      <button class="op-step-btn" onclick="stepOp('relief-op',setReliefOp,+5)">▶</button>
       <span id="relief-opv">50%</span>
     </div>
   </div>
@@ -60,7 +64,9 @@
     </button>
     <div id="geo-row">
       <label>透過</label>
+      <button class="op-step-btn" onclick="stepOp('geo-op',setGeoOp,-5)">◀</button>
       <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
+      <button class="op-step-btn" onclick="stepOp('geo-op',setGeoOp,+5)">▶</button>
       <span id="geo-opv">50%</span>
     </div>
   </div>
@@ -70,7 +76,9 @@
     </button>
     <div id="geo50k-row">
       <label>透過</label>
+      <button class="op-step-btn" onclick="stepOp('geo50k-op',setGeo50kOp,-5)">◀</button>
       <input type="range" class="gold" id="geo50k-op" min="0" max="100" value="50" oninput="setGeo50kOp(this.value)">
+      <button class="op-step-btn" onclick="stepOp('geo50k-op',setGeo50kOp,+5)">▶</button>
       <span id="geo50k-opv">50%</span>
     </div>
   </div>
@@ -80,7 +88,9 @@
     </button>
     <div id="trail-row">
       <label>透過</label>
+      <button class="op-step-btn" onclick="stepOp('trail-op',setTrailOp,-5)">◀</button>
       <input type="range" class="gold" id="trail-op" min="0" max="100" value="80" oninput="setTrailOp(this.value)">
+      <button class="op-step-btn" onclick="stepOp('trail-op',setTrailOp,+5)">▶</button>
       <span id="trail-opv">80%</span>
     </div>
   </div>
@@ -90,7 +100,9 @@
     </button>
     <div id="chisui-row">
       <label>透過</label>
+      <button class="op-step-btn" onclick="stepOp('chisui-op',setChisuiOp,-5)">◀</button>
       <input type="range" class="gold" id="chisui-op" min="0" max="100" value="80" oninput="setChisuiOp(this.value)">
+      <button class="op-step-btn" onclick="stepOp('chisui-op',setChisuiOp,+5)">▶</button>
       <span id="chisui-opv">80%</span>
     </div>
   </div>
