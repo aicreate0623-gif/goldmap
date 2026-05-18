@@ -2267,8 +2267,7 @@
     function setPos(key, cls){
       const h = handles[key], p = panels[key];
       ['pos-center','pos-left','pos-right'].forEach(c=>{ h.classList.remove(c); p.classList.remove(c); });
-      h.classList.add(cls);
-      p.classList.add(cls);
+      h.classList.add(cls); p.classList.add(cls);
     }
     function closePanelImmediate(key){
       panelH[key] = 0;
@@ -2279,61 +2278,70 @@
       panels[key].style.height = OPEN_DEFAULT + 'px';
     }
 
-    /* ── handleドラッグ（draggingフラグで制御） ── */
+    /* ── handleドラッグ ── */
     function setupHandleDrag(key){
       const handle = handles[key];
       const panel  = panels[key];
-      let dragging = false, startY = 0, startH = 0, hasMoved = false;
+      let touchDragging = false;
+      let mouseDragging = false;
+      let startY = 0, startH = 0;
+      let touchMoved = false, mouseMoved = false;
 
+      /* ---- タッチ ---- */
       handle.addEventListener('touchstart', function(e){
-        dragging = true; hasMoved = false;
+        touchDragging = true; touchMoved = false;
         startY = e.touches[0].clientY;
         startH = panelH[key];
         e.preventDefault();
       }, {passive:false});
 
-      handle.addEventListener('mousedown', function(e){
-        dragging = true; hasMoved = false;
-        startY = e.clientY;
-        startH = panelH[key];
-      });
-
       document.addEventListener('touchmove', function(e){
-        if(!dragging) return;
+        if(!touchDragging) return;
         const dy = startY - e.touches[0].clientY;
-        if(Math.abs(dy) > 4) hasMoved = true;
+        if(Math.abs(dy) > 4) touchMoved = true;
         panelH[key] = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
         panel.style.height = panelH[key] + 'px';
         e.preventDefault();
       }, {passive:false});
 
+      document.addEventListener('touchend', function(){
+        if(!touchDragging) return;
+        touchDragging = false;
+        if(!touchMoved){
+          /* タップ → トグル */
+          if(panelH[key] < SNAP_CLOSE_PX) openPanel(key);
+          else closePanelImmediate(key);
+        } else {
+          if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
+        }
+      });
+
+      /* ---- マウス ---- */
+      handle.addEventListener('mousedown', function(e){
+        mouseDragging = true; mouseMoved = false;
+        startY = e.clientY;
+        startH = panelH[key];
+        e.preventDefault();
+      });
+
       document.addEventListener('mousemove', function(e){
-        if(!dragging) return;
+        if(!mouseDragging) return;
         const dy = startY - e.clientY;
-        if(Math.abs(dy) > 4) hasMoved = true;
+        if(Math.abs(dy) > 8) mouseMoved = true; /* PCは8px以上でドラッグ判定 */
+        if(!mouseMoved) return;
         panelH[key] = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
         panel.style.height = panelH[key] + 'px';
       });
 
-      document.addEventListener('touchend', function(){
-        if(!dragging) return;
-        dragging = false;
-        if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
-      });
-
       document.addEventListener('mouseup', function(){
-        if(!dragging) return;
-        dragging = false;
-        if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
-      });
-
-      /* タップ（移動なし）でトグル */
-      handle.addEventListener('click', function(){
-        if(hasMoved) return;
-        if(panelH[key] < SNAP_CLOSE_PX){
-          openPanel(key);
+        if(!mouseDragging) return;
+        mouseDragging = false;
+        if(!mouseMoved){
+          /* クリック → トグル */
+          if(panelH[key] < SNAP_CLOSE_PX) openPanel(key);
+          else closePanelImmediate(key);
         } else {
-          closePanelImmediate(key);
+          if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
         }
       });
     }
@@ -2348,8 +2356,7 @@
         gripDragging = true;
         startY = e.touches[0].clientY;
         startH = panelH[key];
-        e.stopPropagation();
-        e.preventDefault();
+        e.stopPropagation(); e.preventDefault();
       }, {passive:false});
 
       document.addEventListener('touchmove', function(e){
@@ -2381,11 +2388,7 @@
         }
         if(e.touches.length === 1){
           const now = Date.now();
-          if(now - lastTap < 300){
-            imgScale[key] = 1;
-            img.style.transform = 'scale(1)';
-            e.preventDefault();
-          }
+          if(now - lastTap < 300){ imgScale[key]=1; img.style.transform='scale(1)'; e.preventDefault(); }
           lastTap = now;
         }
       }, {passive:false});
@@ -2398,14 +2401,11 @@
         e.preventDefault();
       }, {passive:false});
 
-      wrap.addEventListener('touchend', function(e){
-        if(e.touches.length < 2) lastDist = null;
-      });
+      wrap.addEventListener('touchend', function(e){ if(e.touches.length < 2) lastDist = null; });
     }
 
     function getTouchDist(t){
-      const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
-      return Math.sqrt(dx*dx + dy*dy);
+      return Math.sqrt(Math.pow(t[0].clientX-t[1].clientX,2)+Math.pow(t[0].clientY-t[1].clientY,2));
     }
 
     setupHandleDrag('geo');
