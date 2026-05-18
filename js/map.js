@@ -71,8 +71,6 @@ async function initMap(){
   map.getPane('paneHill').style.zIndex = 445;
   map.createPane('paneGeo');    // 地質図・鉱物資源図（ベースの上・マーカーの下）
   map.getPane('paneGeo').style.zIndex = 450;
-  map.createPane('paneTrail');  // 登山道（地理院）
-  map.getPane('paneTrail').style.zIndex = 452;
   map.createPane('paneChisui'); // 治水地形分類図（地理院）
   map.getPane('paneChisui').style.zIndex = 454;
   map.createPane('paneBearHeat'); // 熊ヒートマップ（地質図の上・砂金の下）
@@ -294,33 +292,6 @@ function setGeo50kOp(v){
   _saveOp('gm_op_geo50k', v);
   geo50kLayers.forEach(l => l.setOpacity(v/100));
 }
-// 登山道（地理院）
-let trailL=null,trailState=0;
-function toggleTrail(){
-  trailState=(trailState+1)%3;
-  const btn=document.getElementById('btn-trail');
-  btn.classList.toggle('active', trailState>0);
-  document.getElementById('trail-row').classList.toggle('show', trailState===1);
-  if(trailState===1){
-    const op = _loadOp('gm_op_trail');
-    _applySlider('trail-op','trail-opv', op);
-    if(!trailL) trailL=L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png',
-      {attribution:'<a href="https://www.waymarkedtrails.org" target="_blank">Waymarked Trails</a> (ODbL)',
-       maxNativeZoom:16,maxZoom:18,opacity:op/100,pane:'paneTrail'});
-    else trailL.setOpacity(op/100);
-    trailL.addTo(map);
-  } else if(trailState===2){
-    // スライダーを閉じるだけ・レイヤーはそのまま
-  } else {
-    if(trailL){ map.removeLayer(trailL); }
-  }
-}
-function setTrailOp(v){
-  _applySlider('trail-op','trail-opv', v);
-  _saveOp('gm_op_trail', v);
-  if(trailL) trailL.setOpacity(v/100);
-}
-
 // 治水地形分類図（地理院）
 let chisuiL=null,chisuiState=0;
 function toggleChisui(){
