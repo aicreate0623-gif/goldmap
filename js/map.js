@@ -94,7 +94,7 @@ async function initMap(){
   map.getPane('shadowPane').style.zIndex  = 890;
   map.getPane('popupPane').style.zIndex   = 900;
 
-  const _nativeZooms={std:18,photo:18,topo:17,hill:16,relief:15};
+  const _nativeZooms={std:18,photo:18,topo:17,otopo:17,hill:16,relief:15};
   const mk=(key,extraOpts={})=>{
     const CLS=makeCachedLayer(key);
     return new CLS(SRCS[key].url,{
@@ -108,6 +108,7 @@ async function initMap(){
     std:    mk('std'),
     photo:  mk('photo'),
     topo:   mk('topo'),
+    otopo:  mk('otopo'),
     hill:   mk('hill',   {pane:'paneHill',   opacity:0.5}),
     relief: mk('relief', {pane:'paneRelief', opacity:0.5}),
   };
@@ -137,7 +138,7 @@ async function initMap(){
 
 function setBase(k){
   map.removeLayer(TILES[curBase]); TILES[k].addTo(map); curBase=k;
-  ['std','photo','topo'].forEach(b=>{
+  ['std','photo','topo','otopo'].forEach(b=>{
     const btn=document.getElementById('btn-'+b);
     btn.classList.remove('base-active','active');
     if(b===k) btn.classList.add('base-active','active');
