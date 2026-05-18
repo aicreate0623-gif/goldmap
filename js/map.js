@@ -1,5 +1,5 @@
 'use strict';
-const map=L.map('map',{center:[36.5,137.5],zoom:7,zoomControl:true});
+const map=L.map('map',{center:[36.5,137.5],zoom:7,zoomControl:true,zoomSnap:0.1,zoomDelta:1});
 map.zoomControl.setPosition('bottomright');
 // ── カスタムスケールバー ──────────────────────────────────────────
 // Leafletデフォルトのscaleコントロールは使わない
