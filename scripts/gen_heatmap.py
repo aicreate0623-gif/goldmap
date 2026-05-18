@@ -300,42 +300,76 @@ def load_mines_coords():
     return coords
 
 
+def load_existing_free():
+    """
+    既存の heatmap.json から free GeoJSON をそのまま読み込む。
+    gsj_mine_data_full.json が存在しない場合のフォールバック用。
+    """
+    if not OUTPUT_PATH.exists():
+        raise FileNotFoundError(f"既存の heatmap.json も見つかりません: {OUTPUT_PATH}")
+    with open(OUTPUT_PATH, encoding='utf-8') as f:
+        existing = json.load(f)
+    free_geojson = existing.get('free')
+    if not free_geojson:
+        raise ValueError("既存 heatmap.json に free データがありません")
+    print(f"  [フォールバック] 既存 heatmap.json の free を流用 "
+          f"({len(free_geojson.get('features', []))} features)")
+    return free_geojson
+
+
 def main():
     print("=== gen_heatmap.py start ===")
 
     # ── 静的ベースデータ: GSJ鉱床DB + MINESスポット
-    gsj_coords   = load_gsj_free_coords()
-    mines_coords = load_mines_coords()
-    base_coords  = gsj_coords + mines_coords
-    print(f"  GSJ絞込件数（Au/Ag・金属・50万75万）: {len(gsj_coords)}")
-    print(f"  MINESスポット件数: {len(mines_coords)}")
-    print(f"  静的ベース合計: {len(base_coords)}")
+    gsj_path = Path(__file__).parent.parent / 'data' / 'gsj_mine_data_full.json'
+    gsj_available = gsj_path.exists()
 
-    # ── free: 静的ベースデータのみ
-    points_free = aggregate_free(base_coords, GRID_SIZE_FREE)
-    print(f"  グリッド数 free({GRID_SIZE_FREE}°): {len(points_free)}")
+    if gsj_available:
+        gsj_coords   = load_gsj_free_coords()
+        mines_coords = load_mines_coords()
+        base_coords  = gsj_coords + mines_coords
+        print(f"  GSJ絞込件数（Au/Ag・金属・50万75万）: {len(gsj_coords)}")
+        print(f"  MINESスポット件数: {len(mines_coords)}")
+        print(f"  静的ベース合計: {len(base_coords)}")
+
+        # ── free: 静的ベースデータのみ
+        points_free  = aggregate_free(base_coords, GRID_SIZE_FREE)
+        free_geojson = build_geojson(points_free)
+        print(f"  グリッド数 free({GRID_SIZE_FREE}°): {len(points_free)}")
+    else:
+        print(f"  [警告] gsj_mine_data_full.json が存在しないため free は既存データを流用します")
+        free_geojson = load_existing_free()
+        # paid集計のベースとして既存freeのfeatureから座標を復元
+        base_coords = [
+            {'lat': f['geometry']['coordinates'][1],
+             'lng': f['geometry']['coordinates'][0],
+             'stars': 0, 'isGold': True}
+            for f in free_geojson.get('features', [])
+        ]
+        points_free = free_geojson.get('features', [])  # 件数表示用
 
     # ── paid: 静的ベース + Firestore投稿座標（firebase_adminが使える環境のみ）
     try:
         firestore_coords = fetch_coords_from_firestore()
         print(f"  Firestore取得件数: {len(firestore_coords)}")
-        points_paid = aggregate_paid(base_coords + firestore_coords, GRID_SIZE_PAID)
+        points_paid  = aggregate_paid(base_coords + firestore_coords, GRID_SIZE_PAID)
+        paid_geojson = build_geojson(points_paid, jitter=True)
         print(f"  グリッド数 paid({GRID_SIZE_PAID}°): {len(points_paid)}"
               f"  (近傍{NEIGHBOR_RADIUS}グリッド・隣接{MIN_NEIGHBOR_CELLS}セル以上・星平均{MIN_AVG_STARS}以上)")
     except Exception as e:
         print(f"  [警告] Firestore取得スキップ（{e}）→ paidはfreeと同内容で出力")
-        points_paid = points_free
+        paid_geojson = free_geojson
 
     output = {
         'generated_at':               datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'total_submissions':          sum(p['count'] for p in points_free),
+        'total_submissions':          len(points_free),
         'grid_size_free':             GRID_SIZE_FREE,
         'grid_size_paid':             GRID_SIZE_PAID,
         'cluster_neighbor_radius':    NEIGHBOR_RADIUS,
         'cluster_min_neighbor_cells': MIN_NEIGHBOR_CELLS,
         'cluster_min_avg_stars':      MIN_AVG_STARS,
-        'free': build_geojson(points_free),
-        'paid': build_geojson(points_paid, jitter=True),
+        'free': free_geojson,
+        'paid': paid_geojson,
     }
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
