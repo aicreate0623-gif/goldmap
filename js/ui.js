@@ -379,11 +379,11 @@ function _showHeatZoomBanner(show, tier, z){
       const premiumMax = TIER_CFG.premium.zoomMax; // 13
       if(z <= premiumMax){
         // Z10〜13: PRO版なら見れる
-        msg = '🔒 Z' + z + ' はPRO版で閲覧できます';
+        msg = '🔒 Z' + Math.floor(z) + ' はヒートマップPRO版で閲覧できます';
         btnHtml = '';
       } else {
         // Z14以上: PRO版でも範囲外
-        msg = '⚠ この拡大率はどのプランでも表示範囲外です';
+        msg = '⚠ この拡大率はどのプランのヒートマップでも表示範囲外です';
         btnHtml = '';
       }
     } else {
