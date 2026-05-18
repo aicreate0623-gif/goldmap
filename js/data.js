@@ -948,7 +948,7 @@ async function loadGsjMineData() {
   return GSJ_MINE_DATA;
 }
 
-let gsjLayer=null, gsjVisible=false;
+var gsjLayer=null, gsjVisible=false;
 
 // ── 鉱種スタイルから色・形を取得
 function getMineStyle(mat){

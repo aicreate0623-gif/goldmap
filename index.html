@@ -494,7 +494,7 @@
   <div class="legend-handle-bar"></div>
   <span class="legend-handle-label">地質図 凡例</span>
 </div>
-<div id="legend-geo-panel" class="legend-slide-panel" style="display:none">
+<div id="legend-geo-panel" class="legend-slide-panel" style="display:none;height:0px">
   <div class="legend-panel-grip"></div>
   <div class="legend-panel-body">
     <div class="legend-panel-img-wrap" id="legend-geo-imgwrap">
@@ -508,7 +508,7 @@
   <div class="legend-handle-bar"></div>
   <span class="legend-handle-label">鉱床図 凡例</span>
 </div>
-<div id="legend-deposit-panel" class="legend-slide-panel" style="display:none">
+<div id="legend-deposit-panel" class="legend-slide-panel" style="display:none;height:0px">
   <div class="legend-panel-grip"></div>
   <div class="legend-panel-body">
     <div class="legend-panel-img-wrap" id="legend-deposit-imgwrap">
@@ -2232,6 +2232,7 @@
   /* ===== 凡例スライドパネル制御 ===== */
   (function(){
     const SNAP_CLOSE_PX = 80;
+    const OPEN_DEFAULT  = Math.floor(window.innerHeight * 0.5);
 
     const handles = {
       geo:     document.getElementById('legend-geo-handle'),
@@ -2248,13 +2249,14 @@
     const panelH   = { geo: 0, deposit: 0 };
     const imgScale = { geo: 1, deposit: 1 };
 
+    /* ── パネル表示更新 ── */
     window.updateLegendHandles = function(){
-      const geoOn  = (typeof geoState !== 'undefined' && geoState > 0);
+      const geoOn  = (typeof geoState  !== 'undefined' && geoState  > 0);
       const depsOn = (typeof gsjVisible !== 'undefined' && gsjVisible);
       if(!geoOn)  closePanelImmediate('geo');
       if(!depsOn) closePanelImmediate('deposit');
-      handles.geo.style.display     = geoOn  ? 'flex' : 'none';
-      handles.deposit.style.display = depsOn ? 'flex' : 'none';
+      handles.geo.style.display     = geoOn  ? 'flex'  : 'none';
+      handles.deposit.style.display = depsOn ? 'flex'  : 'none';
       panels.geo.style.display      = geoOn  ? 'block' : 'none';
       panels.deposit.style.display  = depsOn ? 'block' : 'none';
       const both = geoOn && depsOn;
@@ -2272,80 +2274,117 @@
       panelH[key] = 0;
       panels[key].style.height = '0px';
     }
+    function openPanel(key){
+      panelH[key] = OPEN_DEFAULT;
+      panels[key].style.height = OPEN_DEFAULT + 'px';
+    }
 
+    /* ── handleドラッグ（draggingフラグで制御） ── */
     function setupHandleDrag(key){
       const handle = handles[key];
       const panel  = panels[key];
-      let startY, startH, moved = false;
+      let dragging = false, startY = 0, startH = 0, hasMoved = false;
 
-      function onStart(e){
-        const t = e.touches ? e.touches[0] : e;
-        startY = t.clientY; startH = panelH[key]; moved = false;
+      handle.addEventListener('touchstart', function(e){
+        dragging = true; hasMoved = false;
+        startY = e.touches[0].clientY;
+        startH = panelH[key];
         e.preventDefault();
-      }
-      function onMove(e){
-        const t = e.touches ? e.touches[0] : e;
-        const dy = startY - t.clientY;
-        if(Math.abs(dy) > 4) moved = true;
-        let h = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
-        panelH[key] = h;
-        panel.style.height = h + 'px';
+      }, {passive:false});
+
+      handle.addEventListener('mousedown', function(e){
+        dragging = true; hasMoved = false;
+        startY = e.clientY;
+        startH = panelH[key];
+      });
+
+      document.addEventListener('touchmove', function(e){
+        if(!dragging) return;
+        const dy = startY - e.touches[0].clientY;
+        if(Math.abs(dy) > 4) hasMoved = true;
+        panelH[key] = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
+        panel.style.height = panelH[key] + 'px';
         e.preventDefault();
-      }
-      function onEnd(){
+      }, {passive:false});
+
+      document.addEventListener('mousemove', function(e){
+        if(!dragging) return;
+        const dy = startY - e.clientY;
+        if(Math.abs(dy) > 4) hasMoved = true;
+        panelH[key] = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
+        panel.style.height = panelH[key] + 'px';
+      });
+
+      document.addEventListener('touchend', function(){
+        if(!dragging) return;
+        dragging = false;
         if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
-      }
-      handle.addEventListener('touchstart', onStart, {passive:false});
-      handle.addEventListener('mousedown',  onStart);
-      document.addEventListener('touchmove', onMove, {passive:false});
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('touchend',  onEnd);
-      document.addEventListener('mouseup',   onEnd);
+      });
 
+      document.addEventListener('mouseup', function(){
+        if(!dragging) return;
+        dragging = false;
+        if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
+      });
+
+      /* タップ（移動なし）でトグル */
       handle.addEventListener('click', function(){
-        if(!moved){
-          if(panelH[key] < SNAP_CLOSE_PX){
-            panelH[key] = Math.floor(window.innerHeight * 0.5);
-            panel.style.height = panelH[key] + 'px';
-          } else {
-            closePanelImmediate(key);
-          }
+        if(hasMoved) return;
+        if(panelH[key] < SNAP_CLOSE_PX){
+          openPanel(key);
+        } else {
+          closePanelImmediate(key);
         }
       });
     }
 
+    /* ── gripドラッグ（handle と完全分離） ── */
     function setupPanelGrip(key){
       const grip  = panels[key].querySelector('.legend-panel-grip');
       const panel = panels[key];
-      let startY, startH;
-      grip.addEventListener('touchstart', e=>{
-        startY = e.touches[0].clientY; startH = panelH[key]; e.stopPropagation(); e.preventDefault();
+      let gripDragging = false, startY = 0, startH = 0;
+
+      grip.addEventListener('touchstart', function(e){
+        gripDragging = true;
+        startY = e.touches[0].clientY;
+        startH = panelH[key];
+        e.stopPropagation();
+        e.preventDefault();
       }, {passive:false});
-      document.addEventListener('touchmove', e=>{
-        if(startH === undefined) return;
+
+      document.addEventListener('touchmove', function(e){
+        if(!gripDragging) return;
         const dy = startY - e.touches[0].clientY;
-        let h = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
-        panelH[key] = h; panel.style.height = h + 'px'; e.preventDefault();
+        panelH[key] = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
+        panel.style.height = panelH[key] + 'px';
+        e.preventDefault();
       }, {passive:false});
-      document.addEventListener('touchend', ()=>{
+
+      document.addEventListener('touchend', function(){
+        if(!gripDragging) return;
+        gripDragging = false;
         if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
-        startH = undefined;
       });
     }
 
+    /* ── ピンチズーム ── */
     function setupImgZoom(key){
       const wrap = imgWraps[key];
       const img  = wrap.querySelector('img');
-      let lastDist = null, lastTap = 0;
+      let lastDist = null, lastTap = 0, pinchStartScale = 1;
 
       wrap.addEventListener('touchstart', function(e){
         if(e.touches.length === 2){
-          lastDist = getTouchDist(e.touches); e.preventDefault();
+          lastDist = getTouchDist(e.touches);
+          pinchStartScale = imgScale[key];
+          e.preventDefault();
         }
         if(e.touches.length === 1){
           const now = Date.now();
           if(now - lastTap < 300){
-            imgScale[key] = 1; img.style.transform = 'scale(1)'; e.preventDefault();
+            imgScale[key] = 1;
+            img.style.transform = 'scale(1)';
+            e.preventDefault();
           }
           lastTap = now;
         }
@@ -2354,12 +2393,14 @@
       wrap.addEventListener('touchmove', function(e){
         if(e.touches.length !== 2 || lastDist === null) return;
         const dist = getTouchDist(e.touches);
-        imgScale[key] = Math.max(0.3, Math.min(5, imgScale[key] * (dist / lastDist)));
+        imgScale[key] = Math.max(0.3, Math.min(5, pinchStartScale * (dist / lastDist)));
         img.style.transform = 'scale(' + imgScale[key] + ')';
-        lastDist = dist; e.preventDefault();
+        e.preventDefault();
       }, {passive:false});
 
-      wrap.addEventListener('touchend', e=>{ if(e.touches.length < 2) lastDist = null; });
+      wrap.addEventListener('touchend', function(e){
+        if(e.touches.length < 2) lastDist = null;
+      });
     }
 
     function getTouchDist(t){
