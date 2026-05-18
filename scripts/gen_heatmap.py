@@ -315,17 +315,20 @@ def main():
     points_free = aggregate_free(base_coords, GRID_SIZE_FREE)
     print(f"  グリッド数 free({GRID_SIZE_FREE}°): {len(points_free)}")
 
-    # ── paid: 静的ベース + Firestore投稿座標
-    firestore_coords = fetch_coords_from_firestore()
-    print(f"  Firestore取得件数: {len(firestore_coords)}")
-    points_paid = aggregate_paid(base_coords + firestore_coords, GRID_SIZE_PAID)
-    print(f"  グリッド数 paid({GRID_SIZE_PAID}°): {len(points_paid)}"
-          f"  (近傍{NEIGHBOR_RADIUS}グリッド・隣接{MIN_NEIGHBOR_CELLS}セル以上・星平均{MIN_AVG_STARS}以上)")
+    # ── paid: 静的ベース + Firestore投稿座標（firebase_adminが使える環境のみ）
+    try:
+        firestore_coords = fetch_coords_from_firestore()
+        print(f"  Firestore取得件数: {len(firestore_coords)}")
+        points_paid = aggregate_paid(base_coords + firestore_coords, GRID_SIZE_PAID)
+        print(f"  グリッド数 paid({GRID_SIZE_PAID}°): {len(points_paid)}"
+              f"  (近傍{NEIGHBOR_RADIUS}グリッド・隣接{MIN_NEIGHBOR_CELLS}セル以上・星平均{MIN_AVG_STARS}以上)")
+    except Exception as e:
+        print(f"  [警告] Firestore取得スキップ（{e}）→ paidはfreeと同内容で出力")
+        points_paid = points_free
 
     output = {
         'generated_at':               datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'total_submissions':          sum(p['count'] for p in points_paid) if points_paid
-                                      else sum(p['count'] for p in points_free),
+        'total_submissions':          sum(p['count'] for p in points_free),
         'grid_size_free':             GRID_SIZE_FREE,
         'grid_size_paid':             GRID_SIZE_PAID,
         'cluster_neighbor_radius':    NEIGHBOR_RADIUS,
