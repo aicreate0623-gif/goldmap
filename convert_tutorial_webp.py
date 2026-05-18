@@ -3,45 +3,46 @@
 使い方:
   1. このファイルを goldmap フォルダに置く
   2. python convert_tutorial_webp.py
-  3. images/tutorial/ に 00.webp〜12.webp が生成される
+  3. images/tutorial/ の jpg/png が自動検出されて .webp に変換される
 """
 from PIL import Image
-import os
+import os, glob
 
-SRC_DIR  = os.path.join('images', 'tutorial')
-QUALITY  = 82   # 0-100（高いほど高品質・重い）
-MAX_W    = 800   # 最大横幅px（縦は自動）
+SRC_DIR = os.path.join('images', 'tutorial')
+QUALITY = 82   # 0-100（高いほど高品質・重い）
+MAX_W   = 800  # 最大横幅px（縦は自動）
 
-files = [
-    ('00', 'jpg'), ('01', 'jpg'), ('02', 'jpg'), ('03', 'jpg'),
-    ('04', 'jpg'), ('05', 'jpg'), ('06', 'jpg'), ('07', 'jpg'),
-    ('08', 'jpg'), ('09', 'jpg'), ('10', 'jpg'),
-    ('11', 'png'), ('12', 'png'),
-]
+# jpg / png を自動スキャン（番号順にソート）
+src_files = sorted(
+    glob.glob(os.path.join(SRC_DIR, '*.jpg')) +
+    glob.glob(os.path.join(SRC_DIR, '*.jpeg')) +
+    glob.glob(os.path.join(SRC_DIR, '*.png')),
+    key=lambda p: os.path.splitext(os.path.basename(p))[0]
+)
+
+if not src_files:
+    print(f'⚠ {SRC_DIR} に変換対象ファイルが見つかりません')
+    exit(1)
 
 total_before = 0
 total_after  = 0
 
-for num, ext in files:
-    src_name  = f'{num}.{ext}'
-    dest_name = f'{num}.webp'
-    src_path  = os.path.join(SRC_DIR, src_name)
+for src_path in src_files:
+    src_name  = os.path.basename(src_path)
+    stem      = os.path.splitext(src_name)[0]
+    dest_name = stem + '.webp'
     dest_path = os.path.join(SRC_DIR, dest_name)
-
-    if not os.path.exists(src_path):
-        print(f'  ⚠ スキップ: {src_name} が見つかりません')
-        continue
 
     before = os.path.getsize(src_path)
     total_before += before
 
     img = Image.open(src_path).convert('RGB')
 
-    # 横幅がMAX_Wを超えていればリサイズ
+    # 横幅が MAX_W を超えていればリサイズ
     if img.width > MAX_W:
-        ratio  = MAX_W / img.width
-        new_h  = int(img.height * ratio)
-        img    = img.resize((MAX_W, new_h), Image.LANCZOS)
+        ratio = MAX_W / img.width
+        new_h = int(img.height * ratio)
+        img   = img.resize((MAX_W, new_h), Image.LANCZOS)
 
     img.save(dest_path, 'WEBP', quality=QUALITY, method=6)
 
