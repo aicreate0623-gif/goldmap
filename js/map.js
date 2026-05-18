@@ -282,6 +282,33 @@ function setGeo50kOp(v){
   _saveOp('gm_op_geo50k', v);
   geo50kLayers.forEach(l => l.setOpacity(v/100));
 }
+// 登山道（地理院）
+let trailL=null,trailState=0;
+function toggleTrail(){
+  trailState=(trailState+1)%3;
+  const btn=document.getElementById('btn-trail');
+  btn.classList.toggle('active', trailState>0);
+  document.getElementById('trail-row').classList.toggle('show', trailState===1);
+  if(trailState===1){
+    const op = _loadOp('gm_op_trail');
+    _applySlider('trail-op','trail-opv', op);
+    if(!trailL) trailL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/trails/{z}/{x}/{y}.png',
+      {attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル（登山道）</a>',
+       maxNativeZoom:17,maxZoom:18,opacity:op/100,pane:'paneGeo'});
+    else trailL.setOpacity(op/100);
+    trailL.addTo(map);
+  } else if(trailState===2){
+    // スライダーを閉じるだけ・レイヤーはそのまま
+  } else {
+    if(trailL){ map.removeLayer(trailL); }
+  }
+}
+function setTrailOp(v){
+  _applySlider('trail-op','trail-opv', v);
+  _saveOp('gm_op_trail', v);
+  if(trailL) trailL.setOpacity(v/100);
+}
+
 // ━━━ 水位警戒情報（気象庁XML） ━━━
 // 洪水予報XML一覧フィード
 const JMA_FLOOD_INDEX = 'https://www.data.jma.go.jp/developer/xml/feed/extra.xml';
