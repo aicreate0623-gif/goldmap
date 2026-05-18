@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """
-gen_heatmap.py  Firestore 投稿座標 → data/heatmap.json 生成
+gen_heatmap.py  GSJ鉱床DB＋Firestore投稿座標 → data/heatmap.json 生成
 
 【出力構造】
   {
     "generated_at": "...",
     "total_submissions": N,
-    "free":  { GeoJSON FeatureCollection, GRID_SIZE_FREE (~10km) },
-    "paid":  { GeoJSON FeatureCollection, GRID_SIZE_PAID (~1km)  }
+    "free":  { GeoJSON FeatureCollection, GRID_SIZE_FREE (~10km) },  ← GSJ鉱床DBから生成（静的・一回のみ）
+    "paid":  { GeoJSON FeatureCollection, GRID_SIZE_PAID (~1km)  }   ← Firestore投稿座標から生成
   }
+
+【freeデータ生成条件（GSJ鉱床DB）】
+  gsj_mine_data_full.json を読み込み以下でフィルター:
+  - category_id=1（金属鉱物のみ）
+  - mineral に "Au" または "Ag" を含む
+  - map_scale が 50万・75万分の1のみ（200万・500万を除外）
+  - work_status は全て含む（稼行・休廃止・鉱徴すべて）
 
 【paidクラスタ条件】
   自セルに投稿があり、自セルから4グリッド以内（9×9範囲）に
@@ -227,26 +234,103 @@ def build_geojson(points, jitter=False):
     return {'type': 'FeatureCollection', 'features': features}
 
 
+def load_gsj_free_coords():
+    """
+    GSJ鉱床DB（gsj_mine_data_full.json）を読み込み、
+    freeヒートマップ用にフィルターした座標リストを返す。
+
+    フィルター条件（スクショ確定仕様）:
+      - category_id=1（金属鉱物のみ）
+      - mineral に "Au" または "Ag" を含む（Au_Ag系）
+      - map_scale が 50 または 75（200万・500万分の1を除外）
+      - work_status は全て含む（稼行・休廃止・鉱徴すべて）
+    """
+    gsj_path = Path(__file__).parent.parent / 'data' / 'gsj_mine_data_full.json'
+    if not gsj_path.exists():
+        # scripts/ と同階層の data/ を試みる
+        gsj_path = Path(__file__).parent / 'gsj_mine_data_full.json'
+    if not gsj_path.exists():
+        raise FileNotFoundError(f"gsj_mine_data_full.json が見つかりません: {gsj_path}")
+
+    with open(gsj_path, encoding='utf-8') as f:
+        features = json.load(f)
+
+    coords = []
+    for feat in features:
+        p = feat.get('properties', {})
+        # 金属鉱物のみ
+        if p.get('category_id') != 1:
+            continue
+        # Au/Ag系のみ
+        mineral = str(p.get('mineral', ''))
+        if 'Au' not in mineral and 'Ag' not in mineral:
+            continue
+        # 広域図幅除外（200万・500万分の1）
+        scale = p.get('map_scale')
+        if scale in (200, 500):
+            continue
+        # 座標取得
+        coords_geom = feat.get('geometry', {}).get('coordinates', [])
+        if len(coords_geom) < 2:
+            continue
+        lng, lat = coords_geom[0], coords_geom[1]
+        coords.append({'lat': lat, 'lng': lng, 'stars': 0, 'isGold': True})
+
+    return coords
+
+
+def load_mines_coords():
+    """
+    data.js の MINES 配列（スポットボタンで表示される砂金採取スポット）から
+    座標を抽出して返す。GSJ_MINE_DATA より前の部分のみ対象。
+    """
+    import re
+    data_js_path = Path(__file__).parent.parent / 'js' / 'data.js'
+    if not data_js_path.exists():
+        print(f"  [警告] data.js が見つかりません: {data_js_path} → MINESスキップ")
+        return []
+
+    with open(data_js_path, encoding='utf-8') as f:
+        content = f.read()
+
+    # GSJ_MINE_DATA より前の部分（= MINES 配列）だけ対象
+    mines_section = content.split('const GSJ_MINE_DATA')[0]
+    matches = re.findall(r'\{lat:([\d.]+),lng:([\d.]+),name:', mines_section)
+    coords = [{'lat': float(lat), 'lng': float(lng)} for lat, lng in matches]
+    return coords
+
+
 def main():
     print("=== gen_heatmap.py start ===")
-    coords = fetch_coords_from_firestore()
-    print(f"  取得件数: {len(coords)}")
 
-    points_free = aggregate_free(coords, GRID_SIZE_FREE)
-    points_paid = aggregate_paid(coords, GRID_SIZE_PAID)
+    # ── 静的ベースデータ: GSJ鉱床DB + MINESスポット
+    gsj_coords   = load_gsj_free_coords()
+    mines_coords = load_mines_coords()
+    base_coords  = gsj_coords + mines_coords
+    print(f"  GSJ絞込件数（Au/Ag・金属・50万75万）: {len(gsj_coords)}")
+    print(f"  MINESスポット件数: {len(mines_coords)}")
+    print(f"  静的ベース合計: {len(base_coords)}")
+
+    # ── free: 静的ベースデータのみ
+    points_free = aggregate_free(base_coords, GRID_SIZE_FREE)
     print(f"  グリッド数 free({GRID_SIZE_FREE}°): {len(points_free)}")
+
+    # ── paid: 静的ベース + Firestore投稿座標
+    firestore_coords = fetch_coords_from_firestore()
+    print(f"  Firestore取得件数: {len(firestore_coords)}")
+    points_paid = aggregate_paid(base_coords + firestore_coords, GRID_SIZE_PAID)
     print(f"  グリッド数 paid({GRID_SIZE_PAID}°): {len(points_paid)}"
           f"  (近傍{NEIGHBOR_RADIUS}グリッド・隣接{MIN_NEIGHBOR_CELLS}セル以上・星平均{MIN_AVG_STARS}以上)")
 
     output = {
-        'generated_at':              datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'total_submissions':         sum(p['count'] for p in points_paid) if points_paid
-                                     else sum(p['count'] for p in points_free),
-        'grid_size_free':            GRID_SIZE_FREE,
-        'grid_size_paid':            GRID_SIZE_PAID,
-        'cluster_neighbor_radius':   NEIGHBOR_RADIUS,
+        'generated_at':               datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'total_submissions':          sum(p['count'] for p in points_paid) if points_paid
+                                      else sum(p['count'] for p in points_free),
+        'grid_size_free':             GRID_SIZE_FREE,
+        'grid_size_paid':             GRID_SIZE_PAID,
+        'cluster_neighbor_radius':    NEIGHBOR_RADIUS,
         'cluster_min_neighbor_cells': MIN_NEIGHBOR_CELLS,
-        'cluster_min_avg_stars':     MIN_AVG_STARS,
+        'cluster_min_avg_stars':      MIN_AVG_STARS,
         'free': build_geojson(points_free),
         'paid': build_geojson(points_paid, jitter=True),
     }
