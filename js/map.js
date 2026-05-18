@@ -282,7 +282,7 @@ function setGeo50kOp(v){
   _saveOp('gm_op_geo50k', v);
   geo50kLayers.forEach(l => l.setOpacity(v/100));
 }
-// 登山道（地理院）
+// 治水地形分類図（地理院）
 let trailL=null,trailState=0;
 function toggleTrail(){
   trailState=(trailState+1)%3;
@@ -292,9 +292,9 @@ function toggleTrail(){
   if(trailState===1){
     const op = _loadOp('gm_op_trail');
     _applySlider('trail-op','trail-opv', op);
-    if(!trailL) trailL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/trails/{z}/{x}/{y}.png',
-      {attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル（登山道）</a>',
-       maxNativeZoom:17,maxZoom:18,opacity:op/100,pane:'paneGeo'});
+    if(!trailL) trailL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/chisui5/{z}/{x}/{y}.png',
+      {attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル（治水地形分類図）</a>',
+       maxNativeZoom:16,maxZoom:18,opacity:op/100,pane:'paneGeo'});
     else trailL.setOpacity(op/100);
     trailL.addTo(map);
   } else if(trailState===2){
