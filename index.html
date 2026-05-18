@@ -489,6 +489,34 @@
   </div>
 </div>
 
+<!-- ===== 地質図 凡例スライドパネル ===== -->
+<div id="legend-geo-handle" class="legend-handle" style="display:none">
+  <div class="legend-handle-bar"></div>
+  <span class="legend-handle-label">地質図 凡例</span>
+</div>
+<div id="legend-geo-panel" class="legend-slide-panel" style="display:none">
+  <div class="legend-panel-grip"></div>
+  <div class="legend-panel-body">
+    <div class="legend-panel-img-wrap" id="legend-geo-imgwrap">
+      <img id="legend-geo-img" src="images/legend/geology.png" alt="地質図凡例" draggable="false">
+    </div>
+  </div>
+</div>
+
+<!-- ===== 鉱床図 凡例スライドパネル ===== -->
+<div id="legend-deposit-handle" class="legend-handle" style="display:none">
+  <div class="legend-handle-bar"></div>
+  <span class="legend-handle-label">鉱床図 凡例</span>
+</div>
+<div id="legend-deposit-panel" class="legend-slide-panel" style="display:none">
+  <div class="legend-panel-grip"></div>
+  <div class="legend-panel-body">
+    <div class="legend-panel-img-wrap" id="legend-deposit-imgwrap">
+      <img id="legend-deposit-img" src="images/legend/deposit.png" alt="鉱床図凡例" draggable="false">
+    </div>
+  </div>
+</div>
+
 <div id="overlay">
 
   <!-- ご利用上の説明・ルール ダイアログ -->
@@ -2198,6 +2226,154 @@
         if(typeof checkResume === 'function') checkResume();
       }, 800);
     });
+  </script>
+
+  <script>
+  /* ===== 凡例スライドパネル制御 ===== */
+  (function(){
+    const SNAP_CLOSE_PX = 80;
+
+    const handles = {
+      geo:     document.getElementById('legend-geo-handle'),
+      deposit: document.getElementById('legend-deposit-handle'),
+    };
+    const panels = {
+      geo:     document.getElementById('legend-geo-panel'),
+      deposit: document.getElementById('legend-deposit-panel'),
+    };
+    const imgWraps = {
+      geo:     document.getElementById('legend-geo-imgwrap'),
+      deposit: document.getElementById('legend-deposit-imgwrap'),
+    };
+    const panelH   = { geo: 0, deposit: 0 };
+    const imgScale = { geo: 1, deposit: 1 };
+
+    window.updateLegendHandles = function(){
+      const geoOn  = (typeof geoState !== 'undefined' && geoState > 0);
+      const depsOn = (typeof gsjVisible !== 'undefined' && gsjVisible);
+      if(!geoOn)  closePanelImmediate('geo');
+      if(!depsOn) closePanelImmediate('deposit');
+      handles.geo.style.display     = geoOn  ? 'flex' : 'none';
+      handles.deposit.style.display = depsOn ? 'flex' : 'none';
+      panels.geo.style.display      = geoOn  ? 'block' : 'none';
+      panels.deposit.style.display  = depsOn ? 'block' : 'none';
+      const both = geoOn && depsOn;
+      setPos('geo',     both ? 'pos-left'  : 'pos-center');
+      setPos('deposit', both ? 'pos-right' : 'pos-center');
+    };
+
+    function setPos(key, cls){
+      const h = handles[key], p = panels[key];
+      ['pos-center','pos-left','pos-right'].forEach(c=>{ h.classList.remove(c); p.classList.remove(c); });
+      h.classList.add(cls);
+      p.classList.add(cls);
+    }
+    function closePanelImmediate(key){
+      panelH[key] = 0;
+      panels[key].style.height = '0px';
+    }
+
+    function setupHandleDrag(key){
+      const handle = handles[key];
+      const panel  = panels[key];
+      let startY, startH, moved = false;
+
+      function onStart(e){
+        const t = e.touches ? e.touches[0] : e;
+        startY = t.clientY; startH = panelH[key]; moved = false;
+        e.preventDefault();
+      }
+      function onMove(e){
+        const t = e.touches ? e.touches[0] : e;
+        const dy = startY - t.clientY;
+        if(Math.abs(dy) > 4) moved = true;
+        let h = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
+        panelH[key] = h;
+        panel.style.height = h + 'px';
+        e.preventDefault();
+      }
+      function onEnd(){
+        if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
+      }
+      handle.addEventListener('touchstart', onStart, {passive:false});
+      handle.addEventListener('mousedown',  onStart);
+      document.addEventListener('touchmove', onMove, {passive:false});
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('touchend',  onEnd);
+      document.addEventListener('mouseup',   onEnd);
+
+      handle.addEventListener('click', function(){
+        if(!moved){
+          if(panelH[key] < SNAP_CLOSE_PX){
+            panelH[key] = Math.floor(window.innerHeight * 0.5);
+            panel.style.height = panelH[key] + 'px';
+          } else {
+            closePanelImmediate(key);
+          }
+        }
+      });
+    }
+
+    function setupPanelGrip(key){
+      const grip  = panels[key].querySelector('.legend-panel-grip');
+      const panel = panels[key];
+      let startY, startH;
+      grip.addEventListener('touchstart', e=>{
+        startY = e.touches[0].clientY; startH = panelH[key]; e.stopPropagation(); e.preventDefault();
+      }, {passive:false});
+      document.addEventListener('touchmove', e=>{
+        if(startH === undefined) return;
+        const dy = startY - e.touches[0].clientY;
+        let h = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
+        panelH[key] = h; panel.style.height = h + 'px'; e.preventDefault();
+      }, {passive:false});
+      document.addEventListener('touchend', ()=>{
+        if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
+        startH = undefined;
+      });
+    }
+
+    function setupImgZoom(key){
+      const wrap = imgWraps[key];
+      const img  = wrap.querySelector('img');
+      let lastDist = null, lastTap = 0;
+
+      wrap.addEventListener('touchstart', function(e){
+        if(e.touches.length === 2){
+          lastDist = getTouchDist(e.touches); e.preventDefault();
+        }
+        if(e.touches.length === 1){
+          const now = Date.now();
+          if(now - lastTap < 300){
+            imgScale[key] = 1; img.style.transform = 'scale(1)'; e.preventDefault();
+          }
+          lastTap = now;
+        }
+      }, {passive:false});
+
+      wrap.addEventListener('touchmove', function(e){
+        if(e.touches.length !== 2 || lastDist === null) return;
+        const dist = getTouchDist(e.touches);
+        imgScale[key] = Math.max(0.3, Math.min(5, imgScale[key] * (dist / lastDist)));
+        img.style.transform = 'scale(' + imgScale[key] + ')';
+        lastDist = dist; e.preventDefault();
+      }, {passive:false});
+
+      wrap.addEventListener('touchend', e=>{ if(e.touches.length < 2) lastDist = null; });
+    }
+
+    function getTouchDist(t){
+      const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
+      return Math.sqrt(dx*dx + dy*dy);
+    }
+
+    setupHandleDrag('geo');
+    setupHandleDrag('deposit');
+    setupPanelGrip('geo');
+    setupPanelGrip('deposit');
+    setupImgZoom('geo');
+    setupImgZoom('deposit');
+  })();
   </script>
 </body>
 </html>

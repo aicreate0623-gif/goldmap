@@ -14244,6 +14244,7 @@ function toggleGsjLayer(){
   } else {
     if(gsjLayer) map.removeLayer(gsjLayer);
   }
+  if(typeof updateLegendHandles==='function') updateLegendHandles();
 }
 
 

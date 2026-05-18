@@ -4729,3 +4729,112 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   color: var(--txt-sub, #888);
   margin-left: 4px;
 }
+
+/* ===== 凡例スライドパネル ===== */
+.legend-handle {
+  position: fixed;
+  bottom: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px 4px;
+  background: var(--surface, #1e2533);
+  border-top: 2px solid var(--accent, #4fc3f7);
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  transition: left 0.25s, right 0.25s, width 0.25s;
+  min-width: 90px;
+}
+.legend-handle-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent, #4fc3f7);
+  opacity: 0.7;
+}
+.legend-handle-label {
+  font-size: 11px;
+  color: var(--txt-dim, #9ca3af);
+  white-space: nowrap;
+}
+
+/* 1つだけON → 中央 */
+.legend-handle.pos-center {
+  left: 50%;
+  transform: translateX(-50%);
+}
+/* 2つ同時ON → 左右 */
+.legend-handle.pos-left {
+  left: 0;
+  right: auto;
+  transform: none;
+  border-radius: 0 10px 0 0;
+}
+.legend-handle.pos-right {
+  right: 0;
+  left: auto;
+  transform: none;
+  border-radius: 10px 0 0 0;
+}
+
+.legend-slide-panel {
+  position: fixed;
+  bottom: 0;
+  z-index: 1190;
+  background: var(--surface, #1e2533);
+  border-top: 2px solid var(--accent, #4fc3f7);
+  border-radius: 14px 14px 0 0;
+  overflow: hidden;
+  touch-action: none;
+  transition: left 0.25s, right 0.25s, width 0.25s;
+}
+.legend-slide-panel.pos-center {
+  left: 0;
+  right: 0;
+  width: 100%;
+}
+.legend-slide-panel.pos-left {
+  left: 0;
+  right: 50%;
+  width: 50%;
+}
+.legend-slide-panel.pos-right {
+  left: 50%;
+  right: 0;
+  width: 50%;
+}
+.legend-panel-grip {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent, #4fc3f7);
+  opacity: 0.5;
+  margin: 10px auto 6px;
+  flex-shrink: 0;
+}
+.legend-panel-body {
+  overflow: auto;
+  height: calc(100% - 24px);
+  overscroll-behavior: contain;
+}
+.legend-panel-img-wrap {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100%;
+  overflow: hidden;
+  cursor: grab;
+}
+.legend-panel-img-wrap:active { cursor: grabbing; }
+.legend-panel-img-wrap img {
+  max-width: none;
+  width: auto;
+  height: auto;
+  transform-origin: center center;
+  display: block;
+  pointer-events: none;
+}

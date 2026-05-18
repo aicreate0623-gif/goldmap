@@ -243,6 +243,7 @@ function toggleGeo(){
   } else {
     if(geoL){ map.removeLayer(geoL); }
   }
+  if(typeof updateLegendHandles==='function') updateLegendHandles();
 }
 function setGeoOp(v){
   _applySlider('geo-op','geo-opv', v);
