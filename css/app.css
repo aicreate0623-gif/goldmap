@@ -4717,3 +4717,15 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   transition: opacity 0.15s;
 }
 #tutorial-start:active { opacity: 0.8; }
+/* ── 鉱床フィルター グループラベル・ヒント ── */
+.mf-group-label {
+  font-size: 10px;
+  color: var(--txt-sub, #888);
+  margin: 8px 0 3px;
+  letter-spacing: 0.03em;
+}
+.mf-hint {
+  font-size: 10px;
+  color: var(--txt-sub, #888);
+  margin-left: 4px;
+}

@@ -733,10 +733,17 @@
       </div>
       <div class="dl-section" id="mine-filter-section">
         <div class="sec-ttl">鉱床フィルター</div>
+        <div class="mf-group-label">── 鉱種 ──</div>
         <div class="ck-row"><input type="checkbox" id="mf-metal" checked onchange="applyMineFilter()"><label for="mf-metal">🔴 金属鉱物</label></div>
         <div class="ck-row"><input type="checkbox" id="mf-nonmetal" checked onchange="applyMineFilter()"><label for="mf-nonmetal">🟧 非金属鉱物</label></div>
         <div class="ck-row"><input type="checkbox" id="mf-fuel" checked onchange="applyMineFilter()"><label for="mf-fuel">✖ 燃料鉱物</label></div>
         <div class="ck-row"><input type="checkbox" id="mf-trace" checked onchange="applyMineFilter()"><label for="mf-trace">鉱徴を含む</label></div>
+        <div class="mf-group-label">── 操業状態 ──</div>
+        <div class="ck-row"><input type="checkbox" id="mf-active" checked onchange="applyMineFilter()"><label for="mf-active">🟢 稼行中を含む</label></div>
+        <div class="ck-row"><input type="checkbox" id="mf-closed" checked onchange="applyMineFilter()"><label for="mf-closed">⬛ 休廃止を含む</label></div>
+        <div class="mf-group-label">── 絞り込み ──</div>
+        <div class="ck-row"><input type="checkbox" id="mf-wide" checked onchange="applyMineFilter()"><label for="mf-wide">🗺 広域図幅を含む<span class="mf-hint">（200万・500万分の1）</span></label></div>
+        <div class="ck-row"><input type="checkbox" id="mf-gold" onchange="applyMineFilter()"><label for="mf-gold">🥇 金・銀のみ（Au_Ag）</label></div>
         <div class="btn-row" style="margin-top:8px;">
           <button class="btn sm" onclick="openMineLegend()">📋 凡例を見る</button>
         </div>
