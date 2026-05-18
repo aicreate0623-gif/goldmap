@@ -4838,3 +4838,9 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   display: block;
   pointer-events: none;
 }
+
+/* ── GSJ鉱床クラスターアイコン */
+.gsj-cluster-icon {
+  background: transparent !important;
+  border: none !important;
+}

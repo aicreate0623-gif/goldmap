@@ -948,7 +948,43 @@ async function loadGsjMineData() {
   return GSJ_MINE_DATA;
 }
 
-var gsjLayer=null, gsjVisible=false;
+// cat別 markerClusterGroup
+let gsjClusters = null; // { metal, nonmetal, fuel, trace }
+let gsjLayer = null;    // 互換用（toggleGsjLayerで参照される）
+let gsjVisible = false;
+
+const GSJ_CLUSTER_STYLE = {
+  metal:    { color: '#f0a820', textColor: '#3a2000' },
+  nonmetal: { color: '#50c878', textColor: '#003a10' },
+  fuel:     { color: '#a0a0a0', textColor: '#1a1a1a' },
+  trace:    { color: '#c090e0', textColor: '#2a003a' },
+};
+
+function _makeGsjClusterGroup(cat) {
+  const s = GSJ_CLUSTER_STYLE[cat] || { color: '#888', textColor: '#000' };
+  return L.markerClusterGroup({
+    maxClusterRadius: 60,
+    pane: 'paneGsj',
+    iconCreateFunction: function(cluster) {
+      const n = cluster.getChildCount();
+      return L.divIcon({
+        html: `<div style="background:${s.color};color:${s.textColor};width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid rgba(0,0,0,0.25);box-shadow:0 1px 4px rgba(0,0,0,0.3)">${n}</div>`,
+        className: 'gsj-cluster-icon',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+      });
+    },
+  });
+}
+
+function _initGsjClusters() {
+  gsjClusters = {
+    metal:    _makeGsjClusterGroup('metal'),
+    nonmetal: _makeGsjClusterGroup('nonmetal'),
+    fuel:     _makeGsjClusterGroup('fuel'),
+    trace:    _makeGsjClusterGroup('trace'),
+  };
+}
 
 // ── 鉱種スタイルから色・形を取得
 function getMineStyle(mat){
@@ -1034,7 +1070,13 @@ function makeMineMarker(d){
 }
 
 function buildGsjLayer(){
-  if(gsjLayer){ map.removeLayer(gsjLayer); gsjLayer=null; }
+  // 既存クラスターを地図から除去
+  if(gsjClusters){
+    Object.values(gsjClusters).forEach(g=>{ if(map.hasLayer(g)) map.removeLayer(g); });
+  }
+  _initGsjClusters();
+  gsjLayer = null; // 互換用リセット
+
   const fMetal   =document.getElementById('mf-metal').checked;
   const fNonmetal=document.getElementById('mf-nonmetal').checked;
   const fFuel    =document.getElementById('mf-fuel').checked;
@@ -1043,25 +1085,22 @@ function buildGsjLayer(){
   const fActive  =document.getElementById('mf-active').checked;
   const fClosed  =document.getElementById('mf-closed').checked;
   const fGold    =document.getElementById('mf-gold').checked;
-  gsjLayer=L.layerGroup({pane:'paneGsj'});
+
   if(!GSJ_MINE_DATA) return;
   GSJ_MINE_DATA.forEach(d=>{
     const st=getMineStyle(d.mat);
-    // 広域図幅フィルター（scale=200or500を除外）
     if(!fWide && (d.scale===200 || d.scale===500)) return;
-    // 操業状態フィルター
     if(!fActive  && d.status==='active')  return;
     if(!fClosed  && d.status==='closed')  return;
-    // 金・銀フィルター
     if(fGold && d.mat!=='Au_Ag') return;
-    // 鉱徴フィルター
     if(d.trace && !fTrace) return;
     if(!d.trace){
       if(st.cat==='metal'    && !fMetal)    return;
       if(st.cat==='nonmetal' && !fNonmetal) return;
       if(st.cat==='fuel'     && !fFuel)     return;
     }
-    makeMineMarker(d).addTo(gsjLayer);
+    const cat = d.trace ? 'trace' : (st.cat || 'metal');
+    makeMineMarker(d).addTo(gsjClusters[cat] || gsjClusters.metal);
   });
 }
 
@@ -1083,9 +1122,12 @@ async function loadMineData(fromButton=false){
   await loadGsjMineData();
   let data = [...GSJ_MINE_DATA];
 
-  // 古いレイヤー削除
-  if(gsjLayer){ map.removeLayer(gsjLayer); gsjLayer=null; }
-  gsjLayer = L.layerGroup({pane:'paneGsj'});
+  // 古いクラスターを削除
+  if(gsjClusters){
+    Object.values(gsjClusters).forEach(g=>{ if(map.hasLayer(g)) map.removeLayer(g); });
+  }
+  _initGsjClusters();
+  gsjLayer = null; // 互換用リセット
 
   // フィルター状態取得
   const fMetal    = document.getElementById('mf-metal').checked;
@@ -1116,7 +1158,8 @@ async function loadMineData(fromButton=false){
         if(st.cat==='nonmetal'  && !fNonmetal) { done++; continue; }
         if(st.cat==='fuel'      && !fFuel)     { done++; continue; }
       }
-      makeMineMarker(d).addTo(gsjLayer);
+      const cat = d.trace ? 'trace' : (st.cat || 'metal');
+      makeMineMarker(d).addTo(gsjClusters[cat] || gsjClusters.metal);
       done++;
     }
     const pct = Math.round(done/total*100);
@@ -1129,7 +1172,9 @@ async function loadMineData(fromButton=false){
     await processBatch();
   }
 
-  if(gsjVisible) gsjLayer.addTo(map);
+  if(gsjVisible){
+    Object.values(gsjClusters).forEach(g=>g.addTo(map));
+  }
 
   progWrap.style.display = 'none';
 }
@@ -1193,15 +1238,18 @@ function toggleGsjLayer(){
   const btn = document.getElementById('btn-gsj');
   btn.classList.toggle('active', gsjVisible);
   if(gsjVisible){
-    // レイヤーが既に構築済みなら即表示
-    if(gsjLayer){
-      gsjLayer.addTo(map);
-    } else {
-      // 未読込 → オフラインシートへ誘導
+    if(gsjClusters){
+      Object.values(gsjClusters).forEach(g=>g.addTo(map));
     }
   } else {
-    if(gsjLayer) map.removeLayer(gsjLayer);
+    if(gsjClusters){
+      Object.values(gsjClusters).forEach(g=>{ if(map.hasLayer(g)) map.removeLayer(g); });
+    }
   }
+  const dh = document.getElementById('legend-deposit-handle');
+  const dp = document.getElementById('legend-deposit-panel');
+  if(dh) dh.style.display = gsjVisible ? 'flex' : 'none';
+  if(dp){ dp.style.display = gsjVisible ? 'block' : 'none'; if(!gsjVisible) dp.style.height='0px'; }
   if(typeof updateLegendHandles==='function') updateLegendHandles();
 }
 
