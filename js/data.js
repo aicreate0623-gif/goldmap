@@ -14193,20 +14193,41 @@ function applyMineFilter(){
   if(gsjVisible) loadMineData();
 }
 
+// デフォルトフィルター状態（スクショ確定仕様）
+const MINE_FILTER_DEFAULT = {
+  metal:    true,
+  nonmetal: false,
+  fuel:     false,
+  trace:    true,
+  active:   true,
+  closed:   true,
+  wide:     false,
+  gold:     true,
+};
+
 function _restoreMineFilter(){
   try {
     const s = JSON.parse(localStorage.getItem('gm_mine_filter'));
     if(!s) return;
     const el = id => document.getElementById(id);
-    if(el('mf-metal'))    el('mf-metal').checked    = s.metal    !== false;
-    if(el('mf-nonmetal')) el('mf-nonmetal').checked = s.nonmetal !== false;
-    if(el('mf-fuel'))     el('mf-fuel').checked     = s.fuel     !== false;
-    if(el('mf-trace'))    el('mf-trace').checked    = s.trace    !== false;
-    if(el('mf-wide'))     el('mf-wide').checked     = s.wide     !== false;
-    if(el('mf-active'))   el('mf-active').checked   = s.active   !== false;
-    if(el('mf-closed'))   el('mf-closed').checked   = s.closed   !== false;
-    if(el('mf-gold'))     el('mf-gold').checked     = s.gold     === true;
+    if(el('mf-metal'))    el('mf-metal').checked    = s.metal    ?? MINE_FILTER_DEFAULT.metal;
+    if(el('mf-nonmetal')) el('mf-nonmetal').checked = s.nonmetal ?? MINE_FILTER_DEFAULT.nonmetal;
+    if(el('mf-fuel'))     el('mf-fuel').checked     = s.fuel     ?? MINE_FILTER_DEFAULT.fuel;
+    if(el('mf-trace'))    el('mf-trace').checked    = s.trace    ?? MINE_FILTER_DEFAULT.trace;
+    if(el('mf-wide'))     el('mf-wide').checked     = s.wide     ?? MINE_FILTER_DEFAULT.wide;
+    if(el('mf-active'))   el('mf-active').checked   = s.active   ?? MINE_FILTER_DEFAULT.active;
+    if(el('mf-closed'))   el('mf-closed').checked   = s.closed   ?? MINE_FILTER_DEFAULT.closed;
+    if(el('mf-gold'))     el('mf-gold').checked     = s.gold     ?? MINE_FILTER_DEFAULT.gold;
   } catch(e){}
+}
+
+function resetMineFilter(){
+  const el = id => document.getElementById(id);
+  Object.entries(MINE_FILTER_DEFAULT).forEach(([key, val]) => {
+    if(el('mf-'+key)) el('mf-'+key).checked = val;
+  });
+  localStorage.removeItem('gm_mine_filter');
+  if(gsjVisible) loadMineData();
 }
 
 function toggleGsjLayer(){
