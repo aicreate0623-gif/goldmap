@@ -926,12 +926,25 @@ const GSJ_WFS='https://gbank.gsj.jp/seamless/wfs';
 //  産総研 鉱床・鉱徴地データ（外部JSONファイル版）
 //  出典: 産総研地質調査総合センター シームレス地質図 鉱床・鉱徴地データ
 // ═══════════════════════════════════════════
-let GSJ_MINE_DATA = null; // fetch後に格納
+let GSJ_MINE_DATA = null; // メモリキャッシュ
 
 async function loadGsjMineData() {
+  // 1. メモリキャッシュがあれば即返す
   if (GSJ_MINE_DATA) return GSJ_MINE_DATA;
+
+  // 2. IndexedDBに保存済みなら読み込む
+  try {
+    const cached = await dbGetMine('gsj_mine_data');
+    if (cached) {
+      GSJ_MINE_DATA = cached;
+      return GSJ_MINE_DATA;
+    }
+  } catch(e) { /* DB未初期化などは無視してfetchへ */ }
+
+  // 3. fetchしてIndexedDBに保存
   const res = await fetch('data/gsj_mine_data_full.json');
   GSJ_MINE_DATA = await res.json();
+  try { await dbPutMine('gsj_mine_data', GSJ_MINE_DATA); } catch(e) {}
   return GSJ_MINE_DATA;
 }
 
