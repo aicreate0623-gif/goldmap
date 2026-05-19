@@ -1131,11 +1131,20 @@ async function loadMineData(fromButton=false){
   const MAT_KEYS = _getMineStyleKeys();
   MAT_KEYS.forEach(mat => {
     const st = getMineStyle(mat);
+    const _matLabel = {
+      Au_Ag:'金・銀', Cu_Mo:'銅・モリブデン', Sn_W:'錫・タングステン',
+      Pb_Zn:'鉛・亜鉛', Fe_Ti:'鉄・チタン', Mn:'マンガン',
+      Cr_Ni:'クロム・ニッケル', U:'ウラン', Sb:'アンチモン', As_Hg:'砒素・水銀',
+      S:'硫黄', SiO2:'けい石・長石', CaCO3:'石灰石・ドロマイト',
+      Bent:'ベントナイト・石膏', Talc:'滑石', Fl:'蛍石',
+      Clay1:'粘土・カオリン', Clay2:'陶石・ろう石',
+      Graph:'黒鉛', Oil:'石油', Gas:'天然ガス', Coal:'石炭・亜炭',
+    }[mat] || mat;
     clusterGroups[mat] = L.markerClusterGroup({
       maxClusterRadius: 60,
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
-      zoomToBoundsOnClick: true,
+      zoomToBoundsOnClick: false, // シングルタップはポップアップ、ダブルタップでズーム
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 28 : count < 100 ? 34 : 40;
@@ -1146,6 +1155,25 @@ async function loadMineData(fromButton=false){
           iconAnchor: [size/2, size/2],
         });
       },
+    });
+    // シングルタップ: 件数＋鉱種名ポップアップ
+    clusterGroups[mat].on('clusterclick', (e) => {
+      const count = e.layer.getChildCount();
+      e.layer.bindPopup(
+        `<div style="font-size:12px;text-align:center;padding:2px 4px;">
+          <span style="color:${st.color};font-weight:bold;">●</span>
+          <b>${_matLabel}</b><br>
+          <span style="color:#aaa;font-size:11px;">${count} 件</span><br>
+          <span style="color:#888;font-size:10px;">ダブルタップで展開</span>
+        </div>`,
+        { closeButton: false, offset: [0, -10] }
+      ).openPopup();
+      L.DomEvent.stopPropagation(e);
+    });
+    // ダブルタップ: ズームイン展開
+    clusterGroups[mat].on('clusterdblclick', (e) => {
+      map.closePopup();
+      e.layer.zoomToBounds({ padding: [20, 20] });
     });
   });
 
