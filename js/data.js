@@ -1188,11 +1188,9 @@ async function loadMineData(fromButton=false){
     await processBatch();
   }
 
-  // 1件以上あるclusterGroupだけgsjLayerに追加
+  // 全matのclusterGroupをgsjLayerに追加（markerClusterGroupはgetLayers()が使えないため無条件追加）
   MAT_KEYS.forEach(mat => {
-    if(clusterGroups[mat].getLayers().length > 0){
-      gsjLayer.addLayer(clusterGroups[mat]);
-    }
+    gsjLayer.addLayer(clusterGroups[mat]);
   });
 
   if(gsjVisible) gsjLayer.addTo(map);
