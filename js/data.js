@@ -1238,7 +1238,11 @@ function toggleGsjLayer(){
   const btn = document.getElementById('btn-gsj');
   btn.classList.toggle('active', gsjVisible);
   if(gsjVisible){
-    if(gsjClusters){
+    // クラスターが未構築 or 空なら loadMineData で構築してから表示
+    const isEmpty = !gsjClusters || Object.values(gsjClusters).every(g=>g.getLayers().length===0);
+    if(isEmpty){
+      loadMineData();
+    } else {
       Object.values(gsjClusters).forEach(g=>g.addTo(map));
     }
   } else {
