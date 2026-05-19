@@ -588,4 +588,5 @@ function _checkNearbyFloodAlert(userLat, userLng){
   );
 }
 // ── 初期化 ──────────────────────────────────
-initMap();
+// 全スクリプト読み込み完了後に実行（他ファイルの関数依存のため）
+window.addEventListener('load', initMap);
