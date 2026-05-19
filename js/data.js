@@ -1128,7 +1128,7 @@ async function loadMineData(fromButton=false){
 
   // matごとのmarkerClusterGroupを作成
   const clusterGroups = {};
-  const MAT_KEYS = Object.keys(getMineStyle.__matKeys || _getMineStyleKeys());
+  const MAT_KEYS = _getMineStyleKeys();
   MAT_KEYS.forEach(mat => {
     const st = getMineStyle(mat);
     clusterGroups[mat] = L.markerClusterGroup({
