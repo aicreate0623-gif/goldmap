@@ -1253,10 +1253,6 @@ function toggleGsjLayer(){
       Object.values(gsjClusters).forEach(g=>{ if(map.hasLayer(g)) map.removeLayer(g); });
     }
   }
-  const dh = document.getElementById('legend-deposit-handle');
-  const dp = document.getElementById('legend-deposit-panel');
-  if(dh) dh.style.display = gsjVisible ? 'flex' : 'none';
-  if(dp){ dp.style.display = gsjVisible ? 'block' : 'none'; if(!gsjVisible) dp.style.height='0px'; }
   if(typeof updateLegendHandles==='function') updateLegendHandles();
 }
 
