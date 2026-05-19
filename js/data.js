@@ -948,43 +948,9 @@ async function loadGsjMineData() {
   return GSJ_MINE_DATA;
 }
 
-// cat別 markerClusterGroup
-let gsjClusters = null; // { metal, nonmetal, fuel, trace }
-let gsjLayer = null;    // 互換用（toggleGsjLayerで参照される）
+
+let gsjLayer = null;
 let gsjVisible = false;
-
-const GSJ_CLUSTER_STYLE = {
-  metal:    { color: '#f0a820', textColor: '#3a2000' },
-  nonmetal: { color: '#50c878', textColor: '#003a10' },
-  fuel:     { color: '#a0a0a0', textColor: '#1a1a1a' },
-  trace:    { color: '#c090e0', textColor: '#2a003a' },
-};
-
-function _makeGsjClusterGroup(cat) {
-  const s = GSJ_CLUSTER_STYLE[cat] || { color: '#888', textColor: '#000' };
-  return L.markerClusterGroup({
-    maxClusterRadius: 60,
-    pane: 'paneGsj',
-    iconCreateFunction: function(cluster) {
-      const n = cluster.getChildCount();
-      return L.divIcon({
-        html: `<div style="background:${s.color};color:${s.textColor};width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid rgba(0,0,0,0.25);box-shadow:0 1px 4px rgba(0,0,0,0.3)">${n}</div>`,
-        className: 'gsj-cluster-icon',
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
-      });
-    },
-  });
-}
-
-function _initGsjClusters() {
-  gsjClusters = {
-    metal:    _makeGsjClusterGroup('metal'),
-    nonmetal: _makeGsjClusterGroup('nonmetal'),
-    fuel:     _makeGsjClusterGroup('fuel'),
-    trace:    _makeGsjClusterGroup('trace'),
-  };
-}
 
 // ── 鉱種スタイルから色・形を取得
 function getMineStyle(mat){
@@ -1072,11 +1038,8 @@ function makeMineMarker(d){
 
 function buildGsjLayer(){
   // 既存クラスターを地図から除去
-  if(gsjClusters){
-    Object.values(gsjClusters).forEach(g=>{ if(map.hasLayer(g)) map.removeLayer(g); });
-  }
-  _initGsjClusters();
-  gsjLayer = null; // 互換用リセット
+  if(gsjLayer){ map.removeLayer(gsjLayer); gsjLayer=null; }
+  gsjLayer=L.layerGroup({pane:'paneGsj'});
 
   const fMetal   =document.getElementById('mf-metal').checked;
   const fNonmetal=document.getElementById('mf-nonmetal').checked;
@@ -1100,9 +1063,8 @@ function buildGsjLayer(){
       if(st.cat==='nonmetal' && !fNonmetal) return;
       if(st.cat==='fuel'     && !fFuel)     return;
     }
-    const cat = d.trace ? 'trace' : (st.cat || 'metal');
     const marker = makeMineMarker(d);
-    if(marker) marker.addTo(gsjClusters[cat] || gsjClusters.metal);
+    if(marker) marker.addTo(gsjLayer);
   });
 }
 
@@ -1125,11 +1087,8 @@ async function loadMineData(fromButton=false){
   let data = [...GSJ_MINE_DATA];
 
   // 古いクラスターを削除
-  if(gsjClusters){
-    Object.values(gsjClusters).forEach(g=>{ if(map.hasLayer(g)) map.removeLayer(g); });
-  }
-  _initGsjClusters();
-  gsjLayer = null; // 互換用リセット
+  if(gsjLayer){ map.removeLayer(gsjLayer); gsjLayer=null; }
+  gsjLayer=L.layerGroup({pane:'paneGsj'});
 
   // フィルター状態取得
   const fMetal    = document.getElementById('mf-metal').checked;
@@ -1160,9 +1119,8 @@ async function loadMineData(fromButton=false){
         if(st.cat==='nonmetal'  && !fNonmetal) { done++; continue; }
         if(st.cat==='fuel'      && !fFuel)     { done++; continue; }
       }
-      const cat = d.trace ? 'trace' : (st.cat || 'metal');
       const marker = makeMineMarker(d);
-      if(marker) marker.addTo(gsjClusters[cat] || gsjClusters.metal);
+      if(marker) marker.addTo(gsjLayer);
       done++;
     }
     const pct = Math.round(done/total*100);
@@ -1175,9 +1133,7 @@ async function loadMineData(fromButton=false){
     await processBatch();
   }
 
-  if(gsjVisible){
-    Object.values(gsjClusters).forEach(g=>g.addTo(map));
-  }
+  if(gsjVisible) gsjLayer.addTo(map);
 
   progWrap.style.display = 'none';
 }
@@ -1241,17 +1197,13 @@ function toggleGsjLayer(){
   const btn = document.getElementById('btn-gsj');
   btn.classList.toggle('active', gsjVisible);
   if(gsjVisible){
-    // クラスターが未構築 or 空なら loadMineData で構築してから表示
-    const isEmpty = !gsjClusters || Object.values(gsjClusters).every(g=>g.getLayers().length===0);
-    if(isEmpty){
-      loadMineData();
+    if(gsjLayer){
+      gsjLayer.addTo(map);
     } else {
-      Object.values(gsjClusters).forEach(g=>g.addTo(map));
+      loadMineData();
     }
   } else {
-    if(gsjClusters){
-      Object.values(gsjClusters).forEach(g=>{ if(map.hasLayer(g)) map.removeLayer(g); });
-    }
+    if(gsjLayer) map.removeLayer(gsjLayer);
   }
   if(typeof updateLegendHandles==='function') updateLegendHandles();
 }
