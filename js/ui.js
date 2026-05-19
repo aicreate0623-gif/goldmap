@@ -244,9 +244,11 @@ function updGps(){
 }
 
 // ━━━ 座標表示（マウス/タッチ）
-map.on('mousemove',e=>{
-  if(!gpsOn) document.getElementById('sb-coord').textContent=e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5);
-});
+function _initMapEvents(){
+  map.on('mousemove',e=>{
+    if(!gpsOn) document.getElementById('sb-coord').textContent=e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5);
+  });
+}
 
 // ═══════════════════════════════════════════
 //  砂金分布ヒートマップ
@@ -357,18 +359,20 @@ function initHeatLayer(tier) {
 }
 
 // ── ズーム変化時: zoom制限チェック + layer再描画 ────
-map.on('zoomend', () => {
-  if(!heatTier) return;
-  const z    = map.getZoom();
-  const maxZ = TIER_CFG[heatTier].zoomMax;
-  if(z > maxZ){
-    if(heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
-    _showHeatZoomBanner(true, heatTier, z);
-  } else {
-    _showHeatZoomBanner(false);
-    initHeatLayer(heatTier);
-  }
-});
+function _initZoomEvent(){
+  map.on('zoomend', () => {
+    if(!heatTier) return;
+    const z    = map.getZoom();
+    const maxZ = TIER_CFG[heatTier].zoomMax;
+    if(z > maxZ){
+      if(heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
+      _showHeatZoomBanner(true, heatTier, z);
+    } else {
+      _showHeatZoomBanner(false);
+      initHeatLayer(heatTier);
+    }
+  });
+}
 
 // ── プレミアム誘導バナー ──────────────────────────────
 function _showHeatZoomBanner(show, tier, z){
@@ -1545,3 +1549,8 @@ function commShowPremium(){
   }
 
 })();
+// ── map依存イベントをload後に登録（map.jsより後に実行されるよう保証）
+window.addEventListener('load', () => {
+  _initMapEvents();
+  _initZoomEvent();
+});
