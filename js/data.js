@@ -1192,6 +1192,21 @@ function resetMineFilter(){
   if(gsjVisible) loadMineData();
 }
 
+async function reloadMineCache(){
+  const btn = document.getElementById('btn-mine-recache');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ 取得中…'; }
+  try {
+    await dbDelMine('gsj_mine_data');
+    GSJ_MINE_DATA = null;
+    await loadGsjMineData();
+    if(gsjVisible) loadMineData();
+  } catch(e) {
+    console.error('[mine] reloadMineCache failed', e);
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '🗑 キャッシュ破棄して再取得'; }
+  }
+}
+
 function toggleGsjLayer(){
   gsjVisible = !gsjVisible;
   const btn = document.getElementById('btn-gsj');
