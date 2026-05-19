@@ -68,6 +68,7 @@
       <input type="range" class="gold" id="geo-op" min="0" max="100" value="50" oninput="setGeoOp(this.value)">
       <button class="op-step-btn" onclick="stepOp('geo-op',setGeoOp,+5)">▶</button>
       <span id="geo-opv">50%</span>
+      <button class="legend-row-btn" id="btn-legend-geo" onclick="toggleLegendPanel('geo')" title="地質図凡例">凡例</button>
     </div>
   </div>
   <div class="fcl-geo-wrap">
@@ -80,6 +81,7 @@
       <input type="range" class="gold" id="geo50k-op" min="0" max="100" value="50" oninput="setGeo50kOp(this.value)">
       <button class="op-step-btn" onclick="stepOp('geo50k-op',setGeo50kOp,+5)">▶</button>
       <span id="geo50k-opv">50%</span>
+      <button class="legend-row-btn" id="btn-legend-deposit" onclick="toggleLegendPanel('deposit')" title="鉱床図凡例">凡例</button>
     </div>
   </div>
   <div class="fcl-geo-wrap">
@@ -489,13 +491,12 @@
   </div>
 </div>
 
-<!-- ===== 地質図 凡例スライドパネル ===== -->
-<div id="legend-geo-handle" class="legend-handle" style="display:none">
-  <div class="legend-handle-bar"></div>
-  <span class="legend-handle-label">地質図 凡例</span>
-</div>
-<div id="legend-geo-panel" class="legend-slide-panel" style="display:none;height:0px">
-  <div class="legend-panel-grip"></div>
+<!-- ===== 地質図 凡例パネル ===== -->
+<div id="legend-geo-panel" class="legend-slide-panel" style="display:none">
+  <div class="legend-panel-head">
+    <span class="legend-panel-title">🪨 地質図 凡例</span>
+    <button class="legend-panel-close" onclick="closeLegendPanel('geo')">✕</button>
+  </div>
   <div class="legend-panel-body">
     <div class="legend-panel-img-wrap" id="legend-geo-imgwrap">
       <img id="legend-geo-img" src="images/legend/geology.png" alt="地質図凡例" draggable="false">
@@ -503,13 +504,12 @@
   </div>
 </div>
 
-<!-- ===== 鉱床図 凡例スライドパネル ===== -->
-<div id="legend-deposit-handle" class="legend-handle" style="display:none">
-  <div class="legend-handle-bar"></div>
-  <span class="legend-handle-label">鉱床図 凡例</span>
-</div>
-<div id="legend-deposit-panel" class="legend-slide-panel" style="display:none;height:0px">
-  <div class="legend-panel-grip"></div>
+<!-- ===== 鉱床図 凡例パネル ===== -->
+<div id="legend-deposit-panel" class="legend-slide-panel" style="display:none">
+  <div class="legend-panel-head">
+    <span class="legend-panel-title">⛏️ 鉱床図 凡例</span>
+    <button class="legend-panel-close" onclick="closeLegendPanel('deposit')">✕</button>
+  </div>
   <div class="legend-panel-body">
     <div class="legend-panel-img-wrap" id="legend-deposit-imgwrap">
       <img id="legend-deposit-img" src="images/legend/deposit.png" alt="鉱床図凡例" draggable="false">
@@ -2229,15 +2229,8 @@
   </script>
 
   <script>
-  /* ===== 凡例スライドパネル制御 ===== */
+  /* ===== 凡例パネル制御 ===== */
   (function(){
-    const SNAP_CLOSE_PX = 80;
-    const OPEN_DEFAULT  = Math.floor(window.innerHeight * 0.5);
-
-    const handles = {
-      geo:     document.getElementById('legend-geo-handle'),
-      deposit: document.getElementById('legend-deposit-handle'),
-    };
     const panels = {
       geo:     document.getElementById('legend-geo-panel'),
       deposit: document.getElementById('legend-deposit-panel'),
@@ -2246,134 +2239,43 @@
       geo:     document.getElementById('legend-geo-imgwrap'),
       deposit: document.getElementById('legend-deposit-imgwrap'),
     };
-    const panelH   = { geo: 0, deposit: 0 };
     const imgScale = { geo: 1, deposit: 1 };
-
-    /* ── パネル表示更新 ── */
     const legendState = { geo: false, deposit: false };
+
+    /* ── 外部から呼ぶ表示制御 ── */
     window.updateLegendHandles = function(state){
       Object.assign(legendState, state);
-      const geoOn  = legendState.geo;
-      const depsOn = legendState.deposit;
-      if(!geoOn)  closePanelImmediate('geo');
-      if(!depsOn) closePanelImmediate('deposit');
-      handles.geo.style.display     = geoOn  ? 'flex'  : 'none';
-      handles.deposit.style.display = depsOn ? 'flex'  : 'none';
-      panels.geo.style.display      = geoOn  ? 'block' : 'none';
-      panels.deposit.style.display  = depsOn ? 'block' : 'none';
-      const both = geoOn && depsOn;
-      setPos('geo',     both ? 'pos-left'  : 'pos-center');
-      setPos('deposit', both ? 'pos-right' : 'pos-center');
+      const btnGeo     = document.getElementById('btn-legend-geo');
+      const btnDeposit = document.getElementById('btn-legend-deposit');
+      if(btnGeo)     btnGeo.style.display     = legendState.geo     ? 'inline-block' : 'none';
+      if(btnDeposit) btnDeposit.style.display = legendState.deposit ? 'inline-block' : 'none';
+      /* レイヤーOFF時は開いていたパネルも閉じる */
+      if(!legendState.geo)     _closePanel('geo');
+      if(!legendState.deposit) _closePanel('deposit');
     };
 
-    function setPos(key, cls){
-      const h = handles[key], p = panels[key];
-      ['pos-center','pos-left','pos-right'].forEach(c=>{ h.classList.remove(c); p.classList.remove(c); });
-      h.classList.add(cls); p.classList.add(cls);
+    /* ── パネル開閉（外部公開） ── */
+    window.toggleLegendPanel = function(key){
+      const isOpen = panels[key].style.display !== 'none';
+      /* 両方閉じてから対象を開く */
+      _closePanel('geo');
+      _closePanel('deposit');
+      if(!isOpen) _openPanel(key);
+    };
+    window.closeLegendPanel = function(key){ _closePanel(key); };
+
+    function _openPanel(key){
+      panels[key].style.display = 'flex';
+      const btn = document.getElementById('btn-legend-' + (key === 'geo' ? 'geo' : 'deposit'));
+      if(btn) btn.classList.add('active');
     }
-    function closePanelImmediate(key){
-      panelH[key] = 0;
-      panels[key].style.height = '0px';
-    }
-    function openPanel(key){
-      panelH[key] = OPEN_DEFAULT;
-      panels[key].style.height = OPEN_DEFAULT + 'px';
-    }
-
-    /* ── handleドラッグ ── */
-    function setupHandleDrag(key){
-      const handle = handles[key];
-      const panel  = panels[key];
-      let touchDragging = false;
-      let mouseDragging = false;
-      let startY = 0, startH = 0;
-      let touchMoved = false, mouseMoved = false;
-
-      /* ---- タッチ ---- */
-      handle.addEventListener('touchstart', function(e){
-        touchDragging = true; touchMoved = false;
-        startY = e.touches[0].clientY;
-        startH = panelH[key];
-        e.preventDefault();
-      }, {passive:false});
-
-      document.addEventListener('touchmove', function(e){
-        if(!touchDragging) return;
-        const dy = startY - e.touches[0].clientY;
-        if(Math.abs(dy) > 4) touchMoved = true;
-        panelH[key] = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
-        panel.style.height = panelH[key] + 'px';
-        e.preventDefault();
-      }, {passive:false});
-
-      document.addEventListener('touchend', function(){
-        if(!touchDragging) return;
-        touchDragging = false;
-        if(!touchMoved){
-          /* タップ → トグル */
-          if(panelH[key] < SNAP_CLOSE_PX) openPanel(key);
-          else closePanelImmediate(key);
-        } else {
-          if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
-        }
-      });
-
-      /* ---- マウス ---- */
-      handle.addEventListener('mousedown', function(e){
-        mouseDragging = true; mouseMoved = false;
-        startY = e.clientY;
-        startH = panelH[key];
-        e.preventDefault();
-      });
-
-      document.addEventListener('mousemove', function(e){
-        if(!mouseDragging) return;
-        const dy = startY - e.clientY;
-        if(Math.abs(dy) > 8) mouseMoved = true; /* PCは8px以上でドラッグ判定 */
-        if(!mouseMoved) return;
-        panelH[key] = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
-        panel.style.height = panelH[key] + 'px';
-      });
-
-      document.addEventListener('mouseup', function(){
-        if(!mouseDragging) return;
-        mouseDragging = false;
-        if(!mouseMoved){
-          /* クリック → トグル */
-          if(panelH[key] < SNAP_CLOSE_PX) openPanel(key);
-          else closePanelImmediate(key);
-        } else {
-          if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
-        }
-      });
-    }
-
-    /* ── gripドラッグ（handleと完全分離） ── */
-    function setupPanelGrip(key){
-      const grip  = panels[key].querySelector('.legend-panel-grip');
-      const panel = panels[key];
-      let gripDragging = false, startY = 0, startH = 0;
-
-      grip.addEventListener('touchstart', function(e){
-        gripDragging = true;
-        startY = e.touches[0].clientY;
-        startH = panelH[key];
-        e.stopPropagation(); e.preventDefault();
-      }, {passive:false});
-
-      document.addEventListener('touchmove', function(e){
-        if(!gripDragging) return;
-        const dy = startY - e.touches[0].clientY;
-        panelH[key] = Math.max(0, Math.min(window.innerHeight * 0.9, startH + dy));
-        panel.style.height = panelH[key] + 'px';
-        e.preventDefault();
-      }, {passive:false});
-
-      document.addEventListener('touchend', function(){
-        if(!gripDragging) return;
-        gripDragging = false;
-        if(panelH[key] < SNAP_CLOSE_PX) closePanelImmediate(key);
-      });
+    function _closePanel(key){
+      panels[key].style.display = 'none';
+      imgScale[key] = 1;
+      const img = imgWraps[key].querySelector('img');
+      if(img) img.style.transform = 'scale(1)';
+      const btn = document.getElementById('btn-legend-' + (key === 'geo' ? 'geo' : 'deposit'));
+      if(btn) btn.classList.remove('active');
     }
 
     /* ── ピンチズーム ── */
@@ -2410,10 +2312,6 @@
       return Math.sqrt(Math.pow(t[0].clientX-t[1].clientX,2)+Math.pow(t[0].clientY-t[1].clientY,2));
     }
 
-    setupHandleDrag('geo');
-    setupHandleDrag('deposit');
-    setupPanelGrip('geo');
-    setupPanelGrip('deposit');
     setupImgZoom('geo');
     setupImgZoom('deposit');
   })();
