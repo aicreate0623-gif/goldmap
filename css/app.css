@@ -13,7 +13,7 @@
   --border-gold: rgba(200,170,80,0.3);
   --red:       #ff5a47;
   --blue:      #4a8ee8;
-  --tab-h:     60px;
+  --tab-h:     50px;
   --sb-h:      30px;
   --txt:       #f4f0e8;
   --txt-sub:   rgba(244,240,232,0.52);
@@ -667,14 +667,14 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
 .tab-btn {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   flex: 1;
-  gap: 3px; cursor: pointer; border: none; background: transparent;
+  gap: 2px; cursor: pointer; border: none; background: transparent;
   color: var(--txt-dim); font-size: 9px; font-weight: 600;
   transition: color .18s cubic-bezier(.4,0,.2,1), opacity .18s cubic-bezier(.4,0,.2,1);
-  padding: 6px 0 4px; letter-spacing: .05em;
+  padding: 4px 0 3px; letter-spacing: .05em;
   user-select: none; -webkit-tap-highlight-color: transparent;
   position: relative;
 }
-.tab-btn .t-ico { font-size: 20px; line-height: 1; transition: transform .18s; }
+.tab-btn .t-ico { font-size: 17px; line-height: 1; transition: transform .18s; }
 .tab-btn.active { color: var(--gold-lt); }
 .tab-btn.active .t-ico {
   filter: drop-shadow(0 0 6px rgba(200,170,80,0.7));
@@ -4793,9 +4793,10 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
 .legend-panel-img-wrap {
   display: flex;
   align-items: flex-start;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 100%;
-  overflow: hidden;
+  min-width: 100%;
+  overflow: visible;
   cursor: grab;
 }
 .legend-panel-img-wrap:active { cursor: grabbing; }
@@ -4803,9 +4804,10 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   max-width: none;
   width: auto;
   height: auto;
-  transform-origin: center center;
+  transform-origin: top left;
   display: block;
   pointer-events: none;
+  flex-shrink: 0;
 }
 
 
