@@ -1086,41 +1086,13 @@ function makeMineMarker(d){
   if(!d.lat || !d.lng) return null;
   return L.marker([d.lat,d.lng],{
     icon:L.divIcon({html,className:'',iconSize:[sz+4,sz+4],iconAnchor:[(sz+4)/2,(sz+4)/2],popupAnchor:[0,-((sz+4)/2+8)]}),
-    pane:'paneGsj',
     zIndexOffset:d.trace?0:10
   }).bindPopup(popup, {maxWidth:260});
 }
 
 function buildGsjLayer(){
-  // 既存クラスターを地図から除去
-  if(gsjLayer){ map.removeLayer(gsjLayer); gsjLayer=null; }
-  gsjLayer=L.layerGroup({pane:'paneGsj'});
-
-  const fMetal   =document.getElementById('mf-metal').checked;
-  const fNonmetal=document.getElementById('mf-nonmetal').checked;
-  const fFuel    =document.getElementById('mf-fuel').checked;
-  const fTrace   =document.getElementById('mf-trace').checked;
-  const fWide    =document.getElementById('mf-wide').checked;
-  const fActive  =document.getElementById('mf-active').checked;
-  const fClosed  =document.getElementById('mf-closed').checked;
-  const fGold    =document.getElementById('mf-gold').checked;
-
-  if(!GSJ_MINE_DATA) return;
-  GSJ_MINE_DATA.forEach(d=>{
-    const st=getMineStyle(d.mat);
-    if(!fWide && (d.scale===200 || d.scale===500)) return;
-    if(!fActive  && d.status==='active')  return;
-    if(!fClosed  && d.status==='closed')  return;
-    if(fGold && d.mat!=='Au_Ag') return;
-    if(d.trace && !fTrace) return;
-    if(!d.trace){
-      if(st.cat==='metal'    && !fMetal)    return;
-      if(st.cat==='nonmetal' && !fNonmetal) return;
-      if(st.cat==='fuel'     && !fFuel)     return;
-    }
-    const marker = makeMineMarker(d);
-    if(marker) marker.addTo(gsjLayer);
-  });
+  // loadMineData()に統一（buildGsjLayerは互換のため残す）
+  loadMineData();
 }
 
 function initGsjLayer(){
@@ -1143,7 +1115,6 @@ async function loadMineData(fromButton=false){
 
   // 古いクラスターを削除
   if(gsjLayer){ map.removeLayer(gsjLayer); gsjLayer=null; }
-  gsjLayer=L.layerGroup({pane:'paneGsj'});
 
   // フィルター状態取得
   const fMetal    = document.getElementById('mf-metal').checked;
@@ -1154,6 +1125,32 @@ async function loadMineData(fromButton=false){
   const fActive   = document.getElementById('mf-active').checked;
   const fClosed   = document.getElementById('mf-closed').checked;
   const fGold     = document.getElementById('mf-gold').checked;
+
+  // matごとのmarkerClusterGroupを作成
+  const clusterGroups = {};
+  const MAT_KEYS = Object.keys(getMineStyle.__matKeys || _getMineStyleKeys());
+  MAT_KEYS.forEach(mat => {
+    const st = getMineStyle(mat);
+    clusterGroups[mat] = L.markerClusterGroup({
+      maxClusterRadius: 60,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      iconCreateFunction: (cluster) => {
+        const count = cluster.getChildCount();
+        const size = count < 10 ? 28 : count < 100 ? 34 : 40;
+        return L.divIcon({
+          html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${st.color};border:2px solid rgba(0,0,0,0.45);box-shadow:0 1px 5px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:${size<34?10:12}px;font-weight:bold;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.8);">${count}</div>`,
+          className: '',
+          iconSize: [size, size],
+          iconAnchor: [size/2, size/2],
+        });
+      },
+    });
+  });
+
+  // gsjLayerはclusterGroupsをまとめるlayerGroup
+  gsjLayer = L.layerGroup();
 
   const total = data.length;
   const BATCH = 50;
@@ -1175,7 +1172,10 @@ async function loadMineData(fromButton=false){
         if(st.cat==='fuel'      && !fFuel)     { done++; continue; }
       }
       const marker = makeMineMarker(d);
-      if(marker) marker.addTo(gsjLayer);
+      if(marker){
+        const grp = clusterGroups[d.mat] || clusterGroups['Au_Ag'];
+        grp.addLayer(marker);
+      }
       done++;
     }
     const pct = Math.round(done/total*100);
@@ -1188,9 +1188,22 @@ async function loadMineData(fromButton=false){
     await processBatch();
   }
 
+  // 1件以上あるclusterGroupだけgsjLayerに追加
+  MAT_KEYS.forEach(mat => {
+    if(clusterGroups[mat].getLayers().length > 0){
+      gsjLayer.addLayer(clusterGroups[mat]);
+    }
+  });
+
   if(gsjVisible) gsjLayer.addTo(map);
 
   progWrap.style.display = 'none';
+}
+
+// getMineStyleのキー一覧を返すヘルパー
+function _getMineStyleKeys(){
+  return ['Au_Ag','Cu_Mo','Sn_W','Pb_Zn','Fe_Ti','Mn','Cr_Ni','U','Sb','As_Hg',
+          'S','SiO2','CaCO3','Bent','Talc','Fl','Clay1','Clay2','Graph','Oil','Gas','Coal'];
 }
 
 function applyMineFilter(){
