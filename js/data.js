@@ -941,11 +941,66 @@ async function loadGsjMineData() {
     }
   } catch(e) { /* DB未初期化などは無視してfetchへ */ }
 
-  // 3. fetchしてIndexedDBに保存
+  // 3. fetchしてIndexedDBに保存（GeoJSON→内部形式に正規化して保存）
   const res = await fetch('data/gsj_mine_data_full.json');
-  GSJ_MINE_DATA = await res.json();
+  const raw = await res.json();
+  const arr = Array.isArray(raw) ? raw : (raw.features || []);
+  GSJ_MINE_DATA = arr.map(f => _normalizeMineFeature(f)).filter(d => d !== null);
   try { await dbPutMine('gsj_mine_data', GSJ_MINE_DATA); } catch(e) {}
   return GSJ_MINE_DATA;
+}
+
+// ── GeoJSON Feature → 内部フラット形式に正規化 ──────────────────
+function _normalizeMineFeature(f) {
+  try {
+    const p = f.properties || f; // フラット形式の後方互換
+    let lat, lng;
+    if (f.geometry && f.geometry.coordinates) {
+      lng = f.geometry.coordinates[0];
+      lat = f.geometry.coordinates[1];
+    } else {
+      lat = p.lat; lng = p.lng;
+    }
+    if (!lat || !lng) return null;
+    return {
+      lat, lng,
+      mat:      _mineralToMat(p.mineral || p.mat || ''),
+      status:   (p.work_status === 1) ? 'active' : 'closed',
+      trace:    (p.category_id === 2),
+      scale:    p.map_scale || p.scale || 0,
+      mapsheet: p.map_name   || p.mapsheet || '',
+      legend:   p.legend_name || p.legend  || '',
+      note:     p.mine_name  || p.note    || '',
+    };
+  } catch(e) { return null; }
+}
+
+// ── mineral文字列 → mat キー変換 ────────────────────────────
+function _mineralToMat(mineral) {
+  const m = (mineral || '').toUpperCase();
+  if (/\bAU\b/.test(m) || /\bAG\b/.test(m)) return 'Au_Ag';
+  if (/\bCU\b/.test(m)) return 'Cu_Mo';
+  if (/\bSN\b/.test(m) || /\bW\b/.test(m))  return 'Sn_W';
+  if (/\bPB\b/.test(m) || /\bZN\b/.test(m)) return 'Pb_Zn';
+  if (/\bFE\b/.test(m) || /\bTI\b/.test(m)) return 'Fe_Ti';
+  if (/\bMN\b/.test(m)) return 'Mn';
+  if (/\bCR\b/.test(m) || /\bNI\b/.test(m)) return 'Cr_Ni';
+  if (/\bU\b/.test(m))  return 'U';
+  if (/\bSB\b/.test(m)) return 'Sb';
+  if (/\bAS\b/.test(m) || /\bHG\b/.test(m)) return 'As_Hg';
+  if (/^S$/.test(m.trim()))                      return 'S';
+  if (/\bLS\b/.test(m) || /\bDO\b/.test(m) || /\bDL\b/.test(m)) return 'CaCO3';
+  if (/\bSI\b/.test(m) || /\bFD\b/.test(m) || /\bQS\b/.test(m)) return 'SiO2';
+  if (/\bGY\b/.test(m) || /\bBN\b/.test(m)) return 'Bent';
+  if (/\bTC\b/.test(m) || /\bTAL\b/.test(m)) return 'Talc';
+  if (/\bFL\b/.test(m)) return 'Fl';
+  if (/\bKA\b/.test(m) || /\bKL\b/.test(m) || /\bCL\b/.test(m)) return 'Clay1';
+  if (/\bPS\b/.test(m) || /\bPC\b/.test(m) || /\bPP\b/.test(m)) return 'Clay2';
+  if (/\bGR\b/.test(m) || /\bG\b/.test(m))  return 'Graph';
+  if (/\bOIL\b/.test(m)) return 'Oil';
+  if (/\bGAS\b/.test(m) || /\bCH4\b/.test(m)) return 'Gas';
+  if (/\bL\b/.test(m)  || /\bLG\b/.test(m)) return 'Coal';
+  return 'Au_Ag'; // フォールバック（getMineStyleのデフォルトに合わせる）
 }
 
 
