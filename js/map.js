@@ -287,6 +287,7 @@ function toggleGeo50k(){
   } else {
     geo50kLayers.forEach(l => map.removeLayer(l));
   }
+  if(typeof updateLegendHandles==='function') updateLegendHandles({ deposit: geo50kState > 0 });
 }
 function setGeo50kOp(v){
   _applySlider('geo50k-op','geo50k-opv', v);
