@@ -352,10 +352,12 @@ html, body {
   touch-action: pan-y;
   transform: translateY(-100%);
   visibility: hidden;
+  pointer-events: none;
   transition: none;
 }
 #fc-bar-right.show {
   visibility: visible;
+  pointer-events: auto;
 }
 #fc-bar-right.fc-snap {
   transition: transform 0.35s cubic-bezier(0.34, 1.3, 0.64, 1);
