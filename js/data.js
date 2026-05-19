@@ -1062,6 +1062,7 @@ function makeMineMarker(d){
         出典: 産総研地質調査総合センター・各種資料
       </div>
     </div>`;
+  if(!d.lat || !d.lng) return null;
   return L.marker([d.lat,d.lng],{
     icon:L.divIcon({html,className:'',iconSize:[sz+4,sz+4],iconAnchor:[(sz+4)/2,(sz+4)/2],popupAnchor:[0,-((sz+4)/2+8)]}),
     pane:'paneGsj',
@@ -1100,7 +1101,8 @@ function buildGsjLayer(){
       if(st.cat==='fuel'     && !fFuel)     return;
     }
     const cat = d.trace ? 'trace' : (st.cat || 'metal');
-    makeMineMarker(d).addTo(gsjClusters[cat] || gsjClusters.metal);
+    const marker = makeMineMarker(d);
+    if(marker) marker.addTo(gsjClusters[cat] || gsjClusters.metal);
   });
 }
 
@@ -1159,7 +1161,8 @@ async function loadMineData(fromButton=false){
         if(st.cat==='fuel'      && !fFuel)     { done++; continue; }
       }
       const cat = d.trace ? 'trace' : (st.cat || 'metal');
-      makeMineMarker(d).addTo(gsjClusters[cat] || gsjClusters.metal);
+      const marker = makeMineMarker(d);
+      if(marker) marker.addTo(gsjClusters[cat] || gsjClusters.metal);
       done++;
     }
     const pct = Math.round(done/total*100);
