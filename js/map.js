@@ -243,7 +243,7 @@ function toggleGeo(){
   } else {
     if(geoL){ map.removeLayer(geoL); }
   }
-  if(typeof updateLegendHandles==='function') updateLegendHandles();
+  if(typeof updateLegendHandles==='function') updateLegendHandles({ geo: geoState > 0 });
 }
 function setGeoOp(v){
   _applySlider('geo-op','geo-opv', v);

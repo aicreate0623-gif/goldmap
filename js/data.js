@@ -1205,7 +1205,7 @@ function toggleGsjLayer(){
   } else {
     if(gsjLayer) map.removeLayer(gsjLayer);
   }
-  if(typeof updateLegendHandles==='function') updateLegendHandles();
+  if(typeof updateLegendHandles==='function') updateLegendHandles({ deposit: gsjVisible });
 }
 
 

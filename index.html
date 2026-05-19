@@ -2250,9 +2250,11 @@
     const imgScale = { geo: 1, deposit: 1 };
 
     /* ── パネル表示更新 ── */
-    window.updateLegendHandles = function(){
-      const geoOn  = (typeof geoState  !== 'undefined' && geoState  > 0);
-      const depsOn = (typeof gsjVisible !== 'undefined' && gsjVisible);
+    const legendState = { geo: false, deposit: false };
+    window.updateLegendHandles = function(state){
+      Object.assign(legendState, state);
+      const geoOn  = legendState.geo;
+      const depsOn = legendState.deposit;
       if(!geoOn)  closePanelImmediate('geo');
       if(!depsOn) closePanelImmediate('deposit');
       handles.geo.style.display     = geoOn  ? 'flex'  : 'none';
