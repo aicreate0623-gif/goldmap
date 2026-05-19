@@ -235,9 +235,15 @@ function toggleGeo(){
   if(geoState===1){
     const op = _loadOp('gm_op_geo');
     _applySlider('geo-op','geo-opv', op);
-    if(!geoL) geoL=L.tileLayer('https://gbank.gsj.jp/seamless/v2/api/1.2/tiles/{z}/{y}/{x}.png',
-      {attribution:'産総研シームレス地質図',maxNativeZoom:13,maxZoom:18,opacity:op/100,pane:'paneGeo'});
-    else geoL.setOpacity(op/100);
+    if(!geoL){
+      // 地質図はy/x逆順URL → makeCachedLayerを使いつつURLのみオーバーライド
+      const GeoLayer = makeCachedLayer('geo');
+      geoL = new GeoLayer(SRCS['geo'].url, {
+        attribution:'産総研シームレス地質図',
+        maxNativeZoom:13, maxZoom:18,
+        opacity:op/100, pane:'paneGeo'
+      });
+    } else { geoL.setOpacity(op/100); }
     geoL.addTo(map);
   } else if(geoState===2){
     // スライダーを閉じるだけ・レイヤーはそのまま
@@ -253,15 +259,7 @@ function setGeoOp(v){
 }
 
 // 鉱物資源図 1:50万（産総研 MR_500K01〜07 全国7枚）
-const _GEO50K_URLS = [
-  'https://tiles.gsj.jp/tiles/geomap/MR_500K01/{z}/{x}/{y}.webp',
-  'https://tiles.gsj.jp/tiles/geomap/MR_500K02/{z}/{x}/{y}.webp',
-  'https://tiles.gsj.jp/tiles/geomap/MR_500K03/{z}/{x}/{y}.webp',
-  'https://tiles.gsj.jp/tiles/geomap/MR_500K04/{z}/{x}/{y}.webp',
-  'https://tiles.gsj.jp/tiles/geomap/MR_500K05/{z}/{x}/{y}.webp',
-  'https://tiles.gsj.jp/tiles/geomap/MR_500K06/{z}/{x}/{y}.webp',
-  'https://tiles.gsj.jp/tiles/geomap/MR_500K07/{z}/{x}/{y}.webp',
-];
+// geo50k_1〜geo50k_7 としてSRCS登録済み・makeCachedLayer経由で自動蓄積
 let geo50kLayers=[], geo50kState=0;
 function toggleGeo50k(){
   geo50kState=(geo50kState+1)%3;
@@ -272,13 +270,15 @@ function toggleGeo50k(){
     const op = _loadOp('gm_op_geo50k');
     _applySlider('geo50k-op','geo50k-opv', op);
     if(!geo50kLayers.length){
-      geo50kLayers = _GEO50K_URLS.map(url =>
-        L.tileLayer(url, {
+      geo50kLayers = [1,2,3,4,5,6,7].map(i => {
+        const sk = 'geo50k_' + i;
+        const CLS = makeCachedLayer(sk);
+        return new CLS(SRCS[sk].url, {
           attribution:'産総研 鉱物資源図 1:50万',
-          maxNativeZoom:15, maxZoom:18,
+          maxNativeZoom:12, maxZoom:18,
           opacity: op/100, pane:'paneGeo'
-        })
-      );
+        });
+      });
     } else {
       geo50kLayers.forEach(l => l.setOpacity(op/100));
     }
@@ -295,7 +295,7 @@ function setGeo50kOp(v){
   _saveOp('gm_op_geo50k', v);
   geo50kLayers.forEach(l => l.setOpacity(v/100));
 }
-// 治水地形分類図（地理院）
+// 治水地形分類図（地理院）makeCachedLayer経由で自動蓄積
 let chisuiL=null,chisuiState=0;
 function toggleChisui(){
   chisuiState=(chisuiState+1)%3;
@@ -305,10 +305,14 @@ function toggleChisui(){
   if(chisuiState===1){
     const op = _loadOp('gm_op_chisui');
     _applySlider('chisui-op','chisui-opv', op);
-    if(!chisuiL) chisuiL=L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png',
-      {attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル（治水地形分類図）</a>',
-       maxNativeZoom:16,maxZoom:18,opacity:op/100,pane:'paneChisui'});
-    else chisuiL.setOpacity(op/100);
+    if(!chisuiL){
+      const ChisuiLayer = makeCachedLayer('chisui');
+      chisuiL = new ChisuiLayer(SRCS['chisui'].url, {
+        attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル（治水地形分類図）</a>',
+        maxNativeZoom:16, maxZoom:18,
+        opacity:op/100, pane:'paneChisui'
+      });
+    } else { chisuiL.setOpacity(op/100); }
     chisuiL.addTo(map);
   } else if(chisuiState===2){
     // スライダーを閉じるだけ・レイヤーはそのまま

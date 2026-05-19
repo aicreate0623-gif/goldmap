@@ -75,15 +75,37 @@ function dbGetAllSess(){
 //  タイルソース
 // ═══════════════════════════════════════════
 const SRCS={
-  std:   {url:'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',              ext:'png', attr:'地理院タイル',   maxNative:18},
-  photo: {url:'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',    ext:'jpg', attr:'地理院写真',     maxNative:18},
-  topo:  {url:'https://tile.opentopomap.org/{z}/{x}/{y}.png',                          ext:'png', attr:'OpenTopoMap',   maxNative:17},
-  pale:  {url:'https://maps.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png',                      ext:'png', attr:'地理院白地図',   maxNative:14},
-  hill:  {url:'https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png',     ext:'png', attr:'地理院陰影',     maxNative:16},
-  relief:{url:'https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png',           ext:'png', attr:'地理院色別標高', maxNative:15},
+  std:        {url:'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',                        ext:'png',  attr:'地理院タイル',           maxNative:18},
+  photo:      {url:'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',              ext:'jpg',  attr:'地理院写真',             maxNative:18},
+  topo:       {url:'https://tile.opentopomap.org/{z}/{x}/{y}.png',                                    ext:'png',  attr:'OpenTopoMap',           maxNative:17},
+  pale:       {url:'https://maps.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png',                               ext:'png',  attr:'地理院白地図',           maxNative:14, autoCache:true},
+  hill:       {url:'https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png',               ext:'png',  attr:'地理院陰影',             maxNative:16},
+  relief:     {url:'https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png',                     ext:'png',  attr:'地理院色別標高',         maxNative:15},
+  // ── 自動蓄積専用レイヤー（DL機能なし・閲覧時にステルスキャッシュ）──
+  geo:        {url:'https://gbank.gsj.jp/seamless/v2/api/1.2/tiles/{z}/{y}/{x}.png',                 ext:'png',  attr:'産総研シームレス地質図', maxNative:13, autoCache:true},
+  chisui:     {url:'https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png',                    ext:'png',  attr:'地理院治水地形分類図',   maxNative:16, autoCache:true},
+  geo50k_1:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K01/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
+  geo50k_2:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K02/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
+  geo50k_3:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K03/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
+  geo50k_4:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K04/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
+  geo50k_5:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K05/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
+  geo50k_6:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K06/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
+  geo50k_7:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K07/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
 };
-function tileURL(key,z,x,y){ return SRCS[key].url.replace('{z}',z).replace('{x}',x).replace('{y}',y); }
+function tileURL(key,z,x,y){
+  return SRCS[key].url.replace('{z}',z).replace('{x}',x).replace('{y}',y);
+}
 function tileKey(key,z,x,y){ return key+'/'+z+'/'+x+'/'+y; }
+
+// ── 自動蓄積：80%未満のときのみ書き込み ──────────────────────────────
+async function _autoCachePut(key, buf){
+  try {
+    const cacheMax = getCacheMax();
+    const total    = await calcTotalCacheSize();
+    if(total / cacheMax >= CACHE_MAX_WARN_RATIO) return; // 80%超えはスキップ
+    await dbPut(key, buf);
+  } catch(e){}
+}
 
 // ═══════════════════════════════════════════
 //  カスタムキャッシュレイヤー（既存・変更なし）
@@ -163,7 +185,8 @@ function makeCachedLayer(srcKey){
       if(!db){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); return img; }
 
       // ── オンライン優先：ネット取得を試み失敗したらキャッシュにフォールバック ──
-      const type=this._sk==='photo'?'image/jpeg':'image/png';
+      const ext = (SRCS[this._sk] && SRCS[this._sk].ext) || 'png';
+      const type = ext==='jpg' ? 'image/jpeg' : ext==='webp' ? 'image/webp' : 'image/png';
       const isOnline = navigator.onLine;
       const tileTimeout = isOnline ? 8000 : 3000;
       const ctrl=new AbortController();
@@ -173,6 +196,10 @@ function makeCachedLayer(srcKey){
         .then(buf=>{
           img.src=URL.createObjectURL(new Blob([buf],{type}));
           img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+          // ── 自動蓄積：autoCache指定レイヤーはDBにステルス保存 ──
+          if(SRCS[this._sk] && SRCS[this._sk].autoCache){
+            _autoCachePut(key, buf);
+          }
         })
         .catch(async ()=>{
           // ネット失敗 → キャッシュ確認
