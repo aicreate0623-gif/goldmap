@@ -65,6 +65,77 @@ const GoldEvaluator = (() => {
   }
 
   /**
+   * 傾斜ベクトルから「下流方向」を推定し、
+   * 指定座標が合流点より川下側かどうかを判定する
+   * surroundElevs: 8点配列（順序は _fetchSurroundElev と同じ）
+   * confluencePt: { lat, lon } 合流点座標
+   * 戻り値: 1=川下側, -1=川上側, 0=不明
+   */
+  function _isDownstreamOfConfluence(lat, lng, surroundElevs, confluencePt) {
+    // 8点の順序: N, NE, E, SE, S, SW, W, NW
+    const d = 0.003;
+    const offsets = [
+      [+d,  0], [+d, +d], [ 0, +d], [-d, +d],
+      [-d,  0], [-d, -d], [ 0, -d], [+d, -d],
+    ];
+    // 有効な標高点から最低標高方向（=下流方向）を特定
+    let minElev = Infinity, minIdx = -1;
+    for (let i = 0; i < surroundElevs.length; i++) {
+      if (surroundElevs[i] !== null && surroundElevs[i] < minElev) {
+        minElev = surroundElevs[i];
+        minIdx  = i;
+      }
+    }
+    if (minIdx < 0) return 0;
+
+    // 下流方向ベクトル
+    const flowVec = { dlat: offsets[minIdx][0], dlng: offsets[minIdx][1] };
+
+    // 合流点→現在地ベクトル
+    const toPoint = { dlat: lat - confluencePt.lat, dlng: lng - confluencePt.lon };
+
+    // 内積が正 → 現在地は下流方向にある
+    const dot = flowVec.dlat * toPoint.dlat + flowVec.dlng * toPoint.dlng;
+    return dot > 0 ? 1 : dot < 0 ? -1 : 0;
+  }
+
+  /**
+   * 最近傍wayのカーブに対して、指定座標が内側か外側かを判定
+   * 内側 = 川が曲がる方向の内側（砂金が堆積しやすい）
+   * 戻り値: 1=内側, -1=外側, 0=直線/不明
+   */
+  function _isInsideOfCurve(lat, lng, geometry) {
+    if (!geometry || geometry.length < 3) return 0;
+
+    // 最近傍ノードを探す
+    let minD = Infinity, nearIdx = 1;
+    for (let i = 1; i < geometry.length - 1; i++) {
+      const d = haversine(lat, lng, geometry[i].lat, geometry[i].lon);
+      if (d < minD) { minD = d; nearIdx = i; }
+    }
+
+    const p0 = geometry[nearIdx - 1];
+    const p1 = geometry[nearIdx];
+    const p2 = geometry[nearIdx + 1] ?? geometry[nearIdx];
+
+    // p1における方向ベクトル
+    const v1 = { dlat: p1.lat - p0.lat, dlng: p1.lon - p0.lon };
+    const v2 = { dlat: p2.lat - p1.lat, dlng: p2.lon - p1.lon };
+
+    // 外積のZ成分（2D）: 正=左カーブ、負=右カーブ
+    const cross = v1.dlng * v2.dlat - v1.dlat * v2.dlng;
+    if (Math.abs(cross) < 1e-12) return 0; // ほぼ直線
+
+    // p1→現在地ベクトルとv1の外積で内外を判定
+    const toPoint = { dlat: lat - p1.lat, dlng: lng - p1.lon };
+    const side    = v1.dlng * toPoint.dlat - v1.dlat * toPoint.dlng;
+
+    // 左カーブ(cross>0)の内側=右側(side<0)、右カーブ(cross<0)の内側=左側(side>0)
+    if (cross > 0) return side < 0 ? 1 : -1;
+    else           return side > 0 ? 1 : -1;
+  }
+
+  /**
    * wayのノード列から曲率スコアを計算
    * 前後ノード間の角度差の最大値を返す（度）
    */
@@ -269,11 +340,13 @@ out geom;
         if (!isFinite(minD)) return { score: 1.5, reason: '河川データ不完全' };
 
         ctx.cache.nearestStreamM = minD;
-        const score = minD <= 50  ? 5.0
-                    : minD <= 150 ? 4.0
-                    : minD <= 300 ? 3.0
-                    : minD <= 600 ? 2.0 : 1.0;
-        return { score, reason: `最寄り河川まで約${Math.round(minD)}m` };
+        // 50m以内を細分化した厳しめ判定
+        const score = minD <= 20  ? 5.0   // 至近（最高）
+                    : minD <= 50  ? 4.0   // 50m以内
+                    : minD <= 100 ? 3.0   // 100m以内
+                    : minD <= 200 ? 2.0   // 200m以内
+                    : 1.0;               // 200m超（低評価）
+        return { score, reason: `最寄り河川・沢まで約${Math.round(minD)}m` };
       },
     },
 
@@ -312,28 +385,46 @@ out geom;
     {
       id: 'confluence', name: '河川合流点', weight: 1.5,
       evaluate(ctx) {
-        const { lat, lng, overpass } = ctx;
+        const { lat, lng, overpass, terrain } = ctx;
         const allWater = [...overpass.streams, ...overpass.rivers];
         if (!allWater.length) return { score: 1.0, reason: '半径3km以内に河川なし' };
 
-        // 半径500m以内に存在するwayの数で合流密度を評価
+        // 半径500m以内のway本数で基本スコアを算出
         const CONF_R = 500;
         let count = 0;
+        let nearestConfPt = null;
+        let nearestConfD  = Infinity;
         for (const way of allWater) {
           if (!way.geometry?.length) continue;
-          const d = _nearestDistToWay(lat, lng, way.geometry);
-          if (d <= CONF_R) count++;
+          // 最近傍ノードを合流点代表座標として使用
+          for (const pt of way.geometry) {
+            const d = haversine(lat, lng, pt.lat, pt.lon);
+            if (d <= CONF_R) {
+              count++;
+              if (d < nearestConfD) { nearestConfD = d; nearestConfPt = pt; }
+              break;
+            }
+          }
         }
 
-        const score = count >= 3 ? 5.0
-                    : count === 2 ? 4.0
-                    : count === 1 ? 2.5 : 1.0;
+        let baseScore = count >= 3 ? 5.0
+                      : count === 2 ? 4.0
+                      : count === 1 ? 2.5 : 1.0;
+
+        // 川下±補正: 合流点より下流側なら+1.0、上流側なら-1.0
+        let posLabel = '';
+        if (nearestConfPt && terrain.surroundElevs.some(e => e !== null)) {
+          const dir = _isDownstreamOfConfluence(lat, lng, terrain.surroundElevs, nearestConfPt);
+          if (dir === 1)  { baseScore += 1.0; posLabel = '（合流点の川下）'; }
+          if (dir === -1) { baseScore -= 1.0; posLabel = '（合流点の川上）'; }
+        }
+
         return {
-          score,
+          score: clamp5(baseScore),
           reason: count >= 2
-            ? `半径500m以内に${count}本の河川（合流候補）`
+            ? `半径500m以内に${count}本の河川${posLabel}`
             : count === 1
-            ? '半径500m以内に1本の河川'
+            ? `半径500m以内に1本の河川${posLabel}`
             : '半径500m以内に河川なし',
         };
       },
@@ -357,14 +448,26 @@ out geom;
         if (!nearestWay) return { score: 1.5, reason: '河川形状データなし' };
 
         const maxBend = _calcMaxCurvature(nearestWay.geometry);
-        const score = maxBend >= 60 ? 5.0   // 急カーブ
-                    : maxBend >= 30 ? 4.0   // 中カーブ
-                    : maxBend >= 10 ? 3.0   // 緩やか
-                    : 1.5;                  // ほぼ直線
-        const label = maxBend >= 60 ? '急カーブ（堆積候補）'
-                    : maxBend >= 30 ? '緩やかな湾曲あり'
-                    : '概ね直線';
-        return { score, reason: `最近傍河川の湾曲: ${label}` };
+        let baseScore = maxBend >= 60 ? 5.0   // 急カーブ
+                      : maxBend >= 30 ? 4.0   // 中カーブ
+                      : maxBend >= 10 ? 3.0   // 緩やか
+                      : 1.5;                  // ほぼ直線
+        const curveLabel = maxBend >= 60 ? '急カーブ'
+                         : maxBend >= 30 ? '緩やかな湾曲'
+                         : '概ね直線';
+
+        // 内側±補正: 湾曲の内側なら+1.0、外側なら-1.0
+        let sideLabel = '';
+        if (maxBend >= 10) {
+          const side = _isInsideOfCurve(lat, lng, nearestWay.geometry);
+          if (side === 1)  { baseScore += 1.0; sideLabel = '・内側（堆積有望）'; }
+          if (side === -1) { baseScore -= 1.0; sideLabel = '・外側（堆積不利）'; }
+        }
+
+        return {
+          score:  clamp5(baseScore),
+          reason: `最近傍河川: ${curveLabel}${sideLabel}`,
+        };
       },
     },
 
