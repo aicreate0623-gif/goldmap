@@ -387,7 +387,7 @@ const GoldEvaluator = (() => {
 
     const items = settled.map(s => {
       if (s.status === 'rejected') {
-        return { id:'unknown', name:'エラー', stars:'☆☆☆☆☆', reason:'評価中にエラー' };
+        return { id:'unknown', name:'エラー', stars:'☆☆☆☆☆', reason:'評価中にエラー', stub: false };
       }
       const { item, r } = s.value;
       return {
@@ -395,6 +395,7 @@ const GoldEvaluator = (() => {
         name:    item.name,
         stars:   toStars(r.score),
         reason:  r.reason,
+        stub:    r.score === STUB_SCORE && r.reason.includes('準備中'),
         _score:  clamp5(r.score),   // 内部保持のみ・表示しない
         _weight: item.weight,
       };
@@ -427,12 +428,18 @@ const GoldEvaluator = (() => {
 
   /** 評価結果HTMLを組み立て */
   function _buildResultHTML(lat, lng, items) {
-    const rows = items.map(it =>
-      `<tr>
-        <td class="ev-stars">${it.stars}</td>
-        <td class="ev-name">${it.name}</td>
-      </tr>`
-    ).join('');
+    const rows = items.map(it => {
+      const stubBadge = it.stub
+        ? `<span class="ev-stub-badge">準備中</span>`
+        : '';
+      const starsCell = it.stub
+        ? `<span class="ev-stars ev-stars-stub">－－－－－</span>`
+        : `<span class="ev-stars">${it.stars}</span>`;
+      return `<tr>
+        <td class="ev-stars-cell">${starsCell}</td>
+        <td class="ev-name-cell">${it.name}${stubBadge}</td>
+      </tr>`;
+    }).join('');
     return `
       <div class="ev-popup">
         <div class="ev-title">🔍 砂金探索スコア</div>
