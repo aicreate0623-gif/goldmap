@@ -20,8 +20,11 @@ const GoldEvaluator = (() => {
   const STUB_SCORE      = 2.5;      // 外部API未接続時のフォールバック
 
   const TOPO_API        = 'https://api.opentopodata.org/v1/srtm30m';
+  const OVERPASS_API    = 'https://overpass-api.de/api/interpreter';
+  const OVERPASS_RADIUS = 3000;     // 地形・河川・道路評価の半径(m)
   const BEAR_RADIUS_M   = 8000;     // 熊評価の最大参照半径(m)
   const POST_RADIUS_DEG = 0.05;     // Firestoreポスト検索半径(度 ≒5km)
+  const OVERPASS_TTL    = 30 * 60 * 1000; // Overpassキャッシュ 30分
 
   // ─────────────────────────────────────────────────────────
   // ユーティリティ
@@ -48,13 +51,50 @@ const GoldEvaluator = (() => {
     return '★'.repeat(n) + '☆'.repeat(5 - n);
   }
 
+  /**
+   * wayのノード列から最近傍点までの距離(m)を返す
+   * geom付きway（geometry配列）に対して使用
+   */
+  function _nearestDistToWay(lat, lng, geometry) {
+    let minD = Infinity;
+    for (const pt of geometry) {
+      const d = haversine(lat, lng, pt.lat, pt.lon);
+      if (d < minD) minD = d;
+    }
+    return minD;
+  }
+
+  /**
+   * wayのノード列から曲率スコアを計算
+   * 前後ノード間の角度差の最大値を返す（度）
+   */
+  function _calcMaxCurvature(geometry) {
+    if (!geometry || geometry.length < 3) return 0;
+    let maxAngle = 0;
+    for (let i = 1; i < geometry.length - 1; i++) {
+      const p0 = geometry[i - 1], p1 = geometry[i], p2 = geometry[i + 1];
+      const ax = p0.lon - p1.lon, ay = p0.lat - p1.lat;
+      const bx = p2.lon - p1.lon, by = p2.lat - p1.lat;
+      const dot  = ax * bx + ay * by;
+      const magA = Math.sqrt(ax * ax + ay * ay);
+      const magB = Math.sqrt(bx * bx + by * by);
+      if (magA < 1e-10 || magB < 1e-10) continue;
+      const cos   = Math.max(-1, Math.min(1, dot / (magA * magB)));
+      const angle = Math.acos(cos) * (180 / Math.PI); // 直線=180°、直角=90°
+      const bend  = 180 - angle; // 曲がり角度（大きいほど急カーブ）
+      if (bend > maxAngle) maxAngle = bend;
+    }
+    return maxAngle;
+  }
+
   // ─────────────────────────────────────────────────────────
   // キャッシュ層
   // ─────────────────────────────────────────────────────────
-  const _evalCache = new Map();
-  const _topoCache = new Map();
-  const _postCache = new Map();
-  const _bearStore = { data: null, fetchedAt: 0 };
+  const _evalCache     = new Map();
+  const _topoCache     = new Map();
+  const _postCache     = new Map();
+  const _overpassCache = new Map();
+  const _bearStore     = { data: null, fetchedAt: 0 };
 
   const EVAL_TTL = 10 * 60 * 1000;
   const BEAR_TTL = 30 * 60 * 1000;
@@ -127,12 +167,58 @@ const GoldEvaluator = (() => {
     } catch { return []; }
   }
 
+  /**
+   * Overpass API: 指定座標の半径3km以内の河川・道路データを一括取得
+   * キャッシュTTL: 30分
+   * 返却: { streams: Way[], rivers: Way[], roads: Way[], tracks: Way[] }
+   *   Way = { id, tags, geometry: [{lat, lon}] }
+   */
+  async function _fetchOverpass(lat, lng) {
+    const k   = _key(lat, lng);
+    const now = Date.now();
+    const hit = _overpassCache.get(k);
+    if (hit && now - hit.at < OVERPASS_TTL) return hit.data;
+
+    const query = `
+[out:json][timeout:15];
+(
+  way["waterway"~"^(stream|river|canal|ditch)$"](around:${OVERPASS_RADIUS},${lat},${lng});
+  way["highway"~"^(primary|secondary|tertiary|unclassified|residential|service)$"](around:${OVERPASS_RADIUS},${lat},${lng});
+  way["highway"="track"](around:${OVERPASS_RADIUS},${lat},${lng});
+);
+out geom;
+`.trim();
+
+    try {
+      const res = await fetch(OVERPASS_API, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:    'data=' + encodeURIComponent(query),
+      });
+      if (!res.ok) throw new Error('overpass_err');
+      const json = await res.json();
+      const ways = json.elements || [];
+
+      const data = {
+        streams: ways.filter(w => ['stream','canal','ditch'].includes(w.tags?.waterway)),
+        rivers:  ways.filter(w => w.tags?.waterway === 'river'),
+        roads:   ways.filter(w => w.tags?.highway && w.tags.highway !== 'track'),
+        tracks:  ways.filter(w => w.tags?.highway === 'track'),
+      };
+
+      _overpassCache.set(k, { data, at: now });
+      return data;
+    } catch {
+      return { streams: [], rivers: [], roads: [], tracks: [] };
+    }
+  }
+
   // ─────────────────────────────────────────────────────────
   // context ビルダー
   // ─────────────────────────────────────────────────────────
   async function _buildContext(input) {
     const { lat, lng, zoom = 13 } = input;
-    const [elev, surroundElevs, bears, posts, gsjData] = await Promise.all([
+    const [elev, surroundElevs, bears, posts, gsjData, overpass] = await Promise.all([
       _fetchElev(lat, lng),
       _fetchSurroundElev(lat, lng),
       _fetchBears(),
@@ -140,15 +226,14 @@ const GoldEvaluator = (() => {
       (typeof loadGsjMineData === 'function')
         ? loadGsjMineData().catch(() => [])
         : Promise.resolve(window.GSJ_MINE_DATA_CACHED || []),
+      _fetchOverpass(lat, lng),
     ]);
     if (gsjData.length) window.GSJ_MINE_DATA_CACHED = gsjData;
     return {
       lat, lng, zoom,
       terrain:     { elev, surroundElevs },
       geology:     null,
-      streams:     null,
-      roads:       null,
-      forestRoads: null,
+      overpass,                                         // ← 追加
       deposits:    (gsjData || []).filter(d => !d.trace),
       prospects:   (gsjData || []).filter(d =>  d.trace),
       mines:       typeof MINES !== 'undefined' ? MINES : [],
@@ -167,8 +252,24 @@ const GoldEvaluator = (() => {
     {
       id: 'streamDistance', name: '沢距離', weight: 1.4,
       evaluate(ctx) {
-        // TODO: Overpass API (waterway=stream) 接続時に差し替え
-        return { score: STUB_SCORE, reason: '沢データ取得待ち（準備中）' };
+        const { lat, lng, overpass } = ctx;
+        const allWater = [...(overpass.streams || []), ...(overpass.rivers || [])];
+        if (!allWater.length) return { score: 1.5, reason: '半径3km以内に河川なし' };
+
+        let minD = Infinity;
+        for (const way of allWater) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d < minD) minD = d;
+        }
+        if (!isFinite(minD)) return { score: 1.5, reason: '河川データ不完全' };
+
+        ctx.cache.nearestStreamM = minD;
+        const score = minD <= 50  ? 5.0
+                    : minD <= 150 ? 4.0
+                    : minD <= 300 ? 3.0
+                    : minD <= 600 ? 2.0 : 1.0;
+        return { score, reason: `最寄り河川まで約${Math.round(minD)}m` };
       },
     },
 
@@ -176,7 +277,30 @@ const GoldEvaluator = (() => {
     {
       id: 'riverScale', name: '河川規模', weight: 1.2,
       evaluate(ctx) {
-        return { score: STUB_SCORE, reason: '河川規模データ取得待ち（準備中）' };
+        const { lat, lng, overpass } = ctx;
+        const nearDist = ctx.cache.nearestStreamM ?? Infinity;
+
+        // 3km以内に何もなければ最低評価
+        if (!overpass.streams.length && !overpass.rivers.length) {
+          return { score: 1.0, reason: '半径3km以内に河川なし' };
+        }
+
+        // 最近傍wayのtag判定
+        let nearestTag = null;
+        let minD = Infinity;
+        for (const way of [...overpass.streams, ...overpass.rivers]) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d < minD) { minD = d; nearestTag = way.tags?.waterway; }
+        }
+
+        const score = nearestTag === 'river'  ? 3.5   // 大河→拡散で中評価
+                    : nearestTag === 'stream' ? 5.0   // 中規模沢→最高
+                    : nearestTag === 'canal'  ? 2.5   // 用水路
+                    : nearestTag === 'ditch'  ? 2.0   // 排水路
+                    : 2.5;
+        const label = { river:'大河', stream:'沢・小河川', canal:'用水路', ditch:'排水路' };
+        return { score, reason: `最近傍水系: ${label[nearestTag] ?? nearestTag}` };
       },
     },
 
@@ -184,7 +308,30 @@ const GoldEvaluator = (() => {
     {
       id: 'confluence', name: '河川合流点', weight: 1.5,
       evaluate(ctx) {
-        return { score: STUB_SCORE, reason: '合流点データ取得待ち（準備中）' };
+        const { lat, lng, overpass } = ctx;
+        const allWater = [...overpass.streams, ...overpass.rivers];
+        if (!allWater.length) return { score: 1.0, reason: '半径3km以内に河川なし' };
+
+        // 半径500m以内に存在するwayの数で合流密度を評価
+        const CONF_R = 500;
+        let count = 0;
+        for (const way of allWater) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d <= CONF_R) count++;
+        }
+
+        const score = count >= 3 ? 5.0
+                    : count === 2 ? 4.0
+                    : count === 1 ? 2.5 : 1.0;
+        return {
+          score,
+          reason: count >= 2
+            ? `半径500m以内に${count}本の河川（合流候補）`
+            : count === 1
+            ? '半径500m以内に1本の河川'
+            : '半径500m以内に河川なし',
+        };
       },
     },
 
@@ -192,15 +339,35 @@ const GoldEvaluator = (() => {
     {
       id: 'riverCurve', name: '河川湾曲', weight: 1.1,
       evaluate(ctx) {
-        return { score: STUB_SCORE, reason: '河川湾曲データ取得待ち（準備中）' };
+        const { lat, lng, overpass } = ctx;
+        const allWater = [...overpass.streams, ...overpass.rivers];
+        if (!allWater.length) return { score: 1.5, reason: '半径3km以内に河川なし' };
+
+        // 最近傍wayの曲率を評価
+        let minD = Infinity, nearestWay = null;
+        for (const way of allWater) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d < minD) { minD = d; nearestWay = way; }
+        }
+        if (!nearestWay) return { score: 1.5, reason: '河川形状データなし' };
+
+        const maxBend = _calcMaxCurvature(nearestWay.geometry);
+        const score = maxBend >= 60 ? 5.0   // 急カーブ
+                    : maxBend >= 30 ? 4.0   // 中カーブ
+                    : maxBend >= 10 ? 3.0   // 緩やか
+                    : 1.5;                  // ほぼ直線
+        const label = maxBend >= 60 ? '急カーブ（堆積候補）'
+                    : maxBend >= 30 ? '緩やかな湾曲あり'
+                    : '概ね直線';
+        return { score, reason: `最近傍河川の湾曲: ${label}` };
       },
     },
 
-    // 5. 地質
+    // 5. 地質（GSJ WMS/WFS 接続待ち）
     {
       id: 'geology', name: '地質', weight: 1.6,
       evaluate(ctx) {
-        // TODO: GSJ シームレス地質図 WMS/WFS 差し替え予定
         return { score: STUB_SCORE, reason: '地質データ取得待ち（準備中）' };
       },
     },
@@ -253,7 +420,7 @@ const GoldEvaluator = (() => {
     {
       id: 'valleyShape', name: '谷形状', weight: 1.3,
       evaluate(ctx) {
-        const center   = ctx.terrain.elev;
+        const center    = ctx.terrain.elev;
         const surrounds = ctx.terrain.surroundElevs.filter(e => e !== null);
         if (center === null || surrounds.length < 2) {
           return { score: STUB_SCORE, reason: '谷形状データ取得中' };
@@ -291,7 +458,23 @@ const GoldEvaluator = (() => {
     {
       id: 'roadDistance', name: '道路距離', weight: 0.9,
       evaluate(ctx) {
-        return { score: STUB_SCORE, reason: '道路データ取得待ち（準備中）' };
+        const { lat, lng, overpass } = ctx;
+        if (!overpass.roads.length) return { score: 3.0, reason: '半径3km以内に一般道なし（秘境）' };
+
+        let minD = Infinity;
+        for (const way of overpass.roads) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d < minD) minD = d;
+        }
+        ctx.cache.nearestRoadM = minD;
+
+        // 近すぎ(観光地)・適度・遠すぎで評価
+        const score = minD <= 100  ? 2.0   // 近すぎ（開発済み・競合多）
+                    : minD <= 1000 ? 5.0   // 適度（アクセス良）
+                    : minD <= 2000 ? 3.5   // やや遠い
+                    : 2.0;                 // 遠すぎ（到達困難）
+        return { score, reason: `最寄り一般道まで約${Math.round(minD)}m` };
       },
     },
 
@@ -299,7 +482,21 @@ const GoldEvaluator = (() => {
     {
       id: 'forestRoadDistance', name: '林道距離', weight: 1.0,
       evaluate(ctx) {
-        return { score: STUB_SCORE, reason: '林道データ取得待ち（準備中）' };
+        const { lat, lng, overpass } = ctx;
+        if (!overpass.tracks.length) return { score: 2.0, reason: '半径3km以内に林道なし' };
+
+        let minD = Infinity;
+        for (const way of overpass.tracks) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d < minD) minD = d;
+        }
+
+        const score = minD <= 200  ? 5.0   // 林道至近（最高）
+                    : minD <= 800  ? 4.0   // 適度
+                    : minD <= 1500 ? 3.0   // やや遠い
+                    : 2.0;                 // 遠い
+        return { score, reason: `最寄り林道まで約${Math.round(minD)}m` };
       },
     },
 
@@ -307,9 +504,11 @@ const GoldEvaluator = (() => {
     {
       id: 'accessibility', name: '人到達性', weight: 1.1,
       evaluate(ctx) {
-        const slopeDiff = ctx.cache.slopeDiff ?? null;
-        const elev      = ctx.terrain.elev;
-        const components = [];
+        const slopeDiff   = ctx.cache.slopeDiff    ?? null;
+        const elev        = ctx.terrain.elev;
+        const nearRoadM   = ctx.cache.nearestRoadM ?? null;
+        const components  = [];
+
         if (elev !== null) {
           components.push(
             elev < 500  ? 5.0 : elev < 1000 ? 3.5 : elev < 1500 ? 2.0 : 1.0
@@ -321,9 +520,15 @@ const GoldEvaluator = (() => {
             : slopeDiff < 300 ? 2.5 : 1.5
           );
         }
+        if (nearRoadM !== null) {
+          components.push(
+            nearRoadM < 500  ? 5.0 : nearRoadM < 1500 ? 3.5
+            : nearRoadM < 3000 ? 2.5 : 1.5
+          );
+        }
         if (!components.length) return { score: STUB_SCORE, reason: '到達性データ計算中' };
         const score = clamp5(components.reduce((a,b) => a+b, 0) / components.length);
-        return { score, reason: '標高・傾斜から推定した到達しやすさ' };
+        return { score, reason: '標高・傾斜・道路距離から推定した到達しやすさ' };
       },
     },
 
