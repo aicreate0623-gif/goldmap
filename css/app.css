@@ -4833,3 +4833,86 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   background: transparent !important;
   border: none !important;
 }
+/* ── evaluate.js: 評価ポップアップ ──────────────────────────── */
+.ev-trigger-popup .leaflet-popup-content-wrapper {
+  background: rgba(10, 8, 4, 0.93);
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  border-radius: 8px;
+  padding: 0;
+}
+.ev-trigger-popup .leaflet-popup-tip {
+  background: rgba(10, 8, 4, 0.93);
+}
+.ev-trigger-popup .leaflet-popup-content {
+  margin: 6px 8px;
+}
+.ev-btn {
+  background: linear-gradient(135deg, #b8860b, #d4af37);
+  color: #1a1200;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .2s;
+}
+.ev-btn:hover { opacity: .85; }
+
+/* 評価結果ポップアップ */
+.ev-leaflet-popup .leaflet-popup-content-wrapper {
+  background: rgba(10, 8, 4, 0.96);
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 10px;
+  padding: 0;
+  min-width: 220px;
+}
+.ev-leaflet-popup .leaflet-popup-tip {
+  background: rgba(10, 8, 4, 0.96);
+}
+.ev-leaflet-popup .leaflet-popup-content {
+  margin: 0;
+}
+.ev-popup {
+  padding: 10px 12px 8px;
+}
+.ev-title {
+  color: #d4af37;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: .05em;
+  margin-bottom: 6px;
+}
+.ev-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.ev-table tr { line-height: 1.7; }
+.ev-stars {
+  color: #f5c518;
+  font-size: 11px;
+  letter-spacing: -.05em;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+.ev-name {
+  color: #e8e0c8;
+  font-size: 12px;
+}
+.ev-note {
+  color: #6b6050;
+  font-size: 10px;
+  margin-top: 7px;
+  border-top: 1px solid rgba(212,175,55,0.15);
+  padding-top: 5px;
+  line-height: 1.5;
+}
+.ev-loading,
+.ev-error {
+  color: #aaa;
+  font-size: 12px;
+  padding: 10px 14px;
+  text-align: center;
+}
+.ev-error { color: #f87; }
