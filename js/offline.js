@@ -2297,11 +2297,10 @@ async function refreshCache(){
   const el = document.getElementById('cache-info');
   if(!el) return;
   try {
-    const cnt      = await dbCnt();
-    const sessions = await dbGetAllSess();
-    const total    = sessions.reduce((s,x)=>s+(x.totalSize||0), 0);
-    const mb       = (total/1024/1024).toFixed(1);
-    const maxMb    = (getCacheMax()/1024/1024).toFixed(0);
+    const cnt   = await dbCnt();
+    const total = await calcTotalCacheSizeReal(); // tilesストアを直接走査して正確に集計
+    const mb    = (total/1024/1024).toFixed(1);
+    const maxMb = (getCacheMax()/1024/1024).toFixed(0);
     el.textContent = `${cnt}枚 / 約${mb}MB 使用中（上限 ${maxMb}MB）`;
     const sb = document.getElementById('sb-cache');
     if(sb) sb.textContent = `キャッシュ: 約${mb}MB`;
