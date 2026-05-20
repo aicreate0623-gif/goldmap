@@ -122,15 +122,19 @@ const GoldEvaluator = (() => {
   }
 
   async function _fetchSurroundElev(lat, lng) {
-    const d = 0.003;
-    const pts = [[lat+d,lng],[lat-d,lng],[lat,lng+d],[lat,lng-d]];
+    const d = 0.003; // 約300m
+    const pts = [
+      [lat+d, lng  ], [lat+d, lng+d], [lat,   lng+d],
+      [lat-d, lng+d], [lat-d, lng  ], [lat-d, lng-d],
+      [lat,   lng-d], [lat+d, lng-d],
+    ];
     const locStr = pts.map(p => `${p[0]},${p[1]}`).join('|');
     try {
       const res  = await fetch(`${TOPO_API}?locations=${locStr}`);
       if (!res.ok) throw new Error('topo_surr_err');
       const json = await res.json();
       return (json?.results || []).map(r => r.elevation ?? null);
-    } catch { return [null, null, null, null]; }
+    } catch { return [null, null, null, null, null, null, null, null]; }
   }
 
   async function _fetchBears() {
@@ -407,10 +411,12 @@ out geom;
         const elevs = ctx.terrain.surroundElevs.filter(e => e !== null);
         if (elevs.length < 2) return { score: STUB_SCORE, reason: '傾斜データ取得中' };
         const diff = Math.max(...elevs) - Math.min(...elevs);
-        const score = diff < 20  ? 1.5
-                    : diff < 50  ? 3.0
-                    : diff < 200 ? 5.0
-                    : diff < 300 ? 3.5 : 2.0;
+        // 砂金堆積に最適な傾斜帯: 流速と堆積のバランス
+        const score = diff < 10  ? 2.0   // ほぼ平坦（流速・供給なし）
+                    : diff < 30  ? 3.0   // 緩斜面
+                    : diff < 80  ? 5.0   // 中傾斜（最適）
+                    : diff < 150 ? 3.0   // 急斜面（流速強すぎ）
+                    : 2.0;               // 険しい（採取困難）
         ctx.cache.slopeDiff = diff;
         return { score, reason: `周辺300m範囲の標高差: 約${diff}m` };
       },
@@ -422,19 +428,23 @@ out geom;
       evaluate(ctx) {
         const center    = ctx.terrain.elev;
         const surrounds = ctx.terrain.surroundElevs.filter(e => e !== null);
-        if (center === null || surrounds.length < 2) {
+        if (center === null || surrounds.length < 4) {
           return { score: STUB_SCORE, reason: '谷形状データ取得中' };
         }
         const avg   = surrounds.reduce((a,b) => a+b, 0) / surrounds.length;
         const depth = avg - center;
-        const score = depth > 80 ? 5.0 : depth > 40 ? 4.0
-                    : depth > 10 ? 3.0 : depth > 0  ? 2.5 : 1.5;
+        // 周囲8点（約300m）との標高差で谷の深さを評価
+        const score = depth < 0  ? 1.0   // 尾根・台地
+                    : depth < 5  ? 2.0   // ほぼ平坦
+                    : depth < 20 ? 3.0   // 浅い谷・小沢
+                    : depth < 50 ? 4.0   // 明瞭な谷（有望）
+                    : 5.0;               // V字谷・深谷（砂金堆積の典型地形）
         ctx.cache.valleyDepth = depth;
         return {
           score,
-          reason: depth > 0
-            ? `周囲より約${Math.round(depth)}m低い谷地形`
-            : '谷地形ではない',
+          reason: depth >= 0
+            ? `周囲8点より約${Math.round(depth)}m低い谷地形`
+            : '谷地形ではない（尾根・台地）',
         };
       },
     },
@@ -445,11 +455,13 @@ out geom;
       evaluate(ctx) {
         const elev = ctx.terrain.elev;
         if (elev === null) return { score: STUB_SCORE, reason: '標高データ取得中' };
-        const score = elev < 50   ? 1.5
-                    : elev < 200  ? 3.0
-                    : elev < 700  ? 5.0
-                    : elev < 1200 ? 4.0
-                    : elev < 2000 ? 2.5 : 1.0;
+        // 全国対応: 日本の主要砂金産地（北海道・東北・中国山地）の標高分布から設定
+        const score = elev < 50   ? 2.0   // 平野部（堆積済み・競合多）
+                    : elev < 150  ? 3.0   // 低丘陵
+                    : elev < 500  ? 5.0   // 最適帯（全国産地の主戦場）
+                    : elev < 1000 ? 4.0   // 山間部（有望）
+                    : elev < 1500 ? 3.0   // 高山帯
+                    : 2.0;               // 積雪・アクセス困難
         return { score, reason: `標高: 約${Math.round(elev)}m` };
       },
     },
