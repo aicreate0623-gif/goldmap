@@ -4833,6 +4833,28 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   background: transparent !important;
   border: none !important;
 }
+/* ── 評価グループ（評価モード）: ゴールド ── */
+.fc-grp-eval {
+  background: rgba(14, 10, 2, 0.92);
+  border-color: rgba(212, 175, 55, 0.30);
+  color: rgba(212, 175, 55, 0.65);
+}
+.fc-grp-eval.active {
+  background: rgb(90, 60, 0);
+  border-color: rgba(255, 210, 80, 0.9);
+  color: #ffe580;
+  box-shadow:
+    0 0 0 1.5px rgba(212,175,55,0.7),
+    0 0 12px rgba(212,175,55,0.55),
+    0 0 28px rgba(212,175,55,0.28),
+    0 2px 12px rgba(0,0,0,0.5);
+}
+
+/* 評価モード中: カーソルをクロスヘアに */
+body.eval-mode #map {
+  cursor: crosshair !important;
+}
+
 /* ── evaluate.js: 評価ポップアップ ──────────────────────────── */
 .ev-trigger-popup .leaflet-popup-content-wrapper {
   background: rgba(10, 8, 4, 0.93);

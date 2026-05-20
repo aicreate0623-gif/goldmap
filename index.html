@@ -166,6 +166,9 @@
   <button class="fc-btn fc-grp-gps" id="btn-flw"   onclick="toggleFollow()"   title="追従">
     <span class="fc-ico">🎯</span><span>追従</span>
   </button>
+  <button class="fc-btn fc-grp-eval" id="btn-eval" onclick="toggleEvalMode()" title="座標評価モード">
+    <span class="fc-ico">🔍</span><span>評価</span>
+  </button>
 </div>
 
 <!-- フロートボタン折りたたみバー -->
@@ -2625,6 +2628,7 @@
   <script src="js/community.js"></script>
   <script src="js/custom_layer.js"></script>
   <script src="js/map.js"></script>
+  <script src="js/evaluate.js"></script>
   <script>
     // キャッシュ上限スライダー・セッション一覧初期化
     // （openDB完了後に呼ばれるよう DOMContentLoaded で遅延）
