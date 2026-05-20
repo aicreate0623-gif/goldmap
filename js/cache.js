@@ -84,13 +84,13 @@ const SRCS={
   // ── 自動蓄積専用レイヤー（DL機能なし・閲覧時にステルスキャッシュ）──
   geo:        {url:'https://gbank.gsj.jp/seamless/v2/api/1.2/tiles/{z}/{y}/{x}.png',                 ext:'png',  attr:'産総研シームレス地質図', maxNative:13, autoCache:true},
   chisui:     {url:'https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png',                    ext:'png',  attr:'地理院治水地形分類図',   maxNative:16, autoCache:true},
-  geo50k_1:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K01/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
-  geo50k_2:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K02/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
-  geo50k_3:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K03/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
-  geo50k_4:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K04/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
-  geo50k_5:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K05/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
-  geo50k_6:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K06/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
-  geo50k_7:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K07/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, autoCache:true},
+  geo50k_1:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K01/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
+  geo50k_2:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K02/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
+  geo50k_3:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K03/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
+  geo50k_4:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K04/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
+  geo50k_5:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K05/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
+  geo50k_6:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K06/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
+  geo50k_7:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K07/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
 };
 function tileURL(key,z,x,y){
   return SRCS[key].url.replace('{z}',z).replace('{x}',x).replace('{y}',y);
