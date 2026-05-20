@@ -78,12 +78,12 @@ const SRCS={
   std:        {url:'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',                        ext:'png',  attr:'地理院タイル',           maxNative:18},
   photo:      {url:'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',              ext:'jpg',  attr:'地理院写真',             maxNative:18},
   topo:       {url:'https://tile.opentopomap.org/{z}/{x}/{y}.png',                                    ext:'png',  attr:'OpenTopoMap',           maxNative:17},
-  pale:       {url:'https://maps.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png',                               ext:'png',  attr:'地理院白地図',           maxNative:14, autoCache:true},
+  pale:       {url:'https://maps.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png',                               ext:'png',  attr:'地理院白地図',           maxNative:14, autoCache:true, directImg:true},
   hill:       {url:'https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png',               ext:'png',  attr:'地理院陰影',             maxNative:16},
   relief:     {url:'https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png',                     ext:'png',  attr:'地理院色別標高',         maxNative:15},
   // ── 自動蓄積専用レイヤー（DL機能なし・閲覧時にステルスキャッシュ）──
-  geo:        {url:'https://gbank.gsj.jp/seamless/v2/api/1.2/tiles/{z}/{y}/{x}.png',                 ext:'png',  attr:'産総研シームレス地質図', maxNative:13, autoCache:true},
-  chisui:     {url:'https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png',                    ext:'png',  attr:'地理院治水地形分類図',   maxNative:16, autoCache:true},
+  geo:        {url:'https://gbank.gsj.jp/seamless/v2/api/1.2/tiles/{z}/{y}/{x}.png',                 ext:'png',  attr:'産総研シームレス地質図', maxNative:13, autoCache:true, directImg:true},
+  chisui:     {url:'https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png',                    ext:'png',  attr:'地理院治水地形分類図',   maxNative:16, autoCache:true, directImg:true},
   geo50k_1:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K01/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
   geo50k_2:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K02/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
   geo50k_3:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K03/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
@@ -214,6 +214,16 @@ function makeCachedLayer(srcKey){
       }
       const key=tileKey(this._sk,z,x,y);
       const net=tileURL(this._sk,coords.z,coords.x,coords.y);
+      const netDirect=tileURL(this._sk,z,x,y); // 引き延ばし補正後の座標（directImg用）
+
+      // ── directImgレイヤー：fetchせず直接読み込み（CORS不要・トーストなし）──
+      if(SRCS[this._sk]?.directImg){
+        img.crossOrigin='';
+        img.src=netDirect;
+        img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+        return img;
+      }
+
       if(!db){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); return img; }
 
       // ── オンライン優先：ネット取得を試み失敗したらキャッシュにフォールバック ──
@@ -240,14 +250,8 @@ function makeCachedLayer(srcKey){
             img.src=URL.createObjectURL(new Blob([cached],{type}));
             img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
           } else {
-            if(SRCS[this._sk]?.directImg){
-              // directImgレイヤーはCORSなし直接読み込み（トースト不要）
-              img.crossOrigin = '';
-              img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-            } else {
-              if(isOnline){ _showOnlineToast(); } else { _showOfflineToast(); }
-              img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-            }
+            if(isOnline){ _showOnlineToast(); } else { _showOfflineToast(); }
+            img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
           }
         });
       return img;
