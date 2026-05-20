@@ -209,6 +209,14 @@ html, body {
   box-shadow: 0 0 0 1.5px rgba(230,120,30,0.7), 0 0 12px rgba(230,120,30,0.55), 0 0 28px rgba(230,120,30,0.28), 0 2px 12px rgba(0,0,0,0.5);
 }
 
+/* ── ヒートマップ調整ボタン：縦ハーフサイズ ── */
+#btn-heat-adj {
+  height: 21px;
+  font-size: 8px;
+  gap: 0;
+}
+#btn-heat-adj .fc-ico { font-size: 11px; }
+
 /* ── 安全情報グループ（熊情報・水位）: ティール ── */
 .fc-grp-safety {
   background: rgba(4,18,16,0.92);
