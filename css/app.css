@@ -4769,7 +4769,7 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   background: var(--surface, #1e2533);
   border-top: 2px solid var(--accent, #4fc3f7);
   border-radius: 14px 14px 0 0;
-  height: 50vh;
+  height: 38vh;
   flex-direction: column;
   overflow: hidden;
 }
