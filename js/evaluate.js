@@ -19,7 +19,7 @@ const GoldEvaluator = (() => {
   const EARTH_R         = 6371000;  // 地球半径(m)
   const STUB_SCORE      = 2.5;      // 外部API未接続時のフォールバック
 
-  const TOPO_API        = 'https://api.opentopodata.org/v1/srtm30m';
+  const GSI_ELEV_API    = 'https://cyberjapandata2.gsi.go.jp/general/dem/scripts/getelevation.php';
   const OVERPASS_API    = 'https://overpass-api.de/api/interpreter';
   const OVERPASS_RADIUS = 3000;     // 地形・河川・道路評価の半径(m)
   const BEAR_RADIUS_M   = 8000;     // 熊評価の最大参照半径(m)
@@ -183,10 +183,13 @@ const GoldEvaluator = (() => {
     const k = _key(lat, lng);
     if (_topoCache.has(k)) return _topoCache.get(k);
     try {
-      const res  = await fetch(`${TOPO_API}?locations=${lat},${lng}`);
-      if (!res.ok) throw new Error('topo_err');
+      const url  = `${GSI_ELEV_API}?lon=${lng}&lat=${lat}&outtype=JSON`;
+      const res  = await fetch(url);
+      if (!res.ok) throw new Error('gsi_err');
       const json = await res.json();
-      const elev = json?.results?.[0]?.elevation ?? null;
+      // GSI レスポンス: { elevation: "123.45", hsrc: "5m" } or "-----" (海・データなし)
+      const raw  = json?.elevation;
+      const elev = (raw && raw !== '-----') ? parseFloat(raw) : null;
       _topoCache.set(k, elev);
       return elev;
     } catch { return null; }
@@ -199,13 +202,20 @@ const GoldEvaluator = (() => {
       [lat-d, lng+d], [lat-d, lng  ], [lat-d, lng-d],
       [lat,   lng-d], [lat+d, lng-d],
     ];
-    const locStr = pts.map(p => `${p[0]},${p[1]}`).join('|');
-    try {
-      const res  = await fetch(`${TOPO_API}?locations=${locStr}`);
-      if (!res.ok) throw new Error('topo_surr_err');
-      const json = await res.json();
-      return (json?.results || []).map(r => r.elevation ?? null);
-    } catch { return [null, null, null, null, null, null, null, null]; }
+    // GSIは1点ずつのAPIなので Promise.all で並列取得
+    const results = await Promise.all(
+      pts.map(async ([la, lo]) => {
+        try {
+          const url  = `${GSI_ELEV_API}?lon=${lo}&lat=${la}&outtype=JSON`;
+          const res  = await fetch(url);
+          if (!res.ok) return null;
+          const json = await res.json();
+          const raw  = json?.elevation;
+          return (raw && raw !== '-----') ? parseFloat(raw) : null;
+        } catch { return null; }
+      })
+    );
+    return results;
   }
 
   async function _fetchBears() {
