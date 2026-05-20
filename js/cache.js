@@ -84,26 +84,58 @@ const SRCS={
   // ── 自動蓄積専用レイヤー（DL機能なし・閲覧時にステルスキャッシュ）──
   geo:        {url:'https://gbank.gsj.jp/seamless/v2/api/1.2/tiles/{z}/{y}/{x}.png',                 ext:'png',  attr:'産総研シームレス地質図', maxNative:13, autoCache:true},
   chisui:     {url:'https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png',                    ext:'png',  attr:'地理院治水地形分類図',   maxNative:16, autoCache:true},
-  geo50k_1:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K01/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
-  geo50k_2:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K02/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
-  geo50k_3:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K03/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
-  geo50k_4:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K04/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
-  geo50k_5:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K05/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
-  geo50k_6:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K06/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
-  geo50k_7:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K07/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12},
+  geo50k_1:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K01/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
+  geo50k_2:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K02/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
+  geo50k_3:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K03/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
+  geo50k_4:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K04/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
+  geo50k_5:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K05/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
+  geo50k_6:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K06/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
+  geo50k_7:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K07/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
 };
 function tileURL(key,z,x,y){
   return SRCS[key].url.replace('{z}',z).replace('{x}',x).replace('{y}',y);
 }
 function tileKey(key,z,x,y){ return key+'/'+z+'/'+x+'/'+y; }
 
-// ── 自動蓄積：80%未満のときのみ書き込み ──────────────────────────────
+// ── キャッシュサイズ メモリキャッシュ（地図操作中は走査しない）──
+let _cachedSize   = 0;  // 最後に計測したサイズ（バイト）
+let _cachedSizeAt = 0;  // 計測時刻（0=未計測）
+
+/** tilesストアをカーソル走査して正確なサイズを返しメモリキャッシュを更新 */
+async function calcTotalCacheSizeReal(){
+  return new Promise((res) => {
+    if(!db){ res(_cachedSize); return; }
+    const tx  = db.transaction(ST, 'readonly');
+    const req = tx.objectStore(ST).openCursor();
+    let total = 0;
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if(cursor){ total += cursor.value?.byteLength || 0; cursor.continue(); }
+      else       { _cachedSize = total; _cachedSizeAt = Date.now(); res(total); }
+    };
+    req.onerror = () => res(_cachedSize);
+  });
+}
+
+/** 通常呼び出し用：メモリキャッシュを返すだけ（走査しない）*/
+async function calcTotalCacheSize(){
+  return _cachedSize;
+}
+
+// ── タブ離脱時にバックグラウンド集計 ──
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden'){
+    calcTotalCacheSizeReal().catch(()=>{});
+  }
+});
+
+// ── 自動蓄積：80%未満のときのみ書き込み（メモリキャッシュ値で判定）──
 async function _autoCachePut(key, buf){
   try {
     const cacheMax = getCacheMax();
-    const total    = await calcTotalCacheSize();
-    if(total / cacheMax >= CACHE_MAX_WARN_RATIO) return; // 80%超えはスキップ
+    if(_cachedSize / cacheMax >= CACHE_MAX_WARN_RATIO) return; // 80%超えはスキップ
     await dbPut(key, buf);
+    _cachedSize += buf.byteLength || 0; // 書き込んだ分だけ加算
   } catch(e){}
 }
 
@@ -208,8 +240,14 @@ function makeCachedLayer(srcKey){
             img.src=URL.createObjectURL(new Blob([cached],{type}));
             img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
           } else {
-            if(isOnline){ _showOnlineToast(); } else { _showOfflineToast(); }
-            img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+            if(SRCS[this._sk]?.directImg){
+              // directImgレイヤーはCORSなし直接読み込み（トースト不要）
+              img.crossOrigin = '';
+              img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+            } else {
+              if(isOnline){ _showOnlineToast(); } else { _showOfflineToast(); }
+              img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+            }
           }
         });
       return img;
@@ -236,11 +274,6 @@ async function getBaseDlDoneLayers(){
   return done;
 }
 
-/** 全セッションの合計サイズ（バイト） */
-async function calcTotalCacheSize(){
-  const sessions = await dbGetAllSess();
-  return sessions.reduce((sum,s)=>sum+(s.totalSize||0), 0);
-}
 
 
 /**
