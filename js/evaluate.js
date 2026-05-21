@@ -494,21 +494,51 @@ out geom;
       },
     },
 
-    // 8. 傾斜
+    // 8. 傾斜（川の上下流勾配）
     {
       id: 'slope', name: '傾斜', weight: 1.2,
-      evaluate(ctx) {
-        const elevs = ctx.terrain.surroundElevs.filter(e => e !== null);
-        if (elevs.length < 2) return { score: STUB_SCORE, reason: '傾斜データ取得中' };
-        const diff = Math.max(...elevs) - Math.min(...elevs);
-        // 砂金堆積に最適な傾斜帯: 流速と堆積のバランス
-        const score = diff < 10  ? 2.0   // ほぼ平坦（流速・供給なし）
-                    : diff < 30  ? 3.0   // 緩斜面
-                    : diff < 80  ? 5.0   // 中傾斜（最適）
-                    : diff < 150 ? 3.0   // 急斜面（流速強すぎ）
-                    : 2.0;               // 険しい（採取困難）
-        ctx.cache.slopeDiff = diff;
-        return { score, reason: `周辺300m範囲の標高差: 約${diff}m` };
+      async evaluate(ctx) {
+        const { lat, lng, overpass } = ctx;
+        const allWater = [...(overpass.streams || []), ...(overpass.rivers || [])];
+        if (!allWater.length) return { score: 0, reason: '付近に河川なし（評価不能）' };
+
+        // 最近傍wayを特定
+        let minD = Infinity, nearestWay = null;
+        for (const way of allWater) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d < minD) { minD = d; nearestWay = way; }
+        }
+        if (!nearestWay || nearestWay.geometry.length < 2) {
+          return { score: 0, reason: '河川形状データなし（評価不能）' };
+        }
+
+        // 先頭・末尾ノードの標高を取得
+        const g    = nearestWay.geometry;
+        const head = g[0];
+        const tail = g[g.length - 1];
+        const [elevHead, elevTail] = await Promise.all([
+          _fetchElev(head.lat, head.lon),
+          _fetchElev(tail.lat, tail.lon),
+        ]);
+        if (elevHead === null || elevTail === null) {
+          return { score: 0, reason: '標高取得失敗（評価不能）' };
+        }
+
+        // 勾配 = 標高差(m) / 水平距離(km)
+        const elevDiff = Math.abs(elevHead - elevTail);
+        const distKm   = haversine(head.lat, head.lon, tail.lat, tail.lon) / 1000;
+        if (distKm < 0.01) return { score: 0, reason: '河川区間が短すぎ（評価不能）' };
+        const gradient = elevDiff / distKm; // m/km
+
+        ctx.cache.slopeDiff = elevDiff; // 人到達性が参照するため互換維持
+
+        const score = gradient < 5  ? 2.0   // ほぼ平坦（流速不足）
+                    : gradient < 15 ? 5.0   // 緩やか（最適）
+                    : gradient < 40 ? 4.0   // 中勾配
+                    : gradient < 80 ? 3.0   // やや急
+                    : 2.0;                  // 急流（堆積しにくい）
+        return { score, reason: `川の勾配: 約${Math.round(gradient)}m/km` };
       },
     },
 
@@ -523,12 +553,12 @@ out geom;
         }
         const avg   = surrounds.reduce((a,b) => a+b, 0) / surrounds.length;
         const depth = avg - center;
-        // 周囲8点（約300m）との標高差で谷の深さを評価
-        const score = depth < 0  ? 1.0   // 尾根・台地
-                    : depth < 5  ? 2.0   // ほぼ平坦
-                    : depth < 20 ? 3.0   // 浅い谷・小沢
-                    : depth < 50 ? 4.0   // 明瞭な谷（有望）
-                    : 5.0;               // V字谷・深谷（砂金堆積の典型地形）
+        // 周囲8点（約300m）との標高差で谷の深さを評価（閾値は元の半分）
+        const score = depth < 0    ? 1.0   // 尾根・台地
+                    : depth < 2.5  ? 2.0   // ほぼ平坦
+                    : depth < 10   ? 3.0   // 浅い谷・小沢
+                    : depth < 25   ? 4.0   // 明瞭な谷（有望）
+                    : 5.0;                 // V字谷・深谷（砂金堆積の典型地形）
         ctx.cache.valleyDepth = depth;
         return {
           score,
@@ -692,14 +722,14 @@ out geom;
   const mergeItems = [
 
     // 16. 鉱床・鉱徴地距離（統合表示）
-    //     depositDistance × 4.5/5 + prospectDistance × 0.5/5
+    //     どちらか高いほうを採用
     {
       id: 'mineDistance', name: '鉱床・鉱徴地距離', weight: 0, _mergeOnly: true,
       evaluate(ctx) {
         const s = ctx.cache._scores || {};
         const dep = s.depositDistance  ?? STUB_SCORE;
         const pro = s.prospectDistance ?? STUB_SCORE;
-        const score = clamp5(dep * (4.5 / 5) + pro * (0.5 / 5));
+        const score = clamp5(Math.max(dep, pro));
         const depLabel = dep === STUB_SCORE ? '鉱床データ準備中' : `鉱床 ${dep.toFixed(1)}pt`;
         const proLabel = pro === STUB_SCORE ? '鉱徴地データ準備中' : `鉱徴地 ${pro.toFixed(1)}pt`;
         return { score, reason: `${depLabel} / ${proLabel}` };
