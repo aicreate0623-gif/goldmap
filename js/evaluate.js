@@ -361,37 +361,6 @@ out geom;
       },
     },
 
-    // 2. 河川規模
-    {
-      id: 'riverScale', name: '河川規模', weight: 1.2,
-      evaluate(ctx) {
-        const { lat, lng, overpass } = ctx;
-        const nearDist = ctx.cache.nearestStreamM ?? Infinity;
-
-        // 3km以内に何もなければ最低評価
-        if (!overpass.streams.length && !overpass.rivers.length) {
-          return { score: 1.0, reason: '半径3km以内に河川なし' };
-        }
-
-        // 最近傍wayのtag判定
-        let nearestTag = null;
-        let minD = Infinity;
-        for (const way of [...overpass.streams, ...overpass.rivers]) {
-          if (!way.geometry?.length) continue;
-          const d = _nearestDistToWay(lat, lng, way.geometry);
-          if (d < minD) { minD = d; nearestTag = way.tags?.waterway; }
-        }
-
-        const score = nearestTag === 'river'  ? 3.5   // 大河→拡散で中評価
-                    : nearestTag === 'stream' ? 5.0   // 中規模沢→最高
-                    : nearestTag === 'canal'  ? 2.5   // 用水路
-                    : nearestTag === 'ditch'  ? 2.0   // 排水路
-                    : 2.5;
-        const label = { river:'大河', stream:'沢・小河川', canal:'用水路', ditch:'排水路' };
-        return { score, reason: `最近傍水系: ${label[nearestTag] ?? nearestTag}` };
-      },
-    },
-
     // 3. 河川合流点
     {
       id: 'confluence', name: '河川合流点', weight: 1.5,
@@ -467,11 +436,14 @@ out geom;
                          : maxBend >= 30 ? '緩やかな湾曲'
                          : '概ね直線';
 
-        // 内側±補正: 湾曲の内側なら+1.0、外側なら-1.0
+        // 内側±補正: 20m以内なら+2.0、20m以上なら+1.0、外側-1.0
         let sideLabel = '';
         if (maxBend >= 10) {
           const side = _isInsideOfCurve(lat, lng, nearestWay.geometry);
-          if (side === 1)  { baseScore += 1.0; sideLabel = '・内側（堆積有望）'; }
+          if (side === 1) {
+            if (minD <= 20) { baseScore += 2.0; sideLabel = '・内側至近（堆積最有望）'; }
+            else            { baseScore += 1.0; sideLabel = '・内側（堆積有望）'; }
+          }
           if (side === -1) { baseScore -= 1.0; sideLabel = '・外側（堆積不利）'; }
         }
 
@@ -834,7 +806,7 @@ out geom;
       },
       {
         label: '🌿 環境',
-        ids:   ['riverScale', 'confluence', 'elevation', 'slope'],
+        ids:   ['confluence', 'elevation', 'slope'],
       },
       {
         label: '⚠️ 危険度',
