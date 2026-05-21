@@ -494,9 +494,9 @@ out geom;
       },
     },
 
-    // 8. 傾斜（川の上下流勾配）
+    // 8. 川傾斜（川の上下流勾配）
     {
-      id: 'slope', name: '傾斜', weight: 1.2,
+      id: 'riverSlope', name: '川傾斜', weight: 1.2,
       async evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
         const allWater = [...(overpass.streams || []), ...(overpass.rivers || [])];
@@ -530,8 +530,6 @@ out geom;
         const distKm   = haversine(head.lat, head.lon, tail.lat, tail.lon) / 1000;
         if (distKm < 0.01) return { score: 0, reason: '河川区間が短すぎ（評価不能）' };
         const gradient = elevDiff / distKm; // m/km
-
-        ctx.cache.slopeDiff = elevDiff; // 人到達性が参照するため互換維持
 
         const score = gradient < 5  ? 2.0   // ほぼ平坦（流速不足）
                     : gradient < 15 ? 5.0   // 緩やか（最適）
@@ -643,6 +641,24 @@ out geom;
       },
     },
 
+    // 12b. 傾斜（地形傾斜 — 周辺8点の最大−最小標高差）
+    {
+      id: 'slope', name: '傾斜', weight: 1.2,
+      evaluate(ctx) {
+        const surrounds = ctx.terrain.surroundElevs.filter(e => e !== null);
+        if (surrounds.length < 2) {
+          return { score: STUB_SCORE, reason: '地形傾斜データ取得中' };
+        }
+        const diff = Math.max(...surrounds) - Math.min(...surrounds);
+        ctx.cache.slopeDiff = diff; // 13番(accessibility)が参照
+        const score = diff < 50  ? 5.0   // 平坦（歩きやすい）
+                    : diff < 150 ? 3.5   // やや起伏あり
+                    : diff < 300 ? 2.5   // 急峻
+                    : 1.5;               // 険しい地形
+        return { score, reason: `周辺地形の標高差: 約${Math.round(diff)}m` };
+      },
+    },
+
     // 13. 人到達性
     {
       id: 'accessibility', name: '人到達性', weight: 1.1,
@@ -671,7 +687,7 @@ out geom;
         }
         if (!components.length) return { score: STUB_SCORE, reason: '到達性データ計算中' };
         const score = clamp5(components.reduce((a,b) => a+b, 0) / components.length);
-        return { score, reason: '標高・傾斜・道路距離から推定した到達しやすさ' };
+        return { score, reason: '標高・地形傾斜・道路距離から推定した到達しやすさ' };
       },
     },
 
@@ -792,7 +808,7 @@ out geom;
         name:    item.name,
         stars:   toStars(r.score),
         reason:  r.reason,
-        stub:    r.score === STUB_SCORE && r.reason.includes('準備中'),
+        stub:    (r.score === STUB_SCORE && r.reason.includes('準備中')) || r.reason.includes('評価不能'),
         _score:  clamp5(r.score),
         _weight: item.weight,
       };
@@ -831,15 +847,15 @@ out geom;
     // カテゴリー定義（表示するIDを列挙）
     const CATEGORIES = [
       {
-        label: '💰 含有率',
+        label: '含有率',
         ids:   ['streamDistance', 'riverCurve', 'geology', 'mineDistance', 'valleyShape'],
       },
       {
-        label: '🌿 環境',
-        ids:   ['confluence', 'elevation', 'slope'],
+        label: '環境',
+        ids:   ['confluence', 'elevation', 'riverSlope'],
       },
       {
-        label: '⚠️ 危険度',
+        label: '危険度',
         ids:   ['accessRoad', 'accessibility', 'bearActivity'],
       },
     ];
@@ -852,7 +868,10 @@ out geom;
 
     function _rowHTML(it) {
       if (!it) return '';
-      const stubBadge = it.stub ? `<span class="ev-stub-badge">準備中</span>` : '';
+      const isUnavail = it.stub && it.reason.includes('評価不能');
+      const stubBadge = it.stub
+        ? `<span class="ev-stub-badge">${isUnavail ? '評価不能' : '準備中'}</span>`
+        : '';
       const starsCell = it.stub
         ? `<span class="ev-stars ev-stars-stub">－－－－－</span>`
         : `<span class="ev-stars">${it.stars}</span>`;
