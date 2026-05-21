@@ -4960,3 +4960,23 @@ body.eval-mode #map {
 /* テーブルセル名を旧クラスから更新 */
 .ev-stars-cell { padding-right: 8px; white-space: nowrap; }
 .ev-name-cell  { color: #e8e0c8; font-size: 12px; }
+
+/* ── evaluate.js: カテゴリーヘッダー ── */
+.ev-cat-header {
+  font-size: 10px;
+  font-weight: bold;
+  color: #d4af37;
+  letter-spacing: .06em;
+  margin: 8px 0 2px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(212,175,55,0.25);
+}
+.ev-cat-header:first-of-type { margin-top: 2px; }
+
+/* ── evaluate.js: 欄外（ユーザー実績）区切り ── */
+.ev-outside-divider {
+  margin: 10px 0 6px;
+  border-top: 1px dashed rgba(255,255,255,0.15);
+}
+.ev-table-outside .ev-name-cell { color: #8a8070; }
+.ev-table-outside .ev-stars     { color: #8a7a30; }

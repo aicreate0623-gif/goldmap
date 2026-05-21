@@ -500,6 +500,8 @@ out geom;
         const minD  = Math.min(...dists);
         ctx.cache.nearestDepositM = minD;
         const score = distScore(minD, 1000, 25000);
+        ctx.cache._scores = ctx.cache._scores || {};
+        ctx.cache._scores.depositDistance = score;
         return { score, reason: `最寄り鉱床まで約${(minD/1000).toFixed(1)}km` };
       },
     },
@@ -513,6 +515,8 @@ out geom;
         const dists = prospects.map(d => haversine(lat, lng, d.lat, d.lng));
         const minD  = Math.min(...dists);
         const score = distScore(minD, 500, 15000);
+        ctx.cache._scores = ctx.cache._scores || {};
+        ctx.cache._scores.prospectDistance = score;
         return { score, reason: `最寄り鉱徴地まで約${(minD/1000).toFixed(1)}km` };
       },
     },
@@ -584,7 +588,11 @@ out geom;
       id: 'roadDistance', name: '道路距離', weight: 0.9,
       evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
-        if (!overpass.roads.length) return { score: 3.0, reason: '半径3km以内に一般道なし（秘境）' };
+        if (!overpass.roads.length) {
+          ctx.cache._scores = ctx.cache._scores || {};
+          ctx.cache._scores.roadDistance = 3.0;
+          return { score: 3.0, reason: '半径3km以内に一般道なし（秘境）' };
+        }
 
         let minD = Infinity;
         for (const way of overpass.roads) {
@@ -594,11 +602,12 @@ out geom;
         }
         ctx.cache.nearestRoadM = minD;
 
-        // 近すぎ(観光地)・適度・遠すぎで評価
-        const score = minD <= 100  ? 2.0   // 近すぎ（開発済み・競合多）
-                    : minD <= 1000 ? 5.0   // 適度（アクセス良）
-                    : minD <= 2000 ? 3.5   // やや遠い
-                    : 2.0;                 // 遠すぎ（到達困難）
+        const score = minD <= 100  ? 2.0
+                    : minD <= 1000 ? 5.0
+                    : minD <= 2000 ? 3.5
+                    : 2.0;
+        ctx.cache._scores = ctx.cache._scores || {};
+        ctx.cache._scores.roadDistance = score;
         return { score, reason: `最寄り一般道まで約${Math.round(minD)}m` };
       },
     },
@@ -608,7 +617,11 @@ out geom;
       id: 'forestRoadDistance', name: '林道距離', weight: 1.0,
       evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
-        if (!overpass.tracks.length) return { score: 2.0, reason: '半径3km以内に林道なし' };
+        if (!overpass.tracks.length) {
+          ctx.cache._scores = ctx.cache._scores || {};
+          ctx.cache._scores.forestRoadDistance = 2.0;
+          return { score: 2.0, reason: '半径3km以内に林道なし' };
+        }
 
         let minD = Infinity;
         for (const way of overpass.tracks) {
@@ -617,10 +630,12 @@ out geom;
           if (d < minD) minD = d;
         }
 
-        const score = minD <= 200  ? 5.0   // 林道至近（最高）
-                    : minD <= 800  ? 4.0   // 適度
-                    : minD <= 1500 ? 3.0   // やや遠い
-                    : 2.0;                 // 遠い
+        const score = minD <= 200  ? 5.0
+                    : minD <= 800  ? 4.0
+                    : minD <= 1500 ? 3.0
+                    : 2.0;
+        ctx.cache._scores = ctx.cache._scores || {};
+        ctx.cache._scores.forestRoadDistance = score;
         return { score, reason: `最寄り林道まで約${Math.round(minD)}m` };
       },
     },
@@ -697,7 +712,48 @@ out geom;
   ]; // ← ここに push() するだけで項目追加
 
   // ─────────────────────────────────────────────────────────
-  // メイン評価関数
+  // 統合表示項目（パス2専用: 旧項目スコアを加重合算して表示）
+  //   weight: 0 のためヒートマップ等の集計には影響しない
+  //   _mergeOnly: true でパス1からは除外される
+  // ─────────────────────────────────────────────────────────
+  const mergeItems = [
+
+    // 16. 鉱床・鉱徴地距離（統合表示）
+    //     depositDistance × 4.5/5 + prospectDistance × 0.5/5
+    {
+      id: 'mineDistance', name: '鉱床・鉱徴地距離', weight: 0, _mergeOnly: true,
+      evaluate(ctx) {
+        const s = ctx.cache._scores || {};
+        const dep = s.depositDistance  ?? STUB_SCORE;
+        const pro = s.prospectDistance ?? STUB_SCORE;
+        const score = clamp5(dep * (4.5 / 5) + pro * (0.5 / 5));
+        const depLabel = dep === STUB_SCORE ? '鉱床データ準備中' : `鉱床 ${dep.toFixed(1)}pt`;
+        const proLabel = pro === STUB_SCORE ? '鉱徴地データ準備中' : `鉱徴地 ${pro.toFixed(1)}pt`;
+        return { score, reason: `${depLabel} / ${proLabel}` };
+      },
+    },
+
+    // 17. 道路・林道距離（統合表示）
+    //     roadDistance × 3/5 + forestRoadDistance × 2/5
+    {
+      id: 'accessRoad', name: '道路・林道距離', weight: 0, _mergeOnly: true,
+      evaluate(ctx) {
+        const s = ctx.cache._scores || {};
+        const road  = s.roadDistance        ?? STUB_SCORE;
+        const track = s.forestRoadDistance  ?? STUB_SCORE;
+        const score = clamp5(road * (3 / 5) + track * (2 / 5));
+        const roadLabel  = road  === STUB_SCORE ? '道路データ準備中' : `一般道 ${road.toFixed(1)}pt`;
+        const trackLabel = track === STUB_SCORE ? '林道データ準備中' : `林道 ${track.toFixed(1)}pt`;
+        return { score, reason: `${roadLabel} / ${trackLabel}` };
+      },
+    },
+
+  ];
+
+  // ─────────────────────────────────────────────────────────
+  // メイン評価関数（2パス実行）
+  //   パス1: evaluationItems（通常項目）を実行 → ctx.cache._scores に書き込み
+  //   パス2: mergeItems（統合表示項目）を実行 → cache._scores を参照して加重合算
   // ─────────────────────────────────────────────────────────
   async function evaluate(input) {
     const { lat, lng } = input;
@@ -709,15 +765,23 @@ out geom;
 
     const ctx = await _buildContext(input);
 
-    const settled = await Promise.allSettled(
+    // ── パス1: 通常項目 ──────────────────────────────────
+    const settled1 = await Promise.allSettled(
       evaluationItems.map(item =>
         Promise.resolve().then(() => ({ item, r: item.evaluate(ctx) }))
       )
     );
 
-    const items = settled.map(s => {
+    // ── パス2: 統合表示項目（パス1完了後に実行） ──────────
+    const settled2 = await Promise.allSettled(
+      mergeItems.map(item =>
+        Promise.resolve().then(() => ({ item, r: item.evaluate(ctx) }))
+      )
+    );
+
+    const _toItem = s => {
       if (s.status === 'rejected') {
-        return { id:'unknown', name:'エラー', stars:'☆☆☆☆☆', reason:'評価中にエラー', stub: false };
+        return { id: 'unknown', name: 'エラー', stars: '☆☆☆☆☆', reason: '評価中にエラー', stub: false };
       }
       const { item, r } = s.value;
       return {
@@ -726,10 +790,12 @@ out geom;
         stars:   toStars(r.score),
         reason:  r.reason,
         stub:    r.score === STUB_SCORE && r.reason.includes('準備中'),
-        _score:  clamp5(r.score),   // 内部保持のみ・表示しない
+        _score:  clamp5(r.score),
         _weight: item.weight,
       };
-    });
+    };
+
+    const items = [...settled1, ...settled2].map(_toItem);
 
     const result = { items };
     _evalCache.set(k, { result, at: now });
@@ -758,10 +824,32 @@ out geom;
 
   /** 評価結果HTMLを組み立て */
   function _buildResultHTML(lat, lng, items) {
-    const rows = items.map(it => {
-      const stubBadge = it.stub
-        ? `<span class="ev-stub-badge">準備中</span>`
-        : '';
+
+    // カテゴリー定義（表示するIDを列挙）
+    const CATEGORIES = [
+      {
+        label: '💰 含有率',
+        ids:   ['streamDistance', 'riverCurve', 'geology', 'mineDistance', 'valleyShape'],
+      },
+      {
+        label: '🌿 環境',
+        ids:   ['riverScale', 'confluence', 'elevation', 'slope'],
+      },
+      {
+        label: '⚠️ 危険度',
+        ids:   ['accessRoad', 'accessibility', 'bearActivity'],
+      },
+    ];
+    // 欄外: 点線区切り・ヘッダーなし
+    const OUTSIDE_IDS = ['userRecords'];
+
+    // id → item マップ
+    const itemMap = {};
+    for (const it of items) itemMap[it.id] = it;
+
+    function _rowHTML(it) {
+      if (!it) return '';
+      const stubBadge = it.stub ? `<span class="ev-stub-badge">準備中</span>` : '';
       const starsCell = it.stub
         ? `<span class="ev-stars ev-stars-stub">－－－－－</span>`
         : `<span class="ev-stars">${it.stars}</span>`;
@@ -769,11 +857,27 @@ out geom;
         <td class="ev-stars-cell">${starsCell}</td>
         <td class="ev-name-cell">${it.name}${stubBadge}</td>
       </tr>`;
+    }
+
+    // カテゴリーブロック
+    const catHTML = CATEGORIES.map(cat => {
+      const rows = cat.ids.map(id => _rowHTML(itemMap[id])).join('');
+      return `<div class="ev-cat-header">${cat.label}</div>
+        <table class="ev-table">${rows}</table>`;
     }).join('');
+
+    // 欄外: 点線のみ・ヘッダーなし
+    const outsideRows = OUTSIDE_IDS.map(id => _rowHTML(itemMap[id])).join('');
+    const outsideHTML = outsideRows
+      ? `<div class="ev-outside-divider"></div>
+         <table class="ev-table ev-table-outside">${outsideRows}</table>`
+      : '';
+
     return `
       <div class="ev-popup">
         <div class="ev-title">🔍 砂金探索スコア</div>
-        <table class="ev-table">${rows}</table>
+        ${catHTML}
+        ${outsideHTML}
         <div class="ev-note">※スコアは参考値です。現地確認を推奨します。</div>
       </div>`;
   }
@@ -825,6 +929,7 @@ out geom;
   return {
     evaluate,
     evaluationItems,    // 外部から push() で項目追加可能
+    mergeItems,         // 統合表示項目（外部から push() で追加可能）
     toggleEvalMode,     // index.html の onclick から呼ぶ
   };
 
