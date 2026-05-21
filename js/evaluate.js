@@ -350,12 +350,13 @@ out geom;
         if (!isFinite(minD)) return { score: 1.5, reason: '河川データ不完全' };
 
         ctx.cache.nearestStreamM = minD;
-        // 50m以内を細分化した厳しめ判定
-        const score = minD <= 20  ? 5.0   // 至近（最高）
-                    : minD <= 50  ? 4.0   // 50m以内
-                    : minD <= 100 ? 3.0   // 100m以内
-                    : minD <= 200 ? 2.0   // 200m以内
-                    : 1.0;               // 200m超（低評価）
+        // 5m刻み・35m超で0点
+        const score = minD <= 15 ? 5.0   // 15m以内（最高）
+                    : minD <= 20 ? 4.0   // 20m以内
+                    : minD <= 25 ? 3.0   // 25m以内
+                    : minD <= 30 ? 2.0   // 30m以内
+                    : minD <= 35 ? 1.0   // 35m以内
+                    : 0;                 // 35m超
         return { score, reason: `最寄り河川・沢まで約${Math.round(minD)}m` };
       },
     },
