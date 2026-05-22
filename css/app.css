@@ -4980,3 +4980,28 @@ body.eval-mode #map {
 }
 .ev-table-outside .ev-name-cell { color: #8a8070; }
 .ev-table-outside .ev-stars     { color: #8a7a30; }
+
+/* ===== フロートボタン表示設定ダイアログ ===== */
+.float-btn-vis-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+.float-btn-vis-row:last-child {
+  border-bottom: none;
+}
+.float-btn-vis-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gold);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.float-btn-vis-label {
+  font-size: 13px;
+  color: var(--txt);
+}

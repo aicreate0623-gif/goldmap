@@ -373,6 +373,15 @@
     <!-- 設定メニューリスト -->
     <div class="cfg-menu-list">
 
+      <button class="cfg-menu-item" onclick="showDlg('dlg-cfg-float-btns')">
+        <span class="cfg-menu-icon">🎛</span>
+        <span class="cfg-menu-label">
+          <span class="cfg-menu-title">フロートボタン表示設定</span>
+          <span class="cfg-menu-sub">ボタンの表示／非表示をカスタマイズ</span>
+        </span>
+        <span class="cfg-menu-arrow">›</span>
+      </button>
+
       <button class="cfg-menu-item" id="bear-cfg-menu-item" onclick="showDlg('dlg-cfg-bear')" style="display:none">
         <span class="cfg-menu-icon">🐻</span>
         <span class="cfg-menu-label">
@@ -2587,6 +2596,26 @@
 </div>
 
 
+<!-- ══ フロートボタン表示設定ダイアログ ══ -->
+<div id="dlg-cfg-float-btns" class="dlg-overlay" style="display:none" onclick="if(event.target===this)hideDlg('dlg-cfg-float-btns')">
+  <div class="dlg-box">
+    <div class="dlg-head">
+      <span>🎛 フロートボタン表示設定</span>
+      <button class="sheet-close" onclick="hideDlg('dlg-cfg-float-btns')">✕</button>
+    </div>
+    <div class="dlg-body">
+      <p class="cfg-sub" style="margin-bottom:12px;font-size:11px;color:var(--txt-dim)">
+        OFFにしたボタンは地図画面に表示されません。設定は自動保存されます。
+      </p>
+      <div id="float-btn-vis-list"></div>
+      <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+        <button class="btn sm" onclick="_floatBtnVisReset()">全てON に戻す</button>
+        <button class="btn accent sm" onclick="hideDlg('dlg-cfg-float-btns')">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="exit-overlay" style="
   display:none; position:fixed; inset:0; z-index:9000;
   background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);
@@ -2683,6 +2712,127 @@
       panels[key].style.display = 'none';
       const btn = document.getElementById('btn-legend-' + (key === 'geo' ? 'geo' : 'deposit'));
       if(btn) btn.classList.remove('active');
+    }
+  })();
+  </script>
+
+  <script>
+  /* ===== フロートボタン表示設定 ===== */
+  (function(){
+    const LS_KEY = 'floatBtnVisibility';
+
+    // チェックボックス対象ボタン定義（固定ボタンは含めない）
+    const BTN_DEFS = [
+      { id: 'btn-hill',          label: '🏔 陰影起伏図' },
+      { id: 'btn-relief',        label: '🎨 標高色' },
+      { id: 'btn-geo',           label: '🪨 地質図' },
+      { id: 'btn-geo50k',        label: '⛏️ 鉱物図' },
+      { id: 'btn-chisui',        label: '🌊 治水地形' },
+      { id: 'btn-mypts',         label: '📍 マイPt' },
+      { id: 'btn-bear',          label: '🐻 熊情報' },
+      { id: 'btn-water',         label: '💧 水位' },
+      { id: 'btn-mine',          label: '⛏ スポット' },
+      { id: 'btn-gsj',           label: '🔶 鉱床' },
+      { id: 'btn-wiki',          label: '🌐 Wiki鉱山' },
+      { id: 'btn-kinno',         label: '📌 調査記' },
+      { id: 'btn-eval',          label: '🔍 評価' },
+      { id: 'btn-fc-collapse',   label: '▲ 収納ボタン' },
+    ];
+
+    // localStorageから設定を読む（なければ全true）
+    function _loadState() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch(e) {}
+      const def = {};
+      BTN_DEFS.forEach(d => { def[d.id] = true; });
+      return def;
+    }
+
+    // localStorageへ保存
+    function _saveState(state) {
+      try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e) {}
+    }
+
+    // ボタンの実際のdisplay制御
+    // ※ btn-hill/relief/geo/geo50k/chisui は fcl-*-wrap ごと隠す
+    const WRAP_MAP = {
+      'btn-hill':    '.fcl-hill-wrap',
+      'btn-relief':  '.fcl-relief-wrap',
+      'btn-geo':     '.fcl-geo-wrap:nth-of-type(1)',
+      'btn-geo50k':  '.fcl-geo-wrap:nth-of-type(2)',
+      'btn-chisui':  '.fcl-geo-wrap:nth-of-type(3)',
+    };
+
+    function _applyOne(id, visible) {
+      // wrapがある場合はwrapごと隠す
+      if (WRAP_MAP[id]) {
+        // nth-of-typeは使えないのでbtnの親を直接取得
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        const wrap = btn.closest('.fcl-hill-wrap, .fcl-relief-wrap, .fcl-geo-wrap');
+        if (wrap) { wrap.style.display = visible ? '' : 'none'; return; }
+      }
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.display = visible ? '' : 'none';
+    }
+
+    // 全ボタンに設定を適用
+    function _applyAll(state) {
+      BTN_DEFS.forEach(d => _applyOne(d.id, state[d.id] !== false));
+    }
+
+    // ダイアログのチェックボックスリストを描画
+    function _renderList() {
+      const container = document.getElementById('float-btn-vis-list');
+      if (!container) return;
+      const state = _loadState();
+      container.innerHTML = BTN_DEFS.map(d => `
+        <label class="float-btn-vis-row">
+          <input type="checkbox" data-btn-id="${d.id}"
+            ${state[d.id] !== false ? 'checked' : ''}
+            onchange="_floatBtnVisChange('${d.id}', this.checked)">
+          <span class="float-btn-vis-label">${d.label}</span>
+        </label>
+      `).join('');
+    }
+
+    // チェック変更ハンドラ
+    window._floatBtnVisChange = function(id, checked) {
+      const state = _loadState();
+      state[id] = checked;
+      _saveState(state);
+      _applyOne(id, checked);
+    };
+
+    // 全ONリセット
+    window._floatBtnVisReset = function() {
+      const state = {};
+      BTN_DEFS.forEach(d => { state[d.id] = true; });
+      _saveState(state);
+      _applyAll(state);
+      _renderList();
+    };
+
+    // ダイアログを開くたびにリストを再描画
+    const origShowDlg = window.showDlg;
+    window.showDlg = function(id) {
+      if (id === 'dlg-cfg-float-btns') _renderList();
+      if (typeof origShowDlg === 'function') origShowDlg(id);
+    };
+
+    // 起動時に適用
+    function _init() {
+      const state = _loadState();
+      _applyAll(state);
+    }
+
+    if (document.readyState === 'complete') {
+      _init();
+    } else {
+      window.addEventListener('load', _init);
     }
   })();
   </script>
