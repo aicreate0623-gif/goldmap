@@ -911,11 +911,15 @@ out geom;
     const CATEGORIES = [
       {
         label: '含有率',
-        ids:   ['streamDistance', 'riverCurve', 'geology', 'mineDistance', 'valleyShape', 'depositElevation'],
+        ids:   ['geology', 'mineDistance', 'depositElevation', 'valleyShape'],
+      },
+      {
+        label: '河川環境',
+        ids:   ['streamDistance', 'riverCurve', 'confluence', 'riverSlope'],
       },
       {
         label: '環境',
-        ids:   ['confluence', 'elevation', 'riverSlope'],
+        ids:   ['elevation'],
       },
       {
         label: '危険度',
