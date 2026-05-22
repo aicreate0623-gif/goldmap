@@ -496,9 +496,21 @@ out geom;
           if (side === -1) { sideScore = -1.0; sideLabel = '・外側（堆積不利）'; }
         }
 
+        const finalScore = clamp5(baseScore + countBonus + sideScore);
         return {
-          score:  clamp5(baseScore + countBonus + sideScore),
+          score:  finalScore,
           reason: `最近傍河川: ${curveLabel}${countLabel}${sideLabel}`,
+          _debug: {
+            '川までの距離':     `${Math.round(minD)}m`,
+            '最近傍ノードIdx':  `${nearIdx} / ${geo.length - 1}`,
+            '最近傍曲率':       `${localBend.toFixed(1)}°`,
+            '湾曲数(全体)':     `${bendCount}箇所`,
+            '内外判定':         sideScore > 0 ? '内側' : sideScore < 0 ? '外側' : '直線/不明',
+            'ベーススコア':      `${baseScore.toFixed(1)}`,
+            '湾曲数ボーナス':   `+${countBonus.toFixed(1)}`,
+            '内外補正':         `${sideScore >= 0 ? '+' : ''}${sideScore.toFixed(1)}`,
+            '最終スコア':       `${finalScore.toFixed(2)} / 5.0`,
+          },
         };
       },
     },
@@ -923,6 +935,7 @@ out geom;
         stub:    (r.score === STUB_SCORE && r.reason.includes('準備中')) || r.reason.includes('評価不能'),
         _score:  clamp5(r.score),
         _weight: item.weight,
+        _debug:  r._debug || null,
       };
     };
 
@@ -1011,12 +1024,32 @@ out geom;
          <table class="ev-table ev-table-outside">${outsideRows}</table>`
       : '';
 
+    // ── DEBUGパネル（削除前提） ──
+    const debugItems = items.filter(it => it._debug);
+    const debugHTML = debugItems.length ? `
+      <div class="ev-debug-wrap">
+        <button class="ev-debug-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=this.textContent.includes('▶')?'▼ デバッグ情報を閉じる':'▶ 🔧 デバッグ情報';void 0">▶ 🔧 デバッグ情報</button>
+        <div class="ev-debug-body" style="display:none">
+          ${debugItems.map(it => `
+            <div class="ev-debug-section">
+              <div class="ev-debug-title">【${it.name}】</div>
+              <table class="ev-debug-table">
+                ${Object.entries(it._debug).map(([k,v]) =>
+                  `<tr><td class="ev-debug-key">${k}</td><td class="ev-debug-val">${v}</td></tr>`
+                ).join('')}
+              </table>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : '';
+
     return `
       <div class="ev-popup">
         <div class="ev-title">🔍 砂金探索スコア</div>
         <div class="ev-minimap" data-lat="${lat}" data-lng="${lng}"></div>
         ${catHTML}
         ${outsideHTML}
+        ${debugHTML}
         <div class="ev-note">※スコアは参考値です。現地確認を推奨します。</div>
       </div>`;
   }

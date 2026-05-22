@@ -5041,3 +5041,52 @@ body.eval-mode #map {
 .ev-minimap .leaflet-tile-container {
   pointer-events: none;
 }
+/* ===== [DEV] 評価デバッグパネル（削除前提） ===== */
+.ev-debug-wrap {
+  margin-top: 10px;
+  border-top: 1px dashed rgba(255,255,255,0.15);
+  padding-top: 8px;
+}
+.ev-debug-toggle {
+  background: rgba(255,200,50,0.1);
+  border: 1px solid rgba(255,200,50,0.3);
+  color: rgba(255,200,50,0.8);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+.ev-debug-body {
+  margin-top: 6px;
+}
+.ev-debug-section {
+  margin-bottom: 10px;
+}
+.ev-debug-title {
+  font-size: 10px;
+  font-weight: bold;
+  color: rgba(255,200,50,0.7);
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+.ev-debug-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.ev-debug-table tr {
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.ev-debug-key {
+  color: rgba(244,240,232,0.45);
+  padding: 3px 8px 3px 0;
+  white-space: nowrap;
+  width: 45%;
+}
+.ev-debug-val {
+  color: #f4f0e8;
+  padding: 3px 0;
+  font-variant-numeric: tabular-nums;
+}
