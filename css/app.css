@@ -211,11 +211,14 @@ html, body {
 
 /* ── ヒートマップ調整ボタン：縦ハーフサイズ ── */
 #btn-heat-adj {
-  height: 21px;
+  width: 21px;
+  height: 84px;
   font-size: 8px;
   gap: 0;
+  writing-mode: vertical-rl;
+  letter-spacing: 0.1em;
 }
-#btn-heat-adj .fc-ico { font-size: 11px; }
+#btn-heat-adj .fc-ico { display: none; }
 
 /* ── 安全情報グループ（熊情報・水位）: ティール ── */
 .fc-grp-safety {
