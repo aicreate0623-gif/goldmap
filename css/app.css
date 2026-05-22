@@ -4982,28 +4982,34 @@ body.eval-mode #map {
 .ev-table-outside .ev-stars     { color: #8a7a30; }
 
 /* ===== フロートボタン表示設定ダイアログ ===== */
+#float-btn-vis-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 8px;
+}
 .float-btn-vis-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 4px;
-  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  padding: 7px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   cursor: pointer;
   user-select: none;
 }
-.float-btn-vis-row:last-child {
+.float-btn-vis-row:nth-last-child(-n+2) {
   border-bottom: none;
 }
 .float-btn-vis-row input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   accent-color: var(--gold);
   flex-shrink: 0;
   cursor: pointer;
 }
 .float-btn-vis-label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--txt);
+  white-space: nowrap;
 }
 
 /* ─── ev-minimap: 評価ポップアップ内ミニマップ ─────────────────── */
