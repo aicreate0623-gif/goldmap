@@ -787,14 +787,14 @@ out geom;
     // ── パス1: 通常項目 ──────────────────────────────────
     const settled1 = await Promise.allSettled(
       evaluationItems.map(item =>
-        Promise.resolve().then(() => ({ item, r: item.evaluate(ctx) }))
+        Promise.resolve().then(async () => ({ item, r: await item.evaluate(ctx) }))
       )
     );
 
     // ── パス2: 統合表示項目（パス1完了後に実行） ──────────
     const settled2 = await Promise.allSettled(
       mergeItems.map(item =>
-        Promise.resolve().then(() => ({ item, r: item.evaluate(ctx) }))
+        Promise.resolve().then(async () => ({ item, r: await item.evaluate(ctx) }))
       )
     );
 
