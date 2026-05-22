@@ -501,15 +501,14 @@ out geom;
           score:  finalScore,
           reason: `最近傍河川: ${curveLabel}${countLabel}${sideLabel}`,
           _debug: {
-            '川までの距離':     `${Math.round(minD)}m`,
-            '最近傍ノードIdx':  `${nearIdx} / ${geo.length - 1}`,
-            '最近傍曲率':       `${localBend.toFixed(1)}°`,
-            '湾曲数(全体)':     `${bendCount}箇所`,
-            '内外判定':         sideScore > 0 ? '内側' : sideScore < 0 ? '外側' : '直線/不明',
-            'ベーススコア':      `${baseScore.toFixed(1)}`,
-            '湾曲数ボーナス':   `+${countBonus.toFixed(1)}`,
-            '内外補正':         `${sideScore >= 0 ? '+' : ''}${sideScore.toFixed(1)}`,
-            '最終スコア':       `${finalScore.toFixed(2)} / 5.0`,
+            '川までの距離':   `${Math.round(minD)}m`,
+            'ノードIdx':      `${nearIdx} / ${geo.length - 1}`,
+            '最近傍曲率':     `${localBend.toFixed(1)}°`,
+            '湾曲数':         `${bendCount}箇所`,
+            '内外判定':       sideScore > 0 ? '内側' : sideScore < 0 ? '外側' : '直線/不明',
+            'ベース':         baseScore.toFixed(1),
+            '湾曲ボーナス':   `+${countBonus.toFixed(1)}`,
+            '内外補正':       `${sideScore >= 0 ? '+' : ''}${sideScore.toFixed(1)}`,
           },
         };
       },
@@ -1024,24 +1023,31 @@ out geom;
          <table class="ev-table ev-table-outside">${outsideRows}</table>`
       : '';
 
-    // ── DEBUGパネル（削除前提） ──
-    const debugItems = items.filter(it => it._debug);
-    const debugHTML = debugItems.length ? `
-      <div class="ev-debug-wrap">
-        <button class="ev-debug-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=this.textContent.includes('▶')?'▼ デバッグ情報を閉じる':'▶ 🔧 デバッグ情報';void 0">▶ 🔧 デバッグ情報</button>
+    // ── [DEV DEBUG START] ── 削除時はこのブロックごと消す ──
+    const _devDebugHTML = (() => {
+      const rows = items.map(it => {
+        const scoreBar = '█'.repeat(Math.round(it._score)) + '░'.repeat(5 - Math.round(it._score));
+        const extraRows = it._debug
+          ? Object.entries(it._debug).map(([k, v]) =>
+              `<tr><td class="ev-debug-key ev-debug-sub">　${k}</td><td class="ev-debug-val ev-debug-sub">${v}</td></tr>`
+            ).join('')
+          : '';
+        return `<tr>
+          <td class="ev-debug-key">${it.name}</td>
+          <td class="ev-debug-val">${scoreBar} ${it._score.toFixed(1)}</td>
+        </tr>${extraRows}`;
+      }).join('');
+      return `<div class="ev-debug-wrap">
+        <button class="ev-debug-toggle"
+          onclick="const b=this.nextElementSibling;const open=b.style.display!=='none';b.style.display=open?'none':'block';this.textContent=open?'▶ 🔧 DEBUGを開く':'▼ 🔧 DEBUGを閉じる'">
+          ▶ 🔧 DEBUGを開く
+        </button>
         <div class="ev-debug-body" style="display:none">
-          ${debugItems.map(it => `
-            <div class="ev-debug-section">
-              <div class="ev-debug-title">【${it.name}】</div>
-              <table class="ev-debug-table">
-                ${Object.entries(it._debug).map(([k,v]) =>
-                  `<tr><td class="ev-debug-key">${k}</td><td class="ev-debug-val">${v}</td></tr>`
-                ).join('')}
-              </table>
-            </div>
-          `).join('')}
+          <table class="ev-debug-table">${rows}</table>
         </div>
-      </div>` : '';
+      </div>`;
+    })();
+    // ── [DEV DEBUG END] ────────────────────────────────────
 
     return `
       <div class="ev-popup">
@@ -1049,7 +1055,7 @@ out geom;
         <div class="ev-minimap" data-lat="${lat}" data-lng="${lng}"></div>
         ${catHTML}
         ${outsideHTML}
-        ${debugHTML}
+        <!-- [DEV DEBUG START] -->${_devDebugHTML}<!-- [DEV DEBUG END] -->
         <div class="ev-note">※スコアは参考値です。現地確認を推奨します。</div>
       </div>`;
   }
