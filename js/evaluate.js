@@ -100,18 +100,24 @@ const GoldEvaluator = (() => {
   }
 
   /**
-   * 最近傍wayのカーブに対して、指定座標が内側か外側かを判定
+   * wayのカーブに対して、指定座標が内側か外側かを判定
    * 内側 = 川が曲がる方向の内側（砂金が堆積しやすい）
+   * hintIdx: 最大曲率ノードのインデックス（省略時は最近傍ノードを使用）
    * 戻り値: 1=内側, -1=外側, 0=直線/不明
    */
-  function _isInsideOfCurve(lat, lng, geometry) {
+  function _isInsideOfCurve(lat, lng, geometry, hintIdx) {
     if (!geometry || geometry.length < 3) return 0;
 
-    // 最近傍ノードを探す
-    let minD = Infinity, nearIdx = 1;
-    for (let i = 1; i < geometry.length - 1; i++) {
-      const d = haversine(lat, lng, geometry[i].lat, geometry[i].lon);
-      if (d < minD) { minD = d; nearIdx = i; }
+    // hintIdxが有効なら優先使用、なければ最近傍ノードを探す
+    let nearIdx = 1;
+    if (hintIdx != null && hintIdx >= 1 && hintIdx < geometry.length - 1) {
+      nearIdx = hintIdx;
+    } else {
+      let minD = Infinity;
+      for (let i = 1; i < geometry.length - 1; i++) {
+        const d = haversine(lat, lng, geometry[i].lat, geometry[i].lon);
+        if (d < minD) { minD = d; nearIdx = i; }
+      }
     }
 
     const p0 = geometry[nearIdx - 1];
@@ -136,12 +142,15 @@ const GoldEvaluator = (() => {
   }
 
   /**
-   * wayのノード列から曲率スコアを計算
-   * 前後ノード間の角度差の最大値を返す（度）
+   * wayのノード列から湾曲情報を計算
+   * 戻り値: { maxBend, bendCount, maxBendIdx }
+   *   maxBend    : 最大曲がり角度（度）。大きいほど急カーブ
+   *   bendCount  : 有意な湾曲の数（bend >= 10度のノード数）。S字等で増える
+   *   maxBendIdx : 最大曲率のノードインデックス（内外判定に使用）
    */
-  function _calcMaxCurvature(geometry) {
-    if (!geometry || geometry.length < 3) return 0;
-    let maxAngle = 0;
+  function _calcCurvatureInfo(geometry) {
+    if (!geometry || geometry.length < 3) return { maxBend: 0, bendCount: 0, maxBendIdx: 1 };
+    let maxBend = 0, bendCount = 0, maxBendIdx = 1;
     for (let i = 1; i < geometry.length - 1; i++) {
       const p0 = geometry[i - 1], p1 = geometry[i], p2 = geometry[i + 1];
       const ax = p0.lon - p1.lon, ay = p0.lat - p1.lat;
@@ -150,12 +159,12 @@ const GoldEvaluator = (() => {
       const magA = Math.sqrt(ax * ax + ay * ay);
       const magB = Math.sqrt(bx * bx + by * by);
       if (magA < 1e-10 || magB < 1e-10) continue;
-      const cos   = Math.max(-1, Math.min(1, dot / (magA * magB)));
-      const angle = Math.acos(cos) * (180 / Math.PI); // 直線=180°、直角=90°
-      const bend  = 180 - angle; // 曲がり角度（大きいほど急カーブ）
-      if (bend > maxAngle) maxAngle = bend;
+      const cos  = Math.max(-1, Math.min(1, dot / (magA * magB)));
+      const bend = 180 - Math.acos(cos) * (180 / Math.PI);
+      if (bend >= 10) bendCount++;
+      if (bend > maxBend) { maxBend = bend; maxBendIdx = i; }
     }
-    return maxAngle;
+    return { maxBend, bendCount, maxBendIdx };
   }
 
   // ─────────────────────────────────────────────────────────
@@ -418,7 +427,7 @@ out geom;
         const allWater = [...overpass.streams, ...overpass.rivers];
         if (!allWater.length) return { score: 1.5, reason: '半径3km以内に河川なし' };
 
-        // 最近傍wayの曲率を評価
+        // 最近傍wayを特定（1本のみ対象）
         let minD = Infinity, nearestWay = null;
         for (const way of allWater) {
           if (!way.geometry?.length) continue;
@@ -427,29 +436,50 @@ out geom;
         }
         if (!nearestWay) return { score: 1.5, reason: '河川形状データなし' };
 
-        const maxBend = _calcMaxCurvature(nearestWay.geometry);
+        // 川が遠すぎる場合は湾曲の恩恵なし（沢距離スコアと連動）
+        const streamM = ctx.cache.nearestStreamM ?? minD;
+        if (streamM > 50) {
+          return { score: 1.0, reason: `最近傍河川まで約${Math.round(streamM)}m（湾曲の恩恵圏外）` };
+        }
+
+        // 湾曲情報を取得（最大曲率・湾曲数・最大曲率箇所）
+        const { maxBend, bendCount, maxBendIdx } = _calcCurvatureInfo(nearestWay.geometry);
+
+        // 最大曲率ベーススコア
         let baseScore = maxBend >= 60 ? 5.0   // 急カーブ
                       : maxBend >= 30 ? 4.0   // 中カーブ
-                      : maxBend >= 10 ? 3.0   // 緩やか
-                      : 1.5;                  // ほぼ直線
-        const curveLabel = maxBend >= 60 ? '急カーブ'
-                         : maxBend >= 30 ? '緩やかな湾曲'
-                         : '概ね直線';
+                      : maxBend >= 10 ? 2.5   // 緩やか
+                      : 1.0;                  // ほぼ直線
 
-        // 内側±補正: 20m以内なら+2.0、20m以上なら+1.0、外側-1.0
+        // 湾曲数ボーナス（S字など複数湾曲は加点）
+        const countBonus = bendCount >= 5 ? 1.0
+                         : bendCount >= 3 ? 0.5
+                         : 0;
+
+        const curveLabel = maxBend >= 60 ? '急カーブ'
+                         : maxBend >= 30 ? '中程度の湾曲'
+                         : maxBend >= 10 ? '緩やかな湾曲'
+                         : '概ね直線';
+        const countLabel = bendCount >= 5 ? `・S字複合(${bendCount}箇所)`
+                         : bendCount >= 3 ? `・複数湾曲(${bendCount}箇所)`
+                         : bendCount >= 1 ? `・湾曲${bendCount}箇所`
+                         : '';
+
+        // 内側判定: 最大曲率箇所を基準に内外判定
         let sideLabel = '';
+        let sideScore = 0;
         if (maxBend >= 10) {
-          const side = _isInsideOfCurve(lat, lng, nearestWay.geometry);
+          const side = _isInsideOfCurve(lat, lng, nearestWay.geometry, maxBendIdx);
           if (side === 1) {
-            if (minD <= 20) { baseScore += 2.0; sideLabel = '・内側至近（堆積最有望）'; }
-            else            { baseScore += 1.0; sideLabel = '・内側（堆積有望）'; }
+            sideScore = minD <= 20 ? 2.0 : 1.0;
+            sideLabel = minD <= 20 ? '・内側至近（堆積最有望）' : '・内側（堆積有望）';
           }
-          if (side === -1) { baseScore -= 1.0; sideLabel = '・外側（堆積不利）'; }
+          if (side === -1) { sideScore = -1.0; sideLabel = '・外側（堆積不利）'; }
         }
 
         return {
-          score:  clamp5(baseScore),
-          reason: `最近傍河川: ${curveLabel}${sideLabel}`,
+          score:  clamp5(baseScore + countBonus + sideScore),
+          reason: `最近傍河川: ${curveLabel}${countLabel}${sideLabel}`,
         };
       },
     },
