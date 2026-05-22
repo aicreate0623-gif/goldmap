@@ -691,6 +691,69 @@ out geom;
       },
     },
 
+    // 14a. 鉱床・鉱徴地との標高差
+    {
+      id: 'depositElevation', name: '鉱床標高差', weight: 1.2,
+      async evaluate(ctx) {
+        const { lat, lng, deposits, prospects, mines, terrain } = ctx;
+
+        // 評価地点の標高
+        const myElev = terrain.elev;
+        if (myElev === null) {
+          return { score: STUB_SCORE, reason: '評価地点の標高取得中' };
+        }
+
+        // 鉱床＋鉱徴地＋minesを合算して最近傍を特定
+        const allDeps = [...deposits, ...mines];
+        const allProspects = [...prospects];
+        const allTargets = [...allDeps, ...allProspects];
+        if (!allTargets.length) {
+          return { score: STUB_SCORE, reason: '鉱床・鉱徴地データ読み込み中' };
+        }
+
+        // 最近傍ターゲットを距離で選ぶ
+        let nearest = null, nearestD = Infinity;
+        for (const d of allTargets) {
+          const dist = haversine(lat, lng, d.lat, d.lng);
+          if (dist < nearestD) { nearestD = dist; nearest = d; }
+        }
+        if (!nearest) {
+          return { score: STUB_SCORE, reason: '鉱床・鉱徴地データ読み込み中' };
+        }
+
+        // 最近傍の標高を取得
+        const depElev = await _fetchElev(nearest.lat, nearest.lng);
+        if (depElev === null) {
+          return { score: STUB_SCORE, reason: '鉱床地点の標高取得中' };
+        }
+
+        // 標高差: 正 = 評価地点が低い（川下）、負 = 評価地点が高い（川上）
+        const diff = depElev - myElev; // 正なら川下側
+        const distKmLabel = (nearestD / 1000).toFixed(1);
+        const typeLabel = allDeps.includes(nearest) ? '鉱床' : '鉱徴地';
+
+        let score, label;
+        if (diff >= 100) {
+          score = 5.0;
+          label = `${typeLabel}より${Math.round(diff)}m低い（明確な川下）`;
+        } else if (diff >= 10) {
+          score = 4.0;
+          label = `${typeLabel}より${Math.round(diff)}m低い（川下）`;
+        } else if (diff >= 0) {
+          score = 3.0;
+          label = `${typeLabel}とほぼ同標高（±${Math.round(Math.abs(diff))}m）`;
+        } else {
+          score = 1.0;
+          label = `${typeLabel}より${Math.round(Math.abs(diff))}m高い（川上側）`;
+        }
+
+        return {
+          score,
+          reason: `最寄り${typeLabel}(${distKmLabel}km): ${label}`,
+        };
+      },
+    },
+
     // 14. 過去ユーザー実績
     {
       id: 'userRecords', name: 'ユーザー実績', weight: 1.4,
@@ -848,7 +911,7 @@ out geom;
     const CATEGORIES = [
       {
         label: '含有率',
-        ids:   ['streamDistance', 'riverCurve', 'geology', 'mineDistance', 'valleyShape'],
+        ids:   ['streamDistance', 'riverCurve', 'geology', 'mineDistance', 'valleyShape', 'depositElevation'],
       },
       {
         label: '環境',
