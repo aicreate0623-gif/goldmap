@@ -133,10 +133,13 @@ function stopWatch(){
 }
 function onGps(pos){
   if(!gpsOn) return;
-  // 信号回復: 途絶ダイアログが出ていれば閉じる
+  // 信号回復: 途絶ダイアログが出ていれば、そのダイアログだけ閉じる
+  // （closeOv()は他の開いているダイアログも巻き込むため使わない）
   if(_gpsLostDialogShown){
-    closeOv();
-    _gpsLostDialogShown = false;
+    _onGpsLostDialogClose();
+    document.getElementById('dlg-gps-lost').style.display='none';
+    const anyOpen=DLGS.some(d=>{const el=document.getElementById(d);return el&&el.style.display!=='none';});
+    if(!anyOpen) document.getElementById('overlay').classList.remove('open');
   }
   const{latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
   // 50km洪水判定用にグローバル保存
