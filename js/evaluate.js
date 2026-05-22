@@ -442,34 +442,53 @@ out geom;
           return { score: 1.0, reason: `最近傍河川まで約${Math.round(streamM)}m（湾曲の恩恵圏外）` };
         }
 
-        // 湾曲情報を取得（最大曲率・湾曲数・最大曲率箇所）
-        const { maxBend, bendCount, maxBendIdx } = _calcCurvatureInfo(nearestWay.geometry);
+        // 湾曲数はライン全体でカウント（S字ボーナス用）
+        const { bendCount } = _calcCurvatureInfo(nearestWay.geometry);
 
-        // 最大曲率ベーススコア
-        let baseScore = maxBend >= 60 ? 5.0   // 急カーブ
-                      : maxBend >= 30 ? 4.0   // 中カーブ
-                      : maxBend >= 10 ? 2.5   // 緩やか
-                      : 1.0;                  // ほぼ直線
+        // 最近傍ノードを特定（評価地点に最も近い箇所）
+        let nearIdx = 1;
+        { let nearD = Infinity;
+          for (let i = 1; i < nearestWay.geometry.length - 1; i++) {
+            const d = haversine(lat, lng, nearestWay.geometry[i].lat, nearestWay.geometry[i].lon);
+            if (d < nearD) { nearD = d; nearIdx = i; }
+          }
+        }
+
+        // 最近傍ノード周辺の曲率を取得（そのカーブで評価）
+        const geo = nearestWay.geometry;
+        const p0  = geo[nearIdx - 1], p1 = geo[nearIdx], p2 = geo[nearIdx + 1] ?? geo[nearIdx];
+        const ax  = p0.lon - p1.lon, ay = p0.lat - p1.lat;
+        const bx  = p2.lon - p1.lon, by = p2.lat - p1.lat;
+        const magA = Math.sqrt(ax * ax + ay * ay);
+        const magB = Math.sqrt(bx * bx + by * by);
+        const localBend = (magA < 1e-10 || magB < 1e-10) ? 0
+          : 180 - Math.acos(Math.max(-1, Math.min(1, (ax*bx + ay*by) / (magA * magB)))) * (180 / Math.PI);
+
+        // 最近傍カーブのベーススコア
+        let baseScore = localBend >= 60 ? 5.0   // 急カーブ
+                      : localBend >= 30 ? 4.0   // 中程度
+                      : localBend >= 10 ? 2.5   // 緩やか
+                      : 1.0;                    // ほぼ直線
 
         // 湾曲数ボーナス（S字など複数湾曲は加点）
         const countBonus = bendCount >= 5 ? 1.0
                          : bendCount >= 3 ? 0.5
                          : 0;
 
-        const curveLabel = maxBend >= 60 ? '急カーブ'
-                         : maxBend >= 30 ? '中程度の湾曲'
-                         : maxBend >= 10 ? '緩やかな湾曲'
+        const curveLabel = localBend >= 60 ? '急カーブ'
+                         : localBend >= 30 ? '中程度の湾曲'
+                         : localBend >= 10 ? '緩やかな湾曲'
                          : '概ね直線';
         const countLabel = bendCount >= 5 ? `・S字複合(${bendCount}箇所)`
                          : bendCount >= 3 ? `・複数湾曲(${bendCount}箇所)`
                          : bendCount >= 1 ? `・湾曲${bendCount}箇所`
                          : '';
 
-        // 内側判定: 最大曲率箇所を基準に内外判定
+        // 内側判定: 最近傍ノード（評価地点に最も近いカーブ）で判定
         let sideLabel = '';
         let sideScore = 0;
-        if (maxBend >= 10) {
-          const side = _isInsideOfCurve(lat, lng, nearestWay.geometry, maxBendIdx);
+        if (localBend >= 10) {
+          const side = _isInsideOfCurve(lat, lng, nearestWay.geometry, nearIdx);
           if (side === 1) {
             sideScore = minD <= 20 ? 2.0 : 1.0;
             sideLabel = minD <= 20 ? '・内側至近（堆積最有望）' : '・内側（堆積有望）';
