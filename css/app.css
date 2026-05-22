@@ -4983,31 +4983,43 @@ body.eval-mode #map {
 
 /* ===== フロートボタン表示設定ダイアログ ===== */
 #float-btn-vis-list {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px 8px;
+  display: flex;
+  flex-direction: row;
+  gap: 0 10px;
+}
+.fv-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.fv-col-left {
+  border-right: 1px solid rgba(255,255,255,0.08);
+  padding-right: 8px;
+}
+.fv-col-right {
+  padding-left: 2px;
 }
 .float-btn-vis-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 4px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  gap: 6px;
+  padding: 5px 2px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
   cursor: pointer;
   user-select: none;
 }
-.float-btn-vis-row:nth-last-child(-n+2) {
+.float-btn-vis-row:last-child {
   border-bottom: none;
 }
 .float-btn-vis-row input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   accent-color: var(--gold);
   flex-shrink: 0;
   cursor: pointer;
 }
 .float-btn-vis-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--txt);
   white-space: nowrap;
 }

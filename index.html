@@ -2718,22 +2718,27 @@
   (function(){
     const LS_KEY = 'floatBtnVisibility';
 
-    const BTN_DEFS = [
-      { id: 'btn-hill',        label: '🏔 陰影起伏図' },
-      { id: 'btn-relief',      label: '🎨 標高色' },
-      { id: 'btn-geo',         label: '🪨 地質図' },
-      { id: 'btn-geo50k',      label: '⛏️ 鉱物図' },
-      { id: 'btn-chisui',      label: '🌊 治水地形' },
-      { id: 'btn-mypts',       label: '📍 マイPt' },
-      { id: 'btn-bear',        label: '🐻 熊情報' },
-      { id: 'btn-water',       label: '💧 水位' },
-      { id: 'btn-mine',        label: '⛏ スポット' },
-      { id: 'btn-gsj',         label: '🔶 鉱床' },
-      { id: 'btn-wiki',        label: '🌐 Wiki鉱山' },
-      { id: 'btn-kinno',       label: '📌 調査記' },
-      { id: 'btn-eval',        label: '🔍 評価' },
-      { id: 'btn-fc-collapse', label: '▲ 収納ボタン' },
+    // 左列（float-ctrl-left）に対応するボタン群
+    const BTN_LEFT = [
+      { id: 'btn-hill',   label: '🏔 陰影起伏図' },
+      { id: 'btn-relief', label: '🎨 標高色' },
+      { id: 'btn-geo',    label: '🪨 地質図' },
+      { id: 'btn-geo50k', label: '⛏️ 鉱物図' },
+      { id: 'btn-chisui', label: '🌊 治水地形' },
     ];
+    // 右列（float-ctrl-right）に対応するボタン群
+    const BTN_RIGHT = [
+      { id: 'btn-mypts',        label: '📍 マイPt' },
+      { id: 'btn-custom-layer', label: '📂 マイMAP' },
+      { id: 'btn-bear',         label: '🐻 熊情報' },
+      { id: 'btn-water',        label: '💧 水位' },
+      { id: 'btn-mine',         label: '⛏ スポット' },
+      { id: 'btn-gsj',          label: '🔶 鉱床' },
+      { id: 'btn-wiki',         label: '🌐 Wiki鉱山' },
+      { id: 'btn-kinno',        label: '📌 調査記' },
+      { id: 'btn-eval',         label: '🔍 評価' },
+    ];
+    const BTN_DEFS = [...BTN_LEFT, ...BTN_RIGHT];
 
     function _loadState() {
       try {
@@ -2776,14 +2781,20 @@
       const container = document.getElementById('float-btn-vis-list');
       if (!container) return;
       const state = _loadState();
-      container.innerHTML = BTN_DEFS.map(d => `
-        <label class="float-btn-vis-row">
+      function _row(d) {
+        return `<label class="float-btn-vis-row">
           <input type="checkbox" data-btn-id="${d.id}"
             ${state[d.id] !== false ? 'checked' : ''}
             onchange="_floatBtnVisChange('${d.id}', this.checked)">
           <span class="float-btn-vis-label">${d.label}</span>
-        </label>
-      `).join('');
+        </label>`;
+      }
+      // 左列・右列を2カラムで並べる（上から順に各列）
+      const leftRows  = BTN_LEFT.map(_row).join('');
+      const rightRows = BTN_RIGHT.map(_row).join('');
+      container.innerHTML =
+        `<div class="fv-col fv-col-left">${leftRows}</div>` +
+        `<div class="fv-col fv-col-right">${rightRows}</div>`;
     }
 
     window._floatBtnVisChange = function(id, checked) {
