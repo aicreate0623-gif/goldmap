@@ -965,6 +965,7 @@ out geom;
     return `
       <div class="ev-popup">
         <div class="ev-title">🔍 砂金探索スコア</div>
+        <div class="ev-minimap" data-lat="${lat}" data-lng="${lng}"></div>
         ${catHTML}
         ${outsideHTML}
         <div class="ev-note">※スコアは参考値です。現地確認を推奨します。</div>
@@ -985,11 +986,54 @@ out geom;
       // ポップアップが途中で閉じられていなければ内容を更新
       if (_evalPopup && map.hasLayer(_evalPopup)) {
         _evalPopup.setContent(_buildResultHTML(lat, lng, result.items));
+        // DOM反映後にミニマップを初期化
+        requestAnimationFrame(() => _initMinimap(lat, lng));
       }
     } catch {
       if (_evalPopup && map.hasLayer(_evalPopup)) {
         _evalPopup.setContent('<div class="ev-error">⚠ 評価に失敗しました</div>');
       }
+    }
+  }
+
+  /**
+   * ポップアップ内の .ev-minimap 要素にLeafletミニマップを初期化
+   * 操作不可・固定表示
+   */
+  function _initMinimap(lat, lng) {
+    const el = document.querySelector('.ev-minimap');
+    if (!el || el._minimapInit) return;
+    el._minimapInit = true;
+
+    const mini = L.map(el, {
+      center:             [lat, lng],
+      zoom:               14,
+      zoomControl:        false,
+      attributionControl: false,
+      dragging:           false,
+      touchZoom:          false,
+      scrollWheelZoom:    false,
+      doubleClickZoom:    false,
+      boxZoom:            false,
+      keyboard:           false,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(mini);
+
+    // 中心に赤丸マーカー（CircleMarker）
+    L.circleMarker([lat, lng], {
+      radius:      6,
+      color:       '#fff',
+      weight:      2,
+      fillColor:   '#e03030',
+      fillOpacity: 1,
+    }).addTo(mini);
+
+    // ポップアップが閉じたらミニマップを破棄（メモリリーク防止）
+    if (_evalPopup) {
+      _evalPopup.once('remove', () => { try { mini.remove(); } catch (_) {} });
     }
   }
 
