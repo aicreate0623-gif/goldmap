@@ -1901,15 +1901,39 @@ out geom;
     // 17. 道路・林道距離（統合表示）
     //     roadDistance × 3/5 + forestRoadDistance × 2/5
     {
-      id: 'accessRoad', name: '道路・林道距離', weight: 0, _mergeOnly: true,
+      id: 'accessRoad', name: 'アクセスリスク', weight: 0, _mergeOnly: true,
       evaluate(ctx) {
         const s = ctx.cache._scores || {};
-        const road  = s.roadDistance        ?? STUB_SCORE;
-        const track = s.forestRoadDistance  ?? STUB_SCORE;
-        const score = clamp5(road * (3 / 5) + track * (2 / 5));
-        const roadLabel  = road  === STUB_SCORE ? '道路データ準備中' : `一般道 ${road.toFixed(1)}pt`;
-        const trackLabel = track === STUB_SCORE ? '林道データ準備中' : `林道 ${track.toFixed(1)}pt`;
-        return { score, reason: `${roadLabel} / ${trackLabel}` };
+        const road  = s.roadDistance       ?? null;
+        const track = s.forestRoadDistance ?? null;
+
+        if (road === null && track === null) {
+          return { score: STUB_SCORE, reason: 'アクセスリスクデータ準備中' };
+        }
+
+        // 順スコア→逆スコアに反転（5 - x）
+        const roadRisk  = road  !== null ? clamp5(5 - road)  : null;
+        const trackRisk = track !== null ? clamp5(5 - track) : null;
+
+        // 両方あれば加重平均（一般道3:林道2）、片方のみなら単独使用
+        const score = (roadRisk !== null && trackRisk !== null)
+          ? clamp5(roadRisk * (3 / 5) + trackRisk * (2 / 5))
+          : (roadRisk ?? trackRisk);
+
+        const roadLabel  = roadRisk  !== null ? `一般道リスク ${roadRisk.toFixed(1)}pt`  : '一般道データなし';
+        const trackLabel = trackRisk !== null ? `林道リスク ${trackRisk.toFixed(1)}pt` : '林道データなし';
+
+        return {
+          score,
+          reason: `${roadLabel} / ${trackLabel}`,
+          _debug: {
+            '一般道距離スコア(元)': road  !== null ? road.toFixed(1)  : 'なし',
+            '林道距離スコア(元)':   track !== null ? track.toFixed(1) : 'なし',
+            '一般道リスク(反転)':   roadRisk  !== null ? roadRisk.toFixed(1)  : 'なし',
+            '林道リスク(反転)':     trackRisk !== null ? trackRisk.toFixed(1) : 'なし',
+            '最終スコア':           score.toFixed(2),
+          },
+        };
       },
     },
 
