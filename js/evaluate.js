@@ -973,6 +973,11 @@ out geom;
           return { score: 0, reason: '河川形状データなし（評価不能）' };
         }
 
+        // 川が遠すぎる場合は傾斜の恩恵なし
+        if (minD > 50) {
+          return { score: 1.0, reason: `最近傍河川まで約${Math.round(minD)}m（川傾斜の恩恵圏外）` };
+        }
+
         // 先頭・末尾ノードの標高を取得
         const g    = nearestWay.geometry;
         const head = g[0];
@@ -1566,7 +1571,7 @@ out geom;
       },
       {
         label: '河川環境',
-        ids:   ['streamDistance', 'riverCurve', 'confluence', 'riverSlope'],
+        ids:   ['streamDistance', 'riverCurve', 'riverSlope', 'confluence'],
       },
       {
         label: '環境',
