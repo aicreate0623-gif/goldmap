@@ -809,13 +809,13 @@ out geom;
         // ── ベーススコア（改定閾値）──────────────────────────
         // 足切り: 15°未満はほぼ直線扱い
         // 50°以上で最高評価（急すぎても堆積は変わらない）
-        let baseScore = localBend >= 50 ? 5.0   // 急カーブ（堆積最有望）
-                      : localBend >= 30 ? 4.0   // 明確な湾曲（有望）
-                      : localBend >= 15 ? 2.5   // 緩やか（わずかに有望）
+        let baseScore = localBend >= 50 ? 3.5   // 急カーブ（湾曲強）
+                      : localBend >= 30 ? 2.5   // 明確な湾曲
+                      : localBend >= 15 ? 1.5   // 緩やか
                       : 1.0;                    // ほぼ直線（足切り）
 
-        const curveLabel = localBend >= 50 ? '急カーブ'
-                         : localBend >= 30 ? '明確な湾曲'
+        const curveLabel = localBend >= 50 ? '急カーブ（内外判定で加点）'
+                         : localBend >= 30 ? '明確な湾曲（内外判定で加点）'
                          : localBend >= 15 ? '緩やかな湾曲'
                          : 'ほぼ直線';
 
