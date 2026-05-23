@@ -789,9 +789,11 @@ out geom;
                     : minD <= 25 ? 2.0   // 25m以内
                     : minD <= 30 ? 1.0   // 30m以内
                     : 0;                 // 30m超
+        ctx.cache._scores = ctx.cache._scores || {};
+        ctx.cache._scores.streamDistance = score;
         return {
           score,
-          reason: `最寄り河川・沢まで約${Math.round(minD)}m`,
+          reason: `最寄り沢まで約${Math.round(minD)}m`,
           _debug: {
             '最近傍河川距離': `${Math.round(minD)}m`,
             '河川/沢本数':    `${allWater.length}本（半径3km）`,
@@ -824,6 +826,8 @@ out geom;
                     : minD <= 25 ? 2.0
                     : minD <= 30 ? 1.0
                     : 0;
+        ctx.cache._scores = ctx.cache._scores || {};
+        ctx.cache._scores.riverDistance = score;
         return {
           score,
           reason: `最寄り河川まで約${Math.round(minD)}m`,
@@ -1699,6 +1703,41 @@ out geom;
   // ─────────────────────────────────────────────────────────
   const mergeItems = [
 
+    // 15b. 水系距離（沢・河川の統合表示）
+    //      沢が30m以内なら沢を優先、それ以外はスコアが高い方を表示
+    {
+      id: 'waterDistance', name: '水系距離', weight: 0, _mergeOnly: true,
+      evaluate(ctx) {
+        const s = ctx.cache._scores || {};
+        const streamScore = s.streamDistance ?? null;
+        const riverScore  = s.riverDistance  ?? null;
+        const streamM     = ctx.cache.nearestStreamM ?? Infinity;
+        const riverM      = ctx.cache.nearestRiverM  ?? Infinity;
+
+        if (streamScore === null && riverScore === null) {
+          return { score: STUB_SCORE, reason: '水系データ取得中' };
+        }
+
+        // 沢が30m以内なら沢優先、それ以外はスコアが高い方
+        const useSream = streamM <= 30 || (streamScore ?? 0) >= (riverScore ?? 0);
+        const score  = useSream ? (streamScore ?? riverScore) : (riverScore ?? streamScore);
+        const distM  = useSream ? streamM : riverM;
+        const label  = useSream ? '沢' : '河川';
+
+        return {
+          score,
+          reason: `最寄り${label}まで約${Math.round(distM)}m`,
+          _debug: {
+            '沢距離':     streamM < Infinity ? `${Math.round(streamM)}m` : 'なし',
+            '河川距離':   riverM  < Infinity ? `${Math.round(riverM)}m`  : 'なし',
+            '沢スコア':   streamScore !== null ? streamScore.toFixed(1) : 'なし',
+            '河川スコア': riverScore  !== null ? riverScore.toFixed(1)  : 'なし',
+            '採用':       label,
+          },
+        };
+      },
+    },
+
     // 16. 鉱床・鉱徴地距離（統合表示）
     //     どちらか高いほうを採用
     {
@@ -2075,7 +2114,7 @@ out geom;
       },
       {
         label: '河川環境',
-        ids:   ['streamDistance', 'riverDistance', 'riverCurve', 'riverSlope', 'confluence'],
+        ids:   ['waterDistance', 'riverCurve', 'riverSlope', 'confluence'],
       },
       {
         label: '環境',
