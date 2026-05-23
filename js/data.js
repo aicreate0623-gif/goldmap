@@ -1144,7 +1144,6 @@ async function loadMineData(fromButton=false){
       maxClusterRadius: 40,
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
-      zoomToBoundsOnClick: false, // タップトグルで制御
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 28 : count < 100 ? 34 : 40;
@@ -1155,30 +1154,6 @@ async function loadMineData(fromButton=false){
           iconAnchor: [size/2, size/2],
         });
       },
-    });
-    // タップトグル: 1回目=ポップアップ、2回目=ズームイン
-    let _lastClickedLayer = null;
-    clusterGroups[mat].on('clusterclick', (e) => {
-      const count = e.layer.getChildCount();
-      if (_lastClickedLayer === e.layer) {
-        // 2回目タップ: ズームイン
-        map.closePopup();
-        _lastClickedLayer = null;
-        e.layer.zoomToBounds({ padding: [60, 60] });
-      } else {
-        // 1回目タップ: ポップアップ
-        _lastClickedLayer = e.layer;
-        e.layer.bindPopup(
-          `<div style="font-size:12px;text-align:center;padding:2px 4px;">
-            <span style="color:${st.color};font-weight:bold;">●</span>
-            <b>${_matLabel}</b><br>
-            <span style="color:#aaa;font-size:11px;">${count} 件</span>
-          </div>`,
-          { closeButton: false, offset: [0, -10] }
-        ).openPopup();
-        e.layer.getPopup().on('remove', () => { _lastClickedLayer = null; });
-      }
-      L.DomEvent.stopPropagation(e);
     });
   });
 

@@ -221,7 +221,6 @@ async function initBearLayer() {
     disableClusteringAtZoom: 14,
     spiderfyOnMaxZoom: true,
     showCoverageOnHover: false,
-    zoomToBoundsOnClick: false,
     iconCreateFunction: (cluster) => {
       const count = cluster.getChildCount();
       const size  = count < 10 ? 32 : count < 50 ? 40 : 48;
@@ -231,9 +230,6 @@ async function initBearLayer() {
         iconSize: [size, size],
       });
     },
-  });
-  bearPinLayer.on('clusterclick', (e) => {
-    e.layer.zoomToBounds({ padding: [60, 60] });
   });
 
   try {
