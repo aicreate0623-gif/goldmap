@@ -656,9 +656,11 @@ out geom;
         let upstScore  = 0;
         let sideLabel  = '';
         let upstLabel  = '';
+        let zone       = null; // _debug参照のためif外で宣言
 
         if (localBend >= 15) {
-          const { side, zone } = _isInsideOfCurve(lat, lng, geo);
+          const { side, zone: _zone } = _isInsideOfCurve(lat, lng, geo);
+          zone = _zone;
           const decay = Math.max(0, 1 - minD / SIDE_RANGE); // 距離減衰係数 0〜1
 
           if (side === 1) {
