@@ -653,7 +653,9 @@ const GoldEvaluator = (() => {
       if (sa && sb && sa !== sb) boundaryCount++;
     }
 
-    const data = { boxItems, pointSymbols, groups, lithologies, boundaryCount };
+    const centerItem = pointResults[0] ?? null;
+
+    const data = { boxItems, pointSymbols, centerItem, groups, lithologies, boundaryCount };
     _geoCache.set(k, { data, at: now });
     return data;
   }
@@ -1001,54 +1003,46 @@ out geom;
         const geo = ctx.geology;
         if (!geo) return { score: STUB_SCORE, reason: '地質データ取得待ち（準備中）' };
 
-        const { boxItems, groups, lithologies, boundaryCount } = geo;
+        const { boxItems, centerItem, groups, lithologies, boundaryCount } = geo;
 
-        if (!boxItems.length) {
+        if (!centerItem) {
           return { score: STUB_SCORE, reason: '地質データなし（海域・未整備区域）' };
         }
 
-        // ── ベーススコア: group_ja × formationAge_ja の最高評価を採用 ──
-        // 複数岩種が存在する場合は最高点のみ採用
-        let baseScore = 1.0;
-        let bestLabel = 'データあり';
+        // ── ベーススコア: 評価座標直下（centerItem）の岩種で決定 ──
+        const g   = centerItem.group_ja        || '';
+        const age = centerItem.formationAge_ja || '';
+        const ageShort = age.split(' ')[1] || age;
 
-        for (const item of boxItems) {
-          const g   = item.group_ja        || '';
-          const age = item.formationAge_ja || '';
-          const lit = item.lithology_ja    || '';
+        let baseScore, bestLabel;
 
-          let s = 1.0, lbl = '';
-
-          if (g === '火成岩') {
-            if (/白亜紀|古第三紀|新第三紀/.test(age)) {
-              s = 3.5; lbl = `火成岩（${age.split(' ')[1] || age}）★`;
-            } else {
-              s = 2.5; lbl = `火成岩（${age.split(' ')[1] || age}）`;
-            }
-          } else if (g === '変成岩') {
-            if (/白亜紀/.test(age)) {
-              s = 3.5; lbl = `変成岩（白亜紀）★`;
-            } else if (/ジュラ紀|先ジュラ|古生代|カンブリア|オルドビス|シルル|デボン|石炭|二畳|三畳/.test(age)) {
-              s = 3.0; lbl = `変成岩（古生代〜ジュラ紀）`;
-            } else {
-              s = 2.5; lbl = `変成岩`;
-            }
-          } else if (g === '堆積岩') {
-            if (/第四紀/.test(age)) {
-              s = 3.0; lbl = `堆積岩（第四紀）★`;
-            } else {
-              s = 2.0; lbl = `堆積岩（${age.split(' ')[1] || age}）`;
-            }
-          } else if (g === '付加体') {
-            s = 2.5; lbl = `付加体`;
+        if (g === '火成岩') {
+          if (/白亜紀|古第三紀|新第三紀/.test(age)) {
+            baseScore = 3.5; bestLabel = `火成岩（${ageShort}）★`;
           } else {
-            s = 1.5; lbl = g || '不明';
+            baseScore = 2.5; bestLabel = `火成岩（${ageShort}）`;
           }
-
-          if (s > baseScore) { baseScore = s; bestLabel = lbl; }
+        } else if (g === '変成岩') {
+          if (/白亜紀/.test(age)) {
+            baseScore = 3.5; bestLabel = `変成岩（白亜紀）★`;
+          } else if (/ジュラ紀|先ジュラ|古生代|カンブリア|オルドビス|シルル|デボン|石炭|二畳|三畳/.test(age)) {
+            baseScore = 3.0; bestLabel = `変成岩（古生代〜ジュラ紀）`;
+          } else {
+            baseScore = 2.5; bestLabel = `変成岩`;
+          }
+        } else if (g === '堆積岩') {
+          if (/第四紀/.test(age)) {
+            baseScore = 3.0; bestLabel = `堆積岩（第四紀）★`;
+          } else {
+            baseScore = 2.0; bestLabel = `堆積岩（${ageShort}）`;
+          }
+        } else if (g === '付加体') {
+          baseScore = 2.5; bestLabel = `付加体`;
+        } else {
+          baseScore = 1.5; bestLabel = g || '不明';
         }
 
-        // ── lithology_ja キーワード加点（最大+1.5） ──
+        // ── lithology_ja キーワード加点（最大+1.5）: box範囲の全岩種から ──
         const litAll = [...lithologies].join(' ');
         let litBonus = 0;
         const litLabels = [];
@@ -1086,9 +1080,10 @@ out geom;
           score:  total,
           reason: reasonParts.join(' / '),
           _debug: {
+            '中心点岩種':       `${g}（${ageShort}）`,
+            '中心点岩相':       centerItem.lithology_ja || '—',
             'ベーススコア':     `${baseScore.toFixed(1)}（${bestLabel}）`,
-            '岩種多様性':       `${groupCount}種（${[...groups].join('・')}）`,
-            '岩種数(box)':      `${boxItems.length}件`,
+            '周辺多様性(box)':  `${groupCount}種・${boxItems.length}件`,
             'litボーナス':      `+${litBonus.toFixed(1)}`,
             '多様性ボーナス':   `+${divBonus.toFixed(1)}`,
             '境界ペア数':       `${boundaryCount}箇所 → +${boundBonus.toFixed(1)}`,
