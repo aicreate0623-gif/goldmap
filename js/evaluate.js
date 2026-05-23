@@ -800,6 +800,41 @@ out geom;
       },
     },
 
+    // 2. 河川距離
+    {
+      id: 'riverDistance', name: '河川距離', weight: 1.1,
+      evaluate(ctx) {
+        const { lat, lng, overpass } = ctx;
+        const rivers = overpass.rivers || [];
+        if (!rivers.length) return { score: 1.5, reason: '半径3km以内に河川なし' };
+
+        let minD = Infinity;
+        for (const way of rivers) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d < minD) minD = d;
+        }
+        if (!isFinite(minD)) return { score: 1.5, reason: '河川データ不完全' };
+
+        ctx.cache.nearestRiverM = minD;
+        // 沢距離と同じ閾値（将来的に河川向けに調整可能）
+        const score = minD <= 10 ? 5.0
+                    : minD <= 15 ? 4.0
+                    : minD <= 20 ? 3.0
+                    : minD <= 25 ? 2.0
+                    : minD <= 30 ? 1.0
+                    : 0;
+        return {
+          score,
+          reason: `最寄り河川まで約${Math.round(minD)}m`,
+          _debug: {
+            '最近傍河川距離': `${Math.round(minD)}m`,
+            '河川本数':       `${rivers.length}本（半径3km）`,
+          },
+        };
+      },
+    },
+
     // 3. 河川合流点
     {
       id: 'confluence', name: '河川合流点', weight: 1.5,
@@ -2040,7 +2075,7 @@ out geom;
       },
       {
         label: '河川環境',
-        ids:   ['streamDistance', 'riverCurve', 'riverSlope', 'confluence'],
+        ids:   ['streamDistance', 'riverDistance', 'riverCurve', 'riverSlope', 'confluence'],
       },
       {
         label: '環境',
