@@ -655,7 +655,7 @@ const GoldEvaluator = (() => {
 
     const centerItem = pointResults[0] ?? null;
 
-    const data = { boxItems, pointSymbols, centerItem, groups, lithologies, boundaryCount };
+    const data = { boxItems, pointSymbols, pointResults, centerItem, groups, lithologies, boundaryCount };
     _geoCache.set(k, { data, at: now });
     return data;
   }
@@ -1003,7 +1003,7 @@ out geom;
         const geo = ctx.geology;
         if (!geo) return { score: STUB_SCORE, reason: '地質データ取得待ち（準備中）' };
 
-        const { boxItems, centerItem, groups, lithologies, boundaryCount } = geo;
+        const { boxItems, pointResults, centerItem, groups, lithologies, boundaryCount } = geo;
 
         if (!centerItem) {
           return { score: STUB_SCORE, reason: '地質データなし（海域・未整備区域）' };
@@ -1042,20 +1042,28 @@ out geom;
           baseScore = 1.0; bestLabel = g || '不明';
         }
 
-        // ── lithology_ja 減点（centerItemから）: ベーススコアに適用 ──
-        const centerLit = centerItem.lithology_ja || '';
-        let litPenalty = 0;
-        const litPenaltyLabels = [];
+        // ── lithology_ja 減点（13点割合方式）: ベーススコアに適用 ──
+        // 有効ポイント数（nullでないもの）を分母にして割合を計算
+        const validPts  = (pointResults || []).filter(r => r !== null);
+        const totalPts  = validPts.length || 1; // ゼロ除算防止
 
-        if (/チャート|石灰岩|泥岩|頁岩/.test(centerLit)) {
-          litPenalty -= 0.5; litPenaltyLabels.push(`${centerLit}（−0.5）`);
-        }
-        if (/玄武岩|苦鉄質|超苦鉄質/.test(centerLit)) {
-          litPenalty -= 0.3; litPenaltyLabels.push(`${centerLit}（−0.3）`);
-        }
+        const hitA = validPts.filter(r => /チャート|石灰岩|泥岩|頁岩/.test(r.lithology_ja || '')).length;
+        const hitB = validPts.filter(r => /玄武岩|苦鉄質|超苦鉄質/.test(r.lithology_ja || '')).length;
+
+        const ratioA = hitA / totalPts; // 0〜1
+        const ratioB = hitB / totalPts; // 0〜1
+
+        // 最大減点: チャート等 −1.0 / 玄武岩等 −0.6
+        const penaltyA = ratioA * -1.0;
+        const penaltyB = ratioB * -0.6;
+        const litPenalty = penaltyA + penaltyB;
 
         // 減点後ベーススコア（最低0.5にclamp）
         baseScore = Math.max(0.5, baseScore + litPenalty);
+
+        const litPenaltyLabels = [];
+        if (hitA > 0) litPenaltyLabels.push(`チャート等${hitA}/${totalPts}点（${penaltyA.toFixed(2)}）`);
+        if (hitB > 0) litPenaltyLabels.push(`玄武岩等${hitB}/${totalPts}点（${penaltyB.toFixed(2)}）`);
 
         // ── 加点ボーナス（box範囲の全岩種から）──
         const litAll = [...lithologies].join(' ');
@@ -1079,10 +1087,10 @@ out geom;
                        : 0;
         if (divBonus > 0) litLabels.push(`多様性(${groupCount}種)`);
 
-        // ── 境界ペアボーナス（最大+1.0） ──
-        const boundBonus = boundaryCount >= 5 ? 1.0
-                         : boundaryCount >= 3 ? 0.7
-                         : boundaryCount >= 1 ? 0.3
+        // ── 境界ペアボーナス（最大+0.8）──
+        const boundBonus = boundaryCount >= 5 ? 0.8
+                         : boundaryCount >= 3 ? 0.5
+                         : boundaryCount >= 1 ? 0.2
                          : 0;
 
         const total = clamp5(baseScore + litBonus + divBonus + boundBonus);
@@ -1096,16 +1104,19 @@ out geom;
           score:  total,
           reason: reasonParts.join(' / '),
           _debug: {
-            '中心点岩種':       `${g}（${ageShort}）`,
-            '中心点岩相':       centerItem.lithology_ja || '—',
-            'ベーススコア(減点前)': `${(baseScore - litPenalty).toFixed(1)}（${bestLabel}）`,
-            '岩相減点':         litPenalty !== 0 ? `${litPenalty.toFixed(1)}（${centerLit}）` : '0',
-            'ベーススコア(減点後)': `${baseScore.toFixed(1)}`,
-            '周辺多様性(box)':  `${groupCount}種・${boxItems.length}件`,
-            'litボーナス':      `+${litBonus.toFixed(1)}`,
-            '多様性ボーナス':   `+${divBonus.toFixed(1)}`,
-            '境界ペア数':       `${boundaryCount}箇所 → +${boundBonus.toFixed(1)}`,
-            '合計':             total.toFixed(2),
+            '中心点岩種':           `${g}（${ageShort}）`,
+            '中心点岩相':           centerItem.lithology_ja || '—',
+            'ベーススコア(減点前)': `${(baseScore - litPenalty).toFixed(2)}（${bestLabel}）`,
+            '有効サンプル数':       `${totalPts}/13点`,
+            'チャート等ヒット':     `${hitA}点（割合${(ratioA*100).toFixed(0)}% → ${penaltyA.toFixed(2)}）`,
+            '玄武岩等ヒット':       `${hitB}点（割合${(ratioB*100).toFixed(0)}% → ${penaltyB.toFixed(2)}）`,
+            '減点合計':             `${litPenalty.toFixed(2)}`,
+            'ベーススコア(減点後)': `${baseScore.toFixed(2)}`,
+            '周辺多様性(box)':      `${groupCount}種・${boxItems.length}件`,
+            'litボーナス':          `+${litBonus.toFixed(1)}`,
+            '多様性ボーナス':       `+${divBonus.toFixed(1)}`,
+            '境界ペア数':           `${boundaryCount}箇所 → +${boundBonus.toFixed(1)}`,
+            '合計':                 total.toFixed(2),
           },
         };
       },
