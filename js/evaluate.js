@@ -366,7 +366,14 @@ out geom;
                     : minD <= 30 ? 2.0   // 30m以内
                     : minD <= 35 ? 1.0   // 35m以内
                     : 0;                 // 35m超
-        return { score, reason: `最寄り河川・沢まで約${Math.round(minD)}m` };
+        return {
+          score,
+          reason: `最寄り河川・沢まで約${Math.round(minD)}m`,
+          _debug: {
+            '最近傍河川距離': `${Math.round(minD)}m`,
+            '河川/沢本数':    `${allWater.length}本（半径3km）`,
+          },
+        };
       },
     },
 
@@ -415,6 +422,12 @@ out geom;
             : count === 1
             ? `半径500m以内に1本の河川${posLabel}`
             : '半径500m以内に河川なし',
+          _debug: {
+            '半径500m内河川数': `${count}本`,
+            '最近傍合流点距離': nearestConfD < Infinity ? `${Math.round(nearestConfD)}m` : 'なし',
+            '川下/川上判定':    posLabel || '判定不能（標高データなし）',
+            'ベーススコア':     baseScore.toFixed(1),
+          },
         };
       },
     },
@@ -566,7 +579,14 @@ out geom;
         const score = distScore(minD, 1000, 25000);
         ctx.cache._scores = ctx.cache._scores || {};
         ctx.cache._scores.depositDistance = score;
-        return { score, reason: `最寄り鉱床まで約${(minD/1000).toFixed(1)}km` };
+        return {
+          score,
+          reason: `最寄り鉱床まで約${(minD/1000).toFixed(1)}km`,
+          _debug: {
+            '最近傍鉱床距離': `${(minD/1000).toFixed(1)}km`,
+            '鉱床総数':       `${allDeps.length}件`,
+          },
+        };
       },
     },
 
@@ -581,7 +601,14 @@ out geom;
         const score = distScore(minD, 500, 15000);
         ctx.cache._scores = ctx.cache._scores || {};
         ctx.cache._scores.prospectDistance = score;
-        return { score, reason: `最寄り鉱徴地まで約${(minD/1000).toFixed(1)}km` };
+        return {
+          score,
+          reason: `最寄り鉱徴地まで約${(minD/1000).toFixed(1)}km`,
+          _debug: {
+            '最近傍鉱徴地距離': `${(minD/1000).toFixed(1)}km`,
+            '鉱徴地総数':       `${prospects.length}件`,
+          },
+        };
       },
     },
 
@@ -627,7 +654,18 @@ out geom;
                     : gradient < 40 ? 4.0   // 中勾配
                     : gradient < 80 ? 3.0   // やや急
                     : 2.0;                  // 急流（堆積しにくい）
-        return { score, reason: `川の勾配: 約${Math.round(gradient)}m/km` };
+        return {
+          score,
+          reason: `川の勾配: 約${Math.round(gradient)}m/km`,
+          _debug: {
+            '上流端標高':   `${Math.round(elevHead)}m`,
+            '下流端標高':   `${Math.round(elevTail)}m`,
+            '標高差':       `${Math.round(elevDiff)}m`,
+            '区間距離':     `${distKm.toFixed(2)}km`,
+            '勾配':         `${Math.round(gradient)}m/km`,
+            '最近傍川距離': `${Math.round(minD)}m`,
+          },
+        };
       },
     },
 
@@ -654,6 +692,12 @@ out geom;
           reason: depth >= 0
             ? `周囲8点より約${Math.round(depth)}m低い谷地形`
             : '谷地形ではない（尾根・台地）',
+          _debug: {
+            '評価地点標高':   `${Math.round(ctx.terrain.elev)}m`,
+            '周囲8点平均':    `${Math.round(avg)}m`,
+            '谷の深さ':       `${depth.toFixed(1)}m`,
+            '有効計測点数':   `${surrounds.length}/8点`,
+          },
         };
       },
     },
@@ -671,7 +715,13 @@ out geom;
                     : elev < 1000 ? 4.0   // 山間部（有望）
                     : elev < 1500 ? 3.0   // 高山帯
                     : 2.0;               // 積雪・アクセス困難
-        return { score, reason: `標高: 約${Math.round(elev)}m` };
+        return {
+          score,
+          reason: `標高: 約${Math.round(elev)}m`,
+          _debug: {
+            '標高': `${Math.round(elev)}m`,
+          },
+        };
       },
     },
 
@@ -700,7 +750,14 @@ out geom;
                     : 2.0;
         ctx.cache._scores = ctx.cache._scores || {};
         ctx.cache._scores.roadDistance = score;
-        return { score, reason: `最寄り一般道まで約${Math.round(minD)}m` };
+        return {
+          score,
+          reason: `最寄り一般道まで約${Math.round(minD)}m`,
+          _debug: {
+            '最近傍一般道距離': `${Math.round(minD)}m`,
+            '一般道本数':       `${overpass.roads.length}本（半径3km）`,
+          },
+        };
       },
     },
 
@@ -728,7 +785,14 @@ out geom;
                     : 2.0;
         ctx.cache._scores = ctx.cache._scores || {};
         ctx.cache._scores.forestRoadDistance = score;
-        return { score, reason: `最寄り林道まで約${Math.round(minD)}m` };
+        return {
+          score,
+          reason: `最寄り林道まで約${Math.round(minD)}m`,
+          _debug: {
+            '最近傍林道距離': `${Math.round(minD)}m`,
+            '林道本数':       `${overpass.tracks.length}本（半径3km）`,
+          },
+        };
       },
     },
 
@@ -746,7 +810,16 @@ out geom;
                     : diff < 150 ? 3.5   // やや起伏あり
                     : diff < 300 ? 2.5   // 急峻
                     : 1.5;               // 険しい地形
-        return { score, reason: `周辺地形の標高差: 約${Math.round(diff)}m` };
+        return {
+          score,
+          reason: `周辺地形の標高差: 約${Math.round(diff)}m`,
+          _debug: {
+            '周辺最高標高': `${Math.round(Math.max(...surrounds))}m`,
+            '周辺最低標高': `${Math.round(Math.min(...surrounds))}m`,
+            '標高差':       `${Math.round(diff)}m`,
+            '有効計測点数': `${surrounds.length}/8点`,
+          },
+        };
       },
     },
 
@@ -778,7 +851,16 @@ out geom;
         }
         if (!components.length) return { score: STUB_SCORE, reason: '到達性データ計算中' };
         const score = clamp5(components.reduce((a,b) => a+b, 0) / components.length);
-        return { score, reason: '標高・地形傾斜・道路距離から推定した到達しやすさ' };
+        return {
+          score,
+          reason: '標高・地形傾斜・道路距離から推定した到達しやすさ',
+          _debug: {
+            '標高':         ctx.terrain.elev !== null ? `${Math.round(ctx.terrain.elev)}m` : '未取得',
+            '地形傾斜差':   slopeDiff !== null ? `${Math.round(slopeDiff)}m` : '未取得',
+            '最近傍道路':   nearRoadM !== null ? `${Math.round(nearRoadM)}m` : '未取得',
+            '平均スコア':   score.toFixed(2),
+          },
+        };
       },
     },
 
@@ -841,6 +923,13 @@ out geom;
         return {
           score,
           reason: `最寄り${typeLabel}(${distKmLabel}km): ${label}`,
+          _debug: {
+            '評価地点標高':     `${Math.round(myElev)}m`,
+            '最近傍鉱床/鉱徴地標高': `${Math.round(depElev)}m（${typeLabel}）`,
+            '標高差(正=川下)':  `${Math.round(diff)}m`,
+            '距離':             `${distKmLabel}km`,
+            '種別':             typeLabel,
+          },
         };
       },
     },
@@ -853,7 +942,15 @@ out geom;
         if (!posts || !posts.length) return { score: 1.5, reason: 'この周辺の投稿記録なし' };
         const good  = posts.filter(p => (p.badCount || 0) < 3).length;
         const score = clamp5(1.5 + good * 0.7);
-        return { score, reason: `半径5km以内に${good}件の実績投稿` };
+        return {
+          score,
+          reason: `半径5km以内に${good}件の実績投稿`,
+          _debug: {
+            '総投稿数':       `${posts.length}件`,
+            '有効投稿数':     `${good}件（badCount<3）`,
+            '除外投稿数':     `${posts.length - good}件`,
+          },
+        };
       },
     },
 
@@ -878,7 +975,16 @@ out geom;
         }
         const score = clamp5(5 - Math.min(threat * 1.5, 4));
         const level = score >= 4 ? '低' : score >= 2.5 ? '中' : '高';
-        return { score, reason: `周辺${BEAR_RADIUS_M/1000}km以内の熊活動: ${level}` };
+        return {
+          score,
+          reason: `周辺${BEAR_RADIUS_M/1000}km以内の熊活動: ${level}`,
+          _debug: {
+            '参照半径':       `${BEAR_RADIUS_M/1000}km`,
+            '熊データ総数':   `${bearData.length}件`,
+            '脅威スコア合計': `${threat.toFixed(2)}`,
+            '危険度':         level,
+          },
+        };
       },
     },
 
