@@ -760,7 +760,7 @@ out geom;
 
     // 4. 河川湾曲
     {
-      id: 'riverCurve', name: '河川湾曲', weight: 1.3,
+      id: 'riverCurve', name: '河川湾曲', weight: 1.5,
       evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
         const allWater = [...overpass.streams, ...overpass.rivers];
@@ -910,7 +910,7 @@ out geom;
 
     // 6. 鉱床距離
     {
-      id: 'depositDistance', name: '鉱床距離', weight: 1.5,
+      id: 'depositDistance', name: '鉱床距離', weight: 1.2,
       evaluate(ctx) {
         const { lat, lng, deposits, mines } = ctx;
         const allDeps = [...deposits, ...mines];
@@ -934,7 +934,7 @@ out geom;
 
     // 7. 鉱徴地距離
     {
-      id: 'prospectDistance', name: '鉱徴地距離', weight: 1.3,
+      id: 'prospectDistance', name: '鉱徴地距離', weight: 1.1,
       evaluate(ctx) {
         const { lat, lng, prospects } = ctx;
         if (!prospects.length) return { score: STUB_SCORE, reason: '鉱徴地データ読み込み中' };
@@ -956,7 +956,7 @@ out geom;
 
     // 8. 川傾斜（川の上下流勾配）
     {
-      id: 'riverSlope', name: '川傾斜', weight: 1.2,
+      id: 'riverSlope', name: '川傾斜', weight: 1.3,
       async evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
         const allWater = [...(overpass.streams || []), ...(overpass.rivers || [])];
@@ -1142,7 +1142,7 @@ out geom;
 
     // 12b. 傾斜（地形傾斜 — 周辺8点の最大−最小標高差）
     {
-      id: 'slope', name: '傾斜', weight: 1.2,
+      id: 'slope', name: '傾斜', weight: 0.0,
       evaluate(ctx) {
         const surrounds = ctx.terrain.surroundElevs.filter(e => e !== null);
         if (surrounds.length < 2) {
@@ -1170,7 +1170,7 @@ out geom;
     // 13. 人到達性
     // 13. 人到達性
     {
-      id: 'accessibility', name: '人到達性', weight: 1.1,
+      id: 'accessibility', name: '人到達性', weight: 1.2,
       async evaluate(ctx) {
         const { lat, lng, terrain } = ctx;
         const slopeDiff      = ctx.cache.slopeDiff      ?? null;
@@ -1276,7 +1276,7 @@ out geom;
 
     // 14a. 鉱床・鉱徴地との標高差
     {
-      id: 'depositElevation', name: '鉱床標高差', weight: 1.2,
+      id: 'depositElevation', name: '鉱床標高差', weight: 1.4,
       async evaluate(ctx) {
         const { lat, lng, deposits, prospects, mines, terrain } = ctx;
 
@@ -1369,37 +1369,77 @@ out geom;
 
     // 15. 熊注目度
     {
-      id: 'bearActivity', name: '熊注目度', weight: 0.8,
+      id: 'bearActivity', name: '熊注目度', weight: 1.2,
       evaluate(ctx) {
         const { lat, lng, bearData } = ctx;
         if (!bearData || !bearData.length) {
           return { score: 3.0, reason: '熊データなし（安全かも）' };
         }
-        const now = Date.now(), ONE_YEAR = 365 * 24 * 3600 * 1000;
-        let threat = 0;
+
+        const now      = Date.now();
+        const ONE_YEAR = 365 * 24 * 3600 * 1000;
+        const NEAR_R   = 3000; // 近距離判定半径(m)
+
+        // ── 既存: 8km圏の threat スコア ──────────────────────
+        let threat     = 0;
+        let nearCount  = 0;  // 3km以内の件数
+        let nearBonus  = 0;  // 3km以内の近距離ボーナス
+
         for (const b of bearData) {
           if (!b.lat || !b.lng) continue;
-          const distM = haversine(lat, lng, b.lat, b.lng);
-          if (distM > BEAR_RADIUS_M) continue;
-          const distFactor = 1 - distM / BEAR_RADIUS_M;
+          const distM      = haversine(lat, lng, b.lat, b.lng);
           const age        = b.date ? (now - new Date(b.date).getTime()) / ONE_YEAR : 2;
           const ageFactor  = Math.max(0.2, 1 - age * 0.5);
-          threat += distFactor * ageFactor;
+
+          // 8km圏: 既存 threat 計算
+          if (distM <= BEAR_RADIUS_M) {
+            const distFactor = 1 - distM / BEAR_RADIUS_M;
+            threat += distFactor * ageFactor;
+          }
+
+          // 3km圏: 近距離ボーナス
+          if (distM <= NEAR_R) {
+            nearCount++;
+            const nearDistFactor = 1 - distM / NEAR_R;
+            nearBonus += nearDistFactor * ageFactor;
+          }
         }
-        const score = clamp5(5 - Math.min(threat * 1.5, 4));
-        const level = score >= 4 ? '低' : score >= 2.5 ? '中' : '高';
+
+        // 既存スコア（threat が大きいほど危険＝高スコア）
+        const baseScore = clamp5(5 - Math.min(threat * 1.5, 4));
+
+        // 件数ボーナス（3km以内）
+        const countBonus = nearCount >= 3 ? 1.5
+                         : nearCount >= 2 ? 1.0
+                         : nearCount >= 1 ? 0.5
+                         : 0;
+
+        // 近距離ボーナス（距離×新しさの加重和）
+        const proximityBonus = Math.min(nearBonus * 0.5, 1.5);
+
+        const score = clamp5(baseScore + countBonus + proximityBonus);
+        const level = score >= 4.5 ? '最高' : score >= 4 ? '高' : score >= 2.5 ? '中' : '低';
+
         return {
           score,
-          reason: `周辺${BEAR_RADIUS_M/1000}km以内の熊活動: ${level}`,
+          reason: nearCount > 0
+            ? `3km以内に${nearCount}件の熊出没（危険度: ${level}）`
+            : `周辺${BEAR_RADIUS_M/1000}km以内の熊活動: ${level}`,
           _debug: {
-            '参照半径':       `${BEAR_RADIUS_M/1000}km`,
-            '熊データ総数':   `${bearData.length}件`,
-            '脅威スコア合計': `${threat.toFixed(2)}`,
-            '危険度':         level,
+            '参照半径(広域)':   `${BEAR_RADIUS_M/1000}km`,
+            '参照半径(近距離)': `${NEAR_R/1000}km`,
+            '熊データ総数':     `${bearData.length}件`,
+            '3km以内件数':      `${nearCount}件`,
+            '広域threatスコア': `${threat.toFixed(2)}`,
+            '件数ボーナス':     `+${countBonus.toFixed(1)}`,
+            '近距離ボーナス':   `+${proximityBonus.toFixed(2)}`,
+            'ベーススコア':     `${baseScore.toFixed(1)}`,
+            '危険度':           level,
           },
         };
       },
     },
+
 
   ]; // ← ここに push() するだけで項目追加
 
