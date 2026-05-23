@@ -749,9 +749,10 @@ out geom;
       lat, lng, zoom,
       terrain:     { elev, surroundElevs },
       geology:     geoData,
-      overpass,                                         // ← 追加
+      overpass,
       deposits:    (gsjData || []).filter(d => !d.trace),
       prospects:   (gsjData || []).filter(d =>  d.trace),
+      auag:        (gsjData || []).filter(d => d.mat === 'Au_Ag'), // Au_Ag専用
       mines:       typeof MINES !== 'undefined' ? MINES : [],
       bearData:    bears,
       userReports: posts,
@@ -996,6 +997,53 @@ out geom;
       },
     },
 
+    // 5b. Au_Ag密度（鉱物資源DBのAu_Ag件数・scale重み付き）
+    {
+      id: 'auDensity', name: 'Au/Ag産地密度', weight: 1.4,
+      evaluate(ctx) {
+        const { lat, lng, auag } = ctx;
+        if (!auag || !auag.length) {
+          return { score: STUB_SCORE, reason: 'Au/Agデータ読み込み中（準備中）' };
+        }
+
+        // scale重み: 精度が高いほど重み大
+        const SCALE_WEIGHT = { 50: 1.0, 200: 0.25, 500: 0.1 };
+        const RADIUS_M = 30000; // 半径30km
+
+        // 半径30km以内のAu_Agを加重カウント
+        let weightedCount = 0;
+        let rawCount = 0;
+        for (const d of auag) {
+          const dist = haversine(lat, lng, d.lat, d.lng);
+          if (dist <= RADIUS_M) {
+            const w = SCALE_WEIGHT[d.scale] ?? 0.25;
+            weightedCount += w;
+            rawCount++;
+          }
+        }
+
+        const score = weightedCount >= 50 ? 5.0
+                    : weightedCount >= 25 ? 4.0
+                    : weightedCount >= 10 ? 3.0
+                    : weightedCount >= 3  ? 2.0
+                    : weightedCount >= 1  ? 1.5
+                    : 1.0;
+
+        // geology加点をキャッシュ（geology評価側で参照）
+        ctx.cache.auDensityScore = score;
+
+        return {
+          score,
+          reason: `半径30km内Au/Ag産地: 加重${weightedCount.toFixed(1)}件（実${rawCount}件）`,
+          _debug: {
+            '実件数':   `${rawCount}件（半径30km）`,
+            '加重件数': `${weightedCount.toFixed(2)}`,
+            'スコア':   score.toFixed(1),
+          },
+        };
+      },
+    },
+
     // 5. 地質（GSJ シームレス地質図V2 API）
     {
       id: 'geology', name: '地質', weight: 1.6,
@@ -1093,12 +1141,21 @@ out geom;
                          : boundaryCount >= 1 ? 0.2
                          : 0;
 
-        const total = clamp5(baseScore + litBonus + divBonus + boundBonus);
+        // ── Au/Ag密度ボーナス（auDensityが先に評価済みの場合のみ適用）──
+        const auScore    = ctx.cache.auDensityScore ?? 0;
+        const auBonus    = auScore >= 5.0 ? 1.0
+                         : auScore >= 4.0 ? 0.7
+                         : auScore >= 3.0 ? 0.5
+                         : auScore >= 2.0 ? 0.2
+                         : 0;
+
+        const total = clamp5(baseScore + litBonus + divBonus + boundBonus + auBonus);
 
         const reasonParts = [bestLabel];
         if (litPenaltyLabels.length) reasonParts.push(`減点: ${litPenaltyLabels.join('・')}`);
         if (litLabels.length) reasonParts.push(litLabels.join('・'));
         if (boundaryCount > 0) reasonParts.push(`地質境界${boundaryCount}箇所`);
+        if (auBonus > 0) reasonParts.push(`Au/Ag密度加点+${auBonus.toFixed(1)}`);
 
         return {
           score:  total,
@@ -1116,11 +1173,13 @@ out geom;
             'litボーナス':          `+${litBonus.toFixed(1)}`,
             '多様性ボーナス':       `+${divBonus.toFixed(1)}`,
             '境界ペア数':           `${boundaryCount}箇所 → +${boundBonus.toFixed(1)}`,
+            'Au/Ag密度ボーナス':    `+${auBonus.toFixed(1)}（auDensity=${auScore.toFixed(1)}）`,
             '合計':                 total.toFixed(2),
           },
         };
       },
     },
+
 
     // 6. 鉱床距離
     {
@@ -1746,6 +1805,12 @@ out geom;
     const ctx = await _buildContext(input);
 
     // ── パス1: 通常項目 ──────────────────────────────────
+    // auDensity を先行実行して ctx.cache.auDensityScore をセット
+    // geology がそのキャッシュを参照して加点するため
+    const auDensityItem = evaluationItems.find(i => i.id === 'auDensity');
+    if (auDensityItem) {
+      try { await auDensityItem.evaluate(ctx); } catch (_) {}
+    }
     const settled1 = await Promise.allSettled(
       evaluationItems.map(item =>
         Promise.resolve().then(async () => ({ item, r: await item.evaluate(ctx) }))
@@ -1810,7 +1875,7 @@ out geom;
     const CATEGORIES = [
       {
         label: '含有率',
-        ids:   ['geology', 'mineDistance', 'depositElevation', 'valleyShape'],
+        ids:   ['geology', 'auDensity', 'mineDistance', 'depositElevation', 'valleyShape'],
       },
       {
         label: '河川環境',
