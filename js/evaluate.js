@@ -745,6 +745,8 @@ out geom;
       _fetchGsjGeology(lat, lng),
     ]);
     if (gsjData.length) window.GSJ_MINE_DATA_CACHED = gsjData;
+    // [DEBUG] 森林データ確認用・確認後削除
+    window._debugCtx = { overpass };
     return {
       lat, lng, zoom,
       terrain:     { elev, surroundElevs },
