@@ -605,6 +605,8 @@ const GoldEvaluator = (() => {
   way["waterway"~"^(stream|river|canal|ditch)$"](around:${OVERPASS_RADIUS},${lat},${lng});
   way["highway"~"^(primary|secondary|tertiary|unclassified|residential|service)$"](around:${OVERPASS_RADIUS},${lat},${lng});
   way["highway"="track"](around:${OVERPASS_RADIUS},${lat},${lng});
+  way["landuse"="forest"](around:${OVERPASS_RADIUS},${lat},${lng});
+  way["natural"="wood"](around:${OVERPASS_RADIUS},${lat},${lng});
 );
 out geom;
 `.trim();
@@ -624,12 +626,13 @@ out geom;
         rivers:  ways.filter(w => w.tags?.waterway === 'river'),
         roads:   ways.filter(w => w.tags?.highway && w.tags.highway !== 'track'),
         tracks:  ways.filter(w => w.tags?.highway === 'track'),
+        forests: ways.filter(w => w.tags?.landuse === 'forest' || w.tags?.natural === 'wood'),
       };
 
       _overpassCache.set(k, { data, at: now });
       return data;
     } catch {
-      return { streams: [], rivers: [], roads: [], tracks: [] };
+      return { streams: [], rivers: [], roads: [], tracks: [], forests: [] };
     }
   }
 
@@ -1372,74 +1375,103 @@ out geom;
       },
     },
 
-    // 15. 熊注目度
+    // 15. 熊遭遇リスク
+    // 高スコア = 危険。weight:0 のため集計には影響しない（表示専用）。
     {
-      id: 'bearActivity', name: '熊注目度', weight: 1.2,
+      id: 'bearActivity', name: '熊遭遇リスク', weight: 0,
       evaluate(ctx) {
-        const { lat, lng, bearData } = ctx;
-        if (!bearData || !bearData.length) {
-          return { score: 3.0, reason: '熊データなし（安全かも）' };
-        }
+        const { lat, lng, bearData, overpass } = ctx;
 
         const now      = Date.now();
         const ONE_YEAR = 365 * 24 * 3600 * 1000;
-        const NEAR_R   = 3000; // 近距離判定半径(m)
 
-        // ── 既存: 8km圏の threat スコア ──────────────────────
-        let threat     = 0;
-        let nearCount  = 0;  // 3km以内の件数
-        let nearBonus  = 0;  // 3km以内の近距離ボーナス
+        // ── 出没データによる脅威スコア ───────────────────────
+        // 設計:
+        //   8km以内に1件いる時点で4.0点スタート
+        //   近いほど5.0に近づく（距離減衰）
+        //   複数件は件数スコアで上乗せ（上限5）
+        let nearCount   = 0;   // 8km以内の総件数
+        let closestDistM = Infinity; // 8km以内の最近傍距離
 
-        for (const b of bearData) {
-          if (!b.lat || !b.lng) continue;
-          const distM      = haversine(lat, lng, b.lat, b.lng);
-          const age        = b.date ? (now - new Date(b.date).getTime()) / ONE_YEAR : 2;
-          const ageFactor  = Math.max(0.2, 1 - age * 0.5);
+        if (bearData && bearData.length) {
+          for (const b of bearData) {
+            if (!b.lat || !b.lng) continue;
+            const distM     = haversine(lat, lng, b.lat, b.lng);
+            const age       = b.date ? (now - new Date(b.date).getTime()) / ONE_YEAR : 2;
+            const ageFactor = Math.max(0.2, 1 - age * 0.5);
 
-          // 8km圏: 既存 threat 計算
-          if (distM <= BEAR_RADIUS_M) {
-            const distFactor = 1 - distM / BEAR_RADIUS_M;
-            threat += distFactor * ageFactor;
-          }
-
-          // 3km圏: 近距離ボーナス
-          if (distM <= NEAR_R) {
-            nearCount++;
-            const nearDistFactor = 1 - distM / NEAR_R;
-            nearBonus += nearDistFactor * ageFactor;
+            if (distM <= BEAR_RADIUS_M) {
+              nearCount++;
+              // 新しいデータほど近いとみなす（古いデータは距離を水増し）
+              const effectiveDist = distM / ageFactor;
+              if (effectiveDist < closestDistM) closestDistM = effectiveDist;
+            }
           }
         }
 
-        // 既存スコア（threat が大きいほど危険＝高スコア）
-        const baseScore = clamp5(5 - Math.min(threat * 1.5, 4));
+        // 最近傍距離スコア: 8km端で4.0、0mで5.0（線形）
+        const bearDistScore = nearCount > 0
+          ? 4.0 + 1.0 * Math.max(0, 1 - closestDistM / BEAR_RADIUS_M)
+          : 0;
 
-        // 件数ボーナス（3km以内）
-        const countBonus = nearCount >= 3 ? 1.5
-                         : nearCount >= 2 ? 1.0
-                         : nearCount >= 1 ? 0.5
+        // 件数加算: 2件目以降に加算（上限1.0）
+        const countScore = nearCount >= 5 ? 1.0
+                         : nearCount >= 3 ? 0.7
+                         : nearCount >= 2 ? 0.4
                          : 0;
 
-        // 近距離ボーナス（距離×新しさの加重和）
-        const proximityBonus = Math.min(nearBonus * 0.5, 1.5);
+        // ── 環境リスク（河川・森林の存在）───────────────────
+        // 熊は河川沿い・森林内に生息しやすいため環境リスクとして加算
+        const allWater  = [...(overpass.streams || []), ...(overpass.rivers || [])];
+        const forests   = overpass.forests || [];
 
-        const score = clamp5(baseScore + countBonus + proximityBonus);
-        const level = score >= 4.5 ? '最高' : score >= 4 ? '高' : score >= 2.5 ? '中' : '低';
+        // 500m以内に河川があれば加算
+        let riverRisk = 0;
+        for (const way of allWater) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d <= 500) { riverRisk = 0.5; break; }
+        }
+
+        // 500m以内に森林があれば加算
+        let forestRisk = 0;
+        for (const way of forests) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d <= 500) { forestRisk = 0.5; break; }
+        }
+
+        const envRisk = riverRisk + forestRisk; // 最大1.0
+
+        // ── 総合リスクスコア（高=危険、0〜5）────────────────
+        const score = clamp5(bearDistScore + countScore + envRisk);
+
+        // reason: アイコン付きレベル表示
+        const level  = score >= 4.0 ? '⚠ 高危険'
+                     : score >= 2.5 ? '⚠ 中危険'
+                     : score >= 1.0 ? '低危険'
+                     : '低危険';
+        const envLabel = [
+          riverRisk  ? '河川あり' : '',
+          forestRisk ? '森林あり' : '',
+        ].filter(Boolean).join('・');
 
         return {
           score,
           reason: nearCount > 0
-            ? `3km以内に${nearCount}件の熊出没（危険度: ${level}）`
-            : `周辺${BEAR_RADIUS_M/1000}km以内の熊活動: ${level}`,
+            ? `${level}（8km以内${nearCount}件の出没記録${envLabel ? '・' + envLabel : ''}）`
+            : `${level}${envLabel ? '（' + envLabel + '）' : '（出没記録なし）'}`,
           _debug: {
-            '参照半径(広域)':   `${BEAR_RADIUS_M/1000}km`,
-            '参照半径(近距離)': `${NEAR_R/1000}km`,
-            '熊データ総数':     `${bearData.length}件`,
-            '3km以内件数':      `${nearCount}件`,
-            '広域threatスコア': `${threat.toFixed(2)}`,
-            '件数ボーナス':     `+${countBonus.toFixed(1)}`,
-            '近距離ボーナス':   `+${proximityBonus.toFixed(2)}`,
-            'ベーススコア':     `${baseScore.toFixed(1)}`,
-            '危険度':           level,
+            '参照半径':         `${BEAR_RADIUS_M/1000}km`,
+            '熊データ総数':     `${bearData?.length ?? 0}件`,
+            '8km以内件数':      `${nearCount}件`,
+            '最近傍有効距離':   closestDistM < Infinity ? `${Math.round(closestDistM)}m` : 'なし',
+            '距離スコア':       `${bearDistScore.toFixed(2)}`,
+            '件数スコア':       `+${countScore.toFixed(1)}`,
+            '河川リスク':       `+${riverRisk.toFixed(1)}`,
+            '森林リスク':       `+${forestRisk.toFixed(1)}`,
+            '総合スコア':       score.toFixed(2),
+            'レベル':           level,
           },
         };
       },
