@@ -1719,10 +1719,10 @@ out geom;
         }
 
         // 沢が30m以内なら沢優先、それ以外はスコアが高い方
-        const useSream = streamM <= 30 || (streamScore ?? 0) >= (riverScore ?? 0);
-        const score  = useSream ? (streamScore ?? riverScore) : (riverScore ?? streamScore);
-        const distM  = useSream ? streamM : riverM;
-        const label  = useSream ? '沢' : '河川';
+        const useStream = streamM <= 30 || (streamScore ?? 0) >= (riverScore ?? 0);
+        const score  = useStream ? (streamScore ?? riverScore) : (riverScore ?? streamScore);
+        const distM  = useStream ? streamM : riverM;
+        const label  = useStream ? '沢' : '河川';
 
         return {
           score,
