@@ -65,6 +65,19 @@ const GoldEvaluator = (() => {
   }
 
   /**
+   * wayの最近傍ノードと距離を返す
+   * @returns {{ node: {lat,lon}, dist: number }}
+   */
+  function _nearestNodeOfWay(lat, lng, geometry) {
+    let minD = Infinity, nearNode = null;
+    for (const pt of geometry) {
+      const d = haversine(lat, lng, pt.lat, pt.lon);
+      if (d < minD) { minD = d; nearNode = pt; }
+    }
+    return { node: nearNode, dist: minD };
+  }
+
+  /**
    * 傾斜ベクトルから「下流方向」を推定し、
    * 指定座標が合流点より川下側かどうかを判定する
    * surroundElevs: 8点配列（順序は _fetchSurroundElev と同じ）
@@ -1065,13 +1078,14 @@ out geom;
           return { score: 3.0, reason: '半径3km以内に一般道なし（秘境）' };
         }
 
-        let minD = Infinity;
+        let minD = Infinity, nearRoadNode = null;
         for (const way of overpass.roads) {
           if (!way.geometry?.length) continue;
-          const d = _nearestDistToWay(lat, lng, way.geometry);
-          if (d < minD) minD = d;
+          const { node, dist } = _nearestNodeOfWay(lat, lng, way.geometry);
+          if (dist < minD) { minD = dist; nearRoadNode = node; }
         }
-        ctx.cache.nearestRoadM = minD;
+        ctx.cache.nearestRoadM    = minD;
+        ctx.cache.nearestRoadNode = nearRoadNode;
 
         const score = minD <= 100  ? 2.0
                     : minD <= 1000 ? 5.0
@@ -1101,12 +1115,13 @@ out geom;
           return { score: 2.0, reason: '半径3km以内に林道なし' };
         }
 
-        let minD = Infinity;
+        let minD = Infinity, nearTrackNode = null;
         for (const way of overpass.tracks) {
           if (!way.geometry?.length) continue;
-          const d = _nearestDistToWay(lat, lng, way.geometry);
-          if (d < minD) minD = d;
+          const { node, dist } = _nearestNodeOfWay(lat, lng, way.geometry);
+          if (dist < minD) { minD = dist; nearTrackNode = node; }
         }
+        ctx.cache.nearestTrackNode = nearTrackNode;
 
         const score = minD <= 200  ? 5.0
                     : minD <= 800  ? 4.0
@@ -1153,14 +1168,19 @@ out geom;
     },
 
     // 13. 人到達性
+    // 13. 人到達性
     {
       id: 'accessibility', name: '人到達性', weight: 1.1,
-      evaluate(ctx) {
-        const slopeDiff   = ctx.cache.slopeDiff    ?? null;
-        const elev        = ctx.terrain.elev;
-        const nearRoadM   = ctx.cache.nearestRoadM ?? null;
-        const components  = [];
+      async evaluate(ctx) {
+        const { lat, lng, terrain } = ctx;
+        const slopeDiff      = ctx.cache.slopeDiff      ?? null;
+        const elev           = terrain.elev;
+        const nearRoadM      = ctx.cache.nearestRoadM   ?? null;
+        const nearRoadNode   = ctx.cache.nearestRoadNode ?? null;
+        const nearTrackNode  = ctx.cache.nearestTrackNode ?? null;
+        const components     = [];
 
+        // ── ベーススコア（各コンポーネントの最大値）────────────
         if (elev !== null) {
           components.push(
             elev < 500  ? 5.0 : elev < 1000 ? 3.5 : elev < 1500 ? 2.0 : 1.0
@@ -1179,15 +1199,76 @@ out geom;
           );
         }
         if (!components.length) return { score: STUB_SCORE, reason: '到達性データ計算中' };
-        const score = clamp5(components.reduce((a,b) => a+b, 0) / components.length);
+
+        const base = Math.max(...components); // 平均→最大値に変更
+
+        // ── 道路勾配ペナルティ ──────────────────────────────────
+        // 道路・林道それぞれの最近傍ノードと評価地点の標高差÷水平距離で勾配を算出
+        // 道路/林道とも存在しない場合は強制 -1.5
+        let roadGradPenalty = 0;
+        let roadGradLabel   = '道路/林道なし（強制ペナルティ）';
+
+        const nodeElev = elev; // 評価地点標高（取得済み）
+
+        if (!nearRoadNode && !nearTrackNode) {
+          roadGradPenalty = -1.5;
+        } else {
+          // 道路と林道それぞれの勾配を計算し、大きい方を採用
+          async function _calcGrad(node, distM) {
+            if (!node || distM <= 0) return null;
+            const nElev = await _fetchElev(node.lat, node.lon);
+            if (nElev === null || nodeElev === null) return null;
+            return Math.abs(nElev - nodeElev) / distM * 100; // 勾配(%)
+          }
+
+          const roadDistM  = ctx.cache.nearestRoadM ?? Infinity;
+          // nearestTrackM は個別保存していないため haversine で再計算
+          const trackDistM = nearTrackNode
+            ? haversine(lat, lng, nearTrackNode.lat, nearTrackNode.lon)
+            : Infinity;
+
+
+          const [roadGrad, trackGrad] = await Promise.all([
+            _calcGrad(nearRoadNode,  roadDistM),
+            _calcGrad(nearTrackNode, trackDistM),
+          ]);
+
+          const maxGrad = Math.max(roadGrad ?? -Infinity, trackGrad ?? -Infinity);
+
+          if (maxGrad === -Infinity) {
+            // 両方取得失敗
+            roadGradPenalty = -1.5;
+            roadGradLabel   = '勾配取得失敗';
+          } else {
+            roadGradPenalty = maxGrad < 20 ?  0.0   // 緩やか
+                            : maxGrad < 40 ? -0.5   // やや急
+                            : maxGrad < 60 ? -1.0   // 急斜面
+                            :               -2.5;   // 崖レベル
+            roadGradLabel = `勾配${Math.round(maxGrad)}%（道路${roadGrad !== null ? Math.round(roadGrad)+'%' : 'なし'} / 林道${trackGrad !== null ? Math.round(trackGrad)+'%' : 'なし'}）`;
+          }
+        }
+
+        // ── slopeDiff ペナルティ ───────────────────────────────
+        const slopePenalty = slopeDiff === null ?  0
+                           : slopeDiff < 150    ?  0
+                           : slopeDiff < 300    ? -0.5
+                           :                     -1.0;
+
+        const totalPenalty = roadGradPenalty + slopePenalty;
+        const score = clamp5(base + totalPenalty);
+
         return {
           score,
-          reason: '標高・地形傾斜・道路距離から推定した到達しやすさ',
+          reason: `到達しやすさ: ベース${base.toFixed(1)}点 ${totalPenalty < 0 ? `ペナルティ${totalPenalty.toFixed(1)}` : ''}`,
           _debug: {
-            '標高':         ctx.terrain.elev !== null ? `${Math.round(ctx.terrain.elev)}m` : '未取得',
-            '地形傾斜差':   slopeDiff !== null ? `${Math.round(slopeDiff)}m` : '未取得',
-            '最近傍道路':   nearRoadM !== null ? `${Math.round(nearRoadM)}m` : '未取得',
-            '平均スコア':   score.toFixed(2),
+            '標高':             elev !== null ? `${Math.round(elev)}m` : '未取得',
+            '地形傾斜差':       slopeDiff !== null ? `${Math.round(slopeDiff)}m` : '未取得',
+            '最近傍道路':       nearRoadM !== null ? `${Math.round(nearRoadM)}m` : '未取得',
+            'ベーススコア':     base.toFixed(1),
+            '道路勾配ペナルティ': `${roadGradPenalty >= 0 ? '+' : ''}${roadGradPenalty.toFixed(1)} (${roadGradLabel})`,
+            '地形ペナルティ':   `${slopePenalty >= 0 ? '+' : ''}${slopePenalty.toFixed(1)}`,
+            '合計ペナルティ':   `${totalPenalty >= 0 ? '+' : ''}${totalPenalty.toFixed(1)}`,
+            '最終スコア':       score.toFixed(2),
           },
         };
       },
