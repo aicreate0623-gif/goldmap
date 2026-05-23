@@ -100,24 +100,28 @@ const GoldEvaluator = (() => {
   }
 
   /**
-   * wayのポリライン上で評価点Qに最も近いノードを p1 とし、
-   * 前後ノード p0（上流）・p2（下流）の3点で湾曲内外を判定する。
+   * wayのポリライン上で評価点Qに最も近いノードを p1(nearIdx) とし、
+   * 曲率が続く限り前後にノードを拡張して実形状ポリゴンを生成、
+   * レイキャスティング法で内外判定・堆積ゾーンを返す。
    *
    * アルゴリズム:
-   *   1. 最近傍ノード p1 を特定（両端ノードは除外）
-   *   2. p0→p1→p2 の外積で局所曲がり方向を取得（curvSign）
-   *   3. S字チェック: p1 の曲率が低い（< 10°）場合は不明返却
-   *   4. △p0-p1-p2 の各辺について外積の符号を確認し、
-   *      Q が三角形の内側かどうかを判定
-   *   5. S字ガード: 内側判定の符号が curvSign と一致しない場合は不明返却
-   *   6. 内側の場合、弦中点 M=(p0+p2)/2 と p1 を結ぶ線で三角形を2分割し、
-   *      Q が上流側（p0 側）の半三角形内にあれば upstream=true を返す
+   *   1. 最近傍ノード nearIdx を特定
+   *   2. nearIdx の局所曲がり方向（curvCross）を取得
+   *      → S字ガード: sin(bend) < sin(10°) なら不明返却
+   *   3. nearIdx を起点に前後へ bend >= 15° が続く間ノードを拡張
+   *      → 拡張端が p0(上流端インデックス) / p2(下流端インデックス)
+   *      → S字ガード: 拡張中に curvCross と逆符号の外積が出たら拡張停止
+   *   4. 実ノード列 geo[p0..p2] + 弦(p2→p0) で閉じたポリゴンを生成
+   *   5. レイキャスティング法で Q がポリゴン内か判定
+   *   6. 内側確定時: 弦の中点 M と nearIdx ノードを結ぶ対角線でゾーン分割
+   *      - Q が p2(下流)側半ポリゴン内 → zone:'large'（堆積核心帯）
+   *      - Q が p0(上流)側半ポリゴン内 → zone:'small'（堆積帯）
    *
-   * 戻り値: { side: 1=内側|-1=外側|0=不明, upstream: boolean }
-   *   upstream は side===1 のときのみ意味を持つ
+   * 戻り値: { side: 1=内側|-1=外側|0=不明, zone: 'large'|'small'|null }
+   *   zone は side===1 のときのみ意味を持つ
    */
   function _isInsideOfCurve(lat, lng, geometry) {
-    const NONE = { side: 0, upstream: false };
+    const NONE = { side: 0, zone: null };
     if (!geometry || geometry.length < 3) return NONE;
 
     const cosLat = Math.cos(lat * Math.PI / 180);
@@ -131,7 +135,25 @@ const GoldEvaluator = (() => {
     }
     const Q = { x: lng * cosLat * 111000, y: lat * 111000 };
 
-    // ── 1. 最近傍ノードを p1 として特定（両端除外）──────────
+    // レイキャスティング法: ポリゴン頂点列(pts)に対してQが内側かを判定
+    // pts は {x,y} の配列（閉じていなくてよい、自動で閉じる）
+    function raycast(pts) {
+      let inside = false;
+      const n = pts.length;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        const xi = pts[i].x, yi = pts[i].y;
+        const xj = pts[j].x, yj = pts[j].y;
+        const intersect = ((yi > Q.y) !== (yj > Q.y))
+          && (Q.x < (xj - xi) * (Q.y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    // 2Dベクトル外積
+    function cross2d(ax, ay, bx, by) { return ax * by - ay * bx; }
+
+    // ── 1. 最近傍ノードを特定（両端除外）────────────────────
     let nearIdx = 1;
     let nearD   = Infinity;
     for (let i = 1; i < geometry.length - 1; i++) {
@@ -141,70 +163,117 @@ const GoldEvaluator = (() => {
       if (d < nearD) { nearD = d; nearIdx = i; }
     }
 
-    const P0 = toM(geometry[nearIdx - 1]); // 上流ノード
-    const P1 = toM(geometry[nearIdx]);      // 最近傍（カーブ頂点候補）
-    const P2 = toM(geometry[nearIdx + 1]); // 下流ノード
-
-    // ── 2. 局所曲がり方向（p0→p1→p2 の外積）────────────────
-    // cross > 0: 左カーブ（内側は右）、cross < 0: 右カーブ（内側は左）
-    const v01x = P1.x - P0.x, v01y = P1.y - P0.y;
-    const v12x = P2.x - P1.x, v12y = P2.y - P1.y;
+    // ── 2. 局所曲がり方向と S字ガード ───────────────────────
+    const Pm = toM(geometry[nearIdx]);
+    const Pp = toM(geometry[nearIdx - 1]);
+    const Pn = toM(geometry[nearIdx + 1]);
+    const v01x = Pm.x - Pp.x, v01y = Pm.y - Pp.y;
+    const v12x = Pn.x - Pm.x, v12y = Pn.y - Pm.y;
     const curvCross = v01x * v12y - v01y * v12x;
 
-    // ── 3. S字ガード: 曲率が低すぎる場合は不明──────────────
-    // 外積の大きさ（≒ sin(bend) × |v01| × |v12|）で曲率を間接評価
-    // ベクトル長を正規化して sin値を取得し、bend角を復元
     const magV01 = Math.sqrt(v01x * v01x + v01y * v01y);
     const magV12 = Math.sqrt(v12x * v12x + v12y * v12y);
     if (magV01 < 1e-3 || magV12 < 1e-3) return NONE;
     const sinBend = Math.abs(curvCross) / (magV01 * magV12);
-    // sinBend < sin(10°) ≈ 0.174 はほぼ直線 → 不明
-    if (sinBend < 0.174) return NONE;
+    if (sinBend < 0.174) return NONE; // bend < 10° → ほぼ直線
 
-    // ── 4. 三角形内外判定（バリセントリック座標法）───────────
-    // △P0-P1-P2 に対して Q の位置を外積の符号で判定
-    // 3辺すべて同符号 → 内側
-    function cross2d(ax, ay, bx, by) { return ax * by - ay * bx; }
+    const curvSign = Math.sign(curvCross); // +1=左カーブ, -1=右カーブ
 
-    const d0 = cross2d(P1.x - P0.x, P1.y - P0.y, Q.x - P0.x, Q.y - P0.y);
-    const d1 = cross2d(P2.x - P1.x, P2.y - P1.y, Q.x - P1.x, Q.y - P1.y);
-    const d2 = cross2d(P0.x - P2.x, P0.y - P2.y, Q.x - P2.x, Q.y - P2.y);
+    // ── 3. 曲率が続く間ノードを前後に拡張 ───────────────────
+    // bend >= 15° かつ curvCross と同符号の間だけ拡張（S字で停止）
+    const BEND_THR = 15; // 度
 
-    const hasNeg = (d0 < 0) || (d1 < 0) || (d2 < 0);
-    const hasPos = (d0 > 0) || (d1 > 0) || (d2 > 0);
-    const isInsideTri = !(hasNeg && hasPos); // 全同符号なら内側
-
-    // ── 5. S字ガード: 内側判定と曲がり方向の符号チェック────
-    // 内側なら Q は curvCross の符号と反対側にいるはず
-    // （左カーブ=curvCross>0 のとき内側は右=d0<0 など）
-    // 三角形重心に対する curvCross 符号との整合チェック
-    if (isInsideTri) {
-      // d0の符号が curvCross と同じなら内側判定が curvSign と矛盾
-      // → S字変曲点付近の誤判定と見なして不明返却
-      const signOk = (curvCross > 0) ? (d0 < 0) : (d0 > 0);
-      if (!signOk) return NONE;
+    function nodeBend(i) {
+      // ノード i の bend角（度）と curvCross符号を返す
+      if (i <= 0 || i >= geometry.length - 1) return { bend: 0, sign: 0 };
+      const a = toM(geometry[i - 1]), b = toM(geometry[i]), c = toM(geometry[i + 1]);
+      const ax = a.x - b.x, ay = a.y - b.y;
+      const cx = c.x - b.x, cy = c.y - b.y;
+      const dot  = ax * cx + ay * cy;
+      const magA = Math.sqrt(ax * ax + ay * ay);
+      const magC = Math.sqrt(cx * cx + cy * cy);
+      if (magA < 1e-3 || magC < 1e-3) return { bend: 0, sign: 0 };
+      const cosA = Math.max(-1, Math.min(1, dot / (magA * magC)));
+      const bend = 180 - Math.acos(cosA) * (180 / Math.PI);
+      const cr   = cross2d(ax, ay, cx, cy); // b点での外積（曲がり方向）
+      // 注: nodeBend の外積は (a-b)×(c-b) なので curvCross と符号が逆になる
+      return { bend, sign: -Math.sign(cr) };
     }
 
-    if (!isInsideTri) {
-      // 外側判定（符号チェック不要）
-      return { side: -1, upstream: false };
+    // 上流方向（インデックス減少）に拡張
+    let p0idx = nearIdx;
+    for (let i = nearIdx - 1; i >= 1; i--) {
+      const { bend, sign } = nodeBend(i);
+      if (bend < BEND_THR || (sign !== 0 && sign !== curvSign)) break;
+      p0idx = i;
     }
 
-    // ── 6. 上流側半三角形チェック（内側確定時のみ）──────────
-    // 弦の中点 M = (P0 + P2) / 2
-    // △P0-M-P1 が上流側半三角形
-    // Q がこの半三角形内にあれば upstream = true
-    const M = { x: (P0.x + P2.x) / 2, y: (P0.y + P2.y) / 2 };
+    // 下流方向（インデックス増加）に拡張
+    let p2idx = nearIdx;
+    for (let i = nearIdx + 1; i <= geometry.length - 2; i++) {
+      const { bend, sign } = nodeBend(i);
+      if (bend < BEND_THR || (sign !== 0 && sign !== curvSign)) break;
+      p2idx = i;
+    }
 
-    const u0 = cross2d(M.x  - P0.x, M.y  - P0.y, Q.x - P0.x, Q.y - P0.y);
-    const u1 = cross2d(P1.x - M.x,  P1.y - M.y,  Q.x - M.x,  Q.y - M.y);
-    const u2 = cross2d(P0.x - P1.x, P0.y - P1.y, Q.x - P1.x, Q.y - P1.y);
+    // 拡張後の端点
+    const P0m = toM(geometry[p0idx]); // 上流端（メートル）
+    const P2m = toM(geometry[p2idx]); // 下流端（メートル）
 
-    const uHasNeg = (u0 < 0) || (u1 < 0) || (u2 < 0);
-    const uHasPos = (u0 > 0) || (u1 > 0) || (u2 > 0);
-    const upstream = !(uHasNeg && uHasPos);
+    // ── 4. 実ノード列 + 弦でポリゴン生成 ────────────────────
+    // 頂点順: geo[p0idx] → geo[p0idx+1] → ... → geo[p2idx] → (弦で p0idx へ戻る)
+    const polyPts = [];
+    for (let i = p0idx; i <= p2idx; i++) {
+      polyPts.push(toM(geometry[i]));
+    }
+    // 弦の閉じは raycast 内で自動処理（最終頂点→先頭頂点）
 
-    return { side: 1, upstream };
+    // ── 5. レイキャスティングで内外判定 ─────────────────────
+    const isInside = raycast(polyPts);
+
+    if (!isInside) {
+      // 外側: 弦（p0-p2直線）に対してQが川側か確認
+      // curvSign > 0（左カーブ）のとき内側は弦の右側（cross < 0）
+      const chordX = P2m.x - P0m.x, chordY = P2m.y - P0m.y;
+      const toQx   = Q.x  - P0m.x, toQy   = Q.y  - P0m.y;
+      const chordCross = cross2d(chordX, chordY, toQx, toQy);
+      // 弦より川側（ポリゴン外・川寄り）は外側確定
+      // 弦より反対側はポリゴン範囲外だが川と逆 → 不明扱い
+      const onRiverSide = (curvSign > 0) ? (chordCross < 0) : (chordCross > 0);
+      return onRiverSide ? { side: -1, zone: null } : NONE;
+    }
+
+    // ── 6. 堆積ゾーン判定（内側確定時のみ）──────────────────
+    // 弦の中点 M と nearIdx ノード（カーブ頂点）を結ぶ対角線でポリゴンを2分割
+    //
+    //   p0 ──実ノード列──nearIdx──実ノード列── p2
+    //    \                                    /
+    //     ────────── 弦 ────────────────────
+    //                        M（弦の中点）
+    //
+    //   対角線: M ↔ nearIdx
+    //   p2(下流)側の半ポリゴン → zone:'large'（堆積核心帯）
+    //   p0(上流)側の半ポリゴン → zone:'small'（堆積帯）
+
+    const M  = { x: (P0m.x + P2m.x) / 2, y: (P0m.y + P2m.y) / 2 };
+    const P1m = toM(geometry[nearIdx]); // カーブ頂点
+
+    // large ゾーン: 実ノード列[nearIdx..p2idx] + 弦端p2→M + M→nearIdx で閉じる
+    const largePoly = [];
+    for (let i = nearIdx; i <= p2idx; i++) largePoly.push(toM(geometry[i]));
+    largePoly.push(M);
+    // M→P1m は largePoly の先頭に戻る（raycastが自動閉じ）
+
+    // small ゾーン: 実ノード列[p0idx..nearIdx] + nearIdx→M + M→弦端p0 で閉じる
+    const smallPoly = [];
+    for (let i = p0idx; i <= nearIdx; i++) smallPoly.push(toM(geometry[i]));
+    smallPoly.push(M);
+
+    if (raycast(largePoly)) return { side: 1, zone: 'large' };
+    if (raycast(smallPoly)) return { side: 1, zone: 'small' };
+
+    // 対角線上など境界ケース
+    return { side: 1, zone: null };
   }
 
   /**
@@ -589,7 +658,7 @@ out geom;
         let upstLabel  = '';
 
         if (localBend >= 15) {
-          const { side, upstream } = _isInsideOfCurve(lat, lng, geo);
+          const { side, zone } = _isInsideOfCurve(lat, lng, geo);
           const decay = Math.max(0, 1 - minD / SIDE_RANGE); // 距離減衰係数 0〜1
 
           if (side === 1) {
@@ -599,14 +668,19 @@ out geom;
             else if (decay > 0.37) sideLabel = '・内側（堆積有望）';
             else if (decay > 0)    sideLabel = '・内側（やや有望）';
 
-            // 上流側加点: 内側かつ上流三角形内 → 最大+0.5、距離減衰あり
-            if (upstream) {
-              upstScore = 0.5 * decay;
-              upstLabel = '・上流側（滞留帯）';
+            // ゾーン加点:
+            //   large（p1〜p2/M寄り＝淀みの核心）→ 最大+0.8
+            //   small（M〜p0寄り＝減速途中）      → 最大+0.4
+            //   どちらでもない                     → 加点なし
+            if (zone === 'large') {
+              upstScore = 0.8 * decay;
+              upstLabel = '・堆積核心帯（加点大）';
+            } else if (zone === 'small') {
+              upstScore = 0.4 * decay;
+              upstLabel = '・堆積帯（加点小）';
             }
           } else if (side === -1) {
             // 外側: 最大−1.5、距離に応じて線形減衰
-            // 外側でも遠ければ影響小（川に近い外側が最も不利）
             sideScore = -1.5 * decay;
             if      (decay > 0.75) sideLabel = '・外側至近（堆積不利）';
             else if (decay > 0.37) sideLabel = '・外側（やや不利）';
@@ -624,12 +698,12 @@ out geom;
             '最近傍曲率':     `${localBend.toFixed(1)}°（緯度補正済）`,
             '湾曲密度':       `${bendDensity.toFixed(1)}/km (${bendCount}箇所/${wayLenKm.toFixed(1)}km)`,
             '内外判定':       sideScore > 0 ? `内側` : sideScore < 0 ? `外側` : '直線/不明/S字除外',
-            '上流判定':       upstScore > 0 ? `上流側（加点）` : '下流側または対象外',
+            '堆積ゾーン':     zone === 'large' ? '核心帯(大)' : zone === 'small' ? '堆積帯(小)' : 'なし',
             '距離減衰':       `${(Math.max(0, 1 - minD / SIDE_RANGE) * 100).toFixed(0)}%`,
             'ベース':         baseScore.toFixed(1),
             '密度ボーナス':   `+${densityBonus.toFixed(1)}`,
             '内外補正':       `${sideScore >= 0 ? '+' : ''}${sideScore.toFixed(2)}`,
-            '上流補正':       `+${upstScore.toFixed(2)}`,
+            'ゾーン補正':     `+${upstScore.toFixed(2)}`,
           },
         };
       },
