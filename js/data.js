@@ -1141,10 +1141,10 @@ async function loadMineData(fromButton=false){
       Graph:'黒鉛', Oil:'石油', Gas:'天然ガス', Coal:'石炭・亜炭',
     }[mat] || mat;
     clusterGroups[mat] = L.markerClusterGroup({
-      maxClusterRadius: 60,
+      maxClusterRadius: 40,
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
-      zoomToBoundsOnClick: false, // シングルタップはポップアップ、ダブルタップでズーム
+      zoomToBoundsOnClick: false, // タップトグルで制御
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 28 : count < 100 ? 34 : 40;
@@ -1156,24 +1156,30 @@ async function loadMineData(fromButton=false){
         });
       },
     });
-    // シングルタップ: 件数＋鉱種名ポップアップ
+    // タップトグル: 1回目=ポップアップ、2回目=ズームイン
+    let _lastClickedLayer = null;
     clusterGroups[mat].on('clusterclick', (e) => {
       const count = e.layer.getChildCount();
-      e.layer.bindPopup(
-        `<div style="font-size:12px;text-align:center;padding:2px 4px;">
-          <span style="color:${st.color};font-weight:bold;">●</span>
-          <b>${_matLabel}</b><br>
-          <span style="color:#aaa;font-size:11px;">${count} 件</span><br>
-          <span style="color:#888;font-size:10px;">ダブルタップで展開</span>
-        </div>`,
-        { closeButton: false, offset: [0, -10] }
-      ).openPopup();
+      if (_lastClickedLayer === e.layer && map.hasLayer && document.querySelector('.leaflet-popup')) {
+        // 2回目タップ: ズームイン
+        map.closePopup();
+        _lastClickedLayer = null;
+        e.layer.zoomToBounds({ padding: [60, 60] });
+      } else {
+        // 1回目タップ: ポップアップ
+        _lastClickedLayer = e.layer;
+        e.layer.bindPopup(
+          `<div style="font-size:12px;text-align:center;padding:2px 4px;">
+            <span style="color:${st.color};font-weight:bold;">●</span>
+            <b>${_matLabel}</b><br>
+            <span style="color:#aaa;font-size:11px;">${count} 件</span><br>
+            <span style="color:#888;font-size:10px;">もう一度タップで展開</span>
+          </div>`,
+          { closeButton: false, offset: [0, -10] }
+        ).openPopup();
+        e.layer.getPopup().on('remove', () => { _lastClickedLayer = null; });
+      }
       L.DomEvent.stopPropagation(e);
-    });
-    // ダブルタップ: ズームイン展開
-    clusterGroups[mat].on('clusterdblclick', (e) => {
-      map.closePopup();
-      e.layer.zoomToBounds({ padding: [20, 20] });
     });
   });
 
