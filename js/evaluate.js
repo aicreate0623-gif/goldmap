@@ -1772,6 +1772,115 @@ out geom;
       },
     },
 
+    // 18. アクセス難度
+    //     評価地点→林道→一般道の2区間距離＋勾配で徒歩到達障壁を評価
+    //     高スコア = 困難・危険（bearActivityと同じ逆スコア型）
+    {
+      id: 'accessDifficulty', name: 'アクセス難度', weight: 1.2, _mergeOnly: true,
+      async evaluate(ctx) {
+        const { lat, lng, terrain, overpass } = ctx;
+        const myElev        = terrain.elev;
+        const nearTrackNode = ctx.cache.nearestTrackNode ?? null;
+        const nearRoadNode  = ctx.cache.nearestRoadNode  ?? null;
+        const nearRoadM     = ctx.cache.nearestRoadM     ?? null;
+
+        // ── 林道なし: 評価地点→一般道距離のみで評価 ──────────────
+        if (!nearTrackNode) {
+          if (nearRoadM === null) {
+            return { score: STUB_SCORE, reason: 'アクセス経路データ取得中' };
+          }
+          const score = nearRoadM <= 500  ? 1.0   // 一般道至近
+                      : nearRoadM <= 1500 ? 2.0
+                      : nearRoadM <= 3000 ? 3.5
+                      :                    5.0;   // 一般道が遠い＝高難度
+          return {
+            score,
+            reason: `林道なし・一般道まで約${Math.round(nearRoadM)}m`,
+            _debug: {
+              '林道':         'なし',
+              '一般道距離':   `${Math.round(nearRoadM)}m`,
+            },
+          };
+        }
+
+        // ── 区間① 評価地点 → nearestTrackNode（林道） ─────────────
+        const seg1DistM = haversine(lat, lng, nearTrackNode.lat, nearTrackNode.lon);
+
+        // ── 区間② nearestTrackNode → nearestRoadNode（一般道） ────
+        const seg2DistM = nearRoadNode
+          ? haversine(nearTrackNode.lat, nearTrackNode.lon, nearRoadNode.lat, nearRoadNode.lon)
+          : null;
+
+        const totalDistM = seg2DistM !== null
+          ? seg1DistM + seg2DistM
+          : seg1DistM + (nearRoadM ?? 0);
+
+        // ── 勾配計算（並列fetch） ──────────────────────────────────
+        // 区間①: 評価地点標高(myElev) vs 林道ノード標高
+        // 区間②: 林道ノード標高 vs 一般道ノード標高
+        const [trackElev, roadElev] = await Promise.all([
+          _fetchElev(nearTrackNode.lat, nearTrackNode.lon),
+          nearRoadNode ? _fetchElev(nearRoadNode.lat, nearRoadNode.lon) : Promise.resolve(null),
+        ]);
+
+        // 勾配(%) = 標高差(m) / 水平距離(m) × 100
+        const seg1Grad = (myElev !== null && trackElev !== null && seg1DistM > 0)
+          ? Math.abs(trackElev - myElev) / seg1DistM * 100
+          : null;
+
+        const seg2Grad = (trackElev !== null && roadElev !== null && seg2DistM !== null && seg2DistM > 0)
+          ? Math.abs(roadElev - trackElev) / seg2DistM * 100
+          : null;
+
+        const maxGrad = Math.max(seg1Grad ?? 0, seg2Grad ?? 0);
+
+        // ── 距離スコア（長いほど高難度） ──────────────────────────
+        const distScore = totalDistM <= 300  ? 1.0
+                        : totalDistM <= 800  ? 2.0
+                        : totalDistM <= 1500 ? 3.0
+                        : totalDistM <= 3000 ? 4.0
+                        :                     5.0;
+
+        // ── 勾配ペナルティ（林道向けきつめ閾値） ──────────────────
+        // 15%未満: 舗装林道レベル → 加点なし
+        // 15〜30%: 未舗装林道    → +0.5
+        // 30〜50%: 沢沿い・藪こぎ → +1.5
+        // 50%〜  : 崖レベル       → +2.5
+        const gradBonus = maxGrad >= 50 ? 2.5
+                        : maxGrad >= 30 ? 1.5
+                        : maxGrad >= 15 ? 0.5
+                        :                0.0;
+
+        const score = clamp5(distScore + gradBonus);
+
+        // ラベル生成
+        const distLabel = totalDistM >= 1000
+          ? `合計${(totalDistM / 1000).toFixed(1)}km`
+          : `合計${Math.round(totalDistM)}m`;
+        const gradLabel = maxGrad >= 50 ? `勾配${Math.round(maxGrad)}%（崖レベル）`
+                        : maxGrad >= 30 ? `勾配${Math.round(maxGrad)}%（急斜面）`
+                        : maxGrad >= 15 ? `勾配${Math.round(maxGrad)}%（やや急）`
+                        : maxGrad >   0 ? `勾配${Math.round(maxGrad)}%（緩やか）`
+                        :                '勾配データなし';
+
+        return {
+          score,
+          reason: `徒歩退路: ${distLabel} / ${gradLabel}`,
+          _debug: {
+            '区間①距離(地点→林道)': `${Math.round(seg1DistM)}m`,
+            '区間②距離(林道→一般道)': seg2DistM !== null ? `${Math.round(seg2DistM)}m` : '不明',
+            '合計距離':               distLabel,
+            '区間①勾配':             seg1Grad !== null ? `${Math.round(seg1Grad)}%` : '不明',
+            '区間②勾配':             seg2Grad !== null ? `${Math.round(seg2Grad)}%` : '不明',
+            '最大勾配':               `${Math.round(maxGrad)}%`,
+            '距離スコア':             distScore.toFixed(1),
+            '勾配ボーナス':           `+${gradBonus.toFixed(1)}`,
+            '最終スコア':             score.toFixed(2),
+          },
+        };
+      },
+    },
+
     // 17. 道路・林道距離（統合表示）
     //     roadDistance × 3/5 + forestRoadDistance × 2/5
     {
@@ -1887,7 +1996,7 @@ out geom;
       },
       {
         label: '危険度',
-        ids:   ['accessRoad', 'accessibility', 'bearActivity'],
+        ids:   ['accessRoad', 'accessDifficulty', 'accessibility', 'bearActivity'],
       },
     ];
     // 欄外: 点線区切り・ヘッダーなし
