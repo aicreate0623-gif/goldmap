@@ -2065,7 +2065,10 @@ out geom;
     // カテゴリーブロック
     const catHTML = CATEGORIES.map(cat => {
       const rows = cat.ids.map(id => _rowHTML(itemMap[id])).join('');
-      return `<div class="ev-cat-header">${cat.label}</div>
+      const riskNote = cat.label === '安全リスク'
+        ? '<span style="font-size:0.75em;color:#999;font-weight:normal;margin-left:4px;">（高→危険）</span>'
+        : '';
+      return `<div class="ev-cat-header">${cat.label}${riskNote}</div>
         <table class="ev-table">${rows}</table>`;
     }).join('');
 
