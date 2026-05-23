@@ -39,4 +39,4 @@ jobs:
           git add data/heatmap.json
           git diff --staged --quiet || git commit -m "chore: update heatmap.json [skip ci]"
           git pull --rebase
-          git push
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
