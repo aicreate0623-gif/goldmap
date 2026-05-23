@@ -1460,62 +1460,73 @@ out geom;
           return { score: STUB_SCORE, reason: '評価地点の標高取得中' };
         }
 
-        // 鉱床＋鉱徴地＋minesを合算して最近傍を特定
-        const allDeps = [...deposits, ...mines];
-        const allProspects = [...prospects];
-        const allTargets = [...allDeps, ...allProspects];
+        // 鉱床＋鉱徴地＋minesを合算
+        const allDeps     = [...deposits, ...mines];
+        const allTargets  = [...allDeps, ...prospects];
         if (!allTargets.length) {
           return { score: STUB_SCORE, reason: '鉱床・鉱徴地データ読み込み中' };
         }
 
-        // 最近傍ターゲットを距離で選ぶ
-        let nearest = null, nearestD = Infinity;
-        for (const d of allTargets) {
-          const dist = haversine(lat, lng, d.lat, d.lng);
-          if (dist < nearestD) { nearestD = dist; nearest = d; }
-        }
-        if (!nearest) {
-          return { score: STUB_SCORE, reason: '鉱床・鉱徴地データ読み込み中' };
+        // ── 段階的半径拡張で上位5件を収集 ────────────────────────
+        // 5km → 10km → 15km と拡張し、1件以上拾えた時点で打ち切り
+        const MAX_COUNT = 5;
+        let candidates = [];
+        for (const radiusM of [5000, 10000, 15000]) {
+          candidates = allTargets
+            .map(d => ({ d, dist: haversine(lat, lng, d.lat, d.lng) }))
+            .filter(({ dist }) => dist <= radiusM)
+            .sort((a, b) => a.dist - b.dist)
+            .slice(0, MAX_COUNT);
+          if (candidates.length > 0) break;
         }
 
-        // 最近傍の標高を取得
-        const depElev = await _fetchElev(nearest.lat, nearest.lng);
-        if (depElev === null) {
+        // 1件も拾えなかった場合
+        if (!candidates.length) {
+          return { score: 1.0, reason: '半径15km以内に鉱床・鉱徴地なし' };
+        }
+
+        // ── 上位N件の標高を並列取得 ──────────────────────────────
+        const elevResults = await Promise.all(
+          candidates.map(({ d }) => _fetchElev(d.lat, d.lng))
+        );
+
+        // 標高取得できた件数のみで平均を計算
+        const validElevs = elevResults.filter(e => e !== null);
+        if (!validElevs.length) {
           return { score: STUB_SCORE, reason: '鉱床地点の標高取得中' };
         }
+        const avgDepElev = validElevs.reduce((a, b) => a + b, 0) / validElevs.length;
 
         // 標高差: 正 = 評価地点が低い（川下）、負 = 評価地点が高い（川上）
-        const diff = depElev - myElev; // 正なら川下側
-        const distKmLabel = (nearestD / 1000).toFixed(1);
-        const typeLabel = allDeps.includes(nearest) ? '鉱床' : '鉱徴地';
+        const diff = avgDepElev - myElev;
+
+        // 最近傍の種別・距離（debug用）
+        const nearest     = candidates[0].d;
+        const nearestD    = candidates[0].dist;
+        const nearestType = allDeps.includes(nearest) ? '鉱床' : '鉱徴地';
 
         let score, label;
         if (diff >= 100) {
-          score = 5.0;
-          label = `${typeLabel}より${Math.round(diff)}m低い（明確な川下）`;
+          score = 5.0; label = `平均より${Math.round(diff)}m低い（明確な川下）`;
         } else if (diff >= 10) {
-          score = 4.0;
-          label = `${typeLabel}より${Math.round(diff)}m低い（川下）`;
+          score = 4.0; label = `平均より${Math.round(diff)}m低い（川下）`;
         } else if (diff >= 0) {
-          score = 3.0;
-          label = `${typeLabel}とほぼ同標高（±${Math.round(Math.abs(diff))}m）`;
+          score = 3.0; label = `平均とほぼ同標高（±${Math.round(Math.abs(diff))}m）`;
         } else if (diff >= -50) {
-          score = 2.0;
-          label = `${typeLabel}より${Math.round(Math.abs(diff))}m高い（わずかに川上）`;
+          score = 2.0; label = `平均より${Math.round(Math.abs(diff))}m高い（わずかに川上）`;
         } else {
-          score = 1.0;
-          label = `${typeLabel}より${Math.round(Math.abs(diff))}m高い（川上側）`;
+          score = 1.0; label = `平均より${Math.round(Math.abs(diff))}m高い（川上側）`;
         }
 
         return {
           score,
-          reason: `最寄り${typeLabel}(${distKmLabel}km): ${label}`,
+          reason: `近傍鉱床${candidates.length}件平均: ${label}`,
           _debug: {
-            '評価地点標高':     `${Math.round(myElev)}m`,
-            '最近傍鉱床/鉱徴地標高': `${Math.round(depElev)}m（${typeLabel}）`,
-            '標高差(正=川下)':  `${Math.round(diff)}m`,
-            '距離':             `${distKmLabel}km`,
-            '種別':             typeLabel,
+            '評価地点標高':       `${Math.round(myElev)}m`,
+            '鉱床平均標高':       `${Math.round(avgDepElev)}m（${validElevs.length}件平均）`,
+            '標高差(正=川下)':    `${Math.round(diff)}m`,
+            '参照件数':           `${candidates.length}件（標高取得${validElevs.length}件）`,
+            '最近傍':             `${nearestType} ${(nearestD/1000).toFixed(1)}km`,
           },
         };
       },
