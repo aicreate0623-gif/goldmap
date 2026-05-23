@@ -100,83 +100,111 @@ const GoldEvaluator = (() => {
   }
 
   /**
-   * wayのポリライン全体に対して、指定座標が内側か外側かを判定
-   *
-   * 「内側」の定義:
-   *   川の流れに沿って外側の頂点を結んだ境界線の内側（川が囲む凹側空間）。
-   *   S字カーブなど複数の湾曲があっても、評価点が近傍カーブの凹側にいるかを判定する。
+   * wayのポリライン上で評価点Qに最も近いノードを p1 とし、
+   * 前後ノード p0（上流）・p2（下流）の3点で湾曲内外を判定する。
    *
    * アルゴリズム:
-   *   評価点に最も近いセグメントを中心に前後 WINDOW セグメントを取り出し、
-   *   各セグメント (p[i]→p[i+1]) に対して外積の Z成分を累積する。
-   *     cross_i = (p[i+1]-p[i]) × (point-p[i])  (緯度補正済みメートル換算)
-   *   累積の総和 > 0 → 流れに対して左側
-   *   累積の総和 < 0 → 流れに対して右側
-   *   全体の湾曲方向（曲がり総和）と比較して内外を確定する。
+   *   1. 最近傍ノード p1 を特定（両端ノードは除外）
+   *   2. p0→p1→p2 の外積で局所曲がり方向を取得（curvSign）
+   *   3. S字チェック: p1 の曲率が低い（< 10°）場合は不明返却
+   *   4. △p0-p1-p2 の各辺について外積の符号を確認し、
+   *      Q が三角形の内側かどうかを判定
+   *   5. S字ガード: 内側判定の符号が curvSign と一致しない場合は不明返却
+   *   6. 内側の場合、弦中点 M=(p0+p2)/2 と p1 を結ぶ線で三角形を2分割し、
+   *      Q が上流側（p0 側）の半三角形内にあれば upstream=true を返す
    *
-   * 戻り値: 1=内側, -1=外側, 0=直線/不明
+   * 戻り値: { side: 1=内側|-1=外側|0=不明, upstream: boolean }
+   *   upstream は side===1 のときのみ意味を持つ
    */
   function _isInsideOfCurve(lat, lng, geometry) {
-    if (!geometry || geometry.length < 3) return 0;
+    const NONE = { side: 0, upstream: false };
+    if (!geometry || geometry.length < 3) return NONE;
 
     const cosLat = Math.cos(lat * Math.PI / 180);
 
-    // メートル換算ヘルパー
+    // メートル換算ヘルパー（緯度補正済み）
     function toM(node) {
       return {
         x: node.lon * cosLat * 111000,
         y: node.lat * 111000,
       };
     }
-    const pt = { x: lng * cosLat * 111000, y: lat * 111000 };
+    const Q = { x: lng * cosLat * 111000, y: lat * 111000 };
 
-    // 評価点に最も近いセグメントインデックスを特定
-    let nearSegIdx = 0;
-    let nearSegD   = Infinity;
-    for (let i = 0; i < geometry.length - 1; i++) {
-      const a = toM(geometry[i]), b = toM(geometry[i + 1]);
-      // セグメントABへの最近傍距離（点→セグメント）
-      const abx = b.x - a.x, aby = b.y - a.y;
-      const len2 = abx * abx + aby * aby;
-      const t    = len2 < 1e-6 ? 0 : Math.max(0, Math.min(1, ((pt.x - a.x) * abx + (pt.y - a.y) * aby) / len2));
-      const dx = pt.x - (a.x + t * abx), dy = pt.y - (a.y + t * aby);
+    // ── 1. 最近傍ノードを p1 として特定（両端除外）──────────
+    let nearIdx = 1;
+    let nearD   = Infinity;
+    for (let i = 1; i < geometry.length - 1; i++) {
+      const m = toM(geometry[i]);
+      const dx = Q.x - m.x, dy = Q.y - m.y;
       const d  = dx * dx + dy * dy;
-      if (d < nearSegD) { nearSegD = d; nearSegIdx = i; }
+      if (d < nearD) { nearD = d; nearIdx = i; }
     }
 
-    // 近傍セグメントの前後 WINDOW 本を対象範囲とする
-    const WINDOW = 4;
-    const iStart = Math.max(0, nearSegIdx - WINDOW);
-    const iEnd   = Math.min(geometry.length - 2, nearSegIdx + WINDOW);
+    const P0 = toM(geometry[nearIdx - 1]); // 上流ノード
+    const P1 = toM(geometry[nearIdx]);      // 最近傍（カーブ頂点候補）
+    const P2 = toM(geometry[nearIdx + 1]); // 下流ノード
 
-    // 各セグメントの外積総和（点が流れに対して左右どちらか）と
-    // 湾曲方向総和（ライン自体が左右どちらへ曲がっているか）を同時計算
-    let sideSum  = 0; // 点の側
-    let curvSum  = 0; // ラインの湾曲方向
-    for (let i = iStart; i <= iEnd; i++) {
-      const a = toM(geometry[i]), b = toM(geometry[i + 1]);
-      const abx = b.x - a.x, aby = b.y - a.y;
-      // 点の側: セグメントベクトル × (点-セグメント始点)
-      sideSum += abx * (pt.y - a.y) - aby * (pt.x - a.x);
-      // 湾曲方向: セグメント間の外積（ライン自体の曲がり）
-      if (i < geometry.length - 2) {
-        const c = toM(geometry[i + 2]);
-        const bcx = c.x - b.x, bcy = c.y - b.y;
-        curvSum += abx * bcy - aby * bcx;
-      }
+    // ── 2. 局所曲がり方向（p0→p1→p2 の外積）────────────────
+    // cross > 0: 左カーブ（内側は右）、cross < 0: 右カーブ（内側は左）
+    const v01x = P1.x - P0.x, v01y = P1.y - P0.y;
+    const v12x = P2.x - P1.x, v12y = P2.y - P1.y;
+    const curvCross = v01x * v12y - v01y * v12x;
+
+    // ── 3. S字ガード: 曲率が低すぎる場合は不明──────────────
+    // 外積の大きさ（≒ sin(bend) × |v01| × |v12|）で曲率を間接評価
+    // ベクトル長を正規化して sin値を取得し、bend角を復元
+    const magV01 = Math.sqrt(v01x * v01x + v01y * v01y);
+    const magV12 = Math.sqrt(v12x * v12x + v12y * v12y);
+    if (magV01 < 1e-3 || magV12 < 1e-3) return NONE;
+    const sinBend = Math.abs(curvCross) / (magV01 * magV12);
+    // sinBend < sin(10°) ≈ 0.174 はほぼ直線 → 不明
+    if (sinBend < 0.174) return NONE;
+
+    // ── 4. 三角形内外判定（バリセントリック座標法）───────────
+    // △P0-P1-P2 に対して Q の位置を外積の符号で判定
+    // 3辺すべて同符号 → 内側
+    function cross2d(ax, ay, bx, by) { return ax * by - ay * bx; }
+
+    const d0 = cross2d(P1.x - P0.x, P1.y - P0.y, Q.x - P0.x, Q.y - P0.y);
+    const d1 = cross2d(P2.x - P1.x, P2.y - P1.y, Q.x - P1.x, Q.y - P1.y);
+    const d2 = cross2d(P0.x - P2.x, P0.y - P2.y, Q.x - P2.x, Q.y - P2.y);
+
+    const hasNeg = (d0 < 0) || (d1 < 0) || (d2 < 0);
+    const hasPos = (d0 > 0) || (d1 > 0) || (d2 > 0);
+    const isInsideTri = !(hasNeg && hasPos); // 全同符号なら内側
+
+    // ── 5. S字ガード: 内側判定と曲がり方向の符号チェック────
+    // 内側なら Q は curvCross の符号と反対側にいるはず
+    // （左カーブ=curvCross>0 のとき内側は右=d0<0 など）
+    // 三角形重心に対する curvCross 符号との整合チェック
+    if (isInsideTri) {
+      // d0の符号が curvCross と同じなら内側判定が curvSign と矛盾
+      // → S字変曲点付近の誤判定と見なして不明返却
+      const signOk = (curvCross > 0) ? (d0 < 0) : (d0 > 0);
+      if (!signOk) return NONE;
     }
 
-    // 判定が弱すぎる場合は不明扱い
-    const sideMag = Math.abs(sideSum);
-    if (sideMag < 1e-6) return 0;
+    if (!isInsideTri) {
+      // 外側判定（符号チェック不要）
+      return { side: -1, upstream: false };
+    }
 
-    // curvSum ≈ 0 はほぼ直線 → 内外の意味がない
-    if (Math.abs(curvSum) < 1e-6) return 0;
+    // ── 6. 上流側半三角形チェック（内側確定時のみ）──────────
+    // 弦の中点 M = (P0 + P2) / 2
+    // △P0-M-P1 が上流側半三角形
+    // Q がこの半三角形内にあれば upstream = true
+    const M = { x: (P0.x + P2.x) / 2, y: (P0.y + P2.y) / 2 };
 
-    // 川が左カーブ(curvSum>0)のとき内側は右側(sideSum<0)
-    // 川が右カーブ(curvSum<0)のとき内側は左側(sideSum>0)
-    const isInside = (curvSum > 0) ? (sideSum < 0) : (sideSum > 0);
-    return isInside ? 1 : -1;
+    const u0 = cross2d(M.x  - P0.x, M.y  - P0.y, Q.x - P0.x, Q.y - P0.y);
+    const u1 = cross2d(P1.x - M.x,  P1.y - M.y,  Q.x - M.x,  Q.y - M.y);
+    const u2 = cross2d(P0.x - P1.x, P0.y - P1.y, Q.x - P1.x, Q.y - P1.y);
+
+    const uHasNeg = (u0 < 0) || (u1 < 0) || (u2 < 0);
+    const uHasPos = (u0 > 0) || (u1 > 0) || (u2 > 0);
+    const upstream = !(uHasNeg && uHasPos);
+
+    return { side: 1, upstream };
   }
 
   /**
@@ -548,17 +576,20 @@ out geom;
                          : localBend >= 15 ? '緩やかな湾曲'
                          : 'ほぼ直線';
 
-        // ── 内外判定（距離連動・連続減衰）───────────────────
+        // ── 内外判定 + 上流加点（距離連動・連続減衰）────────────
         // 砂金堆積メカニズム:
         //   内側: 流速が遅く砂金が沈降・堆積しやすい
         //   外側: 流速が速く侵食が進む（堆積しにくい）
+        //   内側かつ上流側: 堆積の滞留時間が長くさらに有望
         //   距離が遠いほど湾曲の影響は弱まるため40mで効果ゼロ
         const SIDE_RANGE = 40; // 内外補正が有効な最大距離(m)
-        let sideScore = 0;
-        let sideLabel = '';
+        let sideScore  = 0;
+        let upstScore  = 0;
+        let sideLabel  = '';
+        let upstLabel  = '';
 
         if (localBend >= 15) {
-          const side = _isInsideOfCurve(lat, lng, geo);
+          const { side, upstream } = _isInsideOfCurve(lat, lng, geo);
           const decay = Math.max(0, 1 - minD / SIDE_RANGE); // 距離減衰係数 0〜1
 
           if (side === 1) {
@@ -567,6 +598,12 @@ out geom;
             if      (decay > 0.75) sideLabel = '・内側至近（堆積最有望）';
             else if (decay > 0.37) sideLabel = '・内側（堆積有望）';
             else if (decay > 0)    sideLabel = '・内側（やや有望）';
+
+            // 上流側加点: 内側かつ上流三角形内 → 最大+0.5、距離減衰あり
+            if (upstream) {
+              upstScore = 0.5 * decay;
+              upstLabel = '・上流側（滞留帯）';
+            }
           } else if (side === -1) {
             // 外側: 最大−1.5、距離に応じて線形減衰
             // 外側でも遠ければ影響小（川に近い外側が最も不利）
@@ -577,20 +614,22 @@ out geom;
           }
         }
 
-        const finalScore = clamp5(baseScore + densityBonus + sideScore);
+        const finalScore = clamp5(baseScore + densityBonus + sideScore + upstScore);
         return {
           score:  finalScore,
-          reason: `最近傍河川: ${curveLabel}${densityLabel}${sideLabel}`,
+          reason: `最近傍河川: ${curveLabel}${densityLabel}${sideLabel}${upstLabel}`,
           _debug: {
             '川までの距離':   `${Math.round(minD)}m`,
             'ノードIdx':      `${nearIdx} / ${geo.length - 1}`,
             '最近傍曲率':     `${localBend.toFixed(1)}°（緯度補正済）`,
             '湾曲密度':       `${bendDensity.toFixed(1)}/km (${bendCount}箇所/${wayLenKm.toFixed(1)}km)`,
-            '内外判定':       sideScore > 0 ? `内側` : sideScore < 0 ? `外側` : '直線/不明',
+            '内外判定':       sideScore > 0 ? `内側` : sideScore < 0 ? `外側` : '直線/不明/S字除外',
+            '上流判定':       upstScore > 0 ? `上流側（加点）` : '下流側または対象外',
             '距離減衰':       `${(Math.max(0, 1 - minD / SIDE_RANGE) * 100).toFixed(0)}%`,
             'ベース':         baseScore.toFixed(1),
             '密度ボーナス':   `+${densityBonus.toFixed(1)}`,
             '内外補正':       `${sideScore >= 0 ? '+' : ''}${sideScore.toFixed(2)}`,
+            '上流補正':       `+${upstScore.toFixed(2)}`,
           },
         };
       },
