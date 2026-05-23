@@ -672,13 +672,13 @@ out geom;
         if (!isFinite(minD)) return { score: 1.5, reason: '河川データ不完全' };
 
         ctx.cache.nearestStreamM = minD;
-        // 5m刻み・35m超で0点
-        const score = minD <= 15 ? 5.0   // 15m以内（最高）
-                    : minD <= 20 ? 4.0   // 20m以内
-                    : minD <= 25 ? 3.0   // 25m以内
-                    : minD <= 30 ? 2.0   // 30m以内
-                    : minD <= 35 ? 1.0   // 35m以内
-                    : 0;                 // 35m超
+        // 5m刻み・30m超で0点（実採掘対象は川岸30mまで）
+        const score = minD <= 10 ? 5.0   // 10m以内（最高）
+                    : minD <= 15 ? 4.0   // 15m以内
+                    : minD <= 20 ? 3.0   // 20m以内
+                    : minD <= 25 ? 2.0   // 25m以内
+                    : minD <= 30 ? 1.0   // 30m以内
+                    : 0;                 // 30m超
         return {
           score,
           reason: `最寄り河川・沢まで約${Math.round(minD)}m`,
@@ -978,10 +978,10 @@ out geom;
         if (distKm < 0.01) return { score: 0, reason: '河川区間が短すぎ（評価不能）' };
         const gradient = elevDiff / distKm; // m/km
 
-        const score = gradient < 5  ? 2.0   // ほぼ平坦（流速不足）
-                    : gradient < 15 ? 5.0   // 緩やか（最適）
-                    : gradient < 40 ? 4.0   // 中勾配
-                    : gradient < 80 ? 3.0   // やや急
+        const score = gradient < 5  ? 1.0   // ほぼ平坦（流速不足・堆積しにくい）
+                    : gradient < 25 ? 5.0   // 緩〜中勾配（最適帯）
+                    : gradient < 50 ? 4.0   // やや急
+                    : gradient < 80 ? 3.0   // 急勾配
                     : 2.0;                  // 急流（堆積しにくい）
         return {
           score,
@@ -1011,7 +1011,7 @@ out geom;
         const depth = avg - center;
         // 周囲8点（約300m）との標高差で谷の深さを評価（閾値は元の半分）
         const score = depth < 0    ? 1.0   // 尾根・台地
-                    : depth < 2.5  ? 2.0   // ほぼ平坦
+                    : depth < 2.5  ? 1.0   // ほぼ平坦（谷なし）
                     : depth < 10   ? 3.0   // 浅い谷・小沢
                     : depth < 25   ? 4.0   // 明瞭な谷（有望）
                     : 5.0;                 // V字谷・深谷（砂金堆積の典型地形）
@@ -1244,6 +1244,9 @@ out geom;
         } else if (diff >= 0) {
           score = 3.0;
           label = `${typeLabel}とほぼ同標高（±${Math.round(Math.abs(diff))}m）`;
+        } else if (diff >= -50) {
+          score = 2.0;
+          label = `${typeLabel}より${Math.round(Math.abs(diff))}m高い（わずかに川上）`;
         } else {
           score = 1.0;
           label = `${typeLabel}より${Math.round(Math.abs(diff))}m高い（川上側）`;
