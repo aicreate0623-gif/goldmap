@@ -20,6 +20,8 @@ const GoldEvaluator = (() => {
   const STUB_SCORE      = 2.5;      // 外部API未接続時のフォールバック
 
   const GSI_ELEV_API    = 'https://cyberjapandata2.gsi.go.jp/general/dem/scripts/getelevation.php';
+  const GSJ_LEGEND_API  = 'https://gbank.gsj.jp/seamless/v2/api/1.2/legend.json';
+  const GSJ_GEO_TTL     = 60 * 60 * 1000; // 地質キャッシュ 1時間
   const OVERPASS_API    = 'https://overpass-api.de/api/interpreter';
   const OVERPASS_RADIUS = 3000;     // 地形・河川・道路評価の半径(m)
   const BEAR_RADIUS_M   = 8000;     // 熊評価の最大参照半径(m)
@@ -500,6 +502,7 @@ const GoldEvaluator = (() => {
   const _topoCache     = new Map();
   const _postCache     = new Map();
   const _overpassCache = new Map();
+  const _geoCache      = new Map();
   const _bearStore     = { data: null, fetchedAt: 0 };
 
   const EVAL_TTL = 10 * 60 * 1000;
@@ -566,6 +569,93 @@ const GoldEvaluator = (() => {
       _bearStore.fetchedAt = now;
       return json;
     } catch { return []; }
+  }
+
+  /**
+   * GSJ シームレス地質図V2 API で3km範囲の地質情報を取得
+   *
+   * ① box= で範囲内の全岩種リストを1回取得（多様性・キーワード評価）
+   * ② point= で中心＋外周12点を13並列取得（境界ペア数評価）
+   *
+   * 戻り値:
+   *   {
+   *     boxItems:      凡例オブジェクト配列（box取得結果）
+   *     pointSymbols:  13点のsymbol配列（nullあり）
+   *     groups:        ユニークgroup_ja Set
+   *     lithologies:   ユニークlithology_ja Set
+   *     boundaryCount: 隣接点間でsymbolが異なるペア数
+   *   }
+   *   取得失敗時は null
+   */
+  async function _fetchGsjGeology(lat, lng) {
+    const k   = _key(lat, lng);
+    const now = Date.now();
+    const hit = _geoCache.get(k);
+    if (hit && now - hit.at < GSJ_GEO_TTL) return hit.data;
+
+    // 約3km = 緯度方向0.027度、経度方向は緯度補正
+    const D_LAT = 0.027;
+    const D_LNG = 0.027 / Math.cos(lat * Math.PI / 180);
+
+    // ── ① box= 範囲取得 ────────────────────────────────────
+    const boxUrl = `${GSJ_LEGEND_API}?box=${(lat - D_LAT).toFixed(5)},${(lng - D_LNG).toFixed(5)},${(lat + D_LAT).toFixed(5)},${(lng + D_LNG).toFixed(5)}`;
+    let boxItems = [];
+    try {
+      const res = await fetch(boxUrl);
+      if (res.ok) {
+        const json = await res.json();
+        boxItems = Array.isArray(json) ? json : (json ? [json] : []);
+      }
+    } catch { /* boxItems空のまま続行 */ }
+
+    // ── ② point= 13点並列取得 ───────────────────────────────
+    // 中心(0,0) + 外周12点（4方位×3距離）
+    const D1 = 0.009, D2 = 0.018, D3 = 0.027; // 約1km/2km/3km
+    const samplePts = [
+      [lat,        lng       ],  // 中心
+      [lat + D1,   lng       ], [lat - D1,   lng       ],
+      [lat,        lng + D1  ], [lat,        lng - D1  ],
+      [lat + D2,   lng       ], [lat - D2,   lng       ],
+      [lat,        lng + D2  ], [lat,        lng - D2  ],
+      [lat + D3,   lng       ], [lat - D3,   lng       ],
+      [lat,        lng + D3  ], [lat,        lng - D3  ],
+    ];
+
+    const pointResults = await Promise.all(
+      samplePts.map(async ([la, lo]) => {
+        try {
+          const res = await fetch(`${GSJ_LEGEND_API}?point=${la.toFixed(5)},${lo.toFixed(5)}`);
+          if (!res.ok) return null;
+          const json = await res.json();
+          // point指定は単独オブジェクト or 空オブジェクト返却
+          return (json && json.symbol) ? json : null;
+        } catch { return null; }
+      })
+    );
+
+    const pointSymbols = pointResults.map(r => r?.symbol ?? null);
+
+    // ── 集計 ───────────────────────────────────────────────
+    const groups      = new Set(boxItems.map(i => i.group_ja).filter(Boolean));
+    const lithologies = new Set(boxItems.map(i => i.lithology_ja).filter(Boolean));
+
+    // 隣接ペア判定（中心→外周各点、隣接インデックス間）
+    // インデックス順: [0]=中心, [1〜4]=1km4方位, [5〜8]=2km4方位, [9〜12]=3km4方位
+    // 隣接ペア: 中心と1km4点、1km各点と対応する2km点、2km各点と対応する3km点
+    const adjPairs = [
+      [0,1],[0,2],[0,3],[0,4],   // 中心 ↔ 1km
+      [1,5],[2,6],[3,7],[4,8],   // 1km ↔ 2km
+      [5,9],[6,10],[7,11],[8,12], // 2km ↔ 3km
+    ];
+    let boundaryCount = 0;
+    for (const [a, b] of adjPairs) {
+      const sa = pointSymbols[a], sb = pointSymbols[b];
+      if (sa && sb && sa !== sb) boundaryCount++;
+    }
+
+    const data = { boxItems, pointSymbols, groups, lithologies, boundaryCount };
+    _geoCache.set(k, { data, at: now });
+    return data;
   }
 
   async function _fetchPosts(lat, lng) {
@@ -641,7 +731,7 @@ out geom;
   // ─────────────────────────────────────────────────────────
   async function _buildContext(input) {
     const { lat, lng, zoom = 13 } = input;
-    const [elev, surroundElevs, bears, posts, gsjData, overpass] = await Promise.all([
+    const [elev, surroundElevs, bears, posts, gsjData, overpass, geoData] = await Promise.all([
       _fetchElev(lat, lng),
       _fetchSurroundElev(lat, lng),
       _fetchBears(),
@@ -650,12 +740,13 @@ out geom;
         ? loadGsjMineData().catch(() => [])
         : Promise.resolve(window.GSJ_MINE_DATA_CACHED || []),
       _fetchOverpass(lat, lng),
+      _fetchGsjGeology(lat, lng),
     ]);
     if (gsjData.length) window.GSJ_MINE_DATA_CACHED = gsjData;
     return {
       lat, lng, zoom,
       terrain:     { elev, surroundElevs },
-      geology:     null,
+      geology:     geoData,
       overpass,                                         // ← 追加
       deposits:    (gsjData || []).filter(d => !d.trace),
       prospects:   (gsjData || []).filter(d =>  d.trace),
@@ -903,11 +994,107 @@ out geom;
       },
     },
 
-    // 5. 地質（GSJ WMS/WFS 接続待ち）
+    // 5. 地質（GSJ シームレス地質図V2 API）
     {
       id: 'geology', name: '地質', weight: 1.6,
       evaluate(ctx) {
-        return { score: STUB_SCORE, reason: '地質データ取得待ち（準備中）' };
+        const geo = ctx.geology;
+        if (!geo) return { score: STUB_SCORE, reason: '地質データ取得待ち（準備中）' };
+
+        const { boxItems, groups, lithologies, boundaryCount } = geo;
+
+        if (!boxItems.length) {
+          return { score: STUB_SCORE, reason: '地質データなし（海域・未整備区域）' };
+        }
+
+        // ── ベーススコア: group_ja × formationAge_ja の最高評価を採用 ──
+        // 複数岩種が存在する場合は最高点のみ採用
+        let baseScore = 1.0;
+        let bestLabel = 'データあり';
+
+        for (const item of boxItems) {
+          const g   = item.group_ja        || '';
+          const age = item.formationAge_ja || '';
+          const lit = item.lithology_ja    || '';
+
+          let s = 1.0, lbl = '';
+
+          if (g === '火成岩') {
+            if (/白亜紀|古第三紀|新第三紀/.test(age)) {
+              s = 3.5; lbl = `火成岩（${age.split(' ')[1] || age}）★`;
+            } else {
+              s = 2.5; lbl = `火成岩（${age.split(' ')[1] || age}）`;
+            }
+          } else if (g === '変成岩') {
+            if (/白亜紀/.test(age)) {
+              s = 3.5; lbl = `変成岩（白亜紀）★`;
+            } else if (/ジュラ紀|先ジュラ|古生代|カンブリア|オルドビス|シルル|デボン|石炭|二畳|三畳/.test(age)) {
+              s = 3.0; lbl = `変成岩（古生代〜ジュラ紀）`;
+            } else {
+              s = 2.5; lbl = `変成岩`;
+            }
+          } else if (g === '堆積岩') {
+            if (/第四紀/.test(age)) {
+              s = 3.0; lbl = `堆積岩（第四紀）★`;
+            } else {
+              s = 2.0; lbl = `堆積岩（${age.split(' ')[1] || age}）`;
+            }
+          } else if (g === '付加体') {
+            s = 2.5; lbl = `付加体`;
+          } else {
+            s = 1.5; lbl = g || '不明';
+          }
+
+          if (s > baseScore) { baseScore = s; bestLabel = lbl; }
+        }
+
+        // ── lithology_ja キーワード加点（最大+1.5） ──
+        const litAll = [...lithologies].join(' ');
+        let litBonus = 0;
+        const litLabels = [];
+
+        if (/花崗岩|花崗閃緑岩|トーナル岩/.test(litAll)) {
+          litBonus += 0.5; litLabels.push('花崗岩類');
+        }
+        if (/蛇紋岩|かんらん岩/.test(litAll)) {
+          litBonus += 0.3; litLabels.push('蛇紋岩・かんらん岩');
+        }
+        if (/石英|熱水/.test(litAll)) {
+          litBonus += 0.3; litLabels.push('石英・熱水系');
+        }
+
+        // group多様性ボーナス（最大+0.4）
+        const groupCount = groups.size;
+        const divBonus = groupCount >= 3 ? 0.4
+                       : groupCount >= 2 ? 0.2
+                       : 0;
+        if (divBonus > 0) litLabels.push(`多様性(${groupCount}種)`);
+
+        // ── 境界ペアボーナス（最大+1.0） ──
+        const boundBonus = boundaryCount >= 5 ? 1.0
+                         : boundaryCount >= 3 ? 0.7
+                         : boundaryCount >= 1 ? 0.3
+                         : 0;
+
+        const total = clamp5(baseScore + litBonus + divBonus + boundBonus);
+
+        const reasonParts = [bestLabel];
+        if (litLabels.length) reasonParts.push(litLabels.join('・'));
+        if (boundaryCount > 0) reasonParts.push(`地質境界${boundaryCount}箇所`);
+
+        return {
+          score:  total,
+          reason: reasonParts.join(' / '),
+          _debug: {
+            'ベーススコア':     `${baseScore.toFixed(1)}（${bestLabel}）`,
+            '岩種多様性':       `${groupCount}種（${[...groups].join('・')}）`,
+            '岩種数(box)':      `${boxItems.length}件`,
+            'litボーナス':      `+${litBonus.toFixed(1)}`,
+            '多様性ボーナス':   `+${divBonus.toFixed(1)}`,
+            '境界ペア数':       `${boundaryCount}箇所 → +${boundBonus.toFixed(1)}`,
+            '合計':             total.toFixed(2),
+          },
+        };
       },
     },
 
