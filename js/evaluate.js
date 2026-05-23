@@ -1958,7 +1958,37 @@ out geom;
                          : slopeDiff < 300    ? 0.5
                          :                     1.0;
 
-        const totalBonus = gradBonus + slopeBonus;
+        // ── 森林密度ボーナス ─────────────────────────────────────
+        // overpass.forests の wayノードを使い、1km/3km圏のノード密度で森林率を近似
+        const forests = ctx.overpass?.forests || [];
+        let nodes1km = 0, nodes3km = 0;
+        for (const way of forests) {
+          if (!way.geometry?.length) continue;
+          for (const pt of way.geometry) {
+            const d = haversine(lat, lng, pt.lat, pt.lon);
+            if (d <= 3000) {
+              nodes3km++;
+              if (d <= 1000) nodes1km++;
+            }
+          }
+        }
+        // 全ノード数（3km圏）に対する比率
+        const forestRate1km = nodes3km > 0 ? nodes1km / nodes3km : 0;
+        const forestRate3km = nodes3km > 0 ? nodes3km / (nodes3km + 1) : 0; // 存在量ベース
+
+        // 1km森林率ボーナス（最大+1.0）
+        const forest1kmBonus = forestRate1km >= 0.8 ? 1.0
+                             : forestRate1km >= 0.6 ? 0.67
+                             : forestRate1km >= 0.3 ? 0.33
+                             :                        0;
+
+        // 3km森林率80%相当判定: 全ノード数が多い（=密）かつ1km率も高い場合
+        // nodes3kmが一定数以上かつforestRate1km>=0.8で3km圏も深い森と判定
+        const forest3kmBonus = (nodes3km >= 50 && forestRate1km >= 0.8) ? 1.0 : 0;
+
+        const forestBonus = forest1kmBonus + forest3kmBonus;
+
+        const totalBonus = gradBonus + slopeBonus + forestBonus;
         const score = clamp5(base + totalBonus);
 
         // 一般道距離ラベル
@@ -1966,18 +1996,25 @@ out geom;
           ? (nearRoadM >= 1000 ? `一般道${(nearRoadM/1000).toFixed(1)}km` : `一般道${Math.round(nearRoadM)}m`)
           : '一般道不明';
 
+        const forestLabel = forestBonus > 0
+          ? `森林密度1km:${Math.round(forestRate1km*100)}%`
+          : '';
+
         return {
           score,
-          reason: `孤立リスク: ${roadLabel} / 標高${elev !== null ? Math.round(elev)+'m' : '不明'}${totalBonus > 0 ? ` / 加算+${totalBonus.toFixed(1)}` : ''}`,
+          reason: `孤立リスク: ${roadLabel} / 標高${elev !== null ? Math.round(elev)+'m' : '不明'}${forestLabel ? ' / ' + forestLabel : ''}${totalBonus > 0 ? ` / 加算+${totalBonus.toFixed(1)}` : ''}`,
           _debug: {
-            '一般道距離':     nearRoadM !== null ? `${Math.round(nearRoadM)}m` : '未取得',
-            '標高':           elev !== null ? `${Math.round(elev)}m` : '未取得',
-            '地形傾斜差':     slopeDiff !== null ? `${Math.round(slopeDiff)}m` : '未取得',
-            'ベーススコア':   base.toFixed(1),
-            '勾配ボーナス':   `+${gradBonus.toFixed(1)} (${gradLabel})`,
-            '地形ボーナス':   `+${slopeBonus.toFixed(1)}`,
-            '合計ボーナス':   `+${totalBonus.toFixed(1)}`,
-            '最終スコア':     score.toFixed(2),
+            '一般道距離':       nearRoadM !== null ? `${Math.round(nearRoadM)}m` : '未取得',
+            '標高':             elev !== null ? `${Math.round(elev)}m` : '未取得',
+            '地形傾斜差':       slopeDiff !== null ? `${Math.round(slopeDiff)}m` : '未取得',
+            'ベーススコア':     base.toFixed(1),
+            '勾配ボーナス':     `+${gradBonus.toFixed(1)} (${gradLabel})`,
+            '地形ボーナス':     `+${slopeBonus.toFixed(1)}`,
+            '1km森林率':        `${Math.round(forestRate1km*100)}%（${nodes1km}/${nodes3km}ノード）`,
+            '3km森林密度判定':  forest3kmBonus > 0 ? `深山域(${nodes3km}ノード) +1.0` : `判定外(${nodes3km}ノード)`,
+            '森林ボーナス':     `+${forestBonus.toFixed(2)}（1km:+${forest1kmBonus.toFixed(2)} / 3km:+${forest3kmBonus.toFixed(1)}）`,
+            '合計ボーナス':     `+${totalBonus.toFixed(1)}`,
+            '最終スコア':       score.toFixed(2),
           },
         };
       },
