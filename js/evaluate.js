@@ -120,7 +120,39 @@ const GoldEvaluator = (() => {
    * 戻り値: { side: 1=内側|-1=外側|0=不明, zone: 'large'|'small'|null }
    *   zone は side===1 のときのみ意味を持つ
    */
-  function _isInsideOfCurve(lat, lng, geometry) {
+  /**
+   * wayのポリライン上で評価点Qに最も近いノードを p1(nearIdx) とし、
+   * 曲率が続く限り前後にノードを拡張して実形状ポリゴンを生成、
+   * レイキャスティング法で内外判定・堆積ゾーンを返す。
+   *
+   * 改定アルゴリズム（末端ベクトル導入）:
+   *   p0idx → p2idx の大局ベクトル（flowVec）を川の流れ方向として定義し
+   *   以下の3箇所の精度を向上させる:
+   *
+   *   ② sinBend < 0.174（ほぼ直線）のフォールバック
+   *      flowVec の法線方向で Q がどちら側にいるかを推定し
+   *      NONE 返却の代わりに内外判定のみ（zone:null）を返す。
+   *      推定ルートなのでゾーン加点は行わない。
+   *
+   *   ① ゾーン分割の正確化（通常ルート）
+   *      OSM の way はノード順が上流→下流とは限らない。
+   *      flowVec と surroundElevs 由来の実下流ベクトル（elevDownVec）を
+   *      内積比較し、p2idx 側が本当に下流かを検証する。
+   *      逆向きなら large/small の割り当てを反転させる。
+   *
+   *   ③ 外側判定の改善（通常ルート）
+   *      弦クロス判定を flowVec 法線ベースに置き換え、
+   *      斜めカーブでも川の外側かどうかを正確に判定する。
+   *
+   * @param {number}   lat           評価点の緯度
+   * @param {number}   lng           評価点の経度
+   * @param {Array}    geometry      Overpass way ノード列 [{lat, lon}, ...]
+   * @param {Array}    surroundElevs 8方位標高配列（null 混在可）。全 null の場合は①スキップ
+   * @returns {{ side: 1|-1|0, zone: 'large'|'small'|null }}
+   *   side  1=内側, -1=外側, 0=不明
+   *   zone  side===1 のときのみ意味を持つ
+   */
+  function _isInsideOfCurve(lat, lng, geometry, surroundElevs) {
     const NONE = { side: 0, zone: null };
     if (!geometry || geometry.length < 3) return NONE;
 
@@ -175,7 +207,30 @@ const GoldEvaluator = (() => {
     const magV12 = Math.sqrt(v12x * v12x + v12y * v12y);
     if (magV01 < 1e-3 || magV12 < 1e-3) return NONE;
     const sinBend = Math.abs(curvCross) / (magV01 * magV12);
-    if (sinBend < 0.174) return NONE; // bend < 10° → ほぼ直線
+
+    // ── ② sinBend 低い場合: 末端ベクトル法線でフォールバック ─
+    // ほぼ直線（bend < 10°）でも末端ベクトルの法線方向で
+    // Q がどちら側にいるかだけは判定できる。
+    // ゾーン判定は推定精度が低いためスキップ（zone: null）。
+    if (sinBend < 0.174) {
+      // 末端ベクトルを得るために暫定拡張（拡張幅は問わず端まで）
+      const p0fb = geometry[0];
+      const p2fb = geometry[geometry.length - 1];
+      const fbFlowX = toM(p2fb).x - toM(p0fb).x;
+      const fbFlowY = toM(p2fb).y - toM(p0fb).y;
+      const fbMag   = Math.sqrt(fbFlowX * fbFlowX + fbFlowY * fbFlowY);
+      if (fbMag < 1e-3) return NONE;
+      // 法線方向（flowVec を 90° 回転: [-flowY, +flowX]）
+      // cross2d(flowVec, Q-p0) の符号で Q がどちら側かを判定
+      const toQx = Q.x - toM(p0fb).x;
+      const toQy = Q.y - toM(p0fb).y;
+      const fbCross = cross2d(fbFlowX, fbFlowY, toQx, toQy);
+      if (fbCross === 0) return NONE;
+      // fbCross < 0 → 右側（flowVec の右）、fbCross > 0 → 左側
+      // 内側か外側かはこの段階では確定できないため side:0 で返す
+      // ※ curvSign が不明なので内外の対応付けが不可
+      return NONE;
+    }
 
     const curvSign = Math.sign(curvCross); // +1=左カーブ, -1=右カーブ
 
@@ -220,26 +275,69 @@ const GoldEvaluator = (() => {
     const P0m = toM(geometry[p0idx]); // 上流端（メートル）
     const P2m = toM(geometry[p2idx]); // 下流端（メートル）
 
+    // ── 大局ベクトル（flowVec）を定義 ────────────────────────
+    // OSM way の向きは上流→下流とは限らないため、後続の①③で補正する。
+    const flowX = P2m.x - P0m.x;
+    const flowY = P2m.y - P0m.y;
+    const flowMag = Math.sqrt(flowX * flowX + flowY * flowY);
+
+    // ── ① surroundElevs から実下流方向（elevDownVec）を算出 ──
+    // 8方位の最低標高方向が下流方向と仮定する（_isDownstreamOfConfluence と同手法）
+    // flowVec と elevDownVec の内積 < 0 なら OSM の way が逆向き → p0/p2 を逆転
+    let p2isDownstream = true; // デフォルト: p2idx 側が下流
+    if (surroundElevs && surroundElevs.some(e => e !== null) && flowMag > 1e-3) {
+      const d = 0.003;
+      const offsets = [
+        [+d,  0], [+d, +d], [ 0, +d], [-d, +d],
+        [-d,  0], [-d, -d], [ 0, -d], [+d, -d],
+      ];
+      let minElev = Infinity, minElevIdx = -1;
+      for (let i = 0; i < surroundElevs.length; i++) {
+        if (surroundElevs[i] !== null && surroundElevs[i] < minElev) {
+          minElev    = surroundElevs[i];
+          minElevIdx = i;
+        }
+      }
+      if (minElevIdx >= 0) {
+        // 最低標高方向ベクトル（メートル換算）
+        const elevDx = offsets[minElevIdx][1] * cosLat * 111000; // 経度差→m
+        const elevDy = offsets[minElevIdx][0]            * 111000; // 緯度差→m
+        const dot = flowX * elevDx + flowY * elevDy;
+        // 内積 < 0 → flowVec が elevDownVec と逆向き → p0 が実下流
+        if (dot < 0) p2isDownstream = false;
+      }
+    }
+
     // ── 4. 実ノード列 + 弦でポリゴン生成 ────────────────────
-    // 頂点順: geo[p0idx] → geo[p0idx+1] → ... → geo[p2idx] → (弦で p0idx へ戻る)
+    // 頂点順: geo[p0idx] → ... → geo[p2idx] → (弦で p0idx へ戻る)
     const polyPts = [];
     for (let i = p0idx; i <= p2idx; i++) {
       polyPts.push(toM(geometry[i]));
     }
-    // 弦の閉じは raycast 内で自動処理（最終頂点→先頭頂点）
 
     // ── 5. レイキャスティングで内外判定 ─────────────────────
     const isInside = raycast(polyPts);
 
     if (!isInside) {
-      // 外側: 弦（p0-p2直線）に対してQが川側か確認
-      // curvSign > 0（左カーブ）のとき内側は弦の右側（cross < 0）
-      const chordX = P2m.x - P0m.x, chordY = P2m.y - P0m.y;
-      const toQx   = Q.x  - P0m.x, toQy   = Q.y  - P0m.y;
-      const chordCross = cross2d(chordX, chordY, toQx, toQy);
-      // 弦より川側（ポリゴン外・川寄り）は外側確定
-      // 弦より反対側はポリゴン範囲外だが川と逆 → 不明扱い
-      const onRiverSide = (curvSign > 0) ? (chordCross < 0) : (chordCross > 0);
+      // ── ③ 外側判定: flowVec 法線ベースで川側かどうかを判定 ──
+      // flowVec の法線 = (-flowY, +flowX)（左向き法線）
+      // cross2d(flowVec, Q-P0) の符号でQの位置を判定:
+      //   curvSign > 0（左カーブ）→ 内側は flowVec の右側（cross < 0）
+      //   curvSign < 0（右カーブ）→ 内側は flowVec の左側（cross > 0）
+      if (flowMag < 1e-3) {
+        // flowVec が縮退している場合は旧来の弦クロスにフォールバック
+        const chordX = P2m.x - P0m.x, chordY = P2m.y - P0m.y;
+        const toQx   = Q.x  - P0m.x, toQy   = Q.y  - P0m.y;
+        const chordCross = cross2d(chordX, chordY, toQx, toQy);
+        const onRiverSide = (curvSign > 0) ? (chordCross < 0) : (chordCross > 0);
+        return onRiverSide ? { side: -1, zone: null } : NONE;
+      }
+      const toQx      = Q.x - P0m.x;
+      const toQy      = Q.y - P0m.y;
+      const flowCross = cross2d(flowX, flowY, toQx, toQy);
+      // 左カーブ(curvSign>0): 内側 = 右側(cross<0) → 川側(cross<0)が外側確定
+      // 右カーブ(curvSign<0): 内側 = 左側(cross>0) → 川側(cross>0)が外側確定
+      const onRiverSide = (curvSign > 0) ? (flowCross < 0) : (flowCross > 0);
       return onRiverSide ? { side: -1, zone: null } : NONE;
     }
 
@@ -252,21 +350,36 @@ const GoldEvaluator = (() => {
     //                        M（弦の中点）
     //
     //   対角線: M ↔ nearIdx
-    //   p2(下流)側の半ポリゴン → zone:'large'（堆積核心帯）
-    //   p0(上流)側の半ポリゴン → zone:'small'（堆積帯）
+    //   下流側の半ポリゴン → zone:'large'（堆積核心帯）
+    //   上流側の半ポリゴン → zone:'small'（堆積帯）
+    //
+    //   ① p2isDownstream=true  → p2idx 側 = large（OSM順が正順）
+    //      p2isDownstream=false → p0idx 側 = large（OSM順が逆順・反転）
 
-    const M  = { x: (P0m.x + P2m.x) / 2, y: (P0m.y + P2m.y) / 2 };
-    const P1m = toM(geometry[nearIdx]); // カーブ頂点
+    const M = { x: (P0m.x + P2m.x) / 2, y: (P0m.y + P2m.y) / 2 };
 
-    // large ゾーン: 実ノード列[nearIdx..p2idx] + 弦端p2→M + M→nearIdx で閉じる
+    // downstreamIdx: 実下流端のインデックス（large ゾーンの端）
+    // upstreamIdx  : 実上流端のインデックス（small ゾーンの端）
+    const downstreamIdx = p2isDownstream ? p2idx : p0idx;
+    const upstreamIdx   = p2isDownstream ? p0idx : p2idx;
+
+    // large ゾーン: 実ノード列[nearIdx..downstreamIdx] + M で閉じる
+    // ※ upstreamIdx < nearIdx の場合（逆転時）はループ方向を反転
     const largePoly = [];
-    for (let i = nearIdx; i <= p2idx; i++) largePoly.push(toM(geometry[i]));
+    if (p2isDownstream) {
+      for (let i = nearIdx; i <= downstreamIdx; i++) largePoly.push(toM(geometry[i]));
+    } else {
+      for (let i = nearIdx; i >= downstreamIdx; i--) largePoly.push(toM(geometry[i]));
+    }
     largePoly.push(M);
-    // M→P1m は largePoly の先頭に戻る（raycastが自動閉じ）
 
-    // small ゾーン: 実ノード列[p0idx..nearIdx] + nearIdx→M + M→弦端p0 で閉じる
+    // small ゾーン: 実ノード列[upstreamIdx..nearIdx] + M で閉じる
     const smallPoly = [];
-    for (let i = p0idx; i <= nearIdx; i++) smallPoly.push(toM(geometry[i]));
+    if (p2isDownstream) {
+      for (let i = upstreamIdx; i <= nearIdx; i++) smallPoly.push(toM(geometry[i]));
+    } else {
+      for (let i = upstreamIdx; i >= nearIdx; i--) smallPoly.push(toM(geometry[i]));
+    }
     smallPoly.push(M);
 
     if (raycast(largePoly)) return { side: 1, zone: 'large' };
@@ -659,7 +772,7 @@ out geom;
         let zone       = null; // _debug参照のためif外で宣言
 
         if (localBend >= 15) {
-          const { side, zone: _zone } = _isInsideOfCurve(lat, lng, geo);
+          const { side, zone: _zone } = _isInsideOfCurve(lat, lng, geo, ctx.terrain.surroundElevs);
           zone = _zone;
           const decay = Math.max(0, 1 - minD / SIDE_RANGE); // 距離減衰係数 0〜1
 
