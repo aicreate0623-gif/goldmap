@@ -100,45 +100,83 @@ const GoldEvaluator = (() => {
   }
 
   /**
-   * wayのカーブに対して、指定座標が内側か外側かを判定
-   * 内側 = 川が曲がる方向の内側（砂金が堆積しやすい）
-   * hintIdx: 最大曲率ノードのインデックス（省略時は最近傍ノードを使用）
+   * wayのポリライン全体に対して、指定座標が内側か外側かを判定
+   *
+   * 「内側」の定義:
+   *   川の流れに沿って外側の頂点を結んだ境界線の内側（川が囲む凹側空間）。
+   *   S字カーブなど複数の湾曲があっても、評価点が近傍カーブの凹側にいるかを判定する。
+   *
+   * アルゴリズム:
+   *   評価点に最も近いセグメントを中心に前後 WINDOW セグメントを取り出し、
+   *   各セグメント (p[i]→p[i+1]) に対して外積の Z成分を累積する。
+   *     cross_i = (p[i+1]-p[i]) × (point-p[i])  (緯度補正済みメートル換算)
+   *   累積の総和 > 0 → 流れに対して左側
+   *   累積の総和 < 0 → 流れに対して右側
+   *   全体の湾曲方向（曲がり総和）と比較して内外を確定する。
+   *
    * 戻り値: 1=内側, -1=外側, 0=直線/不明
    */
-  function _isInsideOfCurve(lat, lng, geometry, hintIdx) {
+  function _isInsideOfCurve(lat, lng, geometry) {
     if (!geometry || geometry.length < 3) return 0;
 
-    // hintIdxが有効なら優先使用、なければ最近傍ノードを探す
-    let nearIdx = 1;
-    if (hintIdx != null && hintIdx >= 1 && hintIdx < geometry.length - 1) {
-      nearIdx = hintIdx;
-    } else {
-      let minD = Infinity;
-      for (let i = 1; i < geometry.length - 1; i++) {
-        const d = haversine(lat, lng, geometry[i].lat, geometry[i].lon);
-        if (d < minD) { minD = d; nearIdx = i; }
+    const cosLat = Math.cos(lat * Math.PI / 180);
+
+    // メートル換算ヘルパー
+    function toM(node) {
+      return {
+        x: node.lon * cosLat * 111000,
+        y: node.lat * 111000,
+      };
+    }
+    const pt = { x: lng * cosLat * 111000, y: lat * 111000 };
+
+    // 評価点に最も近いセグメントインデックスを特定
+    let nearSegIdx = 0;
+    let nearSegD   = Infinity;
+    for (let i = 0; i < geometry.length - 1; i++) {
+      const a = toM(geometry[i]), b = toM(geometry[i + 1]);
+      // セグメントABへの最近傍距離（点→セグメント）
+      const abx = b.x - a.x, aby = b.y - a.y;
+      const len2 = abx * abx + aby * aby;
+      const t    = len2 < 1e-6 ? 0 : Math.max(0, Math.min(1, ((pt.x - a.x) * abx + (pt.y - a.y) * aby) / len2));
+      const dx = pt.x - (a.x + t * abx), dy = pt.y - (a.y + t * aby);
+      const d  = dx * dx + dy * dy;
+      if (d < nearSegD) { nearSegD = d; nearSegIdx = i; }
+    }
+
+    // 近傍セグメントの前後 WINDOW 本を対象範囲とする
+    const WINDOW = 4;
+    const iStart = Math.max(0, nearSegIdx - WINDOW);
+    const iEnd   = Math.min(geometry.length - 2, nearSegIdx + WINDOW);
+
+    // 各セグメントの外積総和（点が流れに対して左右どちらか）と
+    // 湾曲方向総和（ライン自体が左右どちらへ曲がっているか）を同時計算
+    let sideSum  = 0; // 点の側
+    let curvSum  = 0; // ラインの湾曲方向
+    for (let i = iStart; i <= iEnd; i++) {
+      const a = toM(geometry[i]), b = toM(geometry[i + 1]);
+      const abx = b.x - a.x, aby = b.y - a.y;
+      // 点の側: セグメントベクトル × (点-セグメント始点)
+      sideSum += abx * (pt.y - a.y) - aby * (pt.x - a.x);
+      // 湾曲方向: セグメント間の外積（ライン自体の曲がり）
+      if (i < geometry.length - 2) {
+        const c = toM(geometry[i + 2]);
+        const bcx = c.x - b.x, bcy = c.y - b.y;
+        curvSum += abx * bcy - aby * bcx;
       }
     }
 
-    const p0 = geometry[nearIdx - 1];
-    const p1 = geometry[nearIdx];
-    const p2 = geometry[nearIdx + 1] ?? geometry[nearIdx];
+    // 判定が弱すぎる場合は不明扱い
+    const sideMag = Math.abs(sideSum);
+    if (sideMag < 1e-6) return 0;
 
-    // p1における方向ベクトル
-    const v1 = { dlat: p1.lat - p0.lat, dlng: p1.lon - p0.lon };
-    const v2 = { dlat: p2.lat - p1.lat, dlng: p2.lon - p1.lon };
+    // curvSum ≈ 0 はほぼ直線 → 内外の意味がない
+    if (Math.abs(curvSum) < 1e-6) return 0;
 
-    // 外積のZ成分（2D）: 正=左カーブ、負=右カーブ
-    const cross = v1.dlng * v2.dlat - v1.dlat * v2.dlng;
-    if (Math.abs(cross) < 1e-12) return 0; // ほぼ直線
-
-    // p1→現在地ベクトルとv1の外積で内外を判定
-    const toPoint = { dlat: lat - p1.lat, dlng: lng - p1.lon };
-    const side    = v1.dlng * toPoint.dlat - v1.dlat * toPoint.dlng;
-
-    // 左カーブ(cross>0)の内側=右側(side<0)、右カーブ(cross<0)の内側=左側(side>0)
-    if (cross > 0) return side < 0 ? 1 : -1;
-    else           return side > 0 ? 1 : -1;
+    // 川が左カーブ(curvSum>0)のとき内側は右側(sideSum<0)
+    // 川が右カーブ(curvSum<0)のとき内側は左側(sideSum>0)
+    const isInside = (curvSum > 0) ? (sideSum < 0) : (sideSum > 0);
+    return isInside ? 1 : -1;
   }
 
   /**
@@ -520,7 +558,7 @@ out geom;
         let sideLabel = '';
 
         if (localBend >= 15) {
-          const side = _isInsideOfCurve(lat, lng, geo, nearIdx);
+          const side = _isInsideOfCurve(lat, lng, geo);
           const decay = Math.max(0, 1 - minD / SIDE_RANGE); // 距離減衰係数 0〜1
 
           if (side === 1) {
