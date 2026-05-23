@@ -161,7 +161,7 @@ const GoldEvaluator = (() => {
       if (magA < 1e-10 || magB < 1e-10) continue;
       const cos  = Math.max(-1, Math.min(1, dot / (magA * magB)));
       const bend = 180 - Math.acos(cos) * (180 / Math.PI);
-      if (bend >= 10) bendCount++;
+      if (bend >= 15) bendCount++;
       if (bend > maxBend) { maxBend = bend; maxBendIdx = i; }
     }
     return { maxBend, bendCount, maxBendIdx };
@@ -421,7 +421,7 @@ out geom;
 
     // 4. 河川湾曲
     {
-      id: 'riverCurve', name: '河川湾曲', weight: 1.1,
+      id: 'riverCurve', name: '河川湾曲', weight: 1.3,
       evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
         const allWater = [...overpass.streams, ...overpass.rivers];
@@ -436,79 +436,110 @@ out geom;
         }
         if (!nearestWay) return { score: 1.5, reason: '河川形状データなし' };
 
-        // 川が遠すぎる場合は湾曲の恩恵なし（沢距離スコアと連動）
+        // 川が遠すぎる場合は湾曲の恩恵なし
         const streamM = ctx.cache.nearestStreamM ?? minD;
         if (streamM > 50) {
           return { score: 1.0, reason: `最近傍河川まで約${Math.round(streamM)}m（湾曲の恩恵圏外）` };
         }
 
-        // 湾曲数はライン全体でカウント（S字ボーナス用）
-        const { bendCount } = _calcCurvatureInfo(nearestWay.geometry);
+        // ── 湾曲密度ボーナス（ノード密度非依存）──────────────
+        // way全体の実距離(m)を計算し、有意湾曲数(>=15°)を割って密度化
+        const geo = nearestWay.geometry;
+        let wayLenM = 0;
+        for (let i = 1; i < geo.length; i++) {
+          wayLenM += haversine(geo[i-1].lat, geo[i-1].lon, geo[i].lat, geo[i].lon);
+        }
+        const wayLenKm = Math.max(wayLenM / 1000, 0.01);
+        const { bendCount } = _calcCurvatureInfo(geo); // 閾値15°は_calcCurvatureInfo側で設定済み
+        const bendDensity = bendCount / wayLenKm; // 湾曲数/km
 
-        // 最近傍ノードを特定（評価地点に最も近い箇所）
+        const densityBonus = bendDensity >= 3.0 ? 1.0   // 蛇行（S字複合）
+                           : bendDensity >= 1.5 ? 0.5   // 複数湾曲
+                           : bendDensity >= 0.5 ? 0.2   // 緩い湾曲あり
+                           : 0;
+        const densityLabel = bendDensity >= 3.0 ? `・蛇行(${bendDensity.toFixed(1)}/km)`
+                           : bendDensity >= 1.5 ? `・複数湾曲(${bendDensity.toFixed(1)}/km)`
+                           : bendDensity >= 0.5 ? `・湾曲あり(${bendDensity.toFixed(1)}/km)`
+                           : '';
+
+        // ── 最近傍ノード特定 ──────────────────────────────────
         let nearIdx = 1;
         { let nearD = Infinity;
-          for (let i = 1; i < nearestWay.geometry.length - 1; i++) {
-            const d = haversine(lat, lng, nearestWay.geometry[i].lat, nearestWay.geometry[i].lon);
+          for (let i = 1; i < geo.length - 1; i++) {
+            const d = haversine(lat, lng, geo[i].lat, geo[i].lon);
             if (d < nearD) { nearD = d; nearIdx = i; }
           }
         }
 
-        // 最近傍ノード周辺の曲率を取得（そのカーブで評価）
-        const geo = nearestWay.geometry;
-        const p0  = geo[nearIdx - 1], p1 = geo[nearIdx], p2 = geo[nearIdx + 1] ?? geo[nearIdx];
-        const ax  = p0.lon - p1.lon, ay = p0.lat - p1.lat;
-        const bx  = p2.lon - p1.lon, by = p2.lat - p1.lat;
+        // ── 角度計算（緯度補正付き）────────────────────────────
+        // 経度差を cos(lat) × 111000 でメートル換算して正確な角度を算出
+        const p0 = geo[nearIdx - 1], p1 = geo[nearIdx], p2 = geo[nearIdx + 1] ?? geo[nearIdx];
+        const cosLat = Math.cos(p1.lat * Math.PI / 180);
+        const ax = (p0.lon - p1.lon) * cosLat * 111000;
+        const ay = (p0.lat - p1.lat) * 111000;
+        const bx = (p2.lon - p1.lon) * cosLat * 111000;
+        const by = (p2.lat - p1.lat) * 111000;
         const magA = Math.sqrt(ax * ax + ay * ay);
         const magB = Math.sqrt(bx * bx + by * by);
-        const localBend = (magA < 1e-10 || magB < 1e-10) ? 0
+        const localBend = (magA < 1e-3 || magB < 1e-3) ? 0
           : 180 - Math.acos(Math.max(-1, Math.min(1, (ax*bx + ay*by) / (magA * magB)))) * (180 / Math.PI);
 
-        // 最近傍カーブのベーススコア
-        let baseScore = localBend >= 60 ? 5.0   // 急カーブ
-                      : localBend >= 30 ? 4.0   // 中程度
-                      : localBend >= 10 ? 2.5   // 緩やか
-                      : 1.0;                    // ほぼ直線
+        // ── ベーススコア（改定閾値）──────────────────────────
+        // 足切り: 15°未満はほぼ直線扱い
+        // 50°以上で最高評価（急すぎても堆積は変わらない）
+        let baseScore = localBend >= 50 ? 5.0   // 急カーブ（堆積最有望）
+                      : localBend >= 30 ? 4.0   // 明確な湾曲（有望）
+                      : localBend >= 15 ? 2.5   // 緩やか（わずかに有望）
+                      : 1.0;                    // ほぼ直線（足切り）
 
-        // 湾曲数ボーナス（S字など複数湾曲は加点）
-        const countBonus = bendCount >= 5 ? 1.0
-                         : bendCount >= 3 ? 0.5
-                         : 0;
+        const curveLabel = localBend >= 50 ? '急カーブ'
+                         : localBend >= 30 ? '明確な湾曲'
+                         : localBend >= 15 ? '緩やかな湾曲'
+                         : 'ほぼ直線';
 
-        const curveLabel = localBend >= 60 ? '急カーブ'
-                         : localBend >= 30 ? '中程度の湾曲'
-                         : localBend >= 10 ? '緩やかな湾曲'
-                         : '概ね直線';
-        const countLabel = bendCount >= 5 ? `・S字複合(${bendCount}箇所)`
-                         : bendCount >= 3 ? `・複数湾曲(${bendCount}箇所)`
-                         : bendCount >= 1 ? `・湾曲${bendCount}箇所`
-                         : '';
-
-        // 内側判定: 最近傍ノード（評価地点に最も近いカーブ）で判定
-        let sideLabel = '';
+        // ── 内外判定（距離連動・連続減衰）───────────────────
+        // 砂金堆積メカニズム:
+        //   内側: 流速が遅く砂金が沈降・堆積しやすい
+        //   外側: 流速が速く侵食が進む（堆積しにくい）
+        //   距離が遠いほど湾曲の影響は弱まるため40mで効果ゼロ
+        const SIDE_RANGE = 40; // 内外補正が有効な最大距離(m)
         let sideScore = 0;
-        if (localBend >= 10) {
-          const side = _isInsideOfCurve(lat, lng, nearestWay.geometry, nearIdx);
+        let sideLabel = '';
+
+        if (localBend >= 15) {
+          const side = _isInsideOfCurve(lat, lng, geo, nearIdx);
+          const decay = Math.max(0, 1 - minD / SIDE_RANGE); // 距離減衰係数 0〜1
+
           if (side === 1) {
-            sideScore = minD <= 20 ? 2.0 : 1.0;
-            sideLabel = minD <= 20 ? '・内側至近（堆積最有望）' : '・内側（堆積有望）';
+            // 内側: 最大+2.0、距離に応じて線形減衰
+            sideScore = 2.0 * decay;
+            if      (decay > 0.75) sideLabel = '・内側至近（堆積最有望）';
+            else if (decay > 0.37) sideLabel = '・内側（堆積有望）';
+            else if (decay > 0)    sideLabel = '・内側（やや有望）';
+          } else if (side === -1) {
+            // 外側: 最大−1.5、距離に応じて線形減衰
+            // 外側でも遠ければ影響小（川に近い外側が最も不利）
+            sideScore = -1.5 * decay;
+            if      (decay > 0.75) sideLabel = '・外側至近（堆積不利）';
+            else if (decay > 0.37) sideLabel = '・外側（やや不利）';
+            else if (decay > 0)    sideLabel = '・外側（影響小）';
           }
-          if (side === -1) { sideScore = -1.0; sideLabel = '・外側（堆積不利）'; }
         }
 
-        const finalScore = clamp5(baseScore + countBonus + sideScore);
+        const finalScore = clamp5(baseScore + densityBonus + sideScore);
         return {
           score:  finalScore,
-          reason: `最近傍河川: ${curveLabel}${countLabel}${sideLabel}`,
+          reason: `最近傍河川: ${curveLabel}${densityLabel}${sideLabel}`,
           _debug: {
             '川までの距離':   `${Math.round(minD)}m`,
             'ノードIdx':      `${nearIdx} / ${geo.length - 1}`,
-            '最近傍曲率':     `${localBend.toFixed(1)}°`,
-            '湾曲数':         `${bendCount}箇所`,
-            '内外判定':       sideScore > 0 ? '内側' : sideScore < 0 ? '外側' : '直線/不明',
+            '最近傍曲率':     `${localBend.toFixed(1)}°（緯度補正済）`,
+            '湾曲密度':       `${bendDensity.toFixed(1)}/km (${bendCount}箇所/${wayLenKm.toFixed(1)}km)`,
+            '内外判定':       sideScore > 0 ? `内側` : sideScore < 0 ? `外側` : '直線/不明',
+            '距離減衰':       `${(Math.max(0, 1 - minD / SIDE_RANGE) * 100).toFixed(0)}%`,
             'ベース':         baseScore.toFixed(1),
-            '湾曲ボーナス':   `+${countBonus.toFixed(1)}`,
-            '内外補正':       `${sideScore >= 0 ? '+' : ''}${sideScore.toFixed(1)}`,
+            '密度ボーナス':   `+${densityBonus.toFixed(1)}`,
+            '内外補正':       `${sideScore >= 0 ? '+' : ''}${sideScore.toFixed(2)}`,
           },
         };
       },
