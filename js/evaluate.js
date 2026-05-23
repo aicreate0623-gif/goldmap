@@ -1020,7 +1020,7 @@ out geom;
           if (/白亜紀|古第三紀|新第三紀/.test(age)) {
             baseScore = 3.5; bestLabel = `火成岩（${ageShort}）★`;
           } else {
-            baseScore = 2.5; bestLabel = `火成岩（${ageShort}）`;
+            baseScore = 2.0; bestLabel = `火成岩（${ageShort}）`;
           }
         } else if (g === '変成岩') {
           if (/白亜紀/.test(age)) {
@@ -1028,21 +1028,36 @@ out geom;
           } else if (/ジュラ紀|先ジュラ|古生代|カンブリア|オルドビス|シルル|デボン|石炭|二畳|三畳/.test(age)) {
             baseScore = 3.0; bestLabel = `変成岩（古生代〜ジュラ紀）`;
           } else {
-            baseScore = 2.5; bestLabel = `変成岩`;
+            baseScore = 2.0; bestLabel = `変成岩`;
           }
         } else if (g === '堆積岩') {
           if (/第四紀/.test(age)) {
             baseScore = 3.0; bestLabel = `堆積岩（第四紀）★`;
           } else {
-            baseScore = 2.0; bestLabel = `堆積岩（${ageShort}）`;
+            baseScore = 1.5; bestLabel = `堆積岩（${ageShort}）`;
           }
         } else if (g === '付加体') {
-          baseScore = 2.5; bestLabel = `付加体`;
+          baseScore = 2.0; bestLabel = `付加体`;
         } else {
-          baseScore = 1.5; bestLabel = g || '不明';
+          baseScore = 1.0; bestLabel = g || '不明';
         }
 
-        // ── lithology_ja キーワード加点（最大+1.5）: box範囲の全岩種から ──
+        // ── lithology_ja 減点（centerItemから）: ベーススコアに適用 ──
+        const centerLit = centerItem.lithology_ja || '';
+        let litPenalty = 0;
+        const litPenaltyLabels = [];
+
+        if (/チャート|石灰岩|泥岩|頁岩/.test(centerLit)) {
+          litPenalty -= 0.5; litPenaltyLabels.push(`${centerLit}（−0.5）`);
+        }
+        if (/玄武岩|苦鉄質|超苦鉄質/.test(centerLit)) {
+          litPenalty -= 0.3; litPenaltyLabels.push(`${centerLit}（−0.3）`);
+        }
+
+        // 減点後ベーススコア（最低0.5にclamp）
+        baseScore = Math.max(0.5, baseScore + litPenalty);
+
+        // ── 加点ボーナス（box範囲の全岩種から）──
         const litAll = [...lithologies].join(' ');
         let litBonus = 0;
         const litLabels = [];
@@ -1073,6 +1088,7 @@ out geom;
         const total = clamp5(baseScore + litBonus + divBonus + boundBonus);
 
         const reasonParts = [bestLabel];
+        if (litPenaltyLabels.length) reasonParts.push(`減点: ${litPenaltyLabels.join('・')}`);
         if (litLabels.length) reasonParts.push(litLabels.join('・'));
         if (boundaryCount > 0) reasonParts.push(`地質境界${boundaryCount}箇所`);
 
@@ -1082,7 +1098,9 @@ out geom;
           _debug: {
             '中心点岩種':       `${g}（${ageShort}）`,
             '中心点岩相':       centerItem.lithology_ja || '—',
-            'ベーススコア':     `${baseScore.toFixed(1)}（${bestLabel}）`,
+            'ベーススコア(減点前)': `${(baseScore - litPenalty).toFixed(1)}（${bestLabel}）`,
+            '岩相減点':         litPenalty !== 0 ? `${litPenalty.toFixed(1)}（${centerLit}）` : '0',
+            'ベーススコア(減点後)': `${baseScore.toFixed(1)}`,
             '周辺多様性(box)':  `${groupCount}種・${boxItems.length}件`,
             'litボーナス':      `+${litBonus.toFixed(1)}`,
             '多様性ボーナス':   `+${divBonus.toFixed(1)}`,
