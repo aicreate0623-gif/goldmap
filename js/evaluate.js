@@ -257,7 +257,7 @@ const GoldEvaluator = (() => {
       // 平均ノード間隔によるウィンドウ距離 W（m）
       const wBase = avgSpan <= 10 ? 100 : avgSpan <= 30 ? 70 : 40;
       const wMax  = wayLenM * 0.20; // 全長の20%上限
-      const W     = Math.min(wBase, Math.max(wMax, 30)); // 最低30mは確保
+      const W     = Math.max(Math.min(wBase, wMax), 30); // 最低30mは確保
 
       // peakIdx から後方（上流方向）へ W m以内のノードを収集 → 前方向ベクトルの基点
       let accumBack = 0;
@@ -912,9 +912,8 @@ out geom;
         if (!nearestWay) return { score: 1.5, reason: '河川形状データなし' };
 
         // 川が遠すぎる場合は湾曲の恩恵なし
-        const streamM = ctx.cache.nearestStreamM ?? minD;
-        if (streamM > 50) {
-          return { score: 1.0, reason: `最近傍河川まで約${Math.round(streamM)}m（湾曲の恩恵圏外）` };
+        if (minD > 50) {
+          return { score: 1.0, reason: `最近傍水系まで約${Math.round(minD)}m（湾曲の恩恵圏外）` };
         }
 
         // ── 湾曲密度ボーナス（ノード密度非依存）──────────────
