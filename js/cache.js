@@ -216,11 +216,25 @@ function makeCachedLayer(srcKey){
       const net=tileURL(this._sk,coords.z,coords.x,coords.y);
       const netDirect=tileURL(this._sk,z,x,y); // 引き延ばし補正後の座標（directImg用）
 
-      // ── directImgレイヤー：fetchせず直接読み込み（CORS不要・トーストなし）──
+      // ── directImgレイヤー：キャッシュ優先・なければ直接読み込み（CORS不要）──
       if(SRCS[this._sk]?.directImg){
-        img.crossOrigin='';
-        img.src=netDirect;
-        img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+        if(db){
+          const ext2 = (SRCS[this._sk] && SRCS[this._sk].ext) || 'png';
+          const type2 = ext2==='jpg' ? 'image/jpeg' : ext2==='webp' ? 'image/webp' : 'image/png';
+          dbGet(key).catch(()=>null).then(cached=>{
+            if(cached){
+              img.src=URL.createObjectURL(new Blob([cached],{type:type2}));
+            } else {
+              img.crossOrigin='';
+              img.src=netDirect;
+            }
+            img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+          });
+        } else {
+          img.crossOrigin='';
+          img.src=netDirect;
+          img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+        }
         return img;
       }
 
