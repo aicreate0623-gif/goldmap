@@ -1600,14 +1600,15 @@ out geom;
 
         const now      = Date.now();
         const ONE_YEAR = 365 * 24 * 3600 * 1000;
+        const SURROUND_RADIUS_M = 30000; // 囲まれ度・森林判定の半径30km
 
         // ── 出没データによる脅威スコア ───────────────────────
         // 設計:
         //   8km以内に1件いる時点で4.0点スタート
         //   近いほど5.0に近づく（距離減衰）
         //   複数件は件数スコアで上乗せ（上限5）
-        let nearCount   = 0;   // 8km以内の総件数
-        let closestDistM = Infinity; // 8km以内の最近傍距離
+        let nearCount    = 0;
+        let closestDistM = Infinity;
 
         if (bearData && bearData.length) {
           for (const b of bearData) {
@@ -1618,7 +1619,6 @@ out geom;
 
             if (distM <= BEAR_RADIUS_M) {
               nearCount++;
-              // 新しいデータほど近いとみなす（古いデータは距離を水増し）
               const effectiveDist = distM / ageFactor;
               if (effectiveDist < closestDistM) closestDistM = effectiveDist;
             }
@@ -1637,11 +1637,9 @@ out geom;
                          : 0;
 
         // ── 環境リスク（河川・森林の存在）───────────────────
-        // 熊は河川沿い・森林内に生息しやすいため環境リスクとして加算
-        const allWater  = [...(overpass.streams || []), ...(overpass.rivers || [])];
-        const forests   = overpass.forests || [];
+        const allWater = [...(overpass.streams || []), ...(overpass.rivers || [])];
+        const forests  = overpass.forests || [];
 
-        // 500m以内に河川があれば加算
         let riverRisk = 0;
         for (const way of allWater) {
           if (!way.geometry?.length) continue;
@@ -1649,7 +1647,6 @@ out geom;
           if (d <= 500) { riverRisk = 0.5; break; }
         }
 
-        // 500m以内に森林があれば加算
         let forestRisk = 0;
         for (const way of forests) {
           if (!way.geometry?.length) continue;
@@ -1659,35 +1656,78 @@ out geom;
 
         const envRisk = riverRisk + forestRisk; // 最大1.0
 
-        // ── 総合リスクスコア（高=危険、0〜5）────────────────
-        const score = clamp5(bearDistScore + countScore + envRisk);
+        // ── 道路距離加算（2km以上で+0.5）────────────────────
+        const nearRoadM   = ctx.cache.nearestRoadM ?? null;
+        const roadBonus   = (nearRoadM !== null && nearRoadM >= 2000) ? 0.5 : 0;
 
-        // reason: アイコン付きレベル表示
-        const level  = score >= 4.0 ? '⚠ 高危険'
-                     : score >= 2.5 ? '⚠ 中危険'
-                     : score >= 1.0 ? '低危険'
-                     : '低危険';
+        // ── 8方向囲まれ度（30km探知）────────────────────────
+        // 8方向（N/NE/E/SE/S/SW/W/NW）それぞれに熊記録があるか判定
+        const DIR_COUNT   = 8;
+        const dirHit      = new Array(DIR_COUNT).fill(false);
+
+        if (bearData && bearData.length) {
+          for (const b of bearData) {
+            if (!b.lat || !b.lng) continue;
+            const distM = haversine(lat, lng, b.lat, b.lng);
+            if (distM > SURROUND_RADIUS_M) continue;
+            // atan2で角度計算（北が0°、時計回り）
+            const angleDeg = (Math.atan2(b.lng - lng, b.lat - lat) * 180 / Math.PI + 360) % 360;
+            const dirIdx   = Math.floor((angleDeg + 22.5) / 45) % DIR_COUNT;
+            dirHit[dirIdx] = true;
+          }
+        }
+        const detectedDirs = dirHit.filter(Boolean).length;
+
+        // 30km圏内の森林way数をカウント
+        let forestCount30km = 0;
+        for (const way of forests) {
+          if (!way.geometry?.length) continue;
+          let minD = Infinity;
+          for (const pt of way.geometry) {
+            const d = haversine(lat, lng, pt.lat, pt.lon);
+            if (d < minD) minD = d;
+          }
+          if (minD <= SURROUND_RADIUS_M) forestCount30km++;
+        }
+
+        // 3方向以上探知 かつ 30km森林15個以上 → +1.5
+        const surroundBonus = (detectedDirs >= 3 && forestCount30km >= 15) ? 1.5 : 0;
+
+        // ── 総合リスクスコア ──────────────────────────────
+        const score = clamp5(bearDistScore + countScore + envRisk + roadBonus + surroundBonus);
+
+        const level = score >= 4.0 ? '⚠ 高危険'
+                    : score >= 2.5 ? '⚠ 中危険'
+                    :                '低危険';
+
         const envLabel = [
           riverRisk  ? '河川あり' : '',
           forestRisk ? '森林あり' : '',
         ].filter(Boolean).join('・');
 
+        const surroundLabel = surroundBonus > 0
+          ? `囲まれ${detectedDirs}方向/森${forestCount30km}区画` : '';
+
         return {
           score,
           reason: nearCount > 0
-            ? `${level}（8km以内${nearCount}件の出没記録${envLabel ? '・' + envLabel : ''}）`
-            : `${level}${envLabel ? '（' + envLabel + '）' : '（出没記録なし）'}`,
+            ? `${level}（8km以内${nearCount}件${envLabel ? '・' + envLabel : ''}${surroundLabel ? '・' + surroundLabel : ''}）`
+            : `${level}${surroundLabel ? '（' + surroundLabel + '）' : envLabel ? '（' + envLabel + '）' : '（出没記録なし）'}`,
           _debug: {
-            '参照半径':         `${BEAR_RADIUS_M/1000}km`,
-            '熊データ総数':     `${bearData?.length ?? 0}件`,
-            '8km以内件数':      `${nearCount}件`,
-            '最近傍有効距離':   closestDistM < Infinity ? `${Math.round(closestDistM)}m` : 'なし',
-            '距離スコア':       `${bearDistScore.toFixed(2)}`,
-            '件数スコア':       `+${countScore.toFixed(1)}`,
-            '河川リスク':       `+${riverRisk.toFixed(1)}`,
-            '森林リスク':       `+${forestRisk.toFixed(1)}`,
-            '総合スコア':       score.toFixed(2),
-            'レベル':           level,
+            '参照半径':           `${BEAR_RADIUS_M/1000}km`,
+            '熊データ総数':       `${bearData?.length ?? 0}件`,
+            '8km以内件数':        `${nearCount}件`,
+            '最近傍有効距離':     closestDistM < Infinity ? `${Math.round(closestDistM)}m` : 'なし',
+            '距離スコア':         `${bearDistScore.toFixed(2)}`,
+            '件数スコア':         `+${countScore.toFixed(1)}`,
+            '河川リスク':         `+${riverRisk.toFixed(1)}`,
+            '森林リスク':         `+${forestRisk.toFixed(1)}`,
+            '道路距離加算':       `${nearRoadM !== null ? Math.round(nearRoadM)+'m' : '未取得'} → +${roadBonus.toFixed(1)}`,
+            '30km探知方向数':     `${detectedDirs}/8方向`,
+            '30km森林区画数':     `${forestCount30km}区画`,
+            '囲まれ度加算':       `+${surroundBonus.toFixed(1)}`,
+            '総合スコア':         score.toFixed(2),
+            'レベル':             level,
           },
         };
       },
