@@ -232,12 +232,12 @@ async function initBearLayer() {
       });
     },
   });
-  // 2〜20件: 1タップ目=spiderfy、spiderfy展開中に再タップ=zoomToBounds
-  // 21件以上: zoomToBounds（すべてワンタップで反応）
+  // 2〜21件: 1タップ目=spiderfy、展開中に再タップ=zoomToBounds
+  // 22件以上: zoomToBounds直行
   bearPinLayer.on('clusterclick', (e) => {
     L.DomEvent.stopPropagation(e);
     const count = e.layer.getChildCount();
-    if (count <= 20) {
+    if (count <= 21) {
       // spiderfy展開済みなら再タップ=zoomToBounds、未展開ならspiderfy
       if (e.layer._spiderfied) {
         e.layer.zoomToBounds({ padding: [20, 20] });
