@@ -917,9 +917,28 @@ out geom;
           return { score: 1.0, reason: `最近傍水系まで約${Math.round(minD)}m（湾曲の恩恵圏外）` };
         }
 
+        // ── 70m以内ノード数チェック ───────────────────────────
+        const geo = nearestWay.geometry;
+        const NEAR_NODE_R = 70;
+        const nearNodes = geo.filter(pt => haversine(lat, lng, pt.lat, pt.lon) <= NEAR_NODE_R);
+        const nearNodeCount = nearNodes.length;
+        const totalNodeCount = geo.length;
+
+        if (nearNodeCount < 3) {
+          return {
+            score: 0, stub: true,
+            reason: `最近傍河川: 評価不能（70m以内ノード${nearNodeCount}個）`,
+            _debug: {
+              '川までの距離':     `${Math.round(minD)}m`,
+              '総ノード数':       `${totalNodeCount}個`,
+              '70m以内ノード数':  `${nearNodeCount}個（3未満→評価不能）`,
+            },
+          };
+        }
+        const lowAccuracy = nearNodeCount < 5; // 3〜4個: 精度低
+
         // ── 湾曲密度ボーナス（ノード密度非依存）──────────────
         // way全体の実距離(m)を計算し、有意湾曲数(>=15°)を割って密度化
-        const geo = nearestWay.geometry;
         let wayLenM = 0;
         for (let i = 1; i < geo.length; i++) {
           wayLenM += haversine(geo[i-1].lat, geo[i-1].lon, geo[i].lat, geo[i].lon);
@@ -1016,12 +1035,16 @@ out geom;
         }
 
         const finalScore = clamp5(baseScore + densityBonus + sideScore + upstScore);
+        const accuracyLabel = lowAccuracy ? '（精度低）' : '';
         return {
           score:  finalScore,
-          reason: `最近傍河川: ${curveLabel}${densityLabel}${sideLabel}${upstLabel}`,
+          stub:   lowAccuracy || undefined,
+          reason: `最近傍河川: ${curveLabel}${densityLabel}${sideLabel}${upstLabel}${accuracyLabel}`,
           _debug: {
-            '川までの距離':   `${Math.round(minD)}m`,
-            'ノードIdx':      `peakIdx=${peakIdx} / ${geo.length - 1}`,
+            '川までの距離':     `${Math.round(minD)}m`,
+            '総ノード数':       `${totalNodeCount}個`,
+            '70m以内ノード数':  `${nearNodeCount}個${lowAccuracy ? '（精度低）' : ''}`,
+            'ノードIdx':        `peakIdx=${peakIdx} / ${geo.length - 1}`,
             '最近傍曲率':     `${localBend.toFixed(1)}°（緯度補正済）`,
             '湾曲密度':       `${bendDensity.toFixed(1)}/km (${bendCount}箇所/${wayLenKm.toFixed(1)}km)`,
             '内外判定':       sideScore > 0 ? `内側` : sideScore < 0 ? `外側` : '直線/不明/S字除外',
