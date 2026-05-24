@@ -1680,10 +1680,13 @@ out geom;
                         : nearRoadM >= 500   ? 0.5
                         :                     0;
 
-        // ── 道路・林道 way数ペナルティ（3km圏5本以上で-3）──
-        const allRoads   = [...(overpass.roads || []), ...(overpass.tracks || [])];
-        const roadCount  = allRoads.length;
-        const roadPenalty = roadCount >= 5 ? -2 : 0;
+        // ── 道路・林道 way数ペナルティ（500以上-2.5、300以上-1.5、100以下+1.0）──
+        const allRoads    = [...(overpass.roads || []), ...(overpass.tracks || [])];
+        const roadCount   = allRoads.length;
+        const roadPenalty = roadCount >= 500 ? -2.5
+                          : roadCount >= 300 ? -1.5
+                          : roadCount <= 100 ?  1.0  // 道路少ない＝秘境＝リスク高
+                          :                     0;
 
         // ── 段階加算 ──────────────────────────────────────────
         let proximityScore = 0;
