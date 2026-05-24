@@ -1607,7 +1607,94 @@ out geom;
       },
     },
 
-    // 15. 熊遭遇リスク
+    // 15. 熊圏内リスク（段階加算）
+    // 高スコア = 危険。weight:0 のため集計には影響しない（表示専用）。
+    {
+      id: 'bearProximity', name: '熊圏内リスク', weight: 0,
+      evaluate(ctx) {
+        const { lat, lng, bearData } = ctx;
+
+        const RADIUS_35K = 35000;
+        const RADIUS_10K = 10000;
+
+        // ── 35km・10km圏内の件数カウント ─────────────────────
+        const bears35 = [];
+        let count10   = 0;
+
+        if (bearData && bearData.length) {
+          for (const b of bearData) {
+            if (!b.lat || !b.lng) continue;
+            const distM = haversine(lat, lng, b.lat, b.lng);
+            if (distM <= RADIUS_35K) {
+              bears35.push({ ...b, distM });
+              if (distM <= RADIUS_10K) count10++;
+            }
+          }
+        }
+
+        // ── 段階加算 ──────────────────────────────────────────
+        let score = 0;
+        // +1: 35km圏内に1件以上
+        if (bears35.length >= 1) score += 1;
+        // +1: 10km圏内に1件以上
+        if (count10 >= 1) score += 1;
+
+        // ── 囲まれ加算（3件以上・最大方位隙間≤180度）────────
+        let surroundBonus = 0;
+        let maxGapDeg     = 360;
+        if (bears35.length >= 3) {
+          // 各地点の方位角（北0°時計回り）を計算してソート
+          const angles = bears35.map(b => {
+            const deg = (Math.atan2(b.lng - lng, b.lat - lat) * 180 / Math.PI + 360) % 360;
+            return deg;
+          }).sort((a, b) => a - b);
+
+          // 隣接方位角の隙間を計算（最後→最初の隙間も考慮）
+          let gap = 0;
+          for (let i = 0; i < angles.length; i++) {
+            const next = angles[(i + 1) % angles.length];
+            const diff = i === angles.length - 1
+              ? (angles[0] + 360 - angles[i])
+              : (next - angles[i]);
+            if (diff > gap) gap = diff;
+          }
+          maxGapDeg = gap;
+
+          // 最大隙間が180度以下 → 180度以上を覆っている → 囲まれている
+          if (maxGapDeg <= 180) {
+            surroundBonus = 1;
+            score += 1;
+          }
+        }
+
+        score = Math.min(3, score);
+
+        const level = score >= 3 ? '⚠ 高危険'
+                    : score >= 2 ? '⚠ 中危険'
+                    : score >= 1 ? '注意'
+                    :              '低危険';
+
+        const reasonParts = [];
+        if (bears35.length >= 1) reasonParts.push(`35km圏${bears35.length}件`);
+        if (count10 >= 1)        reasonParts.push(`10km圏${count10}件`);
+        if (surroundBonus > 0)   reasonParts.push(`囲まれ検知`);
+
+        return {
+          score,
+          reason: `${level}（${reasonParts.length ? reasonParts.join('・') : '出没記録なし'}）`,
+          _debug: {
+            '35km圏件数':   `${bears35.length}件`,
+            '10km圏件数':   `${count10}件`,
+            '最大方位隙間': bears35.length >= 3 ? `${maxGapDeg.toFixed(1)}°` : '対象3件未満',
+            '囲まれ加算':   `+${surroundBonus}`,
+            '総合スコア':   score.toFixed(0),
+            'レベル':       level,
+          },
+        };
+      },
+    },
+
+    // 16. 熊遭遇リスク
     // 高スコア = 危険。weight:0 のため集計には影響しない（表示専用）。
     {
       id: 'bearActivity', name: '熊遭遇リスク', weight: 0,
@@ -2242,7 +2329,7 @@ out geom;
       },
       {
         label: '安全リスク',
-        ids:   ['accessRoad', 'accessDifficulty', 'accessibility', 'bearActivity'],
+        ids:   ['accessRoad', 'accessDifficulty', 'accessibility', 'bearProximity', 'bearActivity'],
       },
     ];
     // 欄外: 点線区切り・ヘッダーなし
