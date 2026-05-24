@@ -1882,8 +1882,10 @@ out geom;
         if (nearRoadM !== null) {
           components.push(
             nearRoadM < 500  ? 1.0
-            : nearRoadM < 1500 ? 1.5
-            : nearRoadM < 3000 ? 3.0
+            : nearRoadM < 1000 ? 2.0
+            : nearRoadM < 1500 ? 2.5
+            : nearRoadM < 2000 ? 3.0
+            : nearRoadM < 2500 ? 4.0
             :                   5.0
           );
         }
