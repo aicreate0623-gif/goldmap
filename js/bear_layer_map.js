@@ -219,7 +219,7 @@ async function initBearLayer() {
   bearPinLayer = L.markerClusterGroup({
     maxClusterRadius: 60,
     disableClusteringAtZoom: 14,
-    spiderfyOnMaxZoom: true,
+    spiderfyOnMaxZoom: false,
     zoomToBoundsOnClick: false,
     showCoverageOnHover: false,
     iconCreateFunction: (cluster) => {
@@ -232,6 +232,8 @@ async function initBearLayer() {
       });
     },
   });
+  // タップで常にspiderfy展開
+  bearPinLayer.on('clusterclick', (e) => { e.layer.spiderfy(); });
 
   try {
     const [heatResp, pinsResp] = await Promise.all([

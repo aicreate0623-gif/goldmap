@@ -228,7 +228,7 @@ function _initPtClusterGroup() {
   _ptClusterGroup = L.markerClusterGroup({
     maxClusterRadius: 50,
     zoomToBoundsOnClick: false,
-    spiderfyOnMaxZoom: true,
+    spiderfyOnMaxZoom: false,
     showCoverageOnHover: false,
     iconCreateFunction: (cluster) => {
       const count = cluster.getChildCount();
@@ -240,6 +240,8 @@ function _initPtClusterGroup() {
       });
     },
   });
+  // タップで常にspiderfy展開
+  _ptClusterGroup.on('clusterclick', (e) => { e.layer.spiderfy(); });
 }
 
 // ── マーカー生成 ─────────────────────────────
