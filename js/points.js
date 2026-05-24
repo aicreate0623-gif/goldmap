@@ -240,11 +240,18 @@ function _initPtClusterGroup() {
       });
     },
   });
-  // 2〜20件はspiderfy、21件以上はデフォルトのズームイン
+  // 2〜21件: 1タップ目=spiderfy、展開中に再タップ=zoomToBounds / 22件以上: zoomToBounds直行
   _ptClusterGroup.on('clusterclick', (e) => {
-    if (e.layer.getChildCount() <= 20) {
-      L.DomEvent.stopPropagation(e);
-      e.layer.spiderfy();
+    L.DomEvent.stopPropagation(e);
+    const count = e.layer.getChildCount();
+    if (count <= 21) {
+      if (e.layer._spiderfied) {
+        e.layer.zoomToBounds({ padding: [20, 20] });
+      } else {
+        e.layer.spiderfy();
+      }
+    } else {
+      e.layer.zoomToBounds({ padding: [20, 20] });
     }
   });
 }
