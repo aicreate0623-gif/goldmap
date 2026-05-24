@@ -1713,8 +1713,12 @@ out geom;
         }
         proximityScore += surroundBonus;
 
+        // ── 北海道加算（ヒグマ生息域）────────────────────────
+        const isHokkaido    = lat >= 41.35 && lat <= 45.55 && lng >= 139.3 && lng <= 145.9;
+        const hokkaidoBonus = isHokkaido ? 4.0 : 0;
+
         // ── 総合リスクスコア ──────────────────────────────
-        const raw   = bearDistScore + countScore + envRisk + roadBonus + proximityScore + roadPenalty;
+        const raw   = bearDistScore + countScore + envRisk + roadBonus + proximityScore + roadPenalty + hokkaidoBonus;
         const score = clamp5(raw);
 
         const level = score >= 4.0 ? '⚠ 高危険'
@@ -1723,12 +1727,13 @@ out geom;
                     :                '低危険';
 
         const reasonParts = [];
-        if (nearCount > 0)     reasonParts.push(`40km圏${nearCount}件`);
-        if (count10 > 0)       reasonParts.push(`10km圏${count10}件`);
-        if (riverRisk > 0)     reasonParts.push('河川あり');
-        if (forestRisk > 0)    reasonParts.push('森林あり');
-        if (surroundBonus > 0) reasonParts.push('囲まれ検知');
-        if (roadPenalty < 0)   reasonParts.push(`道路多（${roadCount}本）`);
+        if (nearCount > 0)      reasonParts.push(`40km圏${nearCount}件`);
+        if (count10 > 0)        reasonParts.push(`10km圏${count10}件`);
+        if (riverRisk > 0)      reasonParts.push('河川あり');
+        if (forestRisk > 0)     reasonParts.push('森林あり');
+        if (surroundBonus > 0)  reasonParts.push('囲まれ検知');
+        if (roadPenalty < 0)    reasonParts.push(`道路多（${roadCount}本）`);
+        if (isHokkaido)         reasonParts.push('北海道（ヒグマ）');
 
         return {
           score,
@@ -1748,6 +1753,7 @@ out geom;
             '道路way数':      `${roadCount}本 → ${roadPenalty}`,
             '段階加算':       `+${proximityScore - surroundBonus}（35km:${bears35.length>=1?1:0}+10km:${count10>=1?1:0}）`,
             '囲まれ加算':     `+${surroundBonus}（最大隙間${bears35.length>=3 ? maxGapDeg.toFixed(1)+'°' : '対象3件未満'}）`,
+            '北海道加算':     `+${hokkaidoBonus.toFixed(1)}（${isHokkaido ? '北海道' : '対象外'}）`,
             '合計(raw)':      raw.toFixed(2),
             '総合スコア':     score.toFixed(2),
             'レベル':         level,
