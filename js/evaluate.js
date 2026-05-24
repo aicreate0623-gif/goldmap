@@ -1661,14 +1661,14 @@ out geom;
         for (const way of allWater) {
           if (!way.geometry?.length) continue;
           const d = _nearestDistToWay(lat, lng, way.geometry);
-          if (d <= 500) { riverRisk = 0.3; break; }
+          if (d <= 500) { riverRisk = 0.5; break; }
         }
 
         let forestRisk = 0;
         for (const way of forests) {
           if (!way.geometry?.length) continue;
           const d = _nearestDistToWay(lat, lng, way.geometry);
-          if (d <= 500) { forestRisk = 0.3; break; }
+          if (d <= 500) { forestRisk = 0.5; break; }
         }
 
         const envRisk = riverRisk + forestRisk; // 最大0.6
@@ -1680,7 +1680,7 @@ out geom;
         // ── 道路・林道 way数ペナルティ（3km圏5本以上で-3）──
         const allRoads   = [...(overpass.roads || []), ...(overpass.tracks || [])];
         const roadCount  = allRoads.length;
-        const roadPenalty = roadCount >= 5 ? -3 : 0;
+        const roadPenalty = roadCount >= 5 ? -2 : 0;
 
         // ── 段階加算 ──────────────────────────────────────────
         let proximityScore = 0;
