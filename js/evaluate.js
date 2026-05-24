@@ -1673,9 +1673,12 @@ out geom;
 
         const envRisk = riverRisk + forestRisk; // 最大0.6
 
-        // ── 道路距離加算（2km以上で+0.5）────────────────────
+        // ── 道路距離加算（500m以上+0.5、1500m以上+1.0）────────────────────
         const nearRoadM = ctx.cache.nearestRoadM ?? null;
-        const roadBonus = (nearRoadM !== null && nearRoadM >= 2000) ? 0.5 : 0;
+        const roadBonus = nearRoadM === null ? 0
+                        : nearRoadM >= 1500  ? 1.0
+                        : nearRoadM >= 500   ? 0.5
+                        :                     0;
 
         // ── 道路・林道 way数ペナルティ（3km圏5本以上で-3）──
         const allRoads   = [...(overpass.roads || []), ...(overpass.tracks || [])];
