@@ -24,7 +24,7 @@ const GoldEvaluator = (() => {
   const GSJ_GEO_TTL     = 60 * 60 * 1000; // 地質キャッシュ 1時間
   const OVERPASS_API    = 'https://overpass-api.de/api/interpreter';
   const OVERPASS_RADIUS = 3000;     // 地形・河川・道路評価の半径(m)
-  const BEAR_RADIUS_M   = 8000;     // 熊評価の最大参照半径(m)
+  const BEAR_RADIUS_M   = 40000;    // 熊評価の最大参照半径(m)
   const POST_RADIUS_DEG = 0.05;     // Firestoreポスト検索半径(度 ≒5km)
   const OVERPASS_TTL    = 30 * 60 * 1000; // Overpassキャッシュ 30分
 
@@ -1607,111 +1607,24 @@ out geom;
       },
     },
 
-    // 15. 熊圏内リスク（段階加算）
-    // 高スコア = 危険。weight:0 のため集計には影響しない（表示専用）。
-    {
-      id: 'bearProximity', name: '熊圏内リスク', weight: 0,
-      evaluate(ctx) {
-        const { lat, lng, bearData } = ctx;
-
-        const RADIUS_35K = 35000;
-        const RADIUS_10K = 10000;
-
-        // ── 35km・10km圏内の件数カウント ─────────────────────
-        const bears35 = [];
-        let count10   = 0;
-
-        if (bearData && bearData.length) {
-          for (const b of bearData) {
-            if (!b.lat || !b.lng) continue;
-            const distM = haversine(lat, lng, b.lat, b.lng);
-            if (distM <= RADIUS_35K) {
-              bears35.push({ ...b, distM });
-              if (distM <= RADIUS_10K) count10++;
-            }
-          }
-        }
-
-        // ── 段階加算 ──────────────────────────────────────────
-        let score = 0;
-        // +1: 35km圏内に1件以上
-        if (bears35.length >= 1) score += 1;
-        // +1: 10km圏内に1件以上
-        if (count10 >= 1) score += 1;
-
-        // ── 囲まれ加算（3件以上・最大方位隙間≤180度）────────
-        let surroundBonus = 0;
-        let maxGapDeg     = 360;
-        if (bears35.length >= 3) {
-          // 各地点の方位角（北0°時計回り）を計算してソート
-          const angles = bears35.map(b => {
-            const deg = (Math.atan2(b.lng - lng, b.lat - lat) * 180 / Math.PI + 360) % 360;
-            return deg;
-          }).sort((a, b) => a - b);
-
-          // 隣接方位角の隙間を計算（最後→最初の隙間も考慮）
-          let gap = 0;
-          for (let i = 0; i < angles.length; i++) {
-            const next = angles[(i + 1) % angles.length];
-            const diff = i === angles.length - 1
-              ? (angles[0] + 360 - angles[i])
-              : (next - angles[i]);
-            if (diff > gap) gap = diff;
-          }
-          maxGapDeg = gap;
-
-          // 最大隙間が180度以下 → 180度以上を覆っている → 囲まれている
-          if (maxGapDeg <= 180) {
-            surroundBonus = 1;
-            score += 1;
-          }
-        }
-
-        score = Math.min(3, score);
-
-        const level = score >= 3 ? '⚠ 高危険'
-                    : score >= 2 ? '⚠ 中危険'
-                    : score >= 1 ? '注意'
-                    :              '低危険';
-
-        const reasonParts = [];
-        if (bears35.length >= 1) reasonParts.push(`35km圏${bears35.length}件`);
-        if (count10 >= 1)        reasonParts.push(`10km圏${count10}件`);
-        if (surroundBonus > 0)   reasonParts.push(`囲まれ検知`);
-
-        return {
-          score,
-          reason: `${level}（${reasonParts.length ? reasonParts.join('・') : '出没記録なし'}）`,
-          _debug: {
-            '35km圏件数':   `${bears35.length}件`,
-            '10km圏件数':   `${count10}件`,
-            '最大方位隙間': bears35.length >= 3 ? `${maxGapDeg.toFixed(1)}°` : '対象3件未満',
-            '囲まれ加算':   `+${surroundBonus}`,
-            '総合スコア':   score.toFixed(0),
-            'レベル':       level,
-          },
-        };
-      },
-    },
-
-    // 16. 熊遭遇リスク
+    // 15. 熊遭遇リスク
     // 高スコア = 危険。weight:0 のため集計には影響しない（表示専用）。
     {
       id: 'bearActivity', name: '熊遭遇リスク', weight: 0,
       evaluate(ctx) {
         const { lat, lng, bearData, overpass } = ctx;
 
-        const now      = Date.now();
-        const ONE_YEAR = 365 * 24 * 3600 * 1000;
-        const SURROUND_RADIUS_M = 30000; // 囲まれ度・森林判定の半径30km
+        const now          = Date.now();
+        const ONE_YEAR     = 365 * 24 * 3600 * 1000;
+        const RADIUS_40K   = 40000; // メイン参照半径
+        const RADIUS_35K   = 35000; // 段階加算・囲まれ判定
+        const RADIUS_10K   = 10000; // 段階加算（近距離）
 
-        // ── 出没データによる脅威スコア ───────────────────────
-        // 設計:
-        //   8km以内に1件いる時点で4.0点スタート
-        //   近いほど5.0に近づく（距離減衰）
-        //   複数件は件数スコアで上乗せ（上限5）
+        // ── 距離・件数カウント ────────────────────────────────
         let nearCount    = 0;
         let closestDistM = Infinity;
+        const bears35    = [];
+        let count10      = 0;
 
         if (bearData && bearData.length) {
           for (const b of bearData) {
@@ -1720,26 +1633,27 @@ out geom;
             const age       = b.date ? (now - new Date(b.date).getTime()) / ONE_YEAR : 2;
             const ageFactor = Math.max(0.2, 1 - age * 0.5);
 
-            if (distM <= BEAR_RADIUS_M) {
+            if (distM <= RADIUS_40K) {
               nearCount++;
               const effectiveDist = distM / ageFactor;
               if (effectiveDist < closestDistM) closestDistM = effectiveDist;
             }
+            if (distM <= RADIUS_35K) {
+              bears35.push({ ...b, distM });
+              if (distM <= RADIUS_10K) count10++;
+            }
           }
         }
 
-        // 最近傍距離スコア: 8km端で4.0、0mで5.0（線形）
+        // ── 距離スコア: 0m→2.0、40km端→0.0（線形減衰）────────
         const bearDistScore = nearCount > 0
-          ? 4.0 + 1.0 * Math.max(0, 1 - closestDistM / BEAR_RADIUS_M)
+          ? 2.0 * Math.max(0, 1 - closestDistM / RADIUS_40K)
           : 0;
 
-        // 件数加算: 2件目以降に加算（上限1.0）
-        const countScore = nearCount >= 5 ? 1.0
-                         : nearCount >= 3 ? 0.7
-                         : nearCount >= 2 ? 0.4
-                         : 0;
+        // ── 件数加算: 1件×0.2、上限7件（最大+1.4）──────────
+        const countScore = Math.min(7, nearCount) * 0.2;
 
-        // ── 環境リスク（河川・森林の存在）───────────────────
+        // ── 環境リスク（河川・森林500m圏）───────────────────
         const allWater = [...(overpass.streams || []), ...(overpass.rivers || [])];
         const forests  = overpass.forests || [];
 
@@ -1747,90 +1661,90 @@ out geom;
         for (const way of allWater) {
           if (!way.geometry?.length) continue;
           const d = _nearestDistToWay(lat, lng, way.geometry);
-          if (d <= 500) { riverRisk = 0.5; break; }
+          if (d <= 500) { riverRisk = 0.3; break; }
         }
 
         let forestRisk = 0;
         for (const way of forests) {
           if (!way.geometry?.length) continue;
           const d = _nearestDistToWay(lat, lng, way.geometry);
-          if (d <= 500) { forestRisk = 0.5; break; }
+          if (d <= 500) { forestRisk = 0.3; break; }
         }
 
-        const envRisk = riverRisk + forestRisk; // 最大1.0
+        const envRisk = riverRisk + forestRisk; // 最大0.6
 
         // ── 道路距離加算（2km以上で+0.5）────────────────────
-        const nearRoadM   = ctx.cache.nearestRoadM ?? null;
-        const roadBonus   = (nearRoadM !== null && nearRoadM >= 2000) ? 0.5 : 0;
+        const nearRoadM = ctx.cache.nearestRoadM ?? null;
+        const roadBonus = (nearRoadM !== null && nearRoadM >= 2000) ? 0.5 : 0;
 
-        // ── 8方向囲まれ度（30km探知）────────────────────────
-        // 8方向（N/NE/E/SE/S/SW/W/NW）それぞれに熊記録があるか判定
-        const DIR_COUNT   = 8;
-        const dirHit      = new Array(DIR_COUNT).fill(false);
+        // ── 道路・林道 way数ペナルティ（3km圏5本以上で-3）──
+        const allRoads   = [...(overpass.roads || []), ...(overpass.tracks || [])];
+        const roadCount  = allRoads.length;
+        const roadPenalty = roadCount >= 5 ? -3 : 0;
 
-        if (bearData && bearData.length) {
-          for (const b of bearData) {
-            if (!b.lat || !b.lng) continue;
-            const distM = haversine(lat, lng, b.lat, b.lng);
-            if (distM > SURROUND_RADIUS_M) continue;
-            // atan2で角度計算（北が0°、時計回り）
-            const angleDeg = (Math.atan2(b.lng - lng, b.lat - lat) * 180 / Math.PI + 360) % 360;
-            const dirIdx   = Math.floor((angleDeg + 22.5) / 45) % DIR_COUNT;
-            dirHit[dirIdx] = true;
+        // ── 段階加算 ──────────────────────────────────────────
+        let proximityScore = 0;
+        if (bears35.length >= 1) proximityScore += 1; // 35km圏内1件以上
+        if (count10        >= 1) proximityScore += 1; // 10km圏内1件以上
+
+        // ── 囲まれ加算（35km圏3件以上・最大方位隙間≤180度）─
+        let surroundBonus = 0;
+        let maxGapDeg     = 360;
+        if (bears35.length >= 3) {
+          const angles = bears35.map(b => {
+            return (Math.atan2(b.lng - lng, b.lat - lat) * 180 / Math.PI + 360) % 360;
+          }).sort((a, b) => a - b);
+
+          let gap = 0;
+          for (let i = 0; i < angles.length; i++) {
+            const diff = i === angles.length - 1
+              ? (angles[0] + 360 - angles[i])
+              : (angles[i + 1] - angles[i]);
+            if (diff > gap) gap = diff;
           }
+          maxGapDeg = gap;
+          if (maxGapDeg <= 180) surroundBonus = 1;
         }
-        const detectedDirs = dirHit.filter(Boolean).length;
-
-        // 30km圏内の森林way数をカウント
-        let forestCount30km = 0;
-        for (const way of forests) {
-          if (!way.geometry?.length) continue;
-          let minD = Infinity;
-          for (const pt of way.geometry) {
-            const d = haversine(lat, lng, pt.lat, pt.lon);
-            if (d < minD) minD = d;
-          }
-          if (minD <= SURROUND_RADIUS_M) forestCount30km++;
-        }
-
-        // 3方向以上探知 かつ 30km森林15個以上 → +1.5
-        const surroundBonus = (detectedDirs >= 3 && forestCount30km >= 15) ? 1.5 : 0;
+        proximityScore += surroundBonus;
 
         // ── 総合リスクスコア ──────────────────────────────
-        const score = clamp5(bearDistScore + countScore + envRisk + roadBonus + surroundBonus);
+        const raw   = bearDistScore + countScore + envRisk + roadBonus + proximityScore + roadPenalty;
+        const score = clamp5(raw);
 
         const level = score >= 4.0 ? '⚠ 高危険'
                     : score >= 2.5 ? '⚠ 中危険'
+                    : score >= 1.0 ? '注意'
                     :                '低危険';
 
-        const envLabel = [
-          riverRisk  ? '河川あり' : '',
-          forestRisk ? '森林あり' : '',
-        ].filter(Boolean).join('・');
-
-        const surroundLabel = surroundBonus > 0
-          ? `囲まれ${detectedDirs}方向/森${forestCount30km}区画` : '';
+        const reasonParts = [];
+        if (nearCount > 0)     reasonParts.push(`40km圏${nearCount}件`);
+        if (count10 > 0)       reasonParts.push(`10km圏${count10}件`);
+        if (riverRisk > 0)     reasonParts.push('河川あり');
+        if (forestRisk > 0)    reasonParts.push('森林あり');
+        if (surroundBonus > 0) reasonParts.push('囲まれ検知');
+        if (roadPenalty < 0)   reasonParts.push(`道路多（${roadCount}本）`);
 
         return {
           score,
-          reason: nearCount > 0
-            ? `${level}（8km以内${nearCount}件${envLabel ? '・' + envLabel : ''}${surroundLabel ? '・' + surroundLabel : ''}）`
-            : `${level}${surroundLabel ? '（' + surroundLabel + '）' : envLabel ? '（' + envLabel + '）' : '（出没記録なし）'}`,
+          reason: `${level}（${reasonParts.length ? reasonParts.join('・') : '出没記録なし'}）`,
           _debug: {
-            '参照半径':           `${BEAR_RADIUS_M/1000}km`,
-            '熊データ総数':       `${bearData?.length ?? 0}件`,
-            '8km以内件数':        `${nearCount}件`,
-            '最近傍有効距離':     closestDistM < Infinity ? `${Math.round(closestDistM)}m` : 'なし',
-            '距離スコア':         `${bearDistScore.toFixed(2)}`,
-            '件数スコア':         `+${countScore.toFixed(1)}`,
-            '河川リスク':         `+${riverRisk.toFixed(1)}`,
-            '森林リスク':         `+${forestRisk.toFixed(1)}`,
-            '道路距離加算':       `${nearRoadM !== null ? Math.round(nearRoadM)+'m' : '未取得'} → +${roadBonus.toFixed(1)}`,
-            '30km探知方向数':     `${detectedDirs}/8方向`,
-            '30km森林区画数':     `${forestCount30km}区画`,
-            '囲まれ度加算':       `+${surroundBonus.toFixed(1)}`,
-            '総合スコア':         score.toFixed(2),
-            'レベル':             level,
+            '参照半径':       `${RADIUS_40K/1000}km`,
+            '熊データ総数':   `${bearData?.length ?? 0}件`,
+            '40km圏件数':     `${nearCount}件`,
+            '35km圏件数':     `${bears35.length}件`,
+            '10km圏件数':     `${count10}件`,
+            '最近傍有効距離': closestDistM < Infinity ? `${Math.round(closestDistM)}m` : 'なし',
+            '距離スコア':     `${bearDistScore.toFixed(2)}`,
+            '件数スコア':     `+${countScore.toFixed(1)}`,
+            '河川リスク':     `+${riverRisk.toFixed(1)}`,
+            '森林リスク':     `+${forestRisk.toFixed(1)}`,
+            '道路距離加算':   `${nearRoadM !== null ? Math.round(nearRoadM)+'m' : '未取得'} → +${roadBonus.toFixed(1)}`,
+            '道路way数':      `${roadCount}本 → ${roadPenalty}`,
+            '段階加算':       `+${proximityScore - surroundBonus}（35km:${bears35.length>=1?1:0}+10km:${count10>=1?1:0}）`,
+            '囲まれ加算':     `+${surroundBonus}（最大隙間${bears35.length>=3 ? maxGapDeg.toFixed(1)+'°' : '対象3件未満'}）`,
+            '合計(raw)':      raw.toFixed(2),
+            '総合スコア':     score.toFixed(2),
+            'レベル':         level,
           },
         };
       },
@@ -2329,7 +2243,7 @@ out geom;
       },
       {
         label: '安全リスク',
-        ids:   ['accessRoad', 'accessDifficulty', 'accessibility', 'bearProximity', 'bearActivity'],
+        ids:   ['accessRoad', 'accessDifficulty', 'accessibility', 'bearActivity'],
       },
     ];
     // 欄外: 点線区切り・ヘッダーなし
