@@ -219,6 +219,27 @@ window.addEventListener('online', () => {
   flushPending();
 });
 
+// ── マイポイント クラスターグループ ────────────
+let _ptClusterGroup = null;
+
+function _initPtClusterGroup() {
+  _ptClusterGroup = L.markerClusterGroup({
+    maxClusterRadius: 50,
+    zoomToBoundsOnClick: false,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    iconCreateFunction: (cluster) => {
+      const count = cluster.getChildCount();
+      const size  = count < 10 ? 32 : count < 50 ? 40 : 48;
+      return L.divIcon({
+        html: `<div class="pt-cluster">${count}</div>`,
+        className: '',
+        iconSize: [size, size],
+      });
+    },
+  });
+}
+
 // ── マーカー生成 ─────────────────────────────
 function _makeIcon(icon, color) {
   const bg = (!color||color==='transparent') ? 'rgba(200,160,32,0.2)' : color;
@@ -243,7 +264,7 @@ function addMk(p) {
     zIndexOffset:100, pane:'paneUser'
   });
   m.on('click', () => openDet(p.id));
-  if (_myPtsVisible) m.addTo(map);
+  if (_ptClusterGroup) _ptClusterGroup.addLayer(m);
   p.mk = m;
 }
 function _updateMk(p) {
@@ -282,14 +303,13 @@ let _myPtsVisible = false;
 
 function toggleMyPts() {
   _myPtsVisible = !_myPtsVisible;
-  pts.forEach(p => {
-    if (!p.mk) return;
+  if (_ptClusterGroup) {
     if (_myPtsVisible) {
-      if (!map.hasLayer(p.mk)) map.addLayer(p.mk);
+      if (!map.hasLayer(_ptClusterGroup)) map.addLayer(_ptClusterGroup);
     } else {
-      if (map.hasLayer(p.mk)) map.removeLayer(p.mk);
+      if (map.hasLayer(_ptClusterGroup)) map.removeLayer(_ptClusterGroup);
     }
-  });
+  }
   const btn = document.getElementById('btn-mypts');
   if (btn) btn.classList.toggle('active', _myPtsVisible);
 }
@@ -308,6 +328,8 @@ function savePts(){
   }))));}catch(e){}
 }
 function loadPts(){
+  // clusterGroup初期化（map依存のためloadPts内で生成）
+  _initPtClusterGroup();
   try{
     const d=JSON.parse(localStorage.getItem('gm_pts')||'[]');
     d.forEach(p=>{if(p.id>=nid)nid=p.id+1;pts.push(p);addMk(p);});
@@ -557,7 +579,8 @@ function reqDel(){
 async function confirmDel(){
   const i=pts.findIndex(p=>p.id===did);
   if(i!==-1){
-    const p=pts[i];map.removeLayer(p.mk);
+    const p=pts[i];
+    if (_ptClusterGroup) _ptClusterGroup.removeLayer(p.mk);
     if(p.fsId) deleteCoord(p.fsId).catch(e=>console.warn('[points] deleteCoord失敗',e));
     pts.splice(i,1);
   }

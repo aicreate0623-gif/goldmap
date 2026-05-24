@@ -220,6 +220,7 @@ async function initBearLayer() {
     maxClusterRadius: 60,
     disableClusteringAtZoom: 14,
     spiderfyOnMaxZoom: true,
+    zoomToBoundsOnClick: false,
     showCoverageOnHover: false,
     iconCreateFunction: (cluster) => {
       const count = cluster.getChildCount();

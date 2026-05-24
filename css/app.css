@@ -5086,3 +5086,19 @@ body.eval-mode #map {
   color: rgba(244,240,232,0.35) !important;
 }
 /* ===== [DEV DEBUG END] ===== */
+
+/* ── マイポイント クラスターアイコン ─────────────────────────────────── */
+.pt-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(200, 160, 32, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
