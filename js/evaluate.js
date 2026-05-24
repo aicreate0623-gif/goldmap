@@ -1386,13 +1386,23 @@ out geom;
 
     // 11. 道路距離
     {
-      id: 'roadDistance', name: '道路距離', weight: 0.9,
+      id: 'roadDistance', name: '道路距離', weight: 0,
+      // weight:0 = 集計スコアに影響しない（キャッシュ計算専用）
+      // nearestRoadM   → bearActivity / accessDifficulty / accessibility / accessRoad が参照
+      // nearestRoadNode → accessDifficulty / accessibility が参照
       evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
         if (!overpass.roads.length) {
-          ctx.cache._scores = ctx.cache._scores || {};
-          ctx.cache._scores.roadDistance = 3.0;
-          return { score: 3.0, reason: '半径3km以内に一般道なし（秘境）' };
+          ctx.cache.nearestRoadM    = Infinity;
+          ctx.cache.nearestRoadNode = null;
+          return {
+            score: 0, reason: '半径3km以内に一般道なし（秘境）',
+            _debug: {
+              '最近傍一般道距離': 'なし',
+              '一般道本数':       '0本（半径3km）',
+              'キャッシュ用途':   'nearestRoadM → bearActivity / accessDifficulty / accessibility / accessRoad',
+            },
+          };
         }
 
         let minD = Infinity, nearRoadNode = null;
@@ -1408,14 +1418,13 @@ out geom;
                     : minD <= 1000 ? 5.0
                     : minD <= 2000 ? 3.5
                     : 2.0;
-        ctx.cache._scores = ctx.cache._scores || {};
-        ctx.cache._scores.roadDistance = score;
         return {
           score,
           reason: `最寄り一般道まで約${Math.round(minD)}m`,
           _debug: {
             '最近傍一般道距離': `${Math.round(minD)}m`,
             '一般道本数':       `${overpass.roads.length}本（半径3km）`,
+            'キャッシュ用途':   'nearestRoadM → bearActivity / accessDifficulty / accessibility / accessRoad',
           },
         };
       },
@@ -1423,13 +1432,21 @@ out geom;
 
     // 12. 林道距離
     {
-      id: 'forestRoadDistance', name: '林道距離', weight: 1.0,
+      id: 'forestRoadDistance', name: '林道距離', weight: 0,
+      // weight:0 = 集計スコアに影響しない（キャッシュ計算専用）
+      // nearestTrackNode → accessDifficulty / accessibility / accessRoad が参照
       evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
         if (!overpass.tracks.length) {
-          ctx.cache._scores = ctx.cache._scores || {};
-          ctx.cache._scores.forestRoadDistance = 2.0;
-          return { score: 2.0, reason: '半径3km以内に林道なし' };
+          ctx.cache.nearestTrackNode = null;
+          return {
+            score: 0, reason: '半径3km以内に林道なし',
+            _debug: {
+              '最近傍林道距離': 'なし',
+              '林道本数':       '0本（半径3km）',
+              'キャッシュ用途': 'nearestTrackNode → accessDifficulty / accessibility / accessRoad',
+            },
+          };
         }
 
         let minD = Infinity, nearTrackNode = null;
@@ -1444,14 +1461,13 @@ out geom;
                     : minD <= 800  ? 4.0
                     : minD <= 1500 ? 3.0
                     : 2.0;
-        ctx.cache._scores = ctx.cache._scores || {};
-        ctx.cache._scores.forestRoadDistance = score;
         return {
           score,
           reason: `最寄り林道まで約${Math.round(minD)}m`,
           _debug: {
             '最近傍林道距離': `${Math.round(minD)}m`,
             '林道本数':       `${overpass.tracks.length}本（半径3km）`,
+            'キャッシュ用途': 'nearestTrackNode → accessDifficulty / accessibility / accessRoad',
           },
         };
       },
