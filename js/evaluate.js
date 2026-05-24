@@ -704,7 +704,7 @@ const GoldEvaluator = (() => {
 out geom;
 `.trim();
 
-    try {
+    async function _doFetch() {
       const res = await fetch(OVERPASS_API, {
         method:  'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -713,19 +713,29 @@ out geom;
       if (!res.ok) throw new Error('overpass_err');
       const json = await res.json();
       const ways = json.elements || [];
-
-      const data = {
+      return {
         streams: ways.filter(w => ['stream','canal','ditch'].includes(w.tags?.waterway)),
         rivers:  ways.filter(w => w.tags?.waterway === 'river'),
         roads:   ways.filter(w => w.tags?.highway && w.tags.highway !== 'track'),
         tracks:  ways.filter(w => w.tags?.highway === 'track'),
         forests: ways.filter(w => w.tags?.landuse === 'forest' || w.tags?.natural === 'wood'),
       };
+    }
 
+    try {
+      const data = await _doFetch();
       _overpassCache.set(k, { data, at: now });
       return data;
     } catch {
-      return { streams: [], rivers: [], roads: [], tracks: [], forests: [] };
+      // 1回だけリトライ（2秒待機）
+      try {
+        await new Promise(r => setTimeout(r, 2000));
+        const data = await _doFetch();
+        _overpassCache.set(k, { data, at: now });
+        return data;
+      } catch {
+        return { streams: [], rivers: [], roads: [], tracks: [], forests: [] };
+      }
     }
   }
 
