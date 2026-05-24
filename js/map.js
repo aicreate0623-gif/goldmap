@@ -1,5 +1,5 @@
 'use strict';
-const map=L.map('map',{center:[36.5,137.5],zoom:7,zoomControl:true,zoomSnap:0.1,zoomDelta:1});
+const map=L.map('map',{center:[36.5,137.5],zoom:7,zoomControl:true,zoomSnap:0.1,zoomDelta:1,keepBuffer:4});
 map.zoomControl.setPosition('bottomright');
 // ── カスタムスケールバー ──────────────────────────────────────────
 // Leafletデフォルトのscaleコントロールは使わない
@@ -99,6 +99,8 @@ async function initMap(){
       attribution:SRCS[key].attr,
       maxNativeZoom:_nativeZooms[key]??18,
       maxZoom:18,
+      updateWhenIdle:false,    // スクロール中もタイルをロード（スマホ先読み改善）
+      updateWhenZooming:false, // ズーム中もタイルをロード
       ...extraOpts,
     });
   };
