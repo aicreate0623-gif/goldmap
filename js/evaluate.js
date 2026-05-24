@@ -765,21 +765,21 @@ out geom;
   // ─────────────────────────────────────────────────────────
   const evaluationItems = [
 
-    // 1. 沢距離
+    // 1. 沢距離（streams専用: canal/ditch含む、riverは含まない）
     {
       id: 'streamDistance', name: '沢距離', weight: 1.4,
       evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
-        const allWater = [...(overpass.streams || []), ...(overpass.rivers || [])];
-        if (!allWater.length) return { score: 1.5, reason: '半径3km以内に河川なし' };
+        const streams = overpass.streams || [];
+        if (!streams.length) return { score: 1.5, reason: '半径3km以内に沢なし' };
 
         let minD = Infinity;
-        for (const way of allWater) {
+        for (const way of streams) {
           if (!way.geometry?.length) continue;
           const d = _nearestDistToWay(lat, lng, way.geometry);
           if (d < minD) minD = d;
         }
-        if (!isFinite(minD)) return { score: 1.5, reason: '河川データ不完全' };
+        if (!isFinite(minD)) return { score: 1.5, reason: '沢データ不完全' };
 
         ctx.cache.nearestStreamM = minD;
         // 5m刻み・30m超で0点（実採掘対象は川岸30mまで）
@@ -795,8 +795,8 @@ out geom;
           score,
           reason: `最寄り沢まで約${Math.round(minD)}m`,
           _debug: {
-            '最近傍河川距離': `${Math.round(minD)}m`,
-            '河川/沢本数':    `${allWater.length}本（半径3km）`,
+            '最近傍沢距離': `${Math.round(minD)}m`,
+            '沢本数':       `${streams.length}本（半径3km）`,
           },
         };
       },
@@ -816,7 +816,7 @@ out geom;
           const d = _nearestDistToWay(lat, lng, way.geometry);
           if (d < minD) minD = d;
         }
-        if (!isFinite(minD)) return { score: 1.5, reason: '河川データ不完全' };
+        if (!isFinite(minD)) return { score: 1.5, reason: '河川データ不完全（形状情報なし）' };
 
         ctx.cache.nearestRiverM = minD;
         // 沢距離と同じ閾値（将来的に河川向けに調整可能）
@@ -845,7 +845,7 @@ out geom;
       evaluate(ctx) {
         const { lat, lng, overpass, terrain } = ctx;
         const allWater = [...overpass.streams, ...overpass.rivers];
-        if (!allWater.length) return { score: 1.0, reason: '半径3km以内に河川なし' };
+        if (!allWater.length) return { score: 1.0, reason: '半径3km以内に水系なし' };
 
         // 半径500m以内のway本数で基本スコアを算出
         const CONF_R = 500;
@@ -900,7 +900,7 @@ out geom;
       evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
         const allWater = [...overpass.streams, ...overpass.rivers];
-        if (!allWater.length) return { score: 1.5, reason: '半径3km以内に河川なし' };
+        if (!allWater.length) return { score: 1.5, reason: '半径3km以内に水系なし' };
 
         // 最近傍wayを特定（1本のみ対象）
         let minD = Infinity, nearestWay = null;
