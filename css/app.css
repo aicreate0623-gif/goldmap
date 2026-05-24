@@ -5104,49 +5104,31 @@ body.eval-mode #map {
 }
 
 /* ═══════════════════════════════════════════════════
-   評価プログレスバー（evaluate.js / _showProgress）
+   評価プログレスバー（ポップアップ内ローディング）
    ═══════════════════════════════════════════════════ */
 
-/* オーバーレイ本体: 画面下部中央に固定 */
-.ev-progress-overlay {
-  position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  background: rgba(20, 15, 5, 0.88);
-  border: 1px solid #b8860b;
-  border-radius: 12px;
-  padding: 12px 18px 14px;
-  min-width: 240px;
-  max-width: 300px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 12px rgba(255,200,50,0.15);
-  pointer-events: none;
-  opacity: 1;
-  transition: opacity 0.35s ease;
-}
-
-/* フェードアウト */
-.ev-progress-overlay.ev-progress-done {
-  opacity: 0;
+/* ローディング中ポップアップの余白調整 */
+.ev-popup-loading {
+  padding-bottom: 16px;
 }
 
 /* ラベル */
 .ev-progress-label {
   font-size: 0.78rem;
   color: #f0d080;
-  margin-bottom: 8px;
-  letter-spacing: 0.02em;
+  margin: 8px 0 10px;
   text-align: center;
+  letter-spacing: 0.03em;
 }
 
 /* トラック（背景バー） */
 .ev-progress-track {
   position: relative;
   height: 10px;
-  background: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.10);
   border-radius: 6px;
   overflow: hidden;
+  margin: 0 4px;
 }
 
 /* 進行バー本体: 金色グラデーション */
@@ -5170,7 +5152,7 @@ body.eval-mode #map {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 220, 0.55) 50%,
+    rgba(255, 255, 220, 0.6) 50%,
     transparent 100%
   );
   animation: ev-shimmer 1.6s ease-in-out infinite;

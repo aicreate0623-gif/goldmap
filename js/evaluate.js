@@ -2240,89 +2240,72 @@ out geom;
   }
 
   // ─────────────────────────────────────────────────────────
-  // プログレスバー（評価中オーバーレイ）
+  // プログレスバー（ポップアップ内ローディング表示）
   // ─────────────────────────────────────────────────────────
-  let _progressEl  = null;
-  let _progressRaf = null;
+  let _progressRaf   = null;
   let _progressStart = 0;
   const _PROGRESS_DURATION = 12000; // 擬似進行: 0%→90% に12秒
 
-  function _showProgress() {
-    _hideProgress();
-    const el = document.createElement('div');
-    el.className = 'ev-progress-overlay';
-    el.innerHTML = `
-      <div class="ev-progress-label">🔍 探索ポイントを評価中…</div>
+  /** ポップアップ内プログレスバーのHTML */
+  function _buildProgressHTML() {
+    return `<div class="ev-popup ev-popup-loading">
+      <div class="ev-title">🔍 砂金探索スコア</div>
+      <div class="ev-progress-label">評価中…</div>
       <div class="ev-progress-track">
         <div class="ev-progress-bar" id="ev-progress-bar"></div>
         <div class="ev-progress-shimmer"></div>
-      </div>`;
-    document.body.appendChild(el);
-    _progressEl    = el;
-    _progressStart = performance.now();
+      </div>
+    </div>`;
+  }
 
+  /** プログレスアニメーション開始 */
+  function _startProgressAnim() {
+    if (_progressRaf) { cancelAnimationFrame(_progressRaf); _progressRaf = null; }
+    _progressStart = performance.now();
     function _tick() {
-      if (!_progressEl) return;
-      const elapsed = performance.now() - _progressStart;
-      // ease-out: 0→90% を _PROGRESS_DURATION かけてゆっくり収束
-      const pct = 90 * (1 - Math.exp(-3 * elapsed / _PROGRESS_DURATION));
       const bar = document.getElementById('ev-progress-bar');
-      if (bar) bar.style.width = pct.toFixed(1) + '%';
+      if (!bar) return;
+      const elapsed = performance.now() - _progressStart;
+      const pct = 90 * (1 - Math.exp(-3 * elapsed / _PROGRESS_DURATION));
+      bar.style.width = pct.toFixed(1) + '%';
       _progressRaf = requestAnimationFrame(_tick);
     }
     _progressRaf = requestAnimationFrame(_tick);
   }
 
-  function _completeProgress(cb) {
-    // 100%に一気に伸ばしてからフェードアウト
+  /** プログレスを100%にしてアニメ停止 */
+  function _finishProgressAnim() {
     if (_progressRaf) { cancelAnimationFrame(_progressRaf); _progressRaf = null; }
     const bar = document.getElementById('ev-progress-bar');
     if (bar) bar.style.width = '100%';
-    setTimeout(() => {
-      if (_progressEl) {
-        _progressEl.classList.add('ev-progress-done');
-        setTimeout(() => { _hideProgress(); if (cb) cb(); }, 350);
-      } else {
-        if (cb) cb();
-      }
-    }, 200);
-  }
-
-  function _hideProgress() {
-    if (_progressRaf) { cancelAnimationFrame(_progressRaf); _progressRaf = null; }
-    if (_progressEl)  { _progressEl.remove(); _progressEl = null; }
   }
 
   /** 指定座標の評価ポップアップを開く */
   async function _openEvalPopup(lat, lng) {
-    // 前のポップアップ・プログレスを閉じる
     if (_evalPopup) { _evalPopup.remove(); _evalPopup = null; }
-    _showProgress();
 
-    let result = null;
-    let evalErr = false;
+    // ポップアップをすぐ開いてプログレスバーを表示
+    _evalPopup = L.popup({ maxWidth: 260, className: 'ev-leaflet-popup' })
+      .setLatLng([lat, lng])
+      .setContent(_buildProgressHTML())
+      .openOn(map);
+
+    // DOM反映後にアニメ開始
+    requestAnimationFrame(_startProgressAnim);
 
     try {
-      result = await evaluate({ lat, lng, zoom: map.getZoom() });
-    } catch {
-      evalErr = true;
-    }
-
-    // 評価完了 → プログレス100%→フェードアウト → ポップアップ表示
-    _completeProgress(() => {
-      if (evalErr) {
-        _evalPopup = L.popup({ maxWidth: 260, className: 'ev-leaflet-popup' })
-          .setLatLng([lat, lng])
-          .setContent('<div class="ev-error">⚠ 評価に失敗しました</div>')
-          .openOn(map);
-        return;
+      const result = await evaluate({ lat, lng, zoom: map.getZoom() });
+      _finishProgressAnim();
+      if (_evalPopup && map.hasLayer(_evalPopup)) {
+        _evalPopup.setContent(_buildResultHTML(lat, lng, result.items));
+        requestAnimationFrame(() => _initMinimap(lat, lng));
       }
-      _evalPopup = L.popup({ maxWidth: 260, className: 'ev-leaflet-popup' })
-        .setLatLng([lat, lng])
-        .setContent(_buildResultHTML(lat, lng, result.items))
-        .openOn(map);
-      requestAnimationFrame(() => _initMinimap(lat, lng));
-    });
+    } catch {
+      _finishProgressAnim();
+      if (_evalPopup && map.hasLayer(_evalPopup)) {
+        _evalPopup.setContent('<div class="ev-error">⚠ 評価に失敗しました</div>');
+      }
+    }
   }
 
   /**
