@@ -699,6 +699,7 @@ const GoldEvaluator = (() => {
   way["highway"="track"](around:${OVERPASS_RADIUS},${lat},${lng});
   way["landuse"="forest"](around:${OVERPASS_RADIUS},${lat},${lng});
   way["natural"="wood"](around:${OVERPASS_RADIUS},${lat},${lng});
+  way["landuse"="residential"](around:${OVERPASS_RADIUS},${lat},${lng});
 );
 out geom;
 `.trim();
@@ -714,17 +715,18 @@ out geom;
       const ways = json.elements || [];
 
       const data = {
-        streams: ways.filter(w => ['stream','canal','ditch'].includes(w.tags?.waterway)),
-        rivers:  ways.filter(w => w.tags?.waterway === 'river'),
-        roads:   ways.filter(w => w.tags?.highway && w.tags.highway !== 'track'),
-        tracks:  ways.filter(w => w.tags?.highway === 'track'),
-        forests: ways.filter(w => w.tags?.landuse === 'forest' || w.tags?.natural === 'wood'),
+        streams:      ways.filter(w => ['stream','canal','ditch'].includes(w.tags?.waterway)),
+        rivers:       ways.filter(w => w.tags?.waterway === 'river'),
+        roads:        ways.filter(w => w.tags?.highway && w.tags.highway !== 'track'),
+        tracks:       ways.filter(w => w.tags?.highway === 'track'),
+        forests:      ways.filter(w => w.tags?.landuse === 'forest' || w.tags?.natural === 'wood'),
+        residentials: ways.filter(w => w.tags?.landuse === 'residential'),
       };
 
       _overpassCache.set(k, { data, at: now });
       return data;
     } catch {
-      return { streams: [], rivers: [], roads: [], tracks: [], forests: [] };
+      return { streams: [], rivers: [], roads: [], tracks: [], forests: [], residentials: [] };
     }
   }
 
@@ -1678,20 +1680,20 @@ out geom;
         }
         const detectedDirs = dirHit.filter(Boolean).length;
 
-        // 30km圏内の森林way数をカウント
-        let forestCount30km = 0;
-        for (const way of forests) {
+        // 3km以内の住宅地の有無をチェック
+        const residentials = overpass.residentials || [];
+        let hasResidential3km = false;
+        for (const way of residentials) {
           if (!way.geometry?.length) continue;
-          let minD = Infinity;
           for (const pt of way.geometry) {
             const d = haversine(lat, lng, pt.lat, pt.lon);
-            if (d < minD) minD = d;
+            if (d <= OVERPASS_RADIUS) { hasResidential3km = true; break; }
           }
-          if (minD <= SURROUND_RADIUS_M) forestCount30km++;
+          if (hasResidential3km) break;
         }
 
-        // 3方向以上探知 かつ 30km森林15個以上 → +1.5
-        const surroundBonus = (detectedDirs >= 3 && forestCount30km >= 15) ? 1.5 : 0;
+        // 3方向以上探知 かつ 3km以内に住宅地なし → +2.5
+        const surroundBonus = (detectedDirs >= 3 && !hasResidential3km) ? 2.5 : 0;
 
         // ── 総合リスクスコア ──────────────────────────────
         const score = clamp5(bearDistScore + countScore + envRisk + roadBonus + surroundBonus);
@@ -1706,7 +1708,7 @@ out geom;
         ].filter(Boolean).join('・');
 
         const surroundLabel = surroundBonus > 0
-          ? `囲まれ${detectedDirs}方向/森${forestCount30km}区画` : '';
+          ? `囲まれ${detectedDirs}方向/住宅地なし` : '';
 
         return {
           score,
@@ -1724,7 +1726,7 @@ out geom;
             '森林リスク':         `+${forestRisk.toFixed(1)}`,
             '道路距離加算':       `${nearRoadM !== null ? Math.round(nearRoadM)+'m' : '未取得'} → +${roadBonus.toFixed(1)}`,
             '30km探知方向数':     `${detectedDirs}/8方向`,
-            '30km森林区画数':     `${forestCount30km}区画`,
+            '3km住宅地':          hasResidential3km ? 'あり（加算なし）' : 'なし',
             '囲まれ度加算':       `+${surroundBonus.toFixed(1)}`,
             '総合スコア':         score.toFixed(2),
             'レベル':             level,
