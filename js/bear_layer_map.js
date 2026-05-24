@@ -232,8 +232,13 @@ async function initBearLayer() {
       });
     },
   });
-  // タップで常にspiderfy展開
-  bearPinLayer.on('clusterclick', (e) => { e.layer.spiderfy(); });
+  // 2〜20件はspiderfy、21件以上はデフォルトのズームイン
+  bearPinLayer.on('clusterclick', (e) => {
+    if (e.layer.getChildCount() <= 20) {
+      L.DomEvent.stopPropagation(e);
+      e.layer.spiderfy();
+    }
+  });
 
   try {
     const [heatResp, pinsResp] = await Promise.all([
