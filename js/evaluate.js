@@ -2069,7 +2069,14 @@ out geom;
 
         const forestBonus = forest1kmBonus + forest3kmBonus;
 
-        const totalBonus = gradBonus + slopeBonus + forestBonus;
+        // ── 道路way数減点（人が多い＝遭難リスク低）────────────
+        const allRoadsIso  = [...(ctx.overpass?.roads || []), ...(ctx.overpass?.tracks || [])];
+        const roadCountIso = allRoadsIso.length;
+        const roadWayPenalty = roadCountIso >= 5000 ? -4.0
+                             : roadCountIso >= 3000 ? -2.0
+                             :                        0;
+
+        const totalBonus = gradBonus + slopeBonus + forestBonus + roadWayPenalty;
         const score = clamp5(base + totalBonus);
 
         // 一般道距離ラベル
@@ -2094,6 +2101,7 @@ out geom;
             '1km森林way数':    `${ways1km}本 → +${forest1kmBonus.toFixed(2)}`,
             '3km森林way数':    `${ways3km}本 → +${forest3kmBonus.toFixed(1)}`,
             '森林ボーナス':    `+${forestBonus.toFixed(2)}`,
+            '道路way減点':     `${roadCountIso}本 → ${roadWayPenalty.toFixed(1)}`,
             '合計ボーナス':    `+${totalBonus.toFixed(1)}`,
             '最終スコア':      score.toFixed(2),
           },
