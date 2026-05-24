@@ -1757,7 +1757,7 @@ out geom;
     //     評価地点→林道→一般道の2区間距離＋勾配で徒歩到達障壁を評価
     //     高スコア = 困難・危険（bearActivityと同じ逆スコア型）
     {
-      id: 'accessDifficulty', name: '林道退路リスク', weight: 0, _mergeOnly: true,
+      id: 'accessDifficulty', name: '退路・怪我リスク', weight: 0, _mergeOnly: true,
       async evaluate(ctx) {
         const { lat, lng, terrain, overpass } = ctx;
         const myElev        = terrain.elev;
