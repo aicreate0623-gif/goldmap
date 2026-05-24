@@ -481,8 +481,9 @@ const GoldEvaluator = (() => {
     let maxBend = 0, bendCount = 0, maxBendIdx = 1;
     for (let i = 1; i < geometry.length - 1; i++) {
       const p0 = geometry[i - 1], p1 = geometry[i], p2 = geometry[i + 1];
-      const ax = p0.lon - p1.lon, ay = p0.lat - p1.lat;
-      const bx = p2.lon - p1.lon, by = p2.lat - p1.lat;
+      const cosLat = Math.cos(p1.lat * Math.PI / 180);
+      const ax = (p0.lon - p1.lon) * cosLat, ay = p0.lat - p1.lat;
+      const bx = (p2.lon - p1.lon) * cosLat, by = p2.lat - p1.lat;
       const dot  = ax * bx + ay * by;
       const magA = Math.sqrt(ax * ax + ay * ay);
       const magB = Math.sqrt(bx * bx + by * by);
@@ -2134,15 +2135,26 @@ out geom;
     // ── パス1: 通常項目 ──────────────────────────────────
     // auDensity を先行実行して ctx.cache.auDensityScore をセット
     // geology がそのキャッシュを参照して加点するため
+    // 先行実行結果をそのまま流用し、Promise.allSettled 内では auDensity をスキップして2重実行を防ぐ
     const auDensityItem = evaluationItems.find(i => i.id === 'auDensity');
+    let auDensitySettled = null;
     if (auDensityItem) {
-      try { await auDensityItem.evaluate(ctx); } catch (_) {}
+      try {
+        const r = await auDensityItem.evaluate(ctx);
+        auDensitySettled = { status: 'fulfilled', value: { item: auDensityItem, r } };
+      } catch (_) {}
     }
     const settled1 = await Promise.allSettled(
-      evaluationItems.map(item =>
-        Promise.resolve().then(async () => ({ item, r: await item.evaluate(ctx) }))
-      )
+      evaluationItems
+        .filter(item => item.id !== 'auDensity')
+        .map(item =>
+          Promise.resolve().then(async () => ({ item, r: await item.evaluate(ctx) }))
+        )
     );
+    // auDensity の結果を元の順序位置（先頭付近）に差し込む
+    const allSettled1 = auDensitySettled
+      ? [auDensitySettled, ...settled1]
+      : settled1;
 
     // ── パス2: 統合表示項目（パス1完了後に実行） ──────────
     const settled2 = await Promise.allSettled(
@@ -2168,7 +2180,7 @@ out geom;
       };
     };
 
-    const items = [...settled1, ...settled2].map(_toItem);
+    const items = [...allSettled1, ...settled2].map(_toItem);
 
     const result = { items };
     _evalCache.set(k, { result, at: now });
