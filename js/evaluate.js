@@ -2456,6 +2456,7 @@ out geom;
   /**
    * ポップアップ内の .ev-minimap 要素にLeafletミニマップを初期化
    * 操作不可・固定表示
+   * Overpassキャッシュから川・道路・森林をトレース描画する
    */
   function _initMinimap(lat, lng) {
     const el = document.querySelector('.ev-minimap');
@@ -2479,7 +2480,82 @@ out geom;
       maxZoom: 19,
     }).addTo(mini);
 
-    // 中心に赤丸マーカー（CircleMarker）
+    // ── Overpassキャッシュからトレース描画 ────────────────────
+    // 評価済み座標のキャッシュが必ず存在するのでキーで直接参照
+    const cached = _overpassCache.get(_key(lat, lng));
+    if (cached?.data) {
+      const op = cached.data;
+
+      // wayのgeometryを [{lat,lon},...] → [[lat,lng],...] に変換
+      function toLatLngs(way) {
+        return (way.geometry || []).map(p => [p.lat, p.lon]);
+      }
+
+      // 森林ポリゴン（塗り・輪郭）
+      (op.forests || []).forEach(way => {
+        const lls = toLatLngs(way);
+        if (lls.length < 2) return;
+        L.polygon(lls, {
+          color:       '#3a7a40',
+          weight:      1,
+          fillColor:   '#4a9a50',
+          fillOpacity: 0.18,
+          interactive: false,
+        }).addTo(mini);
+      });
+
+      // 車道（茶色・実線）
+      (op.roads || []).forEach(way => {
+        const lls = toLatLngs(way);
+        if (lls.length < 2) return;
+        L.polyline(lls, {
+          color:       '#a07040',
+          weight:      1.5,
+          opacity:     0.85,
+          interactive: false,
+        }).addTo(mini);
+      });
+
+      // 林道・作業道（茶色・破線・細め）
+      (op.tracks || []).forEach(way => {
+        const lls = toLatLngs(way);
+        if (lls.length < 2) return;
+        L.polyline(lls, {
+          color:       '#c09060',
+          weight:      1,
+          opacity:     0.75,
+          dashArray:   '4,4',
+          interactive: false,
+        }).addTo(mini);
+      });
+
+      // 沢・小川（青・細め）
+      (op.streams || []).forEach(way => {
+        const lls = toLatLngs(way);
+        if (lls.length < 2) return;
+        L.polyline(lls, {
+          color:       '#4a9eff',
+          weight:      1.5,
+          opacity:     0.9,
+          interactive: false,
+        }).addTo(mini);
+      });
+
+      // 河川（青・太め）※最前面にしたいので最後に追加
+      (op.rivers || []).forEach(way => {
+        const lls = toLatLngs(way);
+        if (lls.length < 2) return;
+        L.polyline(lls, {
+          color:       '#1a6fd4',
+          weight:      2.5,
+          opacity:     0.95,
+          interactive: false,
+        }).addTo(mini);
+      });
+    }
+    // ─────────────────────────────────────────────────────────
+
+    // 中心に赤丸マーカー（CircleMarker）※トレースより前面に
     L.circleMarker([lat, lng], {
       radius:      6,
       color:       '#fff',
