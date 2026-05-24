@@ -1946,7 +1946,7 @@ out geom;
     {
       id: 'accessibility', name: '孤立・遭難リスク', weight: 0, _mergeOnly: true,
       async evaluate(ctx) {
-        const { lat, lng, terrain } = ctx;
+        const { lat, lng, terrain, overpass } = ctx;
         const slopeDiff     = ctx.cache.slopeDiff       ?? null;
         const elev          = terrain.elev;
         const nearRoadM     = ctx.cache.nearestRoadM    ?? null;
@@ -2040,7 +2040,7 @@ out geom;
 
         // ── 森林密度ボーナス ─────────────────────────────────────
         // overpass.forests のwayを1km/3km圏に振り分けてway数で密度を近似
-        const forests = ctx.overpass?.forests || [];
+        const forests = overpass.forests || [];
         let ways1km = 0, ways3km = 0;
         for (const way of forests) {
           if (!way.geometry?.length) continue;
@@ -2070,7 +2070,7 @@ out geom;
         const forestBonus = forest1kmBonus + forest3kmBonus;
 
         // ── 道路way数減点（人が多い＝遭難リスク低）────────────
-        const allRoadsIso  = [...(ctx.overpass?.roads || []), ...(ctx.overpass?.tracks || [])];
+        const allRoadsIso  = [...(overpass.roads || []), ...(overpass.tracks || [])];
         const roadCountIso = allRoadsIso.length;
         const roadWayPenalty = roadCountIso >= 5000 ? -4.0
                              : roadCountIso >= 3000 ? -2.0
