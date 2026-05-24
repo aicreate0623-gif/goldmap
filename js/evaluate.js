@@ -1650,8 +1650,8 @@ out geom;
           ? 2.0 * Math.max(0, 1 - closestDistM / RADIUS_40K)
           : 0;
 
-        // ── 件数加算: 1件×0.2、上限7件（最大+1.4）──────────
-        const countScore = Math.min(7, nearCount) * 0.2;
+        // ── 件数加算: 1件×0.2、上限10件（最大+2.0）──────────
+        const countScore = Math.min(10, nearCount) * 0.2;
 
         // ── 環境リスク（河川・森林500m圏）───────────────────
         const allWater = [...(overpass.streams || []), ...(overpass.rivers || [])];
@@ -1703,7 +1703,7 @@ out geom;
             if (diff > gap) gap = diff;
           }
           maxGapDeg = gap;
-          if (maxGapDeg <= 180) surroundBonus = 1;
+          if (maxGapDeg <= 180) surroundBonus = 2;
         }
         proximityScore += surroundBonus;
 
