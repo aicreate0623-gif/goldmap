@@ -1902,10 +1902,9 @@ out geom;
       },
     },
 
-    // 19. 孤立・遭難リスク
+    // 19. 孤立・遭難リスク（旧: 人到達性を逆スコア型に再設計）
     //     一般道からの遠さ・標高・地形急峻さ・脱出勾配で救助困難度を評価
     //     高スコア = 危険（bearActivityと同じ逆スコア型）
-    //     道路近接・住宅地近接は距離に応じたマイナス補正で過剰スコアを抑制
     {
       id: 'accessibility', name: '孤立・遭難リスク', weight: 0, _mergeOnly: true,
       async evaluate(ctx) {
@@ -1916,41 +1915,47 @@ out geom;
         const nearRoadNode  = ctx.cache.nearestRoadNode ?? null;
         const nearTrackNode = ctx.cache.nearestTrackNode ?? null;
 
-        // ── ベーススコア（加重平均: 道路距離2・標高1・傾斜1） ──────
-        // Math.max から加重平均に変更し、1項目だけで爆発しないようにする
-        const roadScore = nearRoadM === null ? null
-          : nearRoadM < 500  ? 1.0
-          : nearRoadM < 1000 ? 2.0
-          : nearRoadM < 1500 ? 2.5
-          : nearRoadM < 2000 ? 3.0
-          : nearRoadM < 2500 ? 4.0
-          :                    5.0;
+        // ── ベーススコア（各コンポーネント: 遠い・高い・急峻ほど高リスク） ──
+        const components = [];
 
-        const elevScore = elev === null ? null
-          : elev < 500  ? 1.0
-          : elev < 1000 ? 2.0
-          : elev < 1500 ? 3.5
-          :               5.0;
+        // 一般道距離: 遠いほど高リスク
+        if (nearRoadM !== null) {
+          components.push(
+            nearRoadM < 500  ? 1.0
+            : nearRoadM < 1000 ? 2.0
+            : nearRoadM < 1500 ? 2.5
+            : nearRoadM < 2000 ? 3.0
+            : nearRoadM < 2500 ? 4.0
+            :                   5.0
+          );
+        }
 
-        const slopeScore = slopeDiff === null ? null
-          : slopeDiff < 50  ? 1.0
-          : slopeDiff < 150 ? 2.0
-          : slopeDiff < 300 ? 3.5
-          :                   5.0;
+        // 標高: 高いほど救助困難
+        if (elev !== null) {
+          components.push(
+            elev < 500  ? 1.0
+            : elev < 1000 ? 2.5
+            : elev < 1500 ? 4.0
+            :               5.0
+          );
+        }
 
-        // 加重平均: 道路距離を最重視（weight 2）、標高・傾斜を補助（weight 1）
-        const entries = [
-          [roadScore,  2],
-          [elevScore,  1],
-          [slopeScore, 1],
-        ].filter(([v]) => v !== null);
+        // 地形急峻さ: 急なほど脱出困難
+        if (slopeDiff !== null) {
+          components.push(
+            slopeDiff < 50  ? 1.0
+            : slopeDiff < 150 ? 2.5
+            : slopeDiff < 300 ? 4.0
+            :                  5.0
+          );
+        }
 
-        if (!entries.length) return { score: STUB_SCORE, reason: '孤立・遭難リスクデータ計算中' };
+        if (!components.length) return { score: STUB_SCORE, reason: '孤立・遭難リスクデータ計算中' };
 
-        const weightSum = entries.reduce((s, [, w]) => s + w, 0);
-        const base      = entries.reduce((s, [v, w]) => s + v * w, 0) / weightSum;
+        const base = Math.max(...components); // 最悪ケースを採用
 
         // ── 脱出路勾配ボーナス（急なほど高リスク） ────────────────
+        // 道路/林道とも存在しない場合は強制 +1.5
         let gradBonus = 0;
         let gradLabel = '';
 
@@ -1981,10 +1986,10 @@ out geom;
             gradBonus = 1.5;
             gradLabel = '勾配取得失敗';
           } else {
-            gradBonus = maxGrad < 20 ? 0.0
-                      : maxGrad < 40 ? 0.5
-                      : maxGrad < 60 ? 1.0
-                      :               2.5;
+            gradBonus = maxGrad < 20 ? 0.0    // 緩やか
+                      : maxGrad < 40 ? 0.5    // やや急
+                      : maxGrad < 60 ? 1.0    // 急斜面
+                      :               2.5;    // 崖レベル
             gradLabel = `脱出勾配${Math.round(maxGrad)}%（道路${roadGrad !== null ? Math.round(roadGrad)+'%' : 'なし'} / 林道${trackGrad !== null ? Math.round(trackGrad)+'%' : 'なし'}）`;
           }
         }
@@ -1995,11 +2000,13 @@ out geom;
                          : slopeDiff < 300    ? 0.5
                          :                     1.0;
 
-        // ── 森林密度ボーナス（上限を0.5に抑制）─────────────────────
+        // ── 森林密度ボーナス ─────────────────────────────────────
+        // overpass.forests のwayを1km/3km圏に振り分けてway数で密度を近似
         const forests = ctx.overpass?.forests || [];
         let ways1km = 0, ways3km = 0;
         for (const way of forests) {
           if (!way.geometry?.length) continue;
+          // wayの最近傍ノードで距離判定
           let minD = Infinity;
           for (const pt of way.geometry) {
             const d = haversine(lat, lng, pt.lat, pt.lon);
@@ -2010,112 +2017,103 @@ out geom;
             if (minD <= 1000) ways1km++;
           }
         }
-        const forest1kmBonus = ways1km >= 5 ? 0.5
-                             : ways1km >= 3 ? 0.33
-                             : ways1km >= 1 ? 0.17
+
+        // 1km圏way数ボーナス（最大+1.0）
+        const forest1kmBonus = ways1km >= 5 ? 1.0
+                             : ways1km >= 3 ? 0.67
+                             : ways1km >= 1 ? 0.33
                              :               0;
-        const forest3kmBonus = ways3km >= 10 ? 0.5
-                             : ways3km >=  5 ? 0.25
+
+        // 3km圏way数ボーナス（最大+1.0）
+        const forest3kmBonus = ways3km >= 10 ? 1.0
+                             : ways3km >=  5 ? 0.5
                              :                0;
+
         const forestBonus = forest1kmBonus + forest3kmBonus;
 
-        // ── 一般道距離マイナス補正（近いほど安全・スコアを引き下げ）──
-        const roadMinus = nearRoadM === null ? 0
-          : nearRoadM <= 200  ? -2.0
-          : nearRoadM <= 500  ? -1.5
-          : nearRoadM <= 1000 ? -1.0
-          : nearRoadM <= 2000 ? -0.5
-          :                     0;
-
-        // ── 住宅地マイナス補正（近いほど安全）──────────────────────
-        const residentials = ctx.overpass?.residentials || [];
-        let nearResidentialM = Infinity;
-        for (const way of residentials) {
-          if (!way.geometry?.length) continue;
-          for (const pt of way.geometry) {
-            const d = haversine(lat, lng, pt.lat, pt.lon);
-            if (d < nearResidentialM) nearResidentialM = d;
-          }
-        }
-        const residentialMinus = nearResidentialM <= 500  ? -1.5
-                               : nearResidentialM <= 1500 ? -1.0
-                               : nearResidentialM <= 3000 ? -0.5
-                               :                            0;
-
         const totalBonus = gradBonus + slopeBonus + forestBonus;
-        const totalMinus = roadMinus + residentialMinus;
-        const score = clamp5(base + totalBonus + totalMinus);
+        const score = clamp5(base + totalBonus);
 
+        // 一般道距離ラベル
         const roadLabel = nearRoadM !== null
           ? (nearRoadM >= 1000 ? `一般道${(nearRoadM/1000).toFixed(1)}km` : `一般道${Math.round(nearRoadM)}m`)
           : '一般道不明';
-        const residentialLabel = nearResidentialM < Infinity
-          ? `住宅地${Math.round(nearResidentialM)}m`
-          : '住宅地なし';
+
+        const forestLabel = forestBonus > 0
+          ? `森林1km:${ways1km}区画/3km:${ways3km}区画`
+          : '';
 
         return {
           score,
-          reason: `孤立・遭難リスク: ${roadLabel} / ${residentialLabel} / 標高${elev !== null ? Math.round(elev)+'m' : '不明'}`,
+          reason: `孤立・遭難リスク: ${roadLabel} / 標高${elev !== null ? Math.round(elev)+'m' : '不明'}${forestLabel ? ' / ' + forestLabel : ''}${totalBonus > 0 ? ` / 加算+${totalBonus.toFixed(1)}` : ''}`,
           _debug: {
-            '一般道距離':        nearRoadM !== null ? `${Math.round(nearRoadM)}m` : '未取得',
-            '標高':              elev !== null ? `${Math.round(elev)}m` : '未取得',
-            '地形傾斜差':        slopeDiff !== null ? `${Math.round(slopeDiff)}m` : '未取得',
-            '道路スコア':        roadScore !== null ? roadScore.toFixed(1) : '未取得',
-            '標高スコア':        elevScore !== null ? elevScore.toFixed(1) : '未取得',
-            '傾斜スコア':        slopeScore !== null ? slopeScore.toFixed(1) : '未取得',
-            'ベース(加重平均)':  base.toFixed(2),
-            '勾配ボーナス':      `+${gradBonus.toFixed(1)} (${gradLabel})`,
-            '地形ボーナス':      `+${slopeBonus.toFixed(1)}`,
-            '1km森林way数':      `${ways1km}本 → +${forest1kmBonus.toFixed(2)}`,
-            '3km森林way数':      `${ways3km}本 → +${forest3kmBonus.toFixed(2)}`,
-            '合計ボーナス':      `+${totalBonus.toFixed(2)}`,
-            '道路近接補正':      `${roadMinus.toFixed(1)}`,
-            '住宅地近接補正':    `${residentialMinus.toFixed(1)}（最近傍${nearResidentialM < Infinity ? Math.round(nearResidentialM)+'m' : 'なし'}）`,
-            '合計マイナス補正':  `${totalMinus.toFixed(1)}`,
-            '最終スコア':        score.toFixed(2),
+            '一般道距離':      nearRoadM !== null ? `${Math.round(nearRoadM)}m` : '未取得',
+            '標高':            elev !== null ? `${Math.round(elev)}m` : '未取得',
+            '地形傾斜差':      slopeDiff !== null ? `${Math.round(slopeDiff)}m` : '未取得',
+            'ベーススコア':    base.toFixed(1),
+            '勾配ボーナス':    `+${gradBonus.toFixed(1)} (${gradLabel})`,
+            '地形ボーナス':    `+${slopeBonus.toFixed(1)}`,
+            '1km森林way数':    `${ways1km}本 → +${forest1kmBonus.toFixed(2)}`,
+            '3km森林way数':    `${ways3km}本 → +${forest3kmBonus.toFixed(1)}`,
+            '森林ボーナス':    `+${forestBonus.toFixed(2)}`,
+            '合計ボーナス':    `+${totalBonus.toFixed(1)}`,
+            '最終スコア':      score.toFixed(2),
           },
         };
       },
     },
 
-    // 17. 道路・林道距離（統合表示）
-    //     roadDistance × 3/5 + forestRoadDistance × 2/5
+    // 17. アクセスリスク
+    //     一般道・林道の実距離から直接リスクスコアを計算
+    //     反転ロジック廃止: nearestRoadM / nearestTrackNode を直接参照
+    //     高スコア = 危険（遠いほど高リスク）
     {
       id: 'accessRoad', name: 'アクセスリスク', weight: 0, _mergeOnly: true,
       evaluate(ctx) {
-        const s = ctx.cache._scores || {};
-        const road  = s.roadDistance       ?? null;
-        const track = s.forestRoadDistance ?? null;
+        const { lat, lng } = ctx;
+        const nearRoadM     = ctx.cache.nearestRoadM    ?? null;
+        const nearTrackNode = ctx.cache.nearestTrackNode ?? null;
 
-        if (road === null && track === null) {
+        if (nearRoadM === null) {
           return { score: STUB_SCORE, reason: 'アクセスリスクデータ準備中' };
         }
 
-        // 順スコア→逆スコアに反転（5 - x）
-        const roadRisk  = road  !== null ? clamp5(5 - road)  : null;
-        const trackRisk = track !== null ? clamp5(5 - track) : null;
+        // 一般道距離から直接リスクスコアを計算
+        const roadRisk = nearRoadM <= 200  ? 1.0
+                       : nearRoadM <= 500  ? 1.5
+                       : nearRoadM <= 1000 ? 2.5
+                       : nearRoadM <= 2000 ? 3.5
+                       :                    5.0;
 
-        // 両方あれば加重平均（一般道3:林道2）、片方のみなら単独使用
-        const score = (roadRisk !== null && trackRisk !== null)
-          ? clamp5(roadRisk * (3 / 5) + trackRisk * (2 / 5))
-          : (roadRisk ?? trackRisk);
+        // 林道が近くにあればリスクを緩和（-0.5）
+        const trackDistM = nearTrackNode
+          ? haversine(lat, lng, nearTrackNode.lat, nearTrackNode.lon)
+          : Infinity;
+        const trackRelief = trackDistM <= 1000 ? -0.5 : 0;
 
-        const roadLabel  = roadRisk  !== null ? `一般道リスク ${roadRisk.toFixed(1)}pt`  : '一般道データなし';
-        const trackLabel = trackRisk !== null ? `林道リスク ${trackRisk.toFixed(1)}pt` : '林道データなし';
+        const score = clamp5(roadRisk + trackRelief);
+
+        const roadLabel  = nearRoadM >= 1000
+          ? `一般道${(nearRoadM/1000).toFixed(1)}km`
+          : `一般道${Math.round(nearRoadM)}m`;
+        const trackLabel = trackDistM < Infinity
+          ? `林道${Math.round(trackDistM)}m${trackRelief < 0 ? '（緩和）' : ''}`
+          : '林道なし';
 
         return {
           score,
           reason: `${roadLabel} / ${trackLabel}`,
           _debug: {
-            '一般道距離スコア(元)': road  !== null ? road.toFixed(1)  : 'なし',
-            '林道距離スコア(元)':   track !== null ? track.toFixed(1) : 'なし',
-            '一般道リスク(反転)':   roadRisk  !== null ? roadRisk.toFixed(1)  : 'なし',
-            '林道リスク(反転)':     trackRisk !== null ? trackRisk.toFixed(1) : 'なし',
-            '最終スコア':           score.toFixed(2),
+            '一般道距離':   `${Math.round(nearRoadM)}m`,
+            '一般道リスク': roadRisk.toFixed(1),
+            '林道距離':     trackDistM < Infinity ? `${Math.round(trackDistM)}m` : 'なし',
+            '林道緩和':     `${trackRelief.toFixed(1)}`,
+            '最終スコア':   score.toFixed(2),
           },
         };
       },
     },
+
 
   ];
 
