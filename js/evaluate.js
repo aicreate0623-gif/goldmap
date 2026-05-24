@@ -1485,7 +1485,7 @@ out geom;
     },
 
     // 13. 傾斜キャッシュ用（slope側で slopeDiff を ctx.cache に書き込む）
-    // accessibility は mergeItems に移動（孤立リスク・逆スコア型）
+    // accessibility は mergeItems に移動（孤立・遭難リスク・逆スコア型）
 
     // 14a. 鉱床・鉱徴地との標高差
     {
@@ -1862,11 +1862,11 @@ out geom;
       },
     },
 
-    // 19. 孤立リスク（旧: 人到達性を逆スコア型に再設計）
+    // 19. 孤立・遭難リスク（旧: 人到達性を逆スコア型に再設計）
     //     一般道からの遠さ・標高・地形急峻さ・脱出勾配で救助困難度を評価
     //     高スコア = 危険（bearActivityと同じ逆スコア型）
     {
-      id: 'accessibility', name: '孤立リスク', weight: 0, _mergeOnly: true,
+      id: 'accessibility', name: '孤立・遭難リスク', weight: 0, _mergeOnly: true,
       async evaluate(ctx) {
         const { lat, lng, terrain } = ctx;
         const slopeDiff     = ctx.cache.slopeDiff       ?? null;
@@ -1908,7 +1908,7 @@ out geom;
           );
         }
 
-        if (!components.length) return { score: STUB_SCORE, reason: '孤立リスクデータ計算中' };
+        if (!components.length) return { score: STUB_SCORE, reason: '孤立・遭難リスクデータ計算中' };
 
         const base = Math.max(...components); // 最悪ケースを採用
 
@@ -2003,7 +2003,7 @@ out geom;
 
         return {
           score,
-          reason: `孤立リスク: ${roadLabel} / 標高${elev !== null ? Math.round(elev)+'m' : '不明'}${forestLabel ? ' / ' + forestLabel : ''}${totalBonus > 0 ? ` / 加算+${totalBonus.toFixed(1)}` : ''}`,
+          reason: `孤立・遭難リスク: ${roadLabel} / 標高${elev !== null ? Math.round(elev)+'m' : '不明'}${forestLabel ? ' / ' + forestLabel : ''}${totalBonus > 0 ? ` / 加算+${totalBonus.toFixed(1)}` : ''}`,
           _debug: {
             '一般道距離':      nearRoadM !== null ? `${Math.round(nearRoadM)}m` : '未取得',
             '標高':            elev !== null ? `${Math.round(elev)}m` : '未取得',
@@ -2239,28 +2239,90 @@ out geom;
       </div>`;
   }
 
+  // ─────────────────────────────────────────────────────────
+  // プログレスバー（評価中オーバーレイ）
+  // ─────────────────────────────────────────────────────────
+  let _progressEl  = null;
+  let _progressRaf = null;
+  let _progressStart = 0;
+  const _PROGRESS_DURATION = 12000; // 擬似進行: 0%→90% に12秒
+
+  function _showProgress() {
+    _hideProgress();
+    const el = document.createElement('div');
+    el.className = 'ev-progress-overlay';
+    el.innerHTML = `
+      <div class="ev-progress-label">🔍 探索ポイントを評価中…</div>
+      <div class="ev-progress-track">
+        <div class="ev-progress-bar" id="ev-progress-bar"></div>
+        <div class="ev-progress-shimmer"></div>
+      </div>`;
+    document.body.appendChild(el);
+    _progressEl    = el;
+    _progressStart = performance.now();
+
+    function _tick() {
+      if (!_progressEl) return;
+      const elapsed = performance.now() - _progressStart;
+      // ease-out: 0→90% を _PROGRESS_DURATION かけてゆっくり収束
+      const pct = 90 * (1 - Math.exp(-3 * elapsed / _PROGRESS_DURATION));
+      const bar = document.getElementById('ev-progress-bar');
+      if (bar) bar.style.width = pct.toFixed(1) + '%';
+      _progressRaf = requestAnimationFrame(_tick);
+    }
+    _progressRaf = requestAnimationFrame(_tick);
+  }
+
+  function _completeProgress(cb) {
+    // 100%に一気に伸ばしてからフェードアウト
+    if (_progressRaf) { cancelAnimationFrame(_progressRaf); _progressRaf = null; }
+    const bar = document.getElementById('ev-progress-bar');
+    if (bar) bar.style.width = '100%';
+    setTimeout(() => {
+      if (_progressEl) {
+        _progressEl.classList.add('ev-progress-done');
+        setTimeout(() => { _hideProgress(); if (cb) cb(); }, 350);
+      } else {
+        if (cb) cb();
+      }
+    }, 200);
+  }
+
+  function _hideProgress() {
+    if (_progressRaf) { cancelAnimationFrame(_progressRaf); _progressRaf = null; }
+    if (_progressEl)  { _progressEl.remove(); _progressEl = null; }
+  }
+
   /** 指定座標の評価ポップアップを開く */
   async function _openEvalPopup(lat, lng) {
+    // 前のポップアップ・プログレスを閉じる
     if (_evalPopup) { _evalPopup.remove(); _evalPopup = null; }
+    _showProgress();
 
-    _evalPopup = L.popup({ maxWidth: 260, className: 'ev-leaflet-popup' })
-      .setLatLng([lat, lng])
-      .setContent('<div class="ev-loading">⏳ 評価中…</div>')
-      .openOn(map);
+    let result = null;
+    let evalErr = false;
 
     try {
-      const result = await evaluate({ lat, lng, zoom: map.getZoom() });
-      // ポップアップが途中で閉じられていなければ内容を更新
-      if (_evalPopup && map.hasLayer(_evalPopup)) {
-        _evalPopup.setContent(_buildResultHTML(lat, lng, result.items));
-        // DOM反映後にミニマップを初期化
-        requestAnimationFrame(() => _initMinimap(lat, lng));
-      }
+      result = await evaluate({ lat, lng, zoom: map.getZoom() });
     } catch {
-      if (_evalPopup && map.hasLayer(_evalPopup)) {
-        _evalPopup.setContent('<div class="ev-error">⚠ 評価に失敗しました</div>');
-      }
+      evalErr = true;
     }
+
+    // 評価完了 → プログレス100%→フェードアウト → ポップアップ表示
+    _completeProgress(() => {
+      if (evalErr) {
+        _evalPopup = L.popup({ maxWidth: 260, className: 'ev-leaflet-popup' })
+          .setLatLng([lat, lng])
+          .setContent('<div class="ev-error">⚠ 評価に失敗しました</div>')
+          .openOn(map);
+        return;
+      }
+      _evalPopup = L.popup({ maxWidth: 260, className: 'ev-leaflet-popup' })
+        .setLatLng([lat, lng])
+        .setContent(_buildResultHTML(lat, lng, result.items))
+        .openOn(map);
+      requestAnimationFrame(() => _initMinimap(lat, lng));
+    });
   }
 
   /**

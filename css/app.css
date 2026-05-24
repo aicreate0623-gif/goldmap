@@ -5102,3 +5102,83 @@ body.eval-mode #map {
   color: #fff;
   box-shadow: 0 2px 6px rgba(0,0,0,0.35);
 }
+
+/* ═══════════════════════════════════════════════════
+   評価プログレスバー（evaluate.js / _showProgress）
+   ═══════════════════════════════════════════════════ */
+
+/* オーバーレイ本体: 画面下部中央に固定 */
+.ev-progress-overlay {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: rgba(20, 15, 5, 0.88);
+  border: 1px solid #b8860b;
+  border-radius: 12px;
+  padding: 12px 18px 14px;
+  min-width: 240px;
+  max-width: 300px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 12px rgba(255,200,50,0.15);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+
+/* フェードアウト */
+.ev-progress-overlay.ev-progress-done {
+  opacity: 0;
+}
+
+/* ラベル */
+.ev-progress-label {
+  font-size: 0.78rem;
+  color: #f0d080;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+/* トラック（背景バー） */
+.ev-progress-track {
+  position: relative;
+  height: 10px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* 進行バー本体: 金色グラデーション */
+.ev-progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #b8860b 0%, #ffd700 50%, #ffa500 100%);
+  transition: width 0.12s linear;
+  position: relative;
+  z-index: 1;
+}
+
+/* シマーアニメーション（光の流れ） */
+.ev-progress-shimmer {
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 220, 0.55) 50%,
+    transparent 100%
+  );
+  animation: ev-shimmer 1.6s ease-in-out infinite;
+  z-index: 2;
+  border-radius: 6px;
+}
+
+@keyframes ev-shimmer {
+  0%   { left: -60%; }
+  100% { left: 110%; }
+}
