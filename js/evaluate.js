@@ -1061,10 +1061,10 @@ out geom;
           }
         }
 
-        const score = weightedCount >= 50 ? 5.0
-                    : weightedCount >= 25 ? 4.0
-                    : weightedCount >= 10 ? 3.0
-                    : weightedCount >= 3  ? 2.0
+        const score = weightedCount >= 20 ? 5.0
+                    : weightedCount >= 10 ? 4.0
+                    : weightedCount >= 5  ? 3.0
+                    : weightedCount >= 2  ? 2.0
                     : weightedCount >= 1  ? 1.5
                     : 1.0;
 
