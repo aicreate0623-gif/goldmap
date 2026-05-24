@@ -227,8 +227,6 @@ let _ptClusterGroup = null;
 function _initPtClusterGroup() {
   _ptClusterGroup = L.markerClusterGroup({
     maxClusterRadius: 50,
-    zoomToBoundsOnClick: false,
-    spiderfyOnMaxZoom: false,
     showCoverageOnHover: false,
     iconCreateFunction: (cluster) => {
       const count = cluster.getChildCount();
@@ -239,20 +237,6 @@ function _initPtClusterGroup() {
         iconSize: [size, size],
       });
     },
-  });
-  // 2〜21件: 1タップ目=spiderfy、展開中に再タップ=zoomToBounds / 22件以上: zoomToBounds直行
-  _ptClusterGroup.on('clusterclick', (e) => {
-    L.DomEvent.stopPropagation(e);
-    const count = e.layer.getChildCount();
-    if (count <= 21) {
-      if (e.layer._spiderfied) {
-        e.layer.zoomToBounds({ padding: [20, 20] });
-      } else {
-        e.layer.spiderfy();
-      }
-    } else {
-      e.layer.zoomToBounds({ padding: [20, 20] });
-    }
   });
 }
 
