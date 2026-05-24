@@ -220,7 +220,7 @@ async function initBearLayer() {
     maxClusterRadius: 60,
     disableClusteringAtZoom: 14,
     spiderfyOnMaxZoom: false,
-    zoomToBoundsOnClick: false,
+    zoomToBoundsOnClick: false, // clusterclickで件数別に制御するためOFF
     showCoverageOnHover: false,
     iconCreateFunction: (cluster) => {
       const count = cluster.getChildCount();
@@ -232,11 +232,20 @@ async function initBearLayer() {
       });
     },
   });
-  // 2〜20件はspiderfy、21件以上はデフォルトのズームイン
+  // 2〜20件: 1タップ目=spiderfy、spiderfy展開中に再タップ=zoomToBounds
+  // 21件以上: zoomToBounds（すべてワンタップで反応）
   bearPinLayer.on('clusterclick', (e) => {
-    if (e.layer.getChildCount() <= 20) {
-      L.DomEvent.stopPropagation(e);
-      e.layer.spiderfy();
+    L.DomEvent.stopPropagation(e);
+    const count = e.layer.getChildCount();
+    if (count <= 20) {
+      // spiderfy展開済みなら再タップ=zoomToBounds、未展開ならspiderfy
+      if (e.layer._spiderfied) {
+        e.layer.zoomToBounds({ padding: [20, 20] });
+      } else {
+        e.layer.spiderfy();
+      }
+    } else {
+      e.layer.zoomToBounds({ padding: [20, 20] });
     }
   });
 
