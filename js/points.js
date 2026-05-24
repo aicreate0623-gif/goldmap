@@ -204,6 +204,8 @@ async function flushPending() {
     try {
       await submitCoord(item.lat, item.lng, item.stars||0, item.name||'', item.memo||'');
       sent++;
+      // 60秒制限に引っかからないよう連続送信を回避
+      if (arr.length > 1) await new Promise(r => setTimeout(r, 61000));
     } catch(e) {
       failed.push(item);
     }

@@ -216,24 +216,36 @@ function makeCachedLayer(srcKey){
       const net=tileURL(this._sk,coords.z,coords.x,coords.y);
       const netDirect=tileURL(this._sk,z,x,y); // 引き延ばし補正後の座標（directImg用）
 
-      // ── directImgレイヤー：キャッシュ優先・なければ直接読み込み（CORS不要）──
+      // ── directImgレイヤー：キャッシュ優先・なければ直接読み込み＋自動蓄積 ──
       if(SRCS[this._sk]?.directImg){
+        const ext2  = (SRCS[this._sk] && SRCS[this._sk].ext) || 'png';
+        const type2 = ext2==='jpg' ? 'image/jpeg' : ext2==='webp' ? 'image/webp' : 'image/png';
+        const _setImgBlob2 = (buf) => {
+          const url = URL.createObjectURL(new Blob([buf],{type:type2}));
+          img.onload = () => { URL.revokeObjectURL(url); done(null,img); };
+          img.onerror = e => { URL.revokeObjectURL(url); done(e,img); };
+          img.src = url;
+        };
         if(db){
-          const ext2 = (SRCS[this._sk] && SRCS[this._sk].ext) || 'png';
-          const type2 = ext2==='jpg' ? 'image/jpeg' : ext2==='webp' ? 'image/webp' : 'image/png';
           dbGet(key).catch(()=>null).then(cached=>{
             if(cached){
-              img.src=URL.createObjectURL(new Blob([cached],{type:type2}));
+              _setImgBlob2(cached);
             } else {
+              // キャッシュなし：直接表示しつつautoCacheレイヤーはfetchして蓄積
               img.crossOrigin='';
+              img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
               img.src=netDirect;
+              if(SRCS[this._sk].autoCache){
+                fetch(netDirect).then(r=>r.ok?r.arrayBuffer():null).then(buf=>{
+                  if(buf) _autoCachePut(key, buf);
+                }).catch(()=>{});
+              }
             }
-            img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
           });
         } else {
           img.crossOrigin='';
-          img.src=netDirect;
           img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+          img.src=netDirect;
         }
         return img;
       }
@@ -247,11 +259,16 @@ function makeCachedLayer(srcKey){
       const tileTimeout = isOnline ? 8000 : 3000;
       const ctrl=new AbortController();
       const tid=setTimeout(()=>ctrl.abort(), tileTimeout);
+      const _setImgBlob = (buf) => {
+          const url = URL.createObjectURL(new Blob([buf],{type}));
+          img.onload = () => { URL.revokeObjectURL(url); done(null,img); };
+          img.onerror = e => { URL.revokeObjectURL(url); done(e,img); };
+          img.src = url;
+        };
       fetch(net,{signal:ctrl.signal})
         .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
         .then(buf=>{
-          img.src=URL.createObjectURL(new Blob([buf],{type}));
-          img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+          _setImgBlob(buf);
           // ── 自動蓄積：autoCache指定レイヤーはDBにステルス保存 ──
           if(SRCS[this._sk] && SRCS[this._sk].autoCache){
             _autoCachePut(key, buf);
@@ -261,8 +278,7 @@ function makeCachedLayer(srcKey){
           // ネット失敗 → キャッシュ確認
           const cached = await dbGet(key).catch(()=>null);
           if(cached){
-            img.src=URL.createObjectURL(new Blob([cached],{type}));
-            img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+            _setImgBlob(cached);
           } else {
             if(isOnline){ _showOnlineToast(); } else { _showOfflineToast(); }
             img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
