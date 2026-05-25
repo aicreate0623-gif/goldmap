@@ -497,6 +497,96 @@ const GoldEvaluator = (() => {
   }
 
   // ─────────────────────────────────────────────────────────
+  // 共通: 脱出路評価ヘルパー
+  //   評価地点 → 林道 → 一般道 の2区間で脱出困難度を計算する。
+  //   accessDifficulty / accessibility の両方から呼ばれる。
+  //
+  //   @param {number}      lat          評価地点の緯度
+  //   @param {number}      lng          評価地点の経度
+  //   @param {number|null} myElev       評価地点の標高(m)。null 可
+  //   @param {object|null} nearTrackNode  最近傍林道ノード {lat,lon}
+  //   @param {object|null} nearRoadNode   最近傍一般道ノード {lat,lon}
+  //   @param {number|null} nearRoadM      最近傍一般道距離(m)
+  //
+  //   @returns {Promise<{
+  //     seg1DistM: number,        // 地点→林道(m)  林道なし時は 0
+  //     seg2DistM: number|null,   // 林道→一般道(m)  林道なし時は null
+  //     totalDistM: number,       // 合計距離(m)
+  //     seg1Grad: number|null,    // 区間①勾配(%)
+  //     seg2Grad: number|null,    // 区間②勾配(%)
+  //     routeGrad: number,        // 最大区間勾配(%)  最悪区間
+  //     routeLabel: string,       // 経路種別ラベル ('林道経由' | '直接')
+  //     noRoute: boolean,         // 道路/林道ともなし
+  //   }>}
+  // ─────────────────────────────────────────────────────────
+  async function _calcEscapeRoute(lat, lng, myElev, nearTrackNode, nearRoadNode, nearRoadM) {
+    // 脱出路が一切なし
+    if (!nearTrackNode && !nearRoadNode) {
+      return {
+        seg1DistM: 0, seg2DistM: null,
+        totalDistM: nearRoadM ?? Infinity,
+        seg1Grad: null, seg2Grad: null,
+        routeGrad: null,
+        routeLabel: '脱出路なし',
+        noRoute: true,
+      };
+    }
+
+    // ── 林道あり: 地点→林道→一般道の2区間ルート ─────────────
+    if (nearTrackNode) {
+      const seg1DistM = haversine(lat, lng, nearTrackNode.lat, nearTrackNode.lon);
+      const seg2DistM = nearRoadNode
+        ? haversine(nearTrackNode.lat, nearTrackNode.lon, nearRoadNode.lat, nearRoadNode.lon)
+        : null;
+      const totalDistM = seg2DistM !== null
+        ? seg1DistM + seg2DistM
+        : seg1DistM + (nearRoadM ?? 0);
+
+      const [trackElev, roadElev] = await Promise.all([
+        _fetchElev(nearTrackNode.lat, nearTrackNode.lon),
+        nearRoadNode ? _fetchElev(nearRoadNode.lat, nearRoadNode.lon) : Promise.resolve(null),
+      ]);
+
+      const seg1Grad = (myElev !== null && trackElev !== null && seg1DistM > 0)
+        ? Math.abs(trackElev - myElev) / seg1DistM * 100
+        : null;
+      const seg2Grad = (trackElev !== null && roadElev !== null && seg2DistM !== null && seg2DistM > 0)
+        ? Math.abs(roadElev - trackElev) / seg2DistM * 100
+        : null;
+
+      const routeGrad = Math.max(seg1Grad ?? 0, seg2Grad ?? 0);
+
+      return {
+        seg1DistM, seg2DistM, totalDistM,
+        seg1Grad, seg2Grad,
+        routeGrad,
+        routeLabel: '林道経由',
+        noRoute: false,
+      };
+    }
+
+    // ── 林道なし: 地点→一般道の直接ルート ──────────────────
+    const seg1DistM  = nearRoadM ?? 0;
+    const totalDistM = seg1DistM;
+
+    const roadElev = nearRoadNode
+      ? await _fetchElev(nearRoadNode.lat, nearRoadNode.lon)
+      : null;
+
+    const seg1Grad = (myElev !== null && roadElev !== null && seg1DistM > 0)
+      ? Math.abs(roadElev - myElev) / seg1DistM * 100
+      : null;
+
+    return {
+      seg1DistM, seg2DistM: null, totalDistM,
+      seg1Grad, seg2Grad: null,
+      routeGrad: seg1Grad ?? 0,
+      routeLabel: '直接',
+      noRoute: false,
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────
   // キャッシュ層
   // ─────────────────────────────────────────────────────────
   const _evalCache     = new Map();
@@ -1865,66 +1955,32 @@ out geom;
     },
 
     // 18. アクセス難度
-    //     評価地点→林道→一般道の2区間距離＋勾配で徒歩到達障壁を評価
-    //     高スコア = 困難・危険（bearActivityと同じ逆スコア型）
+    //     _calcEscapeRoute（地点→林道→一般道の2区間）で徒歩退路の困難度を評価
+    //     高スコア = 困難・危険（逆スコア型）
     {
       id: 'accessDifficulty', name: '退路・怪我リスク', weight: 0, _mergeOnly: true,
       async evaluate(ctx) {
-        const { lat, lng, terrain, overpass } = ctx;
+        const { lat, lng, terrain } = ctx;
         const myElev        = terrain.elev;
         const nearTrackNode = ctx.cache.nearestTrackNode ?? null;
         const nearRoadNode  = ctx.cache.nearestRoadNode  ?? null;
         const nearRoadM     = ctx.cache.nearestRoadM     ?? null;
 
-        // ── 林道なし: 評価地点→一般道距離のみで評価 ──────────────
-        if (!nearTrackNode) {
-          if (nearRoadM === null) {
-            return { score: STUB_SCORE, reason: 'アクセス経路データ取得中' };
-          }
-          const score = nearRoadM <= 500  ? 1.0   // 一般道至近
-                      : nearRoadM <= 1500 ? 2.0
-                      : nearRoadM <= 3000 ? 3.5
-                      :                    5.0;   // 一般道が遠い＝高難度
+        if (nearRoadM === null && !nearTrackNode) {
+          return { score: STUB_SCORE, reason: 'アクセス経路データ取得中' };
+        }
+
+        const route = await _calcEscapeRoute(lat, lng, myElev, nearTrackNode, nearRoadNode, nearRoadM);
+
+        if (route.noRoute) {
           return {
-            score,
-            reason: `林道なし・一般道まで約${Math.round(nearRoadM)}m`,
-            _debug: {
-              '林道':         'なし',
-              '一般道距離':   `${Math.round(nearRoadM)}m`,
-            },
+            score: 5.0,
+            reason: '脱出路なし（道路・林道ともに圏外）',
+            _debug: { '経路': '脱出路なし', '最終スコア': '5.00' },
           };
         }
 
-        // ── 区間① 評価地点 → nearestTrackNode（林道） ─────────────
-        const seg1DistM = haversine(lat, lng, nearTrackNode.lat, nearTrackNode.lon);
-
-        // ── 区間② nearestTrackNode → nearestRoadNode（一般道） ────
-        const seg2DistM = nearRoadNode
-          ? haversine(nearTrackNode.lat, nearTrackNode.lon, nearRoadNode.lat, nearRoadNode.lon)
-          : null;
-
-        const totalDistM = seg2DistM !== null
-          ? seg1DistM + seg2DistM
-          : seg1DistM + (nearRoadM ?? 0);
-
-        // ── 勾配計算（並列fetch） ──────────────────────────────────
-        // 区間①: 評価地点標高(myElev) vs 林道ノード標高
-        // 区間②: 林道ノード標高 vs 一般道ノード標高
-        const [trackElev, roadElev] = await Promise.all([
-          _fetchElev(nearTrackNode.lat, nearTrackNode.lon),
-          nearRoadNode ? _fetchElev(nearRoadNode.lat, nearRoadNode.lon) : Promise.resolve(null),
-        ]);
-
-        // 勾配(%) = 標高差(m) / 水平距離(m) × 100
-        const seg1Grad = (myElev !== null && trackElev !== null && seg1DistM > 0)
-          ? Math.abs(trackElev - myElev) / seg1DistM * 100
-          : null;
-
-        const seg2Grad = (trackElev !== null && roadElev !== null && seg2DistM !== null && seg2DistM > 0)
-          ? Math.abs(roadElev - trackElev) / seg2DistM * 100
-          : null;
-
-        const maxGrad = Math.max(seg1Grad ?? 0, seg2Grad ?? 0);
+        const { seg1DistM, seg2DistM, totalDistM, seg1Grad, seg2Grad, routeGrad, routeLabel } = route;
 
         // ── 距離スコア（長いほど高難度） ──────────────────────────
         const distScore = totalDistM <= 300  ? 1.0
@@ -1933,38 +1989,38 @@ out geom;
                         : totalDistM <= 3000 ? 4.0
                         :                     5.0;
 
-        // ── 勾配ペナルティ（林道向けきつめ閾値） ──────────────────
+        // ── 勾配ペナルティ ─────────────────────────────────────────
         // 15%未満: 舗装林道レベル → 加点なし
         // 15〜30%: 未舗装林道    → +0.5
         // 30〜50%: 沢沿い・藪こぎ → +1.5
         // 50%〜  : 崖レベル       → +2.5
-        const gradBonus = maxGrad >= 50 ? 2.5
-                        : maxGrad >= 30 ? 1.5
-                        : maxGrad >= 15 ? 0.5
-                        :                0.0;
+        const gradBonus = routeGrad >= 50 ? 2.5
+                        : routeGrad >= 30 ? 1.5
+                        : routeGrad >= 15 ? 0.5
+                        :                  0.0;
 
         const score = clamp5(distScore + gradBonus);
 
-        // ラベル生成
         const distLabel = totalDistM >= 1000
           ? `合計${(totalDistM / 1000).toFixed(1)}km`
           : `合計${Math.round(totalDistM)}m`;
-        const gradLabel = maxGrad >= 50 ? `勾配${Math.round(maxGrad)}%（崖レベル）`
-                        : maxGrad >= 30 ? `勾配${Math.round(maxGrad)}%（急斜面）`
-                        : maxGrad >= 15 ? `勾配${Math.round(maxGrad)}%（やや急）`
-                        : maxGrad >   0 ? `勾配${Math.round(maxGrad)}%（緩やか）`
-                        :                '勾配データなし';
+        const gradLabel = routeGrad >= 50 ? `勾配${Math.round(routeGrad)}%（崖レベル）`
+                        : routeGrad >= 30 ? `勾配${Math.round(routeGrad)}%（急斜面）`
+                        : routeGrad >= 15 ? `勾配${Math.round(routeGrad)}%（やや急）`
+                        : routeGrad >   0 ? `勾配${Math.round(routeGrad)}%（緩やか）`
+                        :                  '勾配データなし';
 
         return {
           score,
-          reason: `徒歩退路: ${distLabel} / ${gradLabel}`,
+          reason: `徒歩退路(${routeLabel}): ${distLabel} / ${gradLabel}`,
           _debug: {
-            '区間①距離(地点→林道)': `${Math.round(seg1DistM)}m`,
+            '経路種別':               routeLabel,
+            '区間①距離(地点→林道)':  `${Math.round(seg1DistM)}m`,
             '区間②距離(林道→一般道)': seg2DistM !== null ? `${Math.round(seg2DistM)}m` : '不明',
             '合計距離':               distLabel,
             '区間①勾配':             seg1Grad !== null ? `${Math.round(seg1Grad)}%` : '不明',
             '区間②勾配':             seg2Grad !== null ? `${Math.round(seg2Grad)}%` : '不明',
-            '最大勾配':               `${Math.round(maxGrad)}%`,
+            '採用勾配(最大区間)':     `${Math.round(routeGrad)}%`,
             '距離スコア':             distScore.toFixed(1),
             '勾配ボーナス':           `+${gradBonus.toFixed(1)}`,
             '最終スコア':             score.toFixed(2),
@@ -2026,43 +2082,29 @@ out geom;
         const base = Math.max(...components); // 最悪ケースを採用
 
         // ── 脱出路勾配ボーナス（急なほど高リスク） ────────────────
-        // 道路/林道とも存在しない場合は強制 +1.5
+        // _calcEscapeRoute で「地点→林道→一般道」の実経路を使って評価する。
+        // 旧実装は roadGrad と trackGrad の最大値（最悪ルート）を採用していたが、
+        // 実際は林道経由ルートの最大区間勾配（routeGrad）が正しい評価対象。
+        const route = await _calcEscapeRoute(lat, lng, elev, nearTrackNode, nearRoadNode, nearRoadM);
+
         let gradBonus = 0;
         let gradLabel = '';
 
-        if (!nearRoadNode && !nearTrackNode) {
+        if (route.noRoute) {
           gradBonus = 1.5;
           gradLabel = '脱出路なし';
+        } else if (route.routeGrad === null) {
+          gradBonus = 1.5;
+          gradLabel = '勾配取得失敗';
         } else {
-          async function _calcGrad(node, distM) {
-            if (!node || distM <= 0) return null;
-            const nElev = await _fetchElev(node.lat, node.lon);
-            if (nElev === null || elev === null) return null;
-            return Math.abs(nElev - elev) / distM * 100;
-          }
-
-          const roadDistM  = ctx.cache.nearestRoadM ?? Infinity;
-          const trackDistM = nearTrackNode
-            ? haversine(lat, lng, nearTrackNode.lat, nearTrackNode.lon)
-            : Infinity;
-
-          const [roadGrad, trackGrad] = await Promise.all([
-            _calcGrad(nearRoadNode,  roadDistM),
-            _calcGrad(nearTrackNode, trackDistM),
-          ]);
-
-          const maxGrad = Math.max(roadGrad ?? -Infinity, trackGrad ?? -Infinity);
-
-          if (maxGrad === -Infinity) {
-            gradBonus = 1.5;
-            gradLabel = '勾配取得失敗';
-          } else {
-            gradBonus = maxGrad < 20 ? 0.0    // 緩やか
-                      : maxGrad < 40 ? 0.5    // やや急
-                      : maxGrad < 60 ? 1.0    // 急斜面
-                      :               2.5;    // 崖レベル
-            gradLabel = `脱出勾配${Math.round(maxGrad)}%（道路${roadGrad !== null ? Math.round(roadGrad)+'%' : 'なし'} / 林道${trackGrad !== null ? Math.round(trackGrad)+'%' : 'なし'}）`;
-          }
+          const rg = route.routeGrad;
+          gradBonus = rg < 20 ? 0.0    // 緩やか
+                    : rg < 40 ? 0.5    // やや急
+                    : rg < 60 ? 1.0    // 急斜面
+                    :           2.5;   // 崖レベル
+          gradLabel = `脱出勾配(${route.routeLabel})${Math.round(rg)}%`
+            + `（区間①${route.seg1Grad !== null ? Math.round(route.seg1Grad)+'%' : 'なし'}`
+            + ` / 区間②${route.seg2Grad !== null ? Math.round(route.seg2Grad)+'%' : 'なし'}）`;
         }
 
         // ── 地形ボーナス ────────────────────────────────────────
@@ -2129,6 +2171,9 @@ out geom;
             '標高':            elev !== null ? `${Math.round(elev)}m` : '未取得',
             '地形傾斜差':      slopeDiff !== null ? `${Math.round(slopeDiff)}m` : '未取得',
             'ベーススコア':    base.toFixed(1),
+            '脱出路経路':      route.noRoute ? '脱出路なし' : route.routeLabel,
+            '脱出路合計距離':  route.noRoute ? '-' : (route.totalDistM >= 1000 ? `${(route.totalDistM/1000).toFixed(1)}km` : `${Math.round(route.totalDistM)}m`),
+            '採用勾配(最大区間)': route.routeGrad !== null ? `${Math.round(route.routeGrad)}%` : '不明',
             '勾配ボーナス':    `+${gradBonus.toFixed(1)} (${gradLabel})`,
             '地形ボーナス':    `+${slopeBonus.toFixed(1)}`,
             '1km森林way数':    `${ways1km}本 → +${forest1kmBonus.toFixed(2)}`,
