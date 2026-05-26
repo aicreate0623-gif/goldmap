@@ -497,6 +497,55 @@ const GoldEvaluator = (() => {
   }
 
   // ─────────────────────────────────────────────────────────
+  // 共通: 距離×勾配の相対リスク評価
+  //   距離が短いほど急勾配の危険度が増す（転倒・転落リスク）
+  //   長距離では勾配が体力消耗・遭難に直結する
+  //
+  //   距離帯    | 勾配閾値 | ボーナス
+  //   〜300m    | 50%以上  | +2.5（近距離崖＝転落リスク最大）
+  //   〜300m    | 30%以上  | +2.0（近距離急斜面）
+  //   〜300m    | 15%以上  | +1.0（近距離やや急）
+  //   300〜800m | 50%以上  | +2.0（中距離崖）
+  //   300〜800m | 30%以上  | +1.5（中距離急斜面）
+  //   300〜800m | 15%以上  | +0.5（中距離やや急）
+  //   800m〜    | 50%以上  | +1.5（長距離崖＝体力消耗+危険）
+  //   800m〜    | 30%以上  | +1.0（長距離急斜面）
+  //   800m〜    | 15%以上  | +0.5（長距離やや急）
+  //
+  //   @param {number} distM    ルート合計距離(m)
+  //   @param {number} gradPct  最大区間勾配(%)
+  //   @returns {{ bonus: number, label: string }}
+  // ─────────────────────────────────────────────────────────
+  function _calcGradBonus(distM, gradPct) {
+    if (gradPct === null || gradPct === undefined) {
+      return { bonus: 0, label: '勾配データなし' };
+    }
+    let bonus = 0;
+    if (distM <= 300) {
+      bonus = gradPct >= 50 ? 2.5
+            : gradPct >= 30 ? 2.0
+            : gradPct >= 15 ? 1.0
+            :                 0.0;
+    } else if (distM <= 800) {
+      bonus = gradPct >= 50 ? 2.0
+            : gradPct >= 30 ? 1.5
+            : gradPct >= 15 ? 0.5
+            :                 0.0;
+    } else {
+      bonus = gradPct >= 50 ? 1.5
+            : gradPct >= 30 ? 1.0
+            : gradPct >= 15 ? 0.5
+            :                 0.0;
+    }
+    const distBand = distM <= 300 ? '近距離' : distM <= 800 ? '中距離' : '長距離';
+    const gradDesc = gradPct >= 50 ? '崖レベル'
+                   : gradPct >= 30 ? '急斜面'
+                   : gradPct >= 15 ? 'やや急'
+                   :                 '緩やか';
+    return { bonus, label: `${distBand}/${gradDesc}(${Math.round(gradPct)}%)` };
+  }
+
+  // ─────────────────────────────────────────────────────────
   // 共通: 脱出路評価ヘルパー
   //   評価地点 → 林道 → 一般道 の2区間で脱出困難度を計算する。
   //   accessDifficulty / accessibility の両方から呼ばれる。
@@ -2118,15 +2167,8 @@ out geom;
                         : totalDistM <= 3000 ? 4.0
                         :                     5.0;
 
-        // ── 勾配ペナルティ ─────────────────────────────────────────
-        // 15%未満: 舗装林道レベル → 加点なし
-        // 15〜30%: 未舗装林道    → +0.5
-        // 30〜50%: 沢沿い・藪こぎ → +1.5
-        // 50%〜  : 崖レベル       → +2.5
-        const gradBonus = routeGrad >= 50 ? 2.5
-                        : routeGrad >= 30 ? 1.5
-                        : routeGrad >= 15 ? 0.5
-                        :                  0.0;
+        // ── 勾配ボーナス（距離×勾配の相対評価） ───────────────────
+        const { bonus: gradBonus, label: gradBonusLabel } = _calcGradBonus(totalDistM, routeGrad);
 
         // ── 近接ボーナス（直接ルート200m以内: -1.0） ──────────────
         const nearBonus = (routeLabel === '直接' && totalDistM <= 200) ? -1.0 : 0;
@@ -2153,7 +2195,7 @@ out geom;
             '区間②勾配':             seg2Grad !== null ? `${Math.round(seg2Grad)}%` : '不明',
             '採用勾配(最大区間)':     `${Math.round(routeGrad)}%`,
             '距離スコア':             distScore.toFixed(1),
-            '勾配ボーナス':           `+${gradBonus.toFixed(1)}`,
+            '勾配ボーナス(距離×勾配)': `+${gradBonus.toFixed(1)}（${gradBonusLabel}）`,
             '近接ボーナス':           `${nearBonus.toFixed(1)}（直接200m以内）`,
             '最終スコア':             score.toFixed(2),
           },
@@ -2229,12 +2271,9 @@ out geom;
           gradBonus = 1.5;
           gradLabel = '勾配取得失敗';
         } else {
-          const rg = route.routeGrad;
-          gradBonus = rg < 20 ? 0.0    // 緩やか
-                    : rg < 40 ? 0.5    // やや急
-                    : rg < 60 ? 1.0    // 急斜面
-                    :           2.5;   // 崖レベル
-          gradLabel = `脱出勾配(${route.routeLabel})${Math.round(rg)}%`
+          const { bonus, label } = _calcGradBonus(route.totalDistM, route.routeGrad);
+          gradBonus = bonus;
+          gradLabel = `脱出勾配(${route.routeLabel})${label}`
             + `（区間①${route.seg1Grad !== null ? Math.round(route.seg1Grad)+'%' : 'なし'}`
             + ` / 区間②${route.seg2Grad !== null ? Math.round(route.seg2Grad)+'%' : 'なし'}）`;
         }
@@ -2358,28 +2397,15 @@ out geom;
           : Infinity;
         const trackRelief = trackDistM <= 200 ? -1.0 : 0;
 
-        // ── 徒歩勾配スコア（_calcEscapeRoute で実経路を評価）────────
-        // 〜 8%  : +0.0（緩やか・舗装路レベル）
-        //  8〜15%: +0.5（やや急・一般山道）
-        // 15〜25%: +1.0（急・未舗装林道）
-        // 25〜40%: +2.0（かなり急・沢沿い）
-        // 40%〜  : +3.0（危険域・ロープ必要レベル）
+        // ── 徒歩勾配スコア（距離×勾配の相対評価）────────────────
         const route = await _calcEscapeRoute(lat, lng, myElev, nearTrackNode, nearRoadNode, nearRoadM);
         let gradBonus = 0;
         let gradLabel = '勾配データなし';
 
         if (!route.noRoute && route.routeGrad !== null) {
-          const rg = route.routeGrad;
-          gradBonus = rg >= 40 ? 3.0
-                    : rg >= 25 ? 2.0
-                    : rg >= 15 ? 1.0
-                    : rg >=  8 ? 0.5
-                    :            0.0;
-          gradLabel = rg >= 40 ? `勾配${Math.round(rg)}%（危険域）`
-                    : rg >= 25 ? `勾配${Math.round(rg)}%（かなり急）`
-                    : rg >= 15 ? `勾配${Math.round(rg)}%（急）`
-                    : rg >=  8 ? `勾配${Math.round(rg)}%（やや急）`
-                    :            `勾配${Math.round(rg)}%（緩やか）`;
+          const { bonus, label } = _calcGradBonus(route.totalDistM, route.routeGrad);
+          gradBonus = bonus;
+          gradLabel = label;
         } else if (route.noRoute) {
           gradLabel = '脱出路なし';
         }
