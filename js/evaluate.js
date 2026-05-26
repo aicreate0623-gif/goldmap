@@ -2188,15 +2188,16 @@ out geom;
     },
 
     // 17. アクセスリスク
-    //     一般道・林道の実距離から直接リスクスコアを計算
-    //     反転ロジック廃止: nearestRoadM / nearestTrackNode を直接参照
-    //     高スコア = 危険（遠いほど高リスク）
+    //     一般道距離（連続加算）＋ 徒歩勾配（_calcEscapeRoute）でリスクを評価
+    //     高スコア = 危険（遠い・急なほど高リスク）
     {
       id: 'accessRoad', name: 'アクセスリスク', weight: 0, _mergeOnly: true,
-      evaluate(ctx) {
-        const { lat, lng } = ctx;
-        const nearRoadM     = ctx.cache.nearestRoadM    ?? null;
+      async evaluate(ctx) {
+        const { lat, lng, terrain } = ctx;
+        const nearRoadM     = ctx.cache.nearestRoadM     ?? null;
         const nearTrackNode = ctx.cache.nearestTrackNode ?? null;
+        const nearRoadNode  = ctx.cache.nearestRoadNode  ?? null;
+        const myElev        = terrain.elev;
 
         if (nearRoadM === null) {
           return { score: STUB_SCORE, reason: 'アクセスリスクデータ準備中' };
@@ -2209,9 +2210,9 @@ out geom;
         // 2000m〜    : 100mごと +0.4
         let roadRisk = 0;
         if (nearRoadM > 200) {
-          const d1 = Math.min(nearRoadM, 1000) - 200;   // 200〜1000m の超過分
-          const d2 = Math.max(0, Math.min(nearRoadM, 2000) - 1000); // 1000〜2000m の超過分
-          const d3 = Math.max(0, nearRoadM - 2000);                 // 2000m〜 の超過分
+          const d1 = Math.min(nearRoadM, 1000) - 200;
+          const d2 = Math.max(0, Math.min(nearRoadM, 2000) - 1000);
+          const d3 = Math.max(0, nearRoadM - 2000);
           roadRisk = (d1 / 100) * 0.2
                    + (d2 / 100) * 0.3
                    + (d3 / 100) * 0.4;
@@ -2223,7 +2224,33 @@ out geom;
           : Infinity;
         const trackRelief = trackDistM <= 200 ? -1.0 : 0;
 
-        const score = clamp5(roadRisk + trackRelief);
+        // ── 徒歩勾配スコア（_calcEscapeRoute で実経路を評価）────────
+        // 〜 8%  : +0.0（緩やか・舗装路レベル）
+        //  8〜15%: +0.5（やや急・一般山道）
+        // 15〜25%: +1.0（急・未舗装林道）
+        // 25〜40%: +2.0（かなり急・沢沿い）
+        // 40%〜  : +3.0（危険域・ロープ必要レベル）
+        const route = await _calcEscapeRoute(lat, lng, myElev, nearTrackNode, nearRoadNode, nearRoadM);
+        let gradBonus = 0;
+        let gradLabel = '勾配データなし';
+
+        if (!route.noRoute && route.routeGrad !== null) {
+          const rg = route.routeGrad;
+          gradBonus = rg >= 40 ? 3.0
+                    : rg >= 25 ? 2.0
+                    : rg >= 15 ? 1.0
+                    : rg >=  8 ? 0.5
+                    :            0.0;
+          gradLabel = rg >= 40 ? `勾配${Math.round(rg)}%（危険域）`
+                    : rg >= 25 ? `勾配${Math.round(rg)}%（かなり急）`
+                    : rg >= 15 ? `勾配${Math.round(rg)}%（急）`
+                    : rg >=  8 ? `勾配${Math.round(rg)}%（やや急）`
+                    :            `勾配${Math.round(rg)}%（緩やか）`;
+        } else if (route.noRoute) {
+          gradLabel = '脱出路なし';
+        }
+
+        const score = clamp5(roadRisk + trackRelief + gradBonus);
 
         const roadLabel  = nearRoadM >= 1000
           ? `一般道${(nearRoadM/1000).toFixed(1)}km`
@@ -2234,7 +2261,7 @@ out geom;
 
         return {
           score,
-          reason: `${roadLabel} / ${trackLabel}`,
+          reason: `${roadLabel} / ${trackLabel} / ${gradLabel}`,
           _debug: {
             '一般道距離':         `${Math.round(nearRoadM)}m`,
             '200〜1000m加算':     `${Math.max(0, (Math.min(nearRoadM,1000)-200)/100).toFixed(1)}×0.2`,
@@ -2243,6 +2270,9 @@ out geom;
             '一般道リスク合計':   roadRisk.toFixed(2),
             '林道距離':           trackDistM < Infinity ? `${Math.round(trackDistM)}m` : 'なし',
             '林道緩和':           `${trackRelief.toFixed(1)}`,
+            '経路種別':           route.noRoute ? '脱出路なし' : route.routeLabel,
+            '採用勾配(最大区間)': route.routeGrad !== null ? `${Math.round(route.routeGrad)}%` : '不明',
+            '勾配加算':           `+${gradBonus.toFixed(1)}（${gradLabel}）`,
             '最終スコア':         score.toFixed(2),
           },
         };
