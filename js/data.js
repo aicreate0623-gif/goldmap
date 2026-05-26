@@ -1142,7 +1142,6 @@ async function loadMineData(fromButton=false){
     }[mat] || mat;
     clusterGroups[mat] = L.markerClusterGroup({
       maxClusterRadius: 40,
-      spiderfyOnMaxZoom: false,
       zoomToBoundsOnClick: false, // clusterclickで件数別に制御するためOFF
       showCoverageOnHover: false,
       iconCreateFunction: (cluster) => {
