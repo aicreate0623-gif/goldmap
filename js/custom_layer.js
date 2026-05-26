@@ -58,8 +58,9 @@ async function _clSave(){
 // ── 初期化 ──────────────────────────────────
 async function initCustomLayer(){
   await _clLoad();
+  // 起動時は常にOFF（前回のvisible状態はメモリ上のみリセット）
+  _clSets.forEach(s=>{ s.visible = false; });
   _renderClSets();
-  _clSets.forEach(s=>{ if(s.visible) _buildLayer(s); });
   _syncFloatBtn();
 }
 
