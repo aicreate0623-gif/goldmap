@@ -1086,7 +1086,8 @@ function makeMineMarker(d){
   if(!d.lat || !d.lng) return null;
   return L.marker([d.lat,d.lng],{
     icon:L.divIcon({html,className:'',iconSize:[sz+4,sz+4],iconAnchor:[(sz+4)/2,(sz+4)/2],popupAnchor:[0,-((sz+4)/2+8)]}),
-    zIndexOffset:d.trace?0:10
+    zIndexOffset:d.trace?0:10,
+    pane: 'paneGsj'
   }).bindPopup(popup, {maxWidth:260});
 }
 
@@ -1142,8 +1143,10 @@ async function loadMineData(fromButton=false){
     }[mat] || mat;
     clusterGroups[mat] = L.markerClusterGroup({
       maxClusterRadius: 40,
-      zoomToBoundsOnClick: false, // clusterclickで件数別に制御するためOFF
+      zoomToBoundsOnClick: false,
       showCoverageOnHover: false,
+      clusterPane: 'paneGsj',
+      spiderLegPolylineOptions: { pane: 'paneGsj', weight: 1.5, color: '#fff', opacity: 0.5 },
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 28 : count < 100 ? 34 : 40;
