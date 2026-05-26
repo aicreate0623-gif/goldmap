@@ -54,27 +54,79 @@ const GoldEvaluator = (() => {
   }
 
   /**
-   * wayのノード列から最近傍点までの距離(m)を返す
-   * geom付きway（geometry配列）に対して使用
+   * 評価点Qから線分AB上の最近傍点（垂線の足）を求め、
+   * その点の座標と距離(m)を返す内部ヘルパー。
+   *
+   * アルゴリズム:
+   *   平面近似（緯度補正付きメートル換算）でtパラメータを計算し、
+   *   t∈[0,1]なら垂線の足、t<0ならA端点、t>1ならB端点を最近傍とする。
+   *
+   * @returns {{ lat: number, lon: number, dist: number }}
+   */
+  function _nearestOnSegment(lat, lng, A, B) {
+    const cosLat = Math.cos(lat * Math.PI / 180);
+    const scale  = 111000;
+
+    // メートル換算（評価点を原点）
+    const qx = 0, qy = 0;
+    const ax  = (A.lon - lng) * cosLat * scale;
+    const ay  = (A.lat - lat) * scale;
+    const bx  = (B.lon - lng) * cosLat * scale;
+    const by  = (B.lat - lat) * scale;
+
+    const dx = bx - ax, dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+
+    let t = 0;
+    if (lenSq > 1e-10) {
+      t = ((qx - ax) * dx + (qy - ay) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+    }
+
+    // 最近傍点の座標（度数に戻す）
+    const nearLon = A.lon + t * (B.lon - A.lon);
+    const nearLat = A.lat + t * (B.lat - A.lat);
+    const dist    = haversine(lat, lng, nearLat, nearLon);
+
+    return { lat: nearLat, lon: nearLon, dist };
+  }
+
+  /**
+   * wayのノード列から評価点までの最短距離(m)を返す。
+   * ノード間の線分への垂線距離も考慮するため、
+   * ノード密度が低い川・道路でも正確に近傍距離を計算できる。
    */
   function _nearestDistToWay(lat, lng, geometry) {
+    if (!geometry || geometry.length === 0) return Infinity;
+    if (geometry.length === 1) {
+      return haversine(lat, lng, geometry[0].lat, geometry[0].lon);
+    }
     let minD = Infinity;
-    for (const pt of geometry) {
-      const d = haversine(lat, lng, pt.lat, pt.lon);
-      if (d < minD) minD = d;
+    for (let i = 0; i < geometry.length - 1; i++) {
+      const { dist } = _nearestOnSegment(lat, lng, geometry[i], geometry[i + 1]);
+      if (dist < minD) minD = dist;
     }
     return minD;
   }
 
   /**
-   * wayの最近傍ノードと距離を返す
+   * wayのノード列から評価点に最も近い点（垂線の足を含む）と距離を返す。
+   * 垂線の足が最近傍の場合はその補間座標を返すため、
+   * 標高取得（_fetchElev）の精度も向上する。
    * @returns {{ node: {lat,lon}, dist: number }}
    */
   function _nearestNodeOfWay(lat, lng, geometry) {
+    if (!geometry || geometry.length === 0) return { node: null, dist: Infinity };
+    if (geometry.length === 1) {
+      return { node: geometry[0], dist: haversine(lat, lng, geometry[0].lat, geometry[0].lon) };
+    }
     let minD = Infinity, nearNode = null;
-    for (const pt of geometry) {
-      const d = haversine(lat, lng, pt.lat, pt.lon);
-      if (d < minD) { minD = d; nearNode = pt; }
+    for (let i = 0; i < geometry.length - 1; i++) {
+      const { lat: nLat, lon: nLon, dist } = _nearestOnSegment(lat, lng, geometry[i], geometry[i + 1]);
+      if (dist < minD) {
+        minD     = dist;
+        nearNode = { lat: nLat, lon: nLon };
+      }
     }
     return { node: nearNode, dist: minD };
   }
@@ -582,7 +634,12 @@ const GoldEvaluator = (() => {
     }
 
     // ── 直接ルート: 地点→一般道 ──────────────────────────────
-    const directDistM = nearRoadM ?? Infinity;
+    // nearRoadM が null でも nearRoadNode があれば距離を再計算
+    const directDistM = (nearRoadM !== null && nearRoadM !== undefined)
+      ? nearRoadM
+      : nearRoadNode
+        ? haversine(lat, lng, nearRoadNode.lat, nearRoadNode.lon)
+        : Infinity;
     const directRoadElev = nearRoadNode
       ? await _fetchElev(nearRoadNode.lat, nearRoadNode.lon)
       : null;
