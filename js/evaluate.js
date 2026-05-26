@@ -2202,18 +2202,26 @@ out geom;
           return { score: STUB_SCORE, reason: 'アクセスリスクデータ準備中' };
         }
 
-        // 一般道距離から直接リスクスコアを計算
-        const roadRisk = nearRoadM <= 200  ? 1.0
-                       : nearRoadM <= 500  ? 1.5
-                       : nearRoadM <= 1000 ? 2.5
-                       : nearRoadM <= 2000 ? 3.5
-                       :                    5.0;
+        // ── 一般道距離から連続加算方式でリスクスコアを計算 ──────────
+        // 200m以下: 加算なし
+        // 200m〜1000m: 100mごと +0.2
+        // 1000m〜2000m: 100mごと +0.3
+        // 2000m〜    : 100mごと +0.4
+        let roadRisk = 0;
+        if (nearRoadM > 200) {
+          const d1 = Math.min(nearRoadM, 1000) - 200;   // 200〜1000m の超過分
+          const d2 = Math.max(0, Math.min(nearRoadM, 2000) - 1000); // 1000〜2000m の超過分
+          const d3 = Math.max(0, nearRoadM - 2000);                 // 2000m〜 の超過分
+          roadRisk = (d1 / 100) * 0.2
+                   + (d2 / 100) * 0.3
+                   + (d3 / 100) * 0.4;
+        }
 
-        // 林道が近くにあればリスクを緩和（-0.5）
+        // ── 林道が200m以内にあればリスクを緩和（-1.0） ───────────
         const trackDistM = nearTrackNode
           ? haversine(lat, lng, nearTrackNode.lat, nearTrackNode.lon)
           : Infinity;
-        const trackRelief = trackDistM <= 1000 ? -0.5 : 0;
+        const trackRelief = trackDistM <= 200 ? -1.0 : 0;
 
         const score = clamp5(roadRisk + trackRelief);
 
@@ -2221,18 +2229,21 @@ out geom;
           ? `一般道${(nearRoadM/1000).toFixed(1)}km`
           : `一般道${Math.round(nearRoadM)}m`;
         const trackLabel = trackDistM < Infinity
-          ? `林道${Math.round(trackDistM)}m${trackRelief < 0 ? '（緩和）' : ''}`
+          ? `林道${Math.round(trackDistM)}m${trackRelief < 0 ? '（緩和-1.0）' : ''}`
           : '林道なし';
 
         return {
           score,
           reason: `${roadLabel} / ${trackLabel}`,
           _debug: {
-            '一般道距離':   `${Math.round(nearRoadM)}m`,
-            '一般道リスク': roadRisk.toFixed(1),
-            '林道距離':     trackDistM < Infinity ? `${Math.round(trackDistM)}m` : 'なし',
-            '林道緩和':     `${trackRelief.toFixed(1)}`,
-            '最終スコア':   score.toFixed(2),
+            '一般道距離':         `${Math.round(nearRoadM)}m`,
+            '200〜1000m加算':     `${Math.max(0, (Math.min(nearRoadM,1000)-200)/100).toFixed(1)}×0.2`,
+            '1000〜2000m加算':    `${Math.max(0, (Math.min(nearRoadM,2000)-1000)/100).toFixed(1)}×0.3`,
+            '2000m〜加算':        `${Math.max(0, (nearRoadM-2000)/100).toFixed(1)}×0.4`,
+            '一般道リスク合計':   roadRisk.toFixed(2),
+            '林道距離':           trackDistM < Infinity ? `${Math.round(trackDistM)}m` : 'なし',
+            '林道緩和':           `${trackRelief.toFixed(1)}`,
+            '最終スコア':         score.toFixed(2),
           },
         };
       },
