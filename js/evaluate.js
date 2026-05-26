@@ -2229,7 +2229,14 @@ out geom;
 
         // ── 近接ボーナス（直接ルート200m以内: -1.0） ──────────────
         const nearBonus = (routeLabel === '直接' && totalDistM <= 200) ? -1.0 : 0;
-        const score = Math.max(0, clamp5(distScore + gradBonus) + nearBonus);
+
+        // ── 一般道近接ボーナス（nearRoadM基準） ────────────────────
+        const nearRoadBonus = nearRoadM === null ? 0
+                            : nearRoadM <= 200   ? -1.5
+                            : nearRoadM <= 500   ? -1.0
+                            :                      0;
+
+        const score = Math.max(0, clamp5(distScore + gradBonus) + nearBonus + nearRoadBonus);
 
         const distLabel = totalDistM >= 1000
           ? `合計${(totalDistM / 1000).toFixed(1)}km`
@@ -2242,7 +2249,7 @@ out geom;
 
         return {
           score,
-          reason: `徒歩退路(${routeLabel}): ${distLabel} / ${gradLabel}${nearBonus < 0 ? ' / 近接ボーナス-1' : ''}`,
+          reason: `徒歩退路(${routeLabel}): ${distLabel} / ${gradLabel}${nearBonus < 0 ? ' / 近接ボーナス-1' : ''}${nearRoadBonus < 0 ? ` / 一般道近接${nearRoadBonus.toFixed(1)}` : ''}`,
           _debug: {
             '経路種別':               routeLabel,
             'nearRoadM(キャッシュ)':   `${nearRoadM}`,
@@ -2256,7 +2263,8 @@ out geom;
             '採用勾配(最大区間)':     `${Math.round(routeGrad)}%`,
             '距離スコア':             distScore.toFixed(1),
             '勾配ボーナス(距離×勾配)': `+${gradBonus.toFixed(1)}（${gradBonusLabel}）`,
-            '近接ボーナス':           `${nearBonus.toFixed(1)}（直接200m以内）`,
+            '近接ボーナス(直接)':     `${nearBonus.toFixed(1)}（直接200m以内）`,
+            '一般道近接ボーナス':     `${nearRoadBonus.toFixed(1)}（200m以下:-1.5 / 500m以下:-1.0）`,
             '最終スコア':             score.toFixed(2),
           },
         };
