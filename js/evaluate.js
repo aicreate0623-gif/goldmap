@@ -657,8 +657,8 @@ const GoldEvaluator = (() => {
         ? seg1DistM + seg2DistM
         : seg1DistM + (nearRoadM ?? 0);
 
-      // 一般道への直接距離の方が短ければ直接ルートを採用
-      if (directDistM <= trackTotalDistM) {
+      // 一般道への直接距離が林道までの距離より短ければ直接ルートを採用
+      if (directDistM <= seg1DistM) {
         return {
           seg1DistM: directDistM, seg2DistM: null,
           totalDistM: directDistM,
