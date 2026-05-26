@@ -2245,6 +2245,9 @@ out geom;
           reason: `徒歩退路(${routeLabel}): ${distLabel} / ${gradLabel}${nearBonus < 0 ? ' / 近接ボーナス-1' : ''}`,
           _debug: {
             '経路種別':               routeLabel,
+            'nearRoadM(キャッシュ)':   `${nearRoadM}`,
+            'directDistM':             `${directDistM}`,
+            'trackTotalDistM':         `${totalDistM}`,
             '区間①距離(地点→林道)':  `${Math.round(seg1DistM)}m`,
             '区間②距離(林道→一般道)': seg2DistM !== null ? `${Math.round(seg2DistM)}m` : '不明',
             '合計距離':               distLabel,
