@@ -26,7 +26,7 @@ const GoldEvaluator = (() => {
   const OVERPASS_RADIUS = 3000;     // 地形・河川・道路評価の半径(m)
   const BEAR_RADIUS_M   = 40000;    // 熊評価の最大参照半径(m)
   const POST_RADIUS_DEG = 0.05;     // Firestoreポスト検索半径(度 ≒5km)
-  const OVERPASS_TTL    = 30 * 60 * 1000; // Overpassキャッシュ 30分
+  const OVERPASS_TTL    = 7 * 24 * 60 * 60 * 1000; // Overpassキャッシュ 7日
 
   // ─────────────────────────────────────────────────────────
   // ユーティリティ
@@ -723,6 +723,76 @@ const GoldEvaluator = (() => {
   }
 
   // ─────────────────────────────────────────────────────────
+  // IndexedDB永続キャッシュ（Overpass用）
+  // ─────────────────────────────────────────────────────────
+  const _IDB_NAME    = 'goldmap-overpass';
+  const _IDB_STORE   = 'cache';
+  const _IDB_VERSION = 1;
+  let   _idb         = null; // 初期化後にDBインスタンスを保持
+
+  /** IndexedDBを開く（初回のみ）*/
+  function _openIdb() {
+    if (_idb) return Promise.resolve(_idb);
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(_IDB_NAME, _IDB_VERSION);
+      req.onupgradeneeded = e => {
+        e.target.result.createObjectStore(_IDB_STORE, { keyPath: 'k' });
+      };
+      req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
+      req.onerror   = () => reject(req.error);
+    });
+  }
+
+  /** IndexedDBから1件読み込む */
+  async function _idbGet(k) {
+    try {
+      const db = await _openIdb();
+      return await new Promise((resolve, reject) => {
+        const tx  = db.transaction(_IDB_STORE, 'readonly');
+        const req = tx.objectStore(_IDB_STORE).get(k);
+        req.onsuccess = () => resolve(req.result ?? null);
+        req.onerror   = () => reject(req.error);
+      });
+    } catch { return null; }
+  }
+
+  /** IndexedDBに1件書き込む */
+  async function _idbSet(k, value) {
+    try {
+      const db = await _openIdb();
+      await new Promise((resolve, reject) => {
+        const tx  = db.transaction(_IDB_STORE, 'readwrite');
+        const req = tx.objectStore(_IDB_STORE).put({ k, ...value });
+        req.onsuccess = () => resolve();
+        req.onerror   = () => reject(req.error);
+      });
+    } catch { /* 書き込み失敗は無視（メモリキャッシュで動作継続） */ }
+  }
+
+  /** 起動時にIndexedDBからメモリキャッシュへ復元（有効期限内のみ） */
+  async function _restoreOverpassCache() {
+    try {
+      const db  = await _openIdb();
+      const now = Date.now();
+      await new Promise((resolve, reject) => {
+        const tx      = db.transaction(_IDB_STORE, 'readonly');
+        const req     = tx.objectStore(_IDB_STORE).getAll();
+        req.onsuccess = () => {
+          for (const row of req.result) {
+            if (now - row.at < OVERPASS_TTL) {
+              _overpassCache.set(row.k, { data: row.data, at: row.at });
+            }
+          }
+          resolve();
+        };
+        req.onerror = () => reject(req.error);
+      });
+    } catch { /* 復元失敗は無視 */ }
+  }
+  // 非同期で起動（評価より前に完了するよう即実行）
+  _restoreOverpassCache();
+
+  // ─────────────────────────────────────────────────────────
   // データ取得ヘルパー
   // ─────────────────────────────────────────────────────────
 
@@ -890,13 +960,15 @@ const GoldEvaluator = (() => {
 
   /**
    * Overpass API: 指定座標の半径3km以内の河川・道路データを一括取得
-   * キャッシュTTL: 30分
+   * キャッシュTTL: 7日（IndexedDB永続化）
    * 返却: { streams: Way[], rivers: Way[], roads: Way[], tracks: Way[] }
    *   Way = { id, tags, geometry: [{lat, lon}] }
    */
   async function _fetchOverpass(lat, lng) {
     const k   = _key(lat, lng);
     const now = Date.now();
+
+    // メモリキャッシュヒット
     const hit = _overpassCache.get(k);
     if (hit && now - hit.at < OVERPASS_TTL) return hit.data;
 
@@ -912,13 +984,16 @@ const GoldEvaluator = (() => {
 out geom;
 `.trim();
 
+    const _EMPTY = { streams: [], rivers: [], roads: [], tracks: [], forests: [] };
+
     async function _doFetch() {
       const res = await fetch(OVERPASS_API, {
         method:  'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body:    'data=' + encodeURIComponent(query),
       });
-      if (!res.ok) throw new Error('overpass_err');
+      if (res.status === 429) throw Object.assign(new Error('overpass_429'), { is429: true });
+      if (!res.ok)            throw new Error('overpass_err');
       const json = await res.json();
       const ways = json.elements || [];
       return {
@@ -930,20 +1005,32 @@ out geom;
       };
     }
 
+    async function _saveCache(data) {
+      _overpassCache.set(k, { data, at: now });
+      await _idbSet(k, { data, at: now });
+    }
+
+    // 1回目
     try {
       const data = await _doFetch();
-      _overpassCache.set(k, { data, at: now });
+      await _saveCache(data);
+      return data;
+    } catch (e) {
+      if (!e.is429) {
+        // 429以外のエラー: 空データで返す（キャッシュしない）
+        return _EMPTY;
+      }
+    }
+
+    // 429のとき: 5秒待ってリトライ1回
+    await new Promise(r => setTimeout(r, 5000));
+    try {
+      const data = await _doFetch();
+      await _saveCache(data);
       return data;
     } catch {
-      // 1回だけリトライ（2秒待機）
-      try {
-        await new Promise(r => setTimeout(r, 2000));
-        const data = await _doFetch();
-        _overpassCache.set(k, { data, at: now });
-        return data;
-      } catch {
-        return { streams: [], rivers: [], roads: [], tracks: [], forests: [] };
-      }
+      // リトライも失敗: 空データで返す（キャッシュしない）
+      return _EMPTY;
     }
   }
 
