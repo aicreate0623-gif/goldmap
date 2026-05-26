@@ -532,16 +532,38 @@ const GoldEvaluator = (() => {
       };
     }
 
-    // ── 林道あり: 地点→林道→一般道の2区間ルート ─────────────
+    // ── 直接ルート: 地点→一般道 ──────────────────────────────
+    const directDistM = nearRoadM ?? Infinity;
+    const directRoadElev = nearRoadNode
+      ? await _fetchElev(nearRoadNode.lat, nearRoadNode.lon)
+      : null;
+    const directGrad = (myElev !== null && directRoadElev !== null && directDistM > 0)
+      ? Math.abs(directRoadElev - myElev) / directDistM * 100
+      : null;
+
+    // ── 林道経由ルート: 地点→林道→一般道 ────────────────────
     if (nearTrackNode) {
       const seg1DistM = haversine(lat, lng, nearTrackNode.lat, nearTrackNode.lon);
       const seg2DistM = nearRoadNode
         ? haversine(nearTrackNode.lat, nearTrackNode.lon, nearRoadNode.lat, nearRoadNode.lon)
         : null;
-      const totalDistM = seg2DistM !== null
+      const trackTotalDistM = seg2DistM !== null
         ? seg1DistM + seg2DistM
         : seg1DistM + (nearRoadM ?? 0);
 
+      // 一般道への直接距離の方が短ければ直接ルートを採用
+      if (directDistM <= trackTotalDistM) {
+        return {
+          seg1DistM: directDistM, seg2DistM: null,
+          totalDistM: directDistM,
+          seg1Grad: directGrad, seg2Grad: null,
+          routeGrad: directGrad ?? 0,
+          routeLabel: '直接',
+          noRoute: false,
+        };
+      }
+
+      // 林道経由の方が短い → 林道経由ルートの勾配を計算して採用
       const [trackElev, roadElev] = await Promise.all([
         _fetchElev(nearTrackNode.lat, nearTrackNode.lon),
         nearRoadNode ? _fetchElev(nearRoadNode.lat, nearRoadNode.lon) : Promise.resolve(null),
@@ -557,7 +579,7 @@ const GoldEvaluator = (() => {
       const routeGrad = Math.max(seg1Grad ?? 0, seg2Grad ?? 0);
 
       return {
-        seg1DistM, seg2DistM, totalDistM,
+        seg1DistM, seg2DistM, totalDistM: trackTotalDistM,
         seg1Grad, seg2Grad,
         routeGrad,
         routeLabel: '林道経由',
@@ -565,22 +587,12 @@ const GoldEvaluator = (() => {
       };
     }
 
-    // ── 林道なし: 地点→一般道の直接ルート ──────────────────
-    const seg1DistM  = nearRoadM ?? 0;
-    const totalDistM = seg1DistM;
-
-    const roadElev = nearRoadNode
-      ? await _fetchElev(nearRoadNode.lat, nearRoadNode.lon)
-      : null;
-
-    const seg1Grad = (myElev !== null && roadElev !== null && seg1DistM > 0)
-      ? Math.abs(roadElev - myElev) / seg1DistM * 100
-      : null;
-
+    // ── 林道なし: 直接ルートのみ ─────────────────────────────
     return {
-      seg1DistM, seg2DistM: null, totalDistM,
-      seg1Grad, seg2Grad: null,
-      routeGrad: seg1Grad ?? 0,
+      seg1DistM: directDistM, seg2DistM: null,
+      totalDistM: directDistM,
+      seg1Grad: directGrad, seg2Grad: null,
+      routeGrad: directGrad ?? 0,
       routeLabel: '直接',
       noRoute: false,
     };
@@ -2116,7 +2128,9 @@ out geom;
                         : routeGrad >= 15 ? 0.5
                         :                  0.0;
 
-        const score = clamp5(distScore + gradBonus);
+        // ── 近接ボーナス（直接ルート200m以内: -1.0） ──────────────
+        const nearBonus = (routeLabel === '直接' && totalDistM <= 200) ? -1.0 : 0;
+        const score = Math.max(0, clamp5(distScore + gradBonus) + nearBonus);
 
         const distLabel = totalDistM >= 1000
           ? `合計${(totalDistM / 1000).toFixed(1)}km`
@@ -2129,7 +2143,7 @@ out geom;
 
         return {
           score,
-          reason: `徒歩退路(${routeLabel}): ${distLabel} / ${gradLabel}`,
+          reason: `徒歩退路(${routeLabel}): ${distLabel} / ${gradLabel}${nearBonus < 0 ? ' / 近接ボーナス-1' : ''}`,
           _debug: {
             '経路種別':               routeLabel,
             '区間①距離(地点→林道)':  `${Math.round(seg1DistM)}m`,
@@ -2140,6 +2154,7 @@ out geom;
             '採用勾配(最大区間)':     `${Math.round(routeGrad)}%`,
             '距離スコア':             distScore.toFixed(1),
             '勾配ボーナス':           `+${gradBonus.toFixed(1)}`,
+            '近接ボーナス':           `${nearBonus.toFixed(1)}（直接200m以内）`,
             '最終スコア':             score.toFixed(2),
           },
         };
@@ -2269,7 +2284,8 @@ out geom;
                              :                        0;
 
         const totalBonus = gradBonus + slopeBonus + forestBonus + roadWayPenalty;
-        const score = clamp5(base + totalBonus);
+        const nearRoadBonus = (nearRoadM !== null && nearRoadM <= 200) ? -1.0 : 0;
+        const score = Math.max(0, clamp5(base + totalBonus) + nearRoadBonus);
 
         // 一般道距離ラベル
         const roadLabel = nearRoadM !== null
@@ -2282,7 +2298,7 @@ out geom;
 
         return {
           score,
-          reason: `孤立・遭難リスク: ${roadLabel} / 標高${elev !== null ? Math.round(elev)+'m' : '不明'}${forestLabel ? ' / ' + forestLabel : ''}${totalBonus > 0 ? ` / 加算+${totalBonus.toFixed(1)}` : ''}`,
+          reason: `孤立・遭難リスク: ${roadLabel} / 標高${elev !== null ? Math.round(elev)+'m' : '不明'}${forestLabel ? ' / ' + forestLabel : ''}${totalBonus > 0 ? ` / 加算+${totalBonus.toFixed(1)}` : ''}${nearRoadBonus < 0 ? ' / 近接ボーナス-1' : ''}`,
           _debug: {
             '一般道距離':      nearRoadM !== null ? `${Math.round(nearRoadM)}m` : '未取得',
             '標高':            elev !== null ? `${Math.round(elev)}m` : '未取得',
@@ -2298,6 +2314,7 @@ out geom;
             '森林ボーナス':    `+${forestBonus.toFixed(2)}`,
             '道路way減点':     `${roadCountIso}本 → ${roadWayPenalty.toFixed(1)}`,
             '合計ボーナス':    `+${totalBonus.toFixed(1)}`,
+            '近接ボーナス':    `${nearRoadBonus.toFixed(1)}（一般道200m以内）`,
             '最終スコア':      score.toFixed(2),
           },
         };
