@@ -272,7 +272,7 @@ function toggleGeo50k(){
     const op = _loadOp('gm_op_geo50k');
     _applySlider('geo50k-op','geo50k-opv', op);
     if(!geo50kLayers.length){
-      geo50kLayers = [1,2,3,4,5,6,7].map(i => {
+      geo50kLayers = [1,2,3,4,5,6,7,8,9].map(i => {
         const sk = 'geo50k_' + i;
         const CLS = makeCachedLayer(sk);
         return new CLS(SRCS[sk].url, {

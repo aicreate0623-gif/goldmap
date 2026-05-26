@@ -91,6 +91,8 @@ const SRCS={
   geo50k_5:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K05/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
   geo50k_6:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K06/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
   geo50k_7:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K07/{z}/{x}/{y}.webp',                   ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
+  geo50k_8:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K01-1/{z}/{x}/{y}.webp',                 ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
+  geo50k_9:   {url:'https://tiles.gsj.jp/tiles/geomap/MR_500K01-2/{z}/{x}/{y}.webp',                 ext:'webp', attr:'産総研鉱物資源図',       maxNative:12, directImg:true},
 };
 function tileURL(key,z,x,y){
   return SRCS[key].url.replace('{z}',z).replace('{x}',x).replace('{y}',y);
