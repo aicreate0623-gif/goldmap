@@ -2253,7 +2253,7 @@ out geom;
           _debug: {
             '経路種別':               routeLabel,
             'nearRoadM(キャッシュ)':   `${nearRoadM}`,
-            'directDistM':             `${directDistM}`,
+            'directDistM':             `${nearRoadM}`,
             'trackTotalDistM':         `${totalDistM}`,
             '区間①距離(地点→林道)':  `${Math.round(seg1DistM)}m`,
             '区間②距離(林道→一般道)': seg2DistM !== null ? `${Math.round(seg2DistM)}m` : '不明',
@@ -2561,7 +2561,7 @@ out geom;
 
     const _toItem = s => {
       if (s.status === 'rejected') {
-        return { id: 'unknown', name: 'エラー', stars: '☆☆☆☆☆', reason: '評価中にエラー', stub: false };
+        return { id: 'unknown', name: 'エラー', stars: '☆☆☆☆☆', reason: '評価中にエラー', stub: false, _score: 0 };
       }
       const { item, r } = s.value;
       return {
