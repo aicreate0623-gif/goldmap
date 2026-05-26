@@ -2383,7 +2383,10 @@ out geom;
                              :                        0;
 
         const totalBonus = gradBonus + slopeBonus + forestBonus + roadWayPenalty;
-        const nearRoadBonus = (nearRoadM !== null && nearRoadM <= 200) ? -1.0 : 0;
+        const nearRoadBonus = nearRoadM === null   ? 0
+                            : nearRoadM <= 200     ? -1.5
+                            : nearRoadM <= 500     ? -1.0
+                            :                        0;
         const score = Math.max(0, clamp5(base + totalBonus) + nearRoadBonus);
 
         // 一般道距離ラベル
@@ -2397,7 +2400,7 @@ out geom;
 
         return {
           score,
-          reason: `孤立・遭難リスク: ${roadLabel} / 標高${elev !== null ? Math.round(elev)+'m' : '不明'}${forestLabel ? ' / ' + forestLabel : ''}${totalBonus > 0 ? ` / 加算+${totalBonus.toFixed(1)}` : ''}${nearRoadBonus < 0 ? ' / 近接ボーナス-1' : ''}`,
+          reason: `孤立・遭難リスク: ${roadLabel} / 標高${elev !== null ? Math.round(elev)+'m' : '不明'}${forestLabel ? ' / ' + forestLabel : ''}${totalBonus > 0 ? ` / 加算+${totalBonus.toFixed(1)}` : ''}${nearRoadBonus < 0 ? ` / 近接ボーナス${nearRoadBonus.toFixed(1)}` : ''}`,
           _debug: {
             '一般道距離':      nearRoadM !== null ? `${Math.round(nearRoadM)}m` : '未取得',
             '標高':            elev !== null ? `${Math.round(elev)}m` : '未取得',
@@ -2413,7 +2416,7 @@ out geom;
             '森林ボーナス':    `+${forestBonus.toFixed(2)}`,
             '道路way減点':     `${roadCountIso}本 → ${roadWayPenalty.toFixed(1)}`,
             '合計ボーナス':    `+${totalBonus.toFixed(1)}`,
-            '近接ボーナス':    `${nearRoadBonus.toFixed(1)}（一般道200m以内）`,
+            '近接ボーナス':    `${nearRoadBonus.toFixed(1)}（200m以下:-1.5 / 500m以下:-1.0）`,
             '最終スコア':      score.toFixed(2),
           },
         };
