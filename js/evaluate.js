@@ -2314,16 +2314,13 @@ out geom;
         // ── 勾配ボーナス（距離×勾配の相対評価） ───────────────────
         const { bonus: gradBonus, label: gradBonusLabel } = _calcGradBonus(totalDistM, routeGrad);
 
-        // ── 近接ボーナス（直接ルート200m以内: -1.0） ──────────────
-        const nearBonus = (routeLabel === '直接' && totalDistM <= 200) ? -1.0 : 0;
-
         // ── 一般道近接ボーナス（nearRoadM基準） ────────────────────
         const nearRoadBonus = nearRoadM === null ? 0
                             : nearRoadM <= 200   ? -1.5
                             : nearRoadM <= 500   ? -1.0
                             :                      0;
 
-        const score = Math.max(0, clamp5(distScore + gradBonus) + nearBonus + nearRoadBonus);
+        const score = Math.max(0, clamp5(distScore + gradBonus) + nearRoadBonus);
 
         const distLabel = totalDistM >= 1000
           ? `合計${(totalDistM / 1000).toFixed(1)}km`
@@ -2336,7 +2333,7 @@ out geom;
 
         return {
           score,
-          reason: `徒歩退路(${routeLabel}): ${distLabel} / ${gradLabel}${nearBonus < 0 ? ' / 近接ボーナス-1' : ''}${nearRoadBonus < 0 ? ` / 一般道近接${nearRoadBonus.toFixed(1)}` : ''}`,
+          reason: `徒歩退路(${routeLabel}): ${distLabel} / ${gradLabel}${nearRoadBonus < 0 ? ` / 一般道近接${nearRoadBonus.toFixed(1)}` : ''}`,
           _debug: {
             '経路種別':               routeLabel,
             'nearRoadM(キャッシュ)':   `${nearRoadM}`,
@@ -2350,7 +2347,6 @@ out geom;
             '採用勾配(最大区間)':     `${Math.round(routeGrad)}%`,
             '距離スコア':             distScore.toFixed(1),
             '勾配ボーナス(距離×勾配)': `+${gradBonus.toFixed(1)}（${gradBonusLabel}）`,
-            '近接ボーナス(直接)':     `${nearBonus.toFixed(1)}（直接200m以内）`,
             '一般道近接ボーナス':     `${nearRoadBonus.toFixed(1)}（200m以下:-1.5 / 500m以下:-1.0）`,
             '最終スコア':             score.toFixed(2),
           },
@@ -2536,7 +2532,6 @@ out geom;
 
         // ── 一般道距離から連続加算方式でリスクスコアを計算 ──────────
         // 200m以下: 加算なし
-        // 200m超え: +1.0（ベース）＋ 以下の段階加算
         // 200m〜1000m: 100mごと +0.2
         // 1000m〜2000m: 100mごと +0.3
         // 2000m〜    : 100mごと +0.4
@@ -2545,8 +2540,7 @@ out geom;
           const d1 = Math.min(nearRoadM, 1000) - 200;
           const d2 = Math.max(0, Math.min(nearRoadM, 2000) - 1000);
           const d3 = Math.max(0, nearRoadM - 2000);
-          roadRisk = 1.0                  // 200m超えベース（段階評価全体に+1点）
-                   + (d1 / 100) * 0.2
+          roadRisk = (d1 / 100) * 0.2
                    + (d2 / 100) * 0.3
                    + (d3 / 100) * 0.4;
         }
