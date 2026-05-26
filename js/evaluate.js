@@ -1627,6 +1627,11 @@ out geom;
     // accessibility は mergeItems に移動（孤立・遭難リスク・逆スコア型）
 
     // 14a. 鉱床・鉱徴地との標高差
+    //
+    //  スコア = ① 地形相対スコア（周辺起伏に対する相対標高差）
+    //         + ② 方向集中加算（上流側に鉱床が集中しているか）
+    //         + ③ 単調下り加点（最近傍鉱床→評価地点を5点サンプルで確認）
+    //
     {
       id: 'depositElevation', name: '鉱床標高差', weight: 1.4,
       async evaluate(ctx) {
@@ -1639,14 +1644,13 @@ out geom;
         }
 
         // 鉱床＋鉱徴地＋minesを合算
-        const allDeps     = [...deposits, ...mines];
-        const allTargets  = [...allDeps, ...prospects];
+        const allDeps    = [...deposits, ...mines];
+        const allTargets = [...allDeps, ...prospects];
         if (!allTargets.length) {
           return { score: STUB_SCORE, reason: '鉱床・鉱徴地データ読み込み中' };
         }
 
-        // ── 段階的半径拡張で上位5件を収集 ────────────────────────
-        // 5km → 10km → 15km と拡張し、1件以上拾えた時点で打ち切り
+        // ── 段階的半径拡張で上位5件を収集（5km→10km→15km）──────────
         const MAX_COUNT = 5;
         let candidates = [];
         for (const radiusM of [5000, 10000, 15000]) {
@@ -1657,54 +1661,154 @@ out geom;
             .slice(0, MAX_COUNT);
           if (candidates.length > 0) break;
         }
-
-        // 1件も拾えなかった場合
         if (!candidates.length) {
           return { score: 1.0, reason: '半径15km以内に鉱床・鉱徴地なし' };
         }
 
-        // ── 上位N件の標高を並列取得 ──────────────────────────────
+        // ── 鉱床標高を並列取得 ─────────────────────────────────────
         const elevResults = await Promise.all(
           candidates.map(({ d }) => _fetchElev(d.lat, d.lng))
         );
+        const validPairs = candidates
+          .map((c, i) => ({ ...c, elev: elevResults[i] }))
+          .filter(c => c.elev !== null);
 
-        // 標高取得できた件数のみで平均を計算
-        const validElevs = elevResults.filter(e => e !== null);
-        if (!validElevs.length) {
+        if (!validPairs.length) {
           return { score: STUB_SCORE, reason: '鉱床地点の標高取得中' };
         }
-        const avgDepElev = validElevs.reduce((a, b) => a + b, 0) / validElevs.length;
 
-        // 標高差: 正 = 評価地点が低い（川下）、負 = 評価地点が高い（川上）
+        const nearest     = validPairs[0];
+        const nearestType = allDeps.includes(nearest.d) ? '鉱床' : '鉱徴地';
+        const avgDepElev  = validPairs.reduce((s, c) => s + c.elev, 0) / validPairs.length;
+
+        // ── ① 地形相対スコア ─────────────────────────────────────
+        // 周辺起伏（surroundElevs）に対する鉱床平均標高差の相対比でスコア化。
+        // 平坦地では小さい差でも高評価、山岳地では大きな差が必要。
+        const surrounds   = (terrain.surroundElevs || []).filter(e => e !== null);
+        const terrainSpan = surrounds.length >= 2
+          ? Math.max(...surrounds) - Math.min(...surrounds)
+          : null;
+
+        // diff: 正 = 評価地点が鉱床より低い（川下）
         const diff = avgDepElev - myElev;
 
-        // 最近傍の種別・距離（debug用）
-        const nearest     = candidates[0].d;
-        const nearestD    = candidates[0].dist;
-        const nearestType = allDeps.includes(nearest) ? '鉱床' : '鉱徴地';
-
-        let score, label;
-        if (diff >= 100) {
-          score = 5.0; label = `平均より${Math.round(diff)}m低い（明確な川下）`;
-        } else if (diff >= 10) {
-          score = 4.0; label = `平均より${Math.round(diff)}m低い（川下）`;
-        } else if (diff >= 0) {
-          score = 3.0; label = `平均とほぼ同標高（±${Math.round(Math.abs(diff))}m）`;
-        } else if (diff >= -50) {
-          score = 2.0; label = `平均より${Math.round(Math.abs(diff))}m高い（わずかに川上）`;
+        let relScore;
+        let relLabel;
+        if (terrainSpan !== null && terrainSpan > 0 && diff > 0) {
+          // 相対比 = 鉱床との標高差 ÷ 周辺起伏
+          const ratio = diff / terrainSpan;
+          relScore = ratio >= 1.0 ? 5.0
+                   : ratio >= 0.5 ? 4.0
+                   : ratio >= 0.3 ? 3.0
+                   : ratio >= 0.1 ? 2.0
+                   :                1.0;
+          relLabel = `相対比${ratio.toFixed(2)}（差${Math.round(diff)}m÷起伏${Math.round(terrainSpan)}m）`;
+        } else if (diff > 0) {
+          // surroundElevs が取れない場合は絶対差でフォールバック
+          relScore = diff >= 100 ? 5.0
+                   : diff >=  50 ? 4.0
+                   : diff >=  10 ? 3.0
+                   :               2.0;
+          relLabel = `絶対差${Math.round(diff)}m（起伏データなし）`;
         } else {
-          score = 1.0; label = `平均より${Math.round(Math.abs(diff))}m高い（川上側）`;
+          // 評価地点が鉱床より高い（川上側）
+          relScore = diff >= -10 ? 2.0
+                   : diff >= -50 ? 1.5
+                   :               1.0;
+          relLabel = `川上側（差${Math.round(Math.abs(diff))}m）`;
         }
+
+        // ── ② 方向集中加算 ───────────────────────────────────────
+        // 鉱床が評価地点より高い（上流側）かどうかを方位で集計し、
+        // 上流側への集中度（割合）でスコアを加算する。
+        const upstreamPairs = validPairs.filter(c => c.elev > myElev);
+        const upRatio       = validPairs.length > 0
+          ? upstreamPairs.length / validPairs.length
+          : 0;
+
+        // 上流側が集中している方位の偏りを角度分散で評価
+        // （全鉱床が同じ方向に固まっているほど集中度が高い）
+        let dirConcentration = 0;
+        if (upstreamPairs.length >= 2) {
+          const angles = upstreamPairs.map(c => {
+            return Math.atan2(c.d.lng - lng, c.d.lat - lat) * 180 / Math.PI;
+          });
+          // 平均方位ベクトルの長さ（0=分散、1=完全集中）
+          const sinMean = angles.reduce((s, a) => s + Math.sin(a * Math.PI / 180), 0) / angles.length;
+          const cosMean = angles.reduce((s, a) => s + Math.cos(a * Math.PI / 180), 0) / angles.length;
+          dirConcentration = Math.sqrt(sinMean ** 2 + cosMean ** 2); // 0〜1
+        } else if (upstreamPairs.length === 1) {
+          dirConcentration = 1.0; // 1件のみは完全集中とみなす
+        }
+
+        let dirBonus;
+        let dirLabel;
+        if (upRatio >= 0.8 && dirConcentration >= 0.6) {
+          dirBonus = 2.0; dirLabel = `上流集中（${Math.round(upRatio*100)}%・方位集中度${dirConcentration.toFixed(2)}）`;
+        } else if (upRatio >= 0.6) {
+          dirBonus = 1.0; dirLabel = `上流多め（${Math.round(upRatio*100)}%）`;
+        } else if (upRatio >= 0.4) {
+          dirBonus = 0.0; dirLabel = `上下分散（${Math.round(upRatio*100)}%上流）`;
+        } else {
+          dirBonus = -1.0; dirLabel = `下流側多い（上流${Math.round(upRatio*100)}%）`;
+        }
+
+        // ── ③ 最近傍鉱床からの単調下り加点 ──────────────────────
+        // 最近傍鉱床（3km以内）→評価地点を5点サンプリングし、
+        // 全点が単調減少（鉱床→評価地点に向かって下り続ける）なら +1.0
+        let monoBonus = 0;
+        let monoLabel = 'スキップ（3km超）';
+
+        if (nearest.dist <= 3000) {
+          // 鉱床→評価地点を5分割した中間4点 + 評価地点 = 計5点
+          const STEPS = 5;
+          const samplePoints = [];
+          for (let i = 1; i <= STEPS; i++) {
+            const t    = i / STEPS;
+            const sLat = nearest.d.lat + (lat - nearest.d.lat) * t;
+            const sLng = nearest.d.lng + (lng - nearest.d.lng) * t;
+            samplePoints.push({ lat: sLat, lng: sLng });
+          }
+
+          const sampleElevs = await Promise.all(
+            samplePoints.map(p => _fetchElev(p.lat, p.lng))
+          );
+
+          // 全点取得できた場合のみ判定
+          if (sampleElevs.every(e => e !== null)) {
+            // 鉱床標高を先頭に加えた列で単調減少を確認
+            const elevLine = [nearest.elev, ...sampleElevs];
+            let isMonotone = true;
+            for (let i = 1; i < elevLine.length; i++) {
+              if (elevLine[i] >= elevLine[i - 1]) { isMonotone = false; break; }
+            }
+            monoBonus = isMonotone ? 1.0 : 0.0;
+            monoLabel = isMonotone
+              ? `単調下り確認（${elevLine.map(e => Math.round(e)).join('→')}m）`
+              : `途中で上昇あり（${elevLine.map(e => Math.round(e)).join('→')}m）`;
+          } else {
+            monoLabel = '標高サンプル取得失敗';
+          }
+        }
+
+        // ── 合算 ──────────────────────────────────────────────────
+        const score = clamp5(relScore + dirBonus + monoBonus);
 
         return {
           score,
-          reason: `近傍鉱床${candidates.length}件平均: ${label}`,
+          reason: `鉱床標高差: ${relLabel} / ${dirLabel}${monoBonus > 0 ? ' / 単調下り+1' : ''}`,
           _debug: {
             '評価地点標高':       `${Math.round(myElev)}m`,
-            '鉱床平均標高':       `${Math.round(avgDepElev)}m（${validElevs.length}件平均）`,
+            '鉱床平均標高':       `${Math.round(avgDepElev)}m（${validPairs.length}件）`,
             '標高差(正=川下)':    `${Math.round(diff)}m`,
-            '参照件数':           `${candidates.length}件（標高取得${validElevs.length}件）`,
-            '最近傍':             `${nearestType} ${(nearestD/1000).toFixed(1)}km`,
+            '周辺起伏':           terrainSpan !== null ? `${Math.round(terrainSpan)}m` : '取得不可',
+            '①地形相対スコア':   relScore.toFixed(1),
+            '②上流側割合':       `${Math.round(upRatio*100)}%（${upstreamPairs.length}/${validPairs.length}件）`,
+            '②方位集中度':       dirConcentration.toFixed(2),
+            '②方向集中加算':     `${dirBonus >= 0 ? '+' : ''}${dirBonus.toFixed(1)}（${dirLabel}）`,
+            '③単調下り加点':     `+${monoBonus.toFixed(1)}（${monoLabel}）`,
+            '最近傍':             `${nearestType} ${(nearest.dist/1000).toFixed(1)}km`,
+            '最終スコア':         score.toFixed(2),
           },
         };
       },
