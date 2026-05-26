@@ -220,8 +220,8 @@ async function initBearLayer() {
     maxClusterRadius: 60,
     disableClusteringAtZoom: 14,
     showCoverageOnHover: false,
+    spiderfyOnMaxZoom: false,
     clusterPane: 'paneUser',
-    spiderLegPolylineOptions: { pane: 'paneUser', weight: 1.5, color: '#fff', opacity: 0.5 },
     iconCreateFunction: (cluster) => {
       const count = cluster.getChildCount();
       const size  = count < 10 ? 32 : count < 50 ? 40 : 48;

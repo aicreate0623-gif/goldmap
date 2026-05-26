@@ -1145,8 +1145,8 @@ async function loadMineData(fromButton=false){
       maxClusterRadius: 40,
       zoomToBoundsOnClick: false,
       showCoverageOnHover: false,
+      spiderfyOnMaxZoom: false,
       clusterPane: 'paneGsj',
-      spiderLegPolylineOptions: { pane: 'paneGsj', weight: 1.5, color: '#fff', opacity: 0.5 },
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 28 : count < 100 ? 34 : 40;
@@ -1160,20 +1160,11 @@ async function loadMineData(fromButton=false){
     });
   });
 
-  // 2〜21件: 1タップ目=spiderfy、展開中に再タップ=zoomToBounds / 22件以上: zoomToBounds直行
+  // クラスタークリック: 常にzoomToBounds
   MAT_KEYS.forEach(mat => {
     clusterGroups[mat].on('clusterclick', (e) => {
       L.DomEvent.stopPropagation(e);
-      const count = e.layer.getChildCount();
-      if (count <= 21) {
-        if (e.layer._spiderfied) {
-          e.layer.zoomToBounds({ padding: [20, 20] });
-        } else {
-          e.layer.spiderfy();
-        }
-      } else {
-        e.layer.zoomToBounds({ padding: [20, 20] });
-      }
+      e.layer.zoomToBounds({ padding: [20, 20] });
     });
   });
 
