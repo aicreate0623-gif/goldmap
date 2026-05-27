@@ -83,9 +83,11 @@ async function initMap(){
   map.getPane('paneWiki').style.zIndex = 612;
   map.createPane('paneKinno'); // 位置情報DBマーカー
   map.getPane('paneKinno').style.zIndex = 615;
-  map.createPane('paneMine');  // 砂金DBピン
+  map.createPane('paneMine');    // 砂金DBピン
   map.getPane('paneMine').style.zIndex = 620;
-  map.createPane('paneUser'); // ユーザーピン（最上位）
+  map.createPane('paneBearPin'); // 熊ピン専用（砂金DBの上・マイポイントの下）
+  map.getPane('paneBearPin').style.zIndex = 625;
+  map.createPane('paneUser');    // ユーザーピン（最上位）
   map.getPane('paneUser').style.zIndex = 630;
   // ポップアップ・ツールチップを全カスタムpane(最大630)より確実に上に
   map.getPane('tooltipPane').style.zIndex = 850;

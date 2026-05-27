@@ -199,7 +199,7 @@ function _renderBearPins() {
     const daysAgo = _bearDaysAgo(r.date);
     const color   = _bearColor(daysAgo);
     const icon    = _bearIcon(color);
-    L.marker([r.lat, r.lng], { icon, pane: 'paneUser' })
+    L.marker([r.lat, r.lng], { icon, pane: 'paneBearPin' })
       .bindPopup(_bearPopupHtml(r), { maxWidth: 280, className: "bear-popup-wrapper" })
       .addTo(bearPinLayer);
   });
@@ -221,7 +221,7 @@ async function initBearLayer() {
     disableClusteringAtZoom: 14,
     showCoverageOnHover: false,
     spiderfyOnMaxZoom: false,
-    clusterPane: 'paneUser',
+    clusterPane: 'paneBearPin',
     iconCreateFunction: (cluster) => {
       const count = cluster.getChildCount();
       const size  = count < 10 ? 32 : count < 50 ? 40 : 48;
