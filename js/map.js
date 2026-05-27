@@ -92,7 +92,7 @@ async function initMap(){
   map.getPane('shadowPane').style.zIndex  = 890;
   map.getPane('popupPane').style.zIndex   = 900;
 
-  const _nativeZooms={std:18,photo:18,topo:17,pale:18,hill:16,relief:15};
+  const _nativeZooms={std:18,photo:18,topo:17,pale:14,hill:16,relief:15};
   const mk=(key,extraOpts={})=>{
     const CLS=makeCachedLayer(key);
     return new CLS(SRCS[key].url,{
