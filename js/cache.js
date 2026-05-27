@@ -215,8 +215,9 @@ function makeCachedLayer(srcKey){
         img.style.imageRendering='pixelated';
       }
       const key=tileKey(this._sk,z,x,y);
-      const net=tileURL(this._sk,coords.z,coords.x,coords.y);
-      const netDirect=tileURL(this._sk,z,x,y); // 引き延ばし補正後の座標（directImg用）
+      // ── fetch/保存/フォールバックすべて補正済み座標(z,x,y)で統一 ──
+      // coords.z > maxNative のとき元座標で叩くと404になる＆DBキーと不一致になるバグを修正
+      const netFetch=tileURL(this._sk,z,x,y);
 
       // ── directImgレイヤー：キャッシュ優先・なければ直接読み込み＋自動蓄積 ──
       if(SRCS[this._sk]?.directImg){
@@ -236,9 +237,9 @@ function makeCachedLayer(srcKey){
               // キャッシュなし：直接表示しつつautoCacheレイヤーはfetchして蓄積
               img.crossOrigin='';
               img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-              img.src=netDirect;
+              img.src=netFetch;
               if(SRCS[this._sk].autoCache){
-                fetch(netDirect).then(r=>r.ok?r.arrayBuffer():null).then(buf=>{
+                fetch(netFetch).then(r=>r.ok?r.arrayBuffer():null).then(buf=>{
                   if(buf) _autoCachePut(key, buf);
                 }).catch(()=>{});
               }
@@ -247,12 +248,12 @@ function makeCachedLayer(srcKey){
         } else {
           img.crossOrigin='';
           img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
-          img.src=netDirect;
+          img.src=netFetch;
         }
         return img;
       }
 
-      if(!db){ img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); return img; }
+      if(!db){ img.src=netFetch; img.onload=()=>done(null,img); img.onerror=e=>done(e,img); return img; }
 
       // ── オンライン優先：ネット取得を試み失敗したらキャッシュにフォールバック ──
       const ext = (SRCS[this._sk] && SRCS[this._sk].ext) || 'png';
@@ -267,7 +268,7 @@ function makeCachedLayer(srcKey){
           img.onerror = e => { URL.revokeObjectURL(url); done(e,img); };
           img.src = url;
         };
-      fetch(net,{signal:ctrl.signal})
+      fetch(netFetch,{signal:ctrl.signal})
         .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('http '+r.status); return r.arrayBuffer(); })
         .then(buf=>{
           _setImgBlob(buf);
@@ -283,7 +284,7 @@ function makeCachedLayer(srcKey){
             _setImgBlob(cached);
           } else {
             if(isOnline){ _showOnlineToast(); } else { _showOfflineToast(); }
-            img.src=net; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+            img.src=netFetch; img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
           }
         });
       return img;
