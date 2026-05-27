@@ -1071,23 +1071,38 @@ out geom;
   // ─────────────────────────────────────────────────────────
   const evaluationItems = [
 
-    // 1. 沢距離（streams専用: canal/ditch含む、riverは含まない）
+    // 1. 水系距離（沢・河川を混合して最近傍1本を採用）
+    //    streams と rivers を _nearestDistToWay で距離比較し、
+    //    近い方を採用（同距離なら沢優先）。スコア閾値は旧沢距離と統一。
     {
-      id: 'streamDistance', name: '沢距離', weight: 1.4,
+      id: 'waterDistance', name: '水系距離', weight: 1.4,
       evaluate(ctx) {
         const { lat, lng, overpass } = ctx;
         const streams = overpass.streams || [];
-        if (!streams.length) return { score: 1.5, reason: '半径3km以内に沢なし' };
+        const rivers  = overpass.rivers  || [];
+        const allWater = [...streams, ...rivers];
+        if (!allWater.length) return { score: 1.5, reason: '半径3km以内に水系なし' };
 
-        let minD = Infinity;
+        // streams・rivers それぞれの最近傍距離を求める
+        let streamM = Infinity, riverM = Infinity;
         for (const way of streams) {
           if (!way.geometry?.length) continue;
           const d = _nearestDistToWay(lat, lng, way.geometry);
-          if (d < minD) minD = d;
+          if (d < streamM) streamM = d;
         }
-        if (!isFinite(minD)) return { score: 1.5, reason: '沢データ不完全' };
+        for (const way of rivers) {
+          if (!way.geometry?.length) continue;
+          const d = _nearestDistToWay(lat, lng, way.geometry);
+          if (d < riverM) riverM = d;
+        }
 
-        ctx.cache.nearestStreamM = minD;
+        // 近い方を採用（同距離なら沢優先）
+        const useStream = streamM <= riverM;
+        const minD  = useStream ? streamM : riverM;
+        const label = useStream ? '沢' : '河川';
+
+        if (!isFinite(minD)) return { score: 1.5, reason: '水系データ不完全' };
+
         // 5m刻み・30m超で0点（実採掘対象は川岸30mまで）
         const score = minD <= 10 ? 5.0   // 10m以内（最高）
                     : minD <= 15 ? 4.0   // 15m以内
@@ -1095,57 +1110,23 @@ out geom;
                     : minD <= 25 ? 2.0   // 25m以内
                     : minD <= 30 ? 1.0   // 30m以内
                     : 0;                 // 30m超
-        ctx.cache._scores = ctx.cache._scores || {};
-        ctx.cache._scores.streamDistance = score;
+
         return {
           score,
-          reason: `最寄り沢まで約${Math.round(minD)}m`,
+          reason: `最寄り${label}まで約${Math.round(minD)}m`,
           _debug: {
-            '最近傍沢距離': `${Math.round(minD)}m`,
-            '沢本数':       `${streams.length}本（半径3km）`,
+            '採用':       label,
+            '採用距離':   `${Math.round(minD)}m`,
+            '沢距離':     streamM < Infinity ? `${Math.round(streamM)}m` : 'なし',
+            '河川距離':   riverM  < Infinity ? `${Math.round(riverM)}m`  : 'なし',
+            '沢本数':     `${streams.length}本（半径3km）`,
+            '河川本数':   `${rivers.length}本（半径3km）`,
           },
         };
       },
     },
 
-    // 2. 河川距離
-    {
-      id: 'riverDistance', name: '河川距離', weight: 1.1,
-      evaluate(ctx) {
-        const { lat, lng, overpass } = ctx;
-        const rivers = overpass.rivers || [];
-        if (!rivers.length) return { score: 1.5, reason: '半径3km以内に河川なし' };
-
-        let minD = Infinity;
-        for (const way of rivers) {
-          if (!way.geometry?.length) continue;
-          const d = _nearestDistToWay(lat, lng, way.geometry);
-          if (d < minD) minD = d;
-        }
-        if (!isFinite(minD)) return { score: 1.5, reason: '河川データ不完全（形状情報なし）' };
-
-        ctx.cache.nearestRiverM = minD;
-        // 沢距離と同じ閾値（将来的に河川向けに調整可能）
-        const score = minD <= 10 ? 5.0
-                    : minD <= 15 ? 4.0
-                    : minD <= 20 ? 3.0
-                    : minD <= 25 ? 2.0
-                    : minD <= 30 ? 1.0
-                    : 0;
-        ctx.cache._scores = ctx.cache._scores || {};
-        ctx.cache._scores.riverDistance = score;
-        return {
-          score,
-          reason: `最寄り河川まで約${Math.round(minD)}m`,
-          _debug: {
-            '最近傍河川距離': `${Math.round(minD)}m`,
-            '河川本数':       `${rivers.length}本（半径3km）`,
-          },
-        };
-      },
-    },
-
-    // 3. 河川合流点
+    // 2. 河川合流点
     {
       id: 'confluence', name: '河川合流点', weight: 1.5,
       evaluate(ctx) {
@@ -2225,41 +2206,6 @@ out geom;
   //   _mergeOnly: true でパス1からは除外される
   // ─────────────────────────────────────────────────────────
   const mergeItems = [
-
-    // 15b. 水系距離（沢・河川の統合表示）
-    //      沢が30m以内なら沢を優先、それ以外はスコアが高い方を表示
-    {
-      id: 'waterDistance', name: '水系距離', weight: 0, _mergeOnly: true,
-      evaluate(ctx) {
-        const s = ctx.cache._scores || {};
-        const streamScore = s.streamDistance ?? null;
-        const riverScore  = s.riverDistance  ?? null;
-        const streamM     = ctx.cache.nearestStreamM ?? Infinity;
-        const riverM      = ctx.cache.nearestRiverM  ?? Infinity;
-
-        if (streamScore === null && riverScore === null) {
-          return { score: STUB_SCORE, reason: '水系データ取得中' };
-        }
-
-        // 沢が30m以内なら沢優先、それ以外はスコアが高い方
-        const useStream = streamM <= 30 || (streamScore ?? 0) >= (riverScore ?? 0);
-        const score  = useStream ? (streamScore ?? riverScore) : (riverScore ?? streamScore);
-        const distM  = useStream ? streamM : riverM;
-        const label  = useStream ? '沢' : '河川';
-
-        return {
-          score,
-          reason: `最寄り${label}まで約${Math.round(distM)}m`,
-          _debug: {
-            '沢距離':     streamM < Infinity ? `${Math.round(streamM)}m` : 'なし',
-            '河川距離':   riverM  < Infinity ? `${Math.round(riverM)}m`  : 'なし',
-            '沢スコア':   streamScore !== null ? streamScore.toFixed(1) : 'なし',
-            '河川スコア': riverScore  !== null ? riverScore.toFixed(1)  : 'なし',
-            '採用':       label,
-          },
-        };
-      },
-    },
 
     // 16. 鉱床・鉱徴地距離（統合表示）
     //     どちらか高いほうを採用
