@@ -1103,13 +1103,12 @@ out geom;
 
         if (!isFinite(minD)) return { score: 1.5, reason: '水系データ不完全' };
 
-        // 5m刻み・30m超で0点（実採掘対象は川岸30mまで）
-        const score = minD <= 10 ? 5.0   // 10m以内（最高）
-                    : minD <= 15 ? 4.0   // 15m以内
-                    : minD <= 20 ? 3.0   // 20m以内
-                    : minD <= 25 ? 2.0   // 25m以内
-                    : minD <= 30 ? 1.0   // 30m以内
-                    : 0;                 // 30m超
+        // 河川幅を考慮した閾値（大河川で幅50m超もあるため緩め設定）
+        const score = minD <= 20 ? 5.0   // 20m以内（最高）
+                    : minD <= 30 ? 4.0   // 30m以内
+                    : minD <= 40 ? 3.0   // 40m以内（湾曲SIDE_RANGE境界）
+                    : minD <= 50 ? 2.0   // 50m以内
+                    : 0;                 // 50m超
 
         return {
           score,
