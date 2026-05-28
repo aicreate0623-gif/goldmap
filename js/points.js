@@ -356,8 +356,7 @@ function renderPtList(){
         <div class="cl-pt-meta">📍 ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.memo?` · ${p.memo.slice(0,20)}${p.memo.length>20?'…':''}`:''}</div>
       </div>
       <div class="cl-pt-row-btns" onclick="event.stopPropagation()">
-        ${p.fromEval && p.evalItems && p.evalItems.length ? `<button class="btn sm eval-badge-btn" onclick="openEvalDetail(${p.id})" title="評価を確認">🔍</button>` : ''}
-        <button class="btn sm" onclick="ptListEdit(${p.id})" title="編集">✏️</button>
+        <button class="btn sm" onclick="openDet(${p.id})" title="詳細">📋</button>
         <button class="btn sm red" onclick="ptListDel(${p.id})" title="削除">🗑</button>
       </div>
     </div>
