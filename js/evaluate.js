@@ -2998,9 +2998,7 @@ out geom;
       .slice(0, 3);
 
     const memoLines = scored.map(it => `[${it.name}] ${it.reason}`);
-    const memo = `砂金評価スコア: ${totalScore.toFixed(1)}
-` + memoLines.join('
-');
+    const memo = `砂金評価スコア: ${totalScore.toFixed(1)}\n` + memoLines.join('\n');
 
     // evalItems: 全項目のid・name・scoreを保存
     const evalItems = items.map(it => ({
