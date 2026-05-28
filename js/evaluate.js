@@ -3028,6 +3028,7 @@ out geom;
     mergeItems,         // 統合表示項目（外部から push() で追加可能）
     toggleEvalMode,     // index.html の onclick から呼ぶ
     _openEvalFromResult, // 評価→マイポイント登録
+    _buildResultHTML,   // 評価結果HTML生成（ポイント詳細から再利用）
   };
 
 })();

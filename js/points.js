@@ -373,31 +373,31 @@ function openEvalDetail(id){
   const p = pts.find(q => q.id === id);
   if(!p || !p.evalItems || !p.evalItems.length) return;
 
-  document.getElementById('evd-name').textContent = p.name || '（無名）';
-  document.getElementById('evd-score').textContent =
-    p.evalScore != null ? `総合スコア: ${p.evalScore.toFixed(1)} / 5.0` : '';
+  // evalItems を _buildResultHTML の items 形式に変換
+  const scoreToStars = s => {
+    const full = Math.round(s);
+    return '★'.repeat(full) + '☆'.repeat(5 - full);
+  };
+  const items = p.evalItems.map(it => ({
+    id:     it.id,
+    name:   it.name,
+    _score: it.score,
+    stars:  scoreToStars(it.score),
+    reason: '',
+    stub:   false,
+  }));
 
-  const RISK_IDS = new Set(['accessRoad','accessDifficulty','accessibility','bearActivity']);
-
-  function barHTML(score, risk){
-    const pct = Math.round((score / 5) * 100);
-    const color = risk
-      ? (score >= 4 ? '#e74c3c' : score >= 2.5 ? '#e67e22' : '#2ecc71')
-      : (score >= 4 ? '#d4af37' : score >= 2.5 ? '#c8a020' : '#8a7a30');
-    return `<div class="evd-bar-wrap"><div class="evd-bar" style="width:${pct}%;background:${color}"></div></div>`;
+  // 評価結果と同じHTMLを生成
+  if(typeof GoldEvaluator !== 'undefined' && GoldEvaluator._buildResultHTML){
+    const html = GoldEvaluator._buildResultHTML(p.lat, p.lng, items);
+    document.getElementById('evd-body').innerHTML = html;
+    // 登録ボタンは詳細表示では不要なので非表示
+    const regRow = document.getElementById('evd-body').querySelector('.ev-register-row');
+    if(regRow) regRow.style.display = 'none';
+    // タイトル・スコア行はev-popup内に含まれるため既存のevd-name/evd-scoreは非表示
+    document.getElementById('evd-name').style.display = 'none';
+    document.getElementById('evd-score').style.display = 'none';
   }
-
-  const items = p.evalItems.filter(it => it.score != null);
-  const html = items.map(it => {
-    const risk = RISK_IDS.has(it.id);
-    return `<div class="evd-row">
-      <span class="evd-label">${it.name}</span>
-      <span class="evd-score-num">${it.score.toFixed(1)}</span>
-      ${barHTML(it.score, risk)}
-    </div>`;
-  }).join('');
-
-  document.getElementById('evd-body').innerHTML = html;
   showDlg('dlg-eval-detail');
 }
 
