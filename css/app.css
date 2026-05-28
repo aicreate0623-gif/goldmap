@@ -594,6 +594,20 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   flex: 1; accent-color: var(--gold);
   cursor: pointer; height: 4px; min-width: 0;
 }
+/* ★5フィルター切り替えボタン */
+.heat-filter-row { gap: 6px; }
+.heat-filter-btn {
+  padding: 3px 9px; border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: var(--txt-sub); font-size: 10px; font-weight: 600;
+  cursor: pointer; transition: all .14s; white-space: nowrap;
+}
+.heat-filter-btn.active {
+  background: rgba(200,170,80,0.18);
+  border-color: rgba(200,170,80,0.5);
+  color: var(--gold-lt);
+}
 /* フッター（記憶・再現・リセット） */
 .heat-panel-footer {
   display: flex; gap: 5px; justify-content: flex-end;

@@ -281,7 +281,8 @@ function _gridAggregate(rawPts, gridDeg) {
 
 // ── Firebaseから取得したヒートポイントの蓄積バッファ ──
 // initHeatLayer()が呼ばれるたびに再合成される
-let _firebaseHeatPts = [];  // [{lat, lng, weight}]
+let _firebaseHeatPts = [];  // [{lat, lng, weight, is_gold, avg_stars}]
+let _heatFilterGold  = false; // true=★5投稿のみ表示
 
 // ── 生データ生成 ─────────────────────────────────────
 function buildHeatPoints(tier) {
@@ -293,7 +294,10 @@ function buildHeatPoints(tier) {
   for (const m of MINES) pts.push([m.lat, m.lng, 0.8]);
   // PRO tierのみFirebaseデータを合成（フリー版には混入させない）
   if (tier === 'premium') {
-    for (const p of _firebaseHeatPts) pts.push([p.lat, p.lng, p.weight ?? 1.0]);
+    const src = _heatFilterGold
+      ? _firebaseHeatPts.filter(p => p.is_gold && p.avg_stars >= 5)
+      : _firebaseHeatPts;
+    for (const p of src) pts.push([p.lat, p.lng, p.weight ?? 1.0]);
   }
   return pts;
 }
@@ -550,9 +554,18 @@ function _renderHeatPanel(tier) {
   if(titleEl) titleEl.textContent =
     tier === 'free' ? '🔥 調整（フリー）' : '✨ 調整（プレミアム）';
 
-  // ボディ: 各パラメーター1行
+  // ボディ: フィルター行（premiumのみ）+ 各パラメーター1行
   const body = document.getElementById('heat-panel-body');
-  if(body) body.innerHTML = ['radius','blur','opacity'].map(key => {
+  if(body) {
+    const filterRow = tier === 'premium' ? `
+      <div class="heat-param-row heat-filter-row">
+        <span class="heat-param-label">表示</span>
+        <button class="heat-filter-btn${_heatFilterGold ? '' : ' active'}"
+          onclick="_setHeatFilter('${tier}', false)">全て</button>
+        <button class="heat-filter-btn${_heatFilterGold ? ' active' : ''}"
+          onclick="_setHeatFilter('${tier}', true)">★5投稿のみ</button>
+      </div>` : '';
+    body.innerHTML = filterRow + ['radius','blur','opacity'].map(key => {
     const [mn, mx] = range[key];
     const val = params[key];
     return `<div class="heat-param-row">
@@ -566,6 +579,7 @@ function _renderHeatPanel(tier) {
         id="hps-${tier}-${key}">
     </div>`;
   }).join('');
+  }
 
   // フッター: 💾記憶 📂再現 ↩リセット
   const hasSaved = !!localStorage.getItem(`gm_heat_saved_${tier}`);
@@ -575,6 +589,13 @@ function _renderHeatPanel(tier) {
     <button class="heat-mem-btn load"  onclick="_loadHeatParams('${tier}')"
       id="hml-${tier}" ${hasSaved ? '' : 'disabled'}>📂 再現</button>
     <button class="heat-mem-btn reset" onclick="_resetHeatParams('${tier}')">↩ リセット</button>`;
+}
+
+// ── ★5フィルター切り替え ─────────────────────────────
+function _setHeatFilter(tier, goldOnly) {
+  _heatFilterGold = goldOnly;
+  _renderHeatPanel(tier);
+  if(heatTier === tier) initHeatLayer(tier);
 }
 
 // ── ←→ 1刻み調整 ────────────────────────────────────

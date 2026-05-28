@@ -59,8 +59,7 @@ def apply_jitter(lat, lng):
     return round(lat + d_lat, 6), round(lng + d_lng, 6)
 # ── paidクラスタ条件 ──────────────────────────────────────
 NEIGHBOR_RADIUS = 4    # 自セルから何グリッド以内を近傍とするか（9×9範囲）
-MIN_NEIGHBOR_CELLS = 2 # 近傍範囲内に必要な投稿セル数（自セル除く）
-MIN_AVG_STARS = 0.0    # 星なし投稿も反映（近傍条件は維持）
+MIN_AVG_STARS = 5.0    # ★5評価かつis_gold=trueのセルのみ出力
 
 
 def coord_to_grid(lat, lng, grid_size):
@@ -131,8 +130,7 @@ def aggregate_paid(coords, grid_size):
     手順:
       1. 全座標をグリッドにスナップしてセル別に集計（件数・星合計）
       2. 各セルについて NEIGHBOR_RADIUS グリッド以内の近傍セルを探索
-      3. 近傍セル数 >= MIN_NEIGHBOR_CELLS かつ 近傍含む全投稿の星平均 >= MIN_AVG_STARS
-         の条件を満たすセルのみ出力
+      3. is_gold=true かつ 近傍含む全投稿の星平均 >= MIN_AVG_STARS(5.0) のセルのみ出力
       4. weight = (近傍含む件数合計 × 星平均) の正規化値
     """
     # Step1: グリッド集計
@@ -179,11 +177,9 @@ def aggregate_paid(coords, grid_size):
                 if nb is not None:
                     neighbor_cells.append(nb)
 
-        # isGoldセルは近傍条件をスキップして通す（孤立OK）
+        # is_gold=true かつ avg_stars >= 5.0 のセルのみ通す
         if not v['is_gold']:
-            # 近傍セル数チェック
-            if len(neighbor_cells) < MIN_NEIGHBOR_CELLS:
-                continue
+            continue
 
         # 近傍全体（自セル含む）の件数・星合計
         total_count     = v['count'] + sum(nb['count'] for nb in neighbor_cells)
@@ -214,6 +210,7 @@ def aggregate_paid(coords, grid_size):
             'weight':    round(p['raw_score'] / max_score, 4),
             'count':     p['count'],
             'avg_stars': p['avg_stars'],
+            'is_gold':   p['is_gold'],
         }
         for p in filtered
     ]
@@ -355,7 +352,7 @@ def main():
         points_paid  = aggregate_paid(base_coords + firestore_coords, GRID_SIZE_PAID)
         paid_geojson = build_geojson(points_paid, jitter=True)
         print(f"  グリッド数 paid({GRID_SIZE_PAID}°): {len(points_paid)}"
-              f"  (近傍{NEIGHBOR_RADIUS}グリッド・隣接{MIN_NEIGHBOR_CELLS}セル以上・星平均{MIN_AVG_STARS}以上)")
+              f"  (近傍{NEIGHBOR_RADIUS}グリッド・is_gold=true・星平均{MIN_AVG_STARS}以上)")
     except Exception as e:
         print(f"  [警告] Firestore取得スキップ（{e}）→ paidはfreeと同内容で出力")
         paid_geojson = free_geojson
@@ -366,7 +363,6 @@ def main():
         'grid_size_free':             GRID_SIZE_FREE,
         'grid_size_paid':             GRID_SIZE_PAID,
         'cluster_neighbor_radius':    NEIGHBOR_RADIUS,
-        'cluster_min_neighbor_cells': MIN_NEIGHBOR_CELLS,
         'cluster_min_avg_stars':      MIN_AVG_STARS,
         'free': free_geojson,
         'paid': paid_geojson,

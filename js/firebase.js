@@ -416,9 +416,11 @@ async function fetchHeatPoints() {
   }
 
   const points = fc.features.map(f => ({
-    lat:    f.geometry.coordinates[1],
-    lng:    f.geometry.coordinates[0],
-    weight: f.properties.weight ?? 1.0,
+    lat:      f.geometry.coordinates[1],
+    lng:      f.geometry.coordinates[0],
+    weight:   f.properties.weight    ?? 1.0,
+    is_gold:  f.properties.is_gold   ?? false,
+    avg_stars: f.properties.avg_stars ?? 0,
   }));
   addHeatPoints(points);
   console.log('[firebase.js] fetchHeatPoints OK tier=', tier, 'points=', points.length,
