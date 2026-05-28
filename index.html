@@ -2086,12 +2086,27 @@
     <p class="dlg-msg" id="det-memo" style="margin-bottom:0"></p>
     <p style="font-size:11px;color:#604828;margin-top:8px" id="det-coord"></p>
     <div id="det-gmap-btns" style="display:flex;gap:6px;margin-top:9px;"></div>
+    <button id="det-eval-btn" class="dbtn eval-detail-btn" style="display:none;margin-top:10px;width:100%;">
+      🔍 砂金評価スコアを確認
+    </button>
     <div class="dlg-btns">
       <button class="dbtn" onclick="closeOv()">閉じる</button>
       <button class="dbtn" onclick="editCur()">編集</button>
       <button class="dbtn del" onclick="reqDel()">削除</button>
     </div>
   </div>
+
+  <!-- 評価スコア確認ダイアログ -->
+  <div class="dialog" id="dlg-eval-detail" style="display:none">
+    <h3>🔍 砂金評価スコア</h3>
+    <div id="evd-name" class="evd-pt-name"></div>
+    <div id="evd-score" class="evd-total-score"></div>
+    <div id="evd-body" class="evd-body"></div>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="showDlg('dlg-detail')">戻る</button>
+    </div>
+  </div>
+
   <div class="dialog" id="dlg-del" style="display:none">
     <h3>削除の確認</h3>
     <p class="dlg-msg" id="del-msg"></p>

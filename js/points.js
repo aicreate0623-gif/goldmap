@@ -353,6 +353,7 @@ function renderPtList(){
         <div class="cl-pt-meta">📍 ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.memo?` · ${p.memo.slice(0,20)}${p.memo.length>20?'…':''}`:''}</div>
       </div>
       <div class="cl-pt-row-btns" onclick="event.stopPropagation()">
+        ${p.fromEval && p.evalItems && p.evalItems.length ? `<button class="btn sm eval-badge-btn" onclick="openEvalDetail(${p.id})" title="評価を確認">🔍</button>` : ''}
         <button class="btn sm" onclick="ptListEdit(${p.id})" title="編集">✏️</button>
         <button class="btn sm red" onclick="ptListDel(${p.id})" title="削除">🗑</button>
       </div>
@@ -367,6 +368,54 @@ function jumpPt(id){
     map.setView([p.lat,p.lng],15);
   },320);
 }
+// ── 評価スコア確認ダイアログ ─────────────────────────
+function openEvalDetail(id){
+  const p = pts.find(q => q.id === id);
+  if(!p || !p.evalItems || !p.evalItems.length) return;
+
+  document.getElementById('evd-name').textContent = p.name || '（無名）';
+  document.getElementById('evd-score').textContent =
+    p.evalScore != null ? `総合スコア: ${p.evalScore.toFixed(1)} / 5.0` : '';
+
+  const CATS = [
+    { label:'含有率',     ids:['geology','auDensity','mineDistance','depositElevation','valleyShape'] },
+    { label:'河川環境',   ids:['waterDistance','riverCurve','riverSlope','confluence'] },
+    { label:'環境',       ids:['elevation'] },
+    { label:'安全リスク', ids:['accessRoad','accessDifficulty','accessibility','bearActivity'], risk:true },
+    { label:'実績',       ids:['userRecords'] },
+  ];
+
+  const itemMap = {};
+  for(const it of p.evalItems) itemMap[it.id] = it;
+
+  function barHTML(score, risk){
+    const pct = Math.round((score / 5) * 100);
+    const color = risk
+      ? (score >= 4 ? '#e74c3c' : score >= 2.5 ? '#e67e22' : '#2ecc71')
+      : (score >= 4 ? '#d4af37' : score >= 2.5 ? '#c8a020' : '#8a7a30');
+    return `<div class="evd-bar-wrap"><div class="evd-bar" style="width:${pct}%;background:${color}"></div></div>`;
+  }
+
+  let html = '';
+  for(const cat of CATS){
+    const rows = cat.ids
+      .map(id => itemMap[id])
+      .filter(Boolean)
+      .map(it => `
+        <div class="evd-row">
+          <span class="evd-label">${it.name}</span>
+          <span class="evd-score-num">${it.score.toFixed(1)}</span>
+          ${barHTML(it.score, cat.risk)}
+        </div>`).join('');
+    if(!rows) continue;
+    const riskNote = cat.risk ? '<span class="evd-risk-note">（高→危険）</span>' : '';
+    html += `<div class="evd-cat-header">${cat.label}${riskNote}</div>${rows}`;
+  }
+
+  document.getElementById('evd-body').innerHTML = html;
+  showDlg('dlg-eval-detail');
+}
+
 function ptListEdit(id){
   did=id;
   editCur();
@@ -558,6 +607,16 @@ function openDet(id){
        style="font-size:11px;color:#1a73e8;text-decoration:none;font-weight:700;">
       🗺 Googleマップで確認
     </a>`;
+  // 評価データがあれば確認ボタンを表示
+  const evalBtn = document.getElementById('det-eval-btn');
+  if(evalBtn){
+    if(p.fromEval && p.evalItems && p.evalItems.length){
+      evalBtn.style.display = '';
+      evalBtn.onclick = () => openEvalDetail(id);
+    } else {
+      evalBtn.style.display = 'none';
+    }
+  }
   showDlg('dlg-detail');
 }
 // 編集時のバックアップ（キャンセル用）

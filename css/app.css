@@ -5176,3 +5176,90 @@ body.eval-mode #map {
   0%   { left: -60%; }
   100% { left: 110%; }
 }
+
+/* ━━━ 評価スコア確認ダイアログ (dlg-eval-detail) ━━━ */
+.eval-detail-btn {
+  background: rgba(212,175,55,0.12);
+  border: 1px solid rgba(212,175,55,0.35);
+  color: var(--gold-lt);
+  font-size: 12px;
+  text-align: center;
+  border-radius: 6px;
+  padding: 7px 0;
+  cursor: pointer;
+  transition: background .15s;
+}
+.eval-detail-btn:hover { background: rgba(212,175,55,0.22); }
+
+.eval-badge-btn {
+  background: rgba(212,175,55,0.1);
+  border: 1px solid rgba(212,175,55,0.3) !important;
+  color: var(--gold-lt) !important;
+  font-size: 13px !important;
+}
+
+.evd-pt-name {
+  font-size: 12px;
+  color: var(--txt-sub);
+  margin-bottom: 2px;
+}
+.evd-total-score {
+  font-size: 13px;
+  color: var(--gold-lt);
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.evd-body {
+  max-height: 55vh;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+.evd-cat-header {
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--gold-lt);
+  letter-spacing: .05em;
+  padding: 6px 0 3px;
+  border-bottom: 1px solid rgba(212,175,55,0.2);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.evd-risk-note {
+  font-size: 10px;
+  color: var(--txt-dim);
+  font-weight: normal;
+}
+.evd-row {
+  display: grid;
+  grid-template-columns: 1fr auto 80px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.evd-label {
+  color: var(--txt-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.evd-score-num {
+  color: var(--gold-lt);
+  font-size: 11px;
+  font-weight: bold;
+  text-align: right;
+  white-space: nowrap;
+}
+.evd-bar-wrap {
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.evd-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .3s ease;
+}
