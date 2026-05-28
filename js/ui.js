@@ -287,15 +287,18 @@ let _heatFilterGold  = false; // true=★5投稿のみ表示
 // ── 生データ生成 ─────────────────────────────────────
 function buildHeatPoints(tier) {
   const pts = [];
-  for (const d of GSJ_MINE_DATA) {
-    if (d.mat !== 'Au_Ag') continue;
-    pts.push([d.lat, d.lng, d.trace ? 0.3 : 0.5]);
+  // ★5フィルターOFF時のみGSJ・MINESを追加（ONの場合は投稿ポイントのみ表示）
+  if (!_heatFilterGold) {
+    for (const d of GSJ_MINE_DATA) {
+      if (d.mat !== 'Au_Ag') continue;
+      pts.push([d.lat, d.lng, d.trace ? 0.3 : 0.5]);
+    }
+    for (const m of MINES) pts.push([m.lat, m.lng, 0.8]);
   }
-  for (const m of MINES) pts.push([m.lat, m.lng, 0.8]);
   // PRO tierのみFirebaseデータを合成（フリー版には混入させない）
   if (tier === 'premium') {
     const src = _heatFilterGold
-      ? _firebaseHeatPts.filter(p => p.is_gold && p.avg_stars >= 5)
+      ? _firebaseHeatPts.filter(p => p.is_gold)
       : _firebaseHeatPts;
     for (const p of src) pts.push([p.lat, p.lng, p.weight ?? 1.0]);
   }
