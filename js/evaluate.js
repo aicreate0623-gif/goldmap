@@ -2721,7 +2721,6 @@ out geom;
     return `
       <div class="ev-popup">
         <div class="ev-title">🔍 砂金探索スコア</div>
-        <div class="ev-minimap" data-lat="${lat}" data-lng="${lng}"></div>
         ${catHTML}
         ${outsideHTML}
         <!-- [DEV DEBUG START] -->${_devDebugHTML}<!-- [DEV DEBUG END] -->
