@@ -324,7 +324,10 @@ function savePts(){
   try{localStorage.setItem('gm_pts',JSON.stringify(pts.map(p=>({
     id:p.id,lat:p.lat,lng:p.lng,name:p.name,memo:p.memo,
     stars:p.stars||0,icon:p.icon||PT_DEFAULT_ICON,
-    color:p.color||PT_DEFAULT_COLOR,fsId:p.fsId||null
+    color:p.color||PT_DEFAULT_COLOR,fsId:p.fsId||null,
+    fromEval:p.fromEval||false,
+    evalScore:p.evalScore||null,
+    evalItems:p.evalItems||[],
   }))));}catch(e){}
 }
 function loadPts(){
