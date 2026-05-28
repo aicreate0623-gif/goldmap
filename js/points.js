@@ -37,14 +37,14 @@ function setStarRating(v) {
 }
 function _renderStarUI(v) {
   document.querySelectorAll('.star-btn').forEach((b, i) => b.classList.toggle('active', i < v));
-  const labels = ['未評価','★ もう少し','★★ 良い','★★★ 最高'];
+  const labels = ['未評価','★ もう少し','★★ 普通','★★★ 良い','★★★★ 有望','★★★★★ 最高'];
   const el = document.getElementById('star-label');
   if (el) el.textContent = labels[v] || '未評価';
   _curStars = v;
 }
 function starsToHtml(v) {
   if (!v) return '';
-  return `<span style="color:var(--gold-lt)">${'★'.repeat(v)}</span><span style="color:rgba(200,170,80,0.3)">${'☆'.repeat(3-v)}</span>`;
+  return `<span style="color:var(--gold-lt)">${'★'.repeat(v)}</span><span style="color:rgba(200,170,80,0.3)">${'☆'.repeat(5-v)}</span>`;
 }
 
 // ── アイコン・色ピッカー ──────────────────────
@@ -402,7 +402,10 @@ function cancelAdd(){
 }
 let eid=null;
 // ── 追加ダイアログを開く ─────────────────────────────
-function openAddDlg(){
+// _pendingEvalData: 評価からの登録時に一時保持する評価データ
+let _pendingEvalData = null;
+
+function openAddDlg(opts){
   if(eid !== null && _editBackup){
     // 編集モード：_editBackupのデータをセット
     document.getElementById('dlg-edit-ttl').textContent='ポイントを編集';
@@ -413,13 +416,22 @@ function openAddDlg(){
     _renderIconPicker(_curIcon,'pt-icon-picker','pt-icon-selected');
     _renderColorPicker(_curColor,'pt-color-picker','pt-color-selected');
     document.getElementById('pt-move-btn').style.display='';
+    _pendingEvalData = null;
   } else {
     // 新規モード
     eid=null;
     document.getElementById('dlg-edit-ttl').textContent='ポイントを追加';
     document.getElementById('pt-name').value='';
-    document.getElementById('pt-memo').value='';
-    _renderStarUI(0);
+    // 評価からの登録: メモ・星を自動セット
+    if(opts && opts.fromEval){
+      _pendingEvalData = opts;
+      document.getElementById('pt-memo').value = opts.memo || '';
+      _renderStarUI(opts.stars || 0);
+    } else {
+      _pendingEvalData = null;
+      document.getElementById('pt-memo').value='';
+      _renderStarUI(0);
+    }
     _renderIconPicker(_curIcon,'pt-icon-picker','pt-icon-selected');
     _renderColorPicker(_curColor,'pt-color-picker','pt-color-selected');
     document.getElementById('pt-move-btn').style.display='none';
@@ -496,6 +508,13 @@ async function confirmSave(){
     }
     const ll=tPin.getLatLng();
     const p={id:nid++,lat:ll.lat,lng:ll.lng,name:n,memo:m,stars:_curStars,icon:_curIcon,color:_curColor};
+    // 評価からの登録フラグ・スコアデータを付与
+    if(_pendingEvalData){
+      p.fromEval    = true;
+      p.evalScore   = _pendingEvalData.evalScore   || null;
+      p.evalItems   = _pendingEvalData.evalItems   || [];
+      _pendingEvalData = null;
+    }
     pts.push(p);addMk(p);cancelAdd();
     if(isContribOn()){
       _submitOrPending(p);

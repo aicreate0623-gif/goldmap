@@ -4885,6 +4885,18 @@ body.eval-mode #map {
 }
 .ev-btn:hover { opacity: .85; }
 
+/* 評価ポップアップ: マイポイントに登録ボタン行 */
+.ev-register-row {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+.ev-register-btn {
+  width: 100%;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
 /* 評価結果ポップアップ */
 .ev-leaflet-popup .leaflet-popup-content-wrapper {
   background: rgba(10, 8, 4, 0.96);

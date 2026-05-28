@@ -2726,6 +2726,11 @@ out geom;
         ${outsideHTML}
         <!-- [DEV DEBUG START] -->${_devDebugHTML}<!-- [DEV DEBUG END] -->
         <div class="ev-note">※スコアは参考値です。現地確認を推奨します。</div>
+        <div class="ev-register-row">
+          <button class="ev-btn ev-register-btn" onclick="GoldEvaluator._openEvalFromResult(${lat},${lng},window._lastEvalItems)">
+            📍 マイポイントに登録
+          </button>
+        </div>
       </div>`;
   }
 
@@ -2786,6 +2791,7 @@ out geom;
     try {
       const result = await evaluate({ lat, lng, zoom: map.getZoom() });
       _finishProgressAnim();
+      window._lastEvalItems = result.items; // 登録ボタン用に保持
       if (_evalPopup && map.hasLayer(_evalPopup)) {
         _evalPopup.setContent(_buildResultHTML(lat, lng, result.items));
         requestAnimationFrame(() => _initMinimap(lat, lng));
@@ -2935,6 +2941,103 @@ out geom;
   }
 
   // ─────────────────────────────────────────────────────────
+  // 評価結果からマイポイントへの直接登録
+  // ─────────────────────────────────────────────────────────
+
+  /**
+   * 砂金評価スコア（0〜5の加重平均）を points.js の★(1〜5)に変換
+   * スコア 0〜1 → ★1, 1〜2 → ★2, 2〜3 → ★3, 3〜4 → ★4, 4〜5 → ★5
+   */
+  function _scoreToStars(score) {
+    if (score >= 4.0) return 5;
+    if (score >= 3.0) return 4;
+    if (score >= 2.0) return 3;
+    if (score >= 1.0) return 2;
+    return 1;
+  }
+
+  /**
+   * 評価結果の加重平均スコアを計算（weight > 0 の項目のみ）
+   */
+  function _calcWeightedScore(items) {
+    const allItems = [...evaluationItems, ...mergeItems];
+    const weightMap = {};
+    for (const it of allItems) weightMap[it.id] = it.weight || 0;
+
+    let wSum = 0, wScore = 0;
+    for (const it of items) {
+      const w = weightMap[it.id] || 0;
+      if (w <= 0) continue;
+      wScore += it._score * w;
+      wSum   += w;
+    }
+    return wSum > 0 ? wScore / wSum : 0;
+  }
+
+  /**
+   * 評価ポップアップから「マイポイントに登録」を押した時の処理
+   * - 評価ポップアップは閉じない
+   * - tPin を評価座標に置く
+   * - dlg-edit を評価データで初期化して開く
+   */
+  function _openEvalFromResult(lat, lng, items) {
+    if (!items || !items.length) return;
+
+    // 総合スコア計算
+    const totalScore = _calcWeightedScore(items);
+    const stars      = _scoreToStars(totalScore);
+
+    // メモ: weight>0 かつ non-stub の上位3件の理由を連結
+    const allItems = [...evaluationItems, ...mergeItems];
+    const weightMap = {};
+    for (const it of allItems) weightMap[it.id] = it.weight || 0;
+
+    const scored = items
+      .filter(it => (weightMap[it.id] || 0) > 0 && !it.stub)
+      .sort((a, b) => b._score - a._score)
+      .slice(0, 3);
+
+    const memoLines = scored.map(it => `[${it.name}] ${it.reason}`);
+    const memo = `砂金評価スコア: ${totalScore.toFixed(1)}\n` + memoLines.join('\n');
+
+    // evalItems: 全項目のid・name・scoreを保存
+    const evalItems = items.map(it => ({
+      id:    it.id,
+      name:  it.name,
+      score: it._score,
+    }));
+
+    // tPin を評価座標に配置（既存tPinがあれば削除）
+    if (typeof tPin !== 'undefined' && tPin) {
+      map.removeLayer(tPin);
+      window.tPin = null;
+    }
+    if (typeof addMode !== 'undefined') window.addMode = true;
+    window.tPin = L.marker([lat, lng], {
+      icon:      typeof _makeTempIcon === 'function'
+                   ? _makeTempIcon(window._curIcon || '⛏', window._curColor || '#c8a020')
+                   : L.divIcon({ className: 'tmp-pin', html: '📍' }),
+      draggable: true,
+      pane:      'paneUser',
+    }).addTo(map);
+
+    // add-banner を表示
+    const banner = document.getElementById('add-banner');
+    if (banner) banner.classList.add('show');
+
+    // dlg-edit を評価データで初期化して開く
+    if (typeof openAddDlg === 'function') {
+      openAddDlg({
+        fromEval:  true,
+        stars,
+        memo,
+        evalScore: totalScore,
+        evalItems,
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
   // 公開API
   // ─────────────────────────────────────────────────────────
   return {
@@ -2942,6 +3045,7 @@ out geom;
     evaluationItems,    // 外部から push() で項目追加可能
     mergeItems,         // 統合表示項目（外部から push() で追加可能）
     toggleEvalMode,     // index.html の onclick から呼ぶ
+    _openEvalFromResult, // 評価→マイポイント登録
   };
 
 })();
