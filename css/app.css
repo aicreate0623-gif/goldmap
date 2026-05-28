@@ -212,7 +212,7 @@ html, body {
 /* ── ヒートマップ調整ボタン：縦ハーフサイズ ── */
 #btn-heat-adj {
   width: 21px;
-  height: 84px;
+  height: 42px;
   font-size: 8px;
   gap: 0;
   writing-mode: vertical-rl;
