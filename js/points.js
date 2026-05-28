@@ -556,6 +556,10 @@ async function confirmSave(){
     if(isContribOn()){
       _submitOrPending(p);
     }
+    // 評価からの登録完了時: 評価モードをオフ（ポップアップも閉じる）
+    if(p.fromEval && typeof toggleEvalMode === 'function'){
+      toggleEvalMode();
+    }
   }
   savePts(); _updateUnlockFlag(); updPtCnt(); closeOv(); eid=null;
 }
