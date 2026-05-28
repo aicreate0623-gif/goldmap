@@ -755,3 +755,26 @@ async function confirmImp2(){
   _impFileData = null; closeOv();
   showAlert('完了', `${added}件のポイントを追加しました`);
 }
+// ── 評価モジュールからの登録エントリポイント ────────────────
+// evaluate.js の IIFE 内からは tPin/addMode に直接触れないため
+// points.js 側でグローバル関数として公開する
+// opts: { fromEval, stars, memo, evalScore, evalItems }
+window.openEvalFromResult = function(lat, lng, opts) {
+  // 既存 tPin があれば除去
+  if (tPin) { map.removeLayer(tPin); tPin = null; }
+
+  // 仮ピンを評価座標に配置
+  addMode = true;
+  tPin = L.marker([lat, lng], {
+    icon:      _makeTempIcon(_curIcon, _curColor),
+    draggable: true,
+    pane:      'paneUser',
+  }).addTo(map);
+
+  // add-banner を表示
+  const banner = document.getElementById('add-banner');
+  if (banner) banner.classList.add('show');
+
+  // openAddDlg は同ファイル内の関数なのでそのまま呼べる
+  openAddDlg(opts || {});
+};

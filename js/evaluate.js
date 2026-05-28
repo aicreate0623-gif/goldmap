@@ -2998,7 +2998,9 @@ out geom;
       .slice(0, 3);
 
     const memoLines = scored.map(it => `[${it.name}] ${it.reason}`);
-    const memo = `砂金評価スコア: ${totalScore.toFixed(1)}\n` + memoLines.join('\n');
+    const memo = `砂金評価スコア: ${totalScore.toFixed(1)}
+` + memoLines.join('
+');
 
     // evalItems: 全項目のid・name・scoreを保存
     const evalItems = items.map(it => ({
@@ -3007,27 +3009,9 @@ out geom;
       score: it._score,
     }));
 
-    // tPin を評価座標に配置（既存tPinがあれば削除）
-    if (typeof tPin !== 'undefined' && tPin) {
-      map.removeLayer(tPin);
-      window.tPin = null;
-    }
-    if (typeof addMode !== 'undefined') window.addMode = true;
-    window.tPin = L.marker([lat, lng], {
-      icon:      typeof _makeTempIcon === 'function'
-                   ? _makeTempIcon(window._curIcon || '⛏', window._curColor || '#c8a020')
-                   : L.divIcon({ className: 'tmp-pin', html: '📍' }),
-      draggable: true,
-      pane:      'paneUser',
-    }).addTo(map);
-
-    // add-banner を表示
-    const banner = document.getElementById('add-banner');
-    if (banner) banner.classList.add('show');
-
-    // dlg-edit を評価データで初期化して開く
-    if (typeof openAddDlg === 'function') {
-      openAddDlg({
+    // points.js 側のグローバル関数を呼ぶ（tPin/addMode は points.js のスコープ変数）
+    if (typeof window.openEvalFromResult === 'function') {
+      window.openEvalFromResult(lat, lng, {
         fromEval:  true,
         stars,
         memo,
