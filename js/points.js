@@ -377,16 +377,7 @@ function openEvalDetail(id){
   document.getElementById('evd-score').textContent =
     p.evalScore != null ? `総合スコア: ${p.evalScore.toFixed(1)} / 5.0` : '';
 
-  const CATS = [
-    { label:'含有率',     ids:['geology','auDensity','mineDistance','depositElevation','valleyShape'] },
-    { label:'河川環境',   ids:['waterDistance','riverCurve','riverSlope','confluence'] },
-    { label:'環境',       ids:['elevation'] },
-    { label:'安全リスク', ids:['accessRoad','accessDifficulty','accessibility','bearActivity'], risk:true },
-    { label:'実績',       ids:['userRecords'] },
-  ];
-
-  const itemMap = {};
-  for(const it of p.evalItems) itemMap[it.id] = it;
+  const RISK_IDS = new Set(['accessRoad','accessDifficulty','accessibility','bearActivity']);
 
   function barHTML(score, risk){
     const pct = Math.round((score / 5) * 100);
@@ -396,21 +387,15 @@ function openEvalDetail(id){
     return `<div class="evd-bar-wrap"><div class="evd-bar" style="width:${pct}%;background:${color}"></div></div>`;
   }
 
-  let html = '';
-  for(const cat of CATS){
-    const rows = cat.ids
-      .map(id => itemMap[id])
-      .filter(Boolean)
-      .map(it => `
-        <div class="evd-row">
-          <span class="evd-label">${it.name}</span>
-          <span class="evd-score-num">${it.score.toFixed(1)}</span>
-          ${barHTML(it.score, cat.risk)}
-        </div>`).join('');
-    if(!rows) continue;
-    const riskNote = cat.risk ? '<span class="evd-risk-note">（高→危険）</span>' : '';
-    html += `<div class="evd-cat-header">${cat.label}${riskNote}</div>${rows}`;
-  }
+  const items = p.evalItems.filter(it => it.score != null);
+  const html = items.map(it => {
+    const risk = RISK_IDS.has(it.id);
+    return `<div class="evd-row">
+      <span class="evd-label">${it.name}</span>
+      <span class="evd-score-num">${it.score.toFixed(1)}</span>
+      ${barHTML(it.score, risk)}
+    </div>`;
+  }).join('');
 
   document.getElementById('evd-body').innerHTML = html;
   showDlg('dlg-eval-detail');
