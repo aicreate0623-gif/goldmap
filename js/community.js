@@ -778,7 +778,7 @@ function _commToast(msg){
     el.style.cssText =
       'position:fixed;bottom:calc(var(--tab-h)+60px);left:50%;transform:translateX(-50%);' +
       'background:rgba(30,20,10,0.92);border:1px solid var(--gold);color:var(--txt);' +
-      'padding:8px 18px;border-radius:20px;font-size:12px;z-index:2000;pointer-events:none;' +
+      'padding:8px 18px;border-radius:20px;font-size:12px;z-index:3100;pointer-events:none;' +
       'white-space:nowrap;backdrop-filter:blur(8px);opacity:0;transition:opacity 0.2s;';
     document.body.appendChild(el);
   }
