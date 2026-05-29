@@ -174,7 +174,7 @@ function toggleWaterLevel(){
     if(!premium){ showPremiumGate('water_level'); return; }
     waterV = true;
     document.getElementById('btn-water').classList.add('active');
-    if(typeof buildFloodHeatmap === 'function') buildFloodHeatmap();
+    // fetchFloodAlerts完了後に1回だけbuildFloodHeatmap（警報データが揃ってから描画）
     fetchFloodAlerts().then(()=>{
       if(typeof buildFloodHeatmap === 'function') buildFloodHeatmap();
       if(typeof _checkNearbyFloodAlert === 'function'){

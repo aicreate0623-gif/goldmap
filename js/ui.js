@@ -427,6 +427,7 @@ function toggleHeatFree() {
     return;
   }
   _closePremiumHeat();
+  _showHeatZoomBanner(false); // PROのズームバナーが残らないよう消去
   heatTier = 'free';
   document.getElementById('btn-heat-free').classList.add('active');
   _applyHeatParamsSaved('free');
