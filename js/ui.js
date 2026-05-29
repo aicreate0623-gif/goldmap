@@ -672,7 +672,8 @@ function _resetHeatParams(tier) {
 // initHeatLayer()はbuildHeatPoints()経由でバッファを合成するため、
 // ボタンON/OFFやパラメーター調整後もデータが消えない。
 function addHeatPoints(points) {
-  _firebaseHeatPts = _firebaseHeatPts.concat(points);
+  // concatではなく上書き代入（fetchが複数回走っても重複しない）
+  _firebaseHeatPts = points;
   if(heatTier) initHeatLayer(heatTier);
 }
 

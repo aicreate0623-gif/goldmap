@@ -430,8 +430,9 @@ async function fetchHeatPoints() {
 (async () => {
   try {
     await initFirebase();
-    await fetchHeatPoints();
+    // fetchHeatPoints() はPRO起動時（openHeatProGate）でのみ呼ぶ
+    // ここで呼ぶと_firebaseHeatPtsへの二重concat→二重描画になるため削除
   } catch (e) {
-    console.warn('[firebase.js] Firebase init / fetchHeatPoints 失敗', e);
+    console.warn('[firebase.js] Firebase init 失敗', e);
   }
 })();
