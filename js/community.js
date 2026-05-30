@@ -244,23 +244,17 @@ async function commRefresh(){
     const pref   = _commPref;
     const cached = _loadCache(scope, pref);
     const limit  = scope === 'national' ? COMM_NATIONAL_DISPLAY : COMM_PREF_DISPLAY;
-    // ── クエリ構築（差分取得・30秒バッファ方式）────────
-    // キャッシュあり → 最新ts-30秒以降のみ取得してIDマージ
-    // キャッシュなし → 通常のlimit取得
+    // ── クエリ構築 ──────────────────────────────────
+    // フル取得（orderBy + limit）でキャッシュ上書き。
+    // 削除・返信更新も正確に反映される。
     const fsScope = scope === 'national' ? 'national' : 'pref';
     let q = _db().collection('posts').where('scope', '==', fsScope);
     if(scope === 'regional') q = q.where('pref', '==', pref);
-    const latestTs = _getLatestTs(cached);
-    if(latestTs > 0){
-      q = q.where('ts', '>', new Date(latestTs - 30_000)).orderBy('ts', 'desc');
-    } else {
-      q = q.orderBy('ts', 'desc').limit(limit);
-    }
+    q = q.orderBy('ts', 'desc').limit(limit);
     const snap = await q.get();
     const fetchedPosts = snap.docs.map(d => _normalizePost(d));
-    // IDマージ：既存キャッシュ + 新規取得を重複排除してts降順・limit件数に絞る
-    const merged = _mergePosts(cached, fetchedPosts, limit);
-    _saveCache(scope, pref, merged);
+    // Firestoreを正として直接上書き（削除・返信更新も反映）
+    _saveCache(scope, pref, fetchedPosts);
     const newCount = fetchedPosts.filter(fp => !cached.some(cp => cp.id === fp.id)).length;
     _commToast(newCount > 0 ? `${newCount}件の新着を取得しました` : '最新の状態です');
     _renderPostsFromCache();
