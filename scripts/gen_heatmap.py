@@ -58,8 +58,7 @@ def apply_jitter(lat, lng):
     d_lng    = (dist_km / (111.0 * math.cos(math.radians(lat)))) * math.sin(angle)
     return round(lat + d_lat, 6), round(lng + d_lng, 6)
 # ── paidクラスタ条件 ──────────────────────────────────────
-NEIGHBOR_RADIUS = 4    # 自セルから何グリッド以内を近傍とするか（9×9範囲）
-MIN_AVG_STARS = 5.0    # ★5評価かつis_gold=trueのセルのみ出力
+MIN_AVG_STARS = 5.0    # 自セルの星平均 >= 5.0 のセルのみ出力
 
 
 def coord_to_grid(lat, lng, grid_size):
@@ -125,23 +124,22 @@ def aggregate_free(coords, grid_size):
 
 def aggregate_paid(coords, grid_size):
     """
-    有料tier用: クラスタ条件付きグリッド集計
+    有料tier用: グリッド集計
 
     手順:
       1. 全座標をグリッドにスナップしてセル別に集計（件数・星合計）
-      2. 各セルについて NEIGHBOR_RADIUS グリッド以内の近傍セルを探索
-      3. is_gold=true かつ 近傍含む全投稿の星平均 >= MIN_AVG_STARS(5.0) のセルのみ出力
-      4. weight = (近傍含む件数合計 × 星平均) の正規化値
+      2. is_gold=true（※現在OFF） かつ 自セルの星平均 >= MIN_AVG_STARS(5.0) のセルのみ出力
+      3. weight = (自セル件数 × 星平均) の正規化値
     """
     # Step1: グリッド集計
     grid = {}
     for c in coords:
         try:
-            lat    = float(c['lat'])
-            lng    = float(c['lng'])
-            stars  = float(c.get('stars', 0))
+            lat     = float(c['lat'])
+            lng     = float(c['lng'])
+            stars   = float(c.get('stars', 0))
             is_gold = bool(c.get('isGold', False))
-            key    = coord_to_grid(lat, lng, grid_size)
+            key     = coord_to_grid(lat, lng, grid_size)
             if key not in grid:
                 grid[key] = {'count': 0, 'stars_sum': 0.0, 'is_gold': False}
             grid[key]['count']     += 1
@@ -155,36 +153,18 @@ def aggregate_paid(coords, grid_size):
     if not grid:
         return []
 
-    # Step2-3: 近傍探索とフィルタリング
-    # グリッドキーを整数インデックスに変換して高速検索
-    # key=(lat,lng) → idx=(ilat, ilng) で整数演算
-    idx_map = {}
+    # Step2: フィルタリング（自セルのみで判定・近傍処理廃止）
+    filtered = []
     for (lat, lng), v in grid.items():
         ilat = round(lat / grid_size)
         ilng = round(lng / grid_size)
-        idx_map[(ilat, ilng)] = v
 
-    filtered = []
-    r = NEIGHBOR_RADIUS
-    for (ilat, ilng), v in idx_map.items():
-        # 自セルから r グリッド以内の近傍セルを収集（自セル除く）
-        neighbor_cells = []
-        for di in range(-r, r + 1):
-            for dj in range(-r, r + 1):
-                if di == 0 and dj == 0:
-                    continue  # 自セルは除く
-                nb = idx_map.get((ilat + di, ilng + dj))
-                if nb is not None:
-                    neighbor_cells.append(nb)
+        # is_gold フィルター（現在OFF・コード保持）
+        # if not v['is_gold']:
+        #     continue
 
-        # is_gold=true かつ avg_stars >= 5.0 のセルのみ通す
-        if not v['is_gold']:
-            continue
-
-        # 近傍全体（自セル含む）の件数・星合計
-        total_count     = v['count'] + sum(nb['count'] for nb in neighbor_cells)
-        total_stars_sum = v['stars_sum'] + sum(nb['stars_sum'] for nb in neighbor_cells)
-        avg_stars       = total_stars_sum / total_count if total_count > 0 else 0.0
+        # 自セルのみで avg_stars を計算
+        avg_stars = v['stars_sum'] / v['count'] if v['count'] > 0 else 0.0
 
         # 星平均チェック
         if avg_stars < MIN_AVG_STARS:
@@ -195,7 +175,7 @@ def aggregate_paid(coords, grid_size):
             'lng':       round(ilng * grid_size, 6),
             'count':     v['count'],           # 自セルの件数
             'is_gold':   v['is_gold'],          # 金キーワードフラグ
-            'avg_stars': round(avg_stars, 2),  # 近傍含む星平均
+            'avg_stars': round(avg_stars, 2),  # 自セルの星平均
             'raw_score': v['count'] * max(avg_stars, 0.1),  # 星0でも最低スコア保証
         })
 
@@ -352,7 +332,7 @@ def main():
         points_paid  = aggregate_paid(base_coords + firestore_coords, GRID_SIZE_PAID)
         paid_geojson = build_geojson(points_paid, jitter=True)
         print(f"  グリッド数 paid({GRID_SIZE_PAID}°): {len(points_paid)}"
-              f"  (近傍{NEIGHBOR_RADIUS}グリッド・is_gold=true・星平均{MIN_AVG_STARS}以上)")
+              f"  (is_gold=OFF・星平均{MIN_AVG_STARS}以上)")
     except Exception as e:
         print(f"  [警告] Firestore取得スキップ（{e}）→ paidはfreeと同内容で出力")
         paid_geojson = free_geojson
@@ -362,7 +342,6 @@ def main():
         'total_submissions':          len(points_free),
         'grid_size_free':             GRID_SIZE_FREE,
         'grid_size_paid':             GRID_SIZE_PAID,
-        'cluster_neighbor_radius':    NEIGHBOR_RADIUS,
         'cluster_min_avg_stars':      MIN_AVG_STARS,
         'free': free_geojson,
         'paid': paid_geojson,
