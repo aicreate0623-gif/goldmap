@@ -1722,6 +1722,19 @@ out geom;
         ctx.cache.nearestRoadM    = minD;
         ctx.cache.nearestRoadNode = nearRoadNode;
 
+        // roadsはあるが全wayのgeometryが空だった場合（データ不備）
+        if (minD === Infinity) {
+          return {
+            score: 0,
+            reason: `一般道データ不備（${overpass.roads.length}本存在・geometry取得失敗）`,
+            _debug: {
+              '最近傍一般道距離': 'データ不備（geometryなし）',
+              '一般道本数':       `${overpass.roads.length}本（半径3km・geometry取得失敗）`,
+              'キャッシュ用途':   'nearestRoadM → bearActivity / accessDifficulty / accessibility / accessRoad',
+            },
+          };
+        }
+
         const score = minD <= 100  ? 2.0
                     : minD <= 1000 ? 5.0
                     : minD <= 2000 ? 3.5
