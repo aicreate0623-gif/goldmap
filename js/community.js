@@ -12,15 +12,14 @@ const COMM_REPLY_MAX_CHARS    = 200; // 1階層目返信
 const COMM_SUBREPLY_MAX_CHARS = 100; // 2・3階層目返信
 const COMM_REPLY_LIMIT        = 100; // 1スレッド最大返信数
 
-const COMM_NATIONAL_DISPLAY  = 30;
-const COMM_NATIONAL_TRIGGER  = 50;
+const COMM_NATIONAL_DISPLAY  = 10;
+const COMM_NATIONAL_TRIGGER  = 20;
 const COMM_PREF_DISPLAY      = 10;
 const COMM_PREF_TRIGGER      = 20;
 
 const SK_NICKNAME      = 'comm_nickname';
 const SK_LAST_POST     = 'comm_last_post';
 const SK_LAST_REFRESH  = 'comm_last_refresh';
-const SK_REACTIONS     = 'comm_reactions';
 const SK_SCOPE         = 'comm_scope';
 const SK_PREF          = 'comm_pref';
 const SK_REGION        = 'comm_region';
@@ -134,11 +133,7 @@ function _getLatestTs(posts){
   if(!posts.length) return 0;
   return Math.max(...posts.map(p => p.ts || 0));
 }
-function _loadReactions(){
-  try{ return JSON.parse(localStorage.getItem(SK_REACTIONS)) || {}; }
-  catch(e){ return {}; }
-}
-function _saveReactions(r){ localStorage.setItem(SK_REACTIONS, JSON.stringify(r)); }
+
 
 // ── 初期化 ──────────────────────────────────
 function initCommunity(){
@@ -249,18 +244,23 @@ async function commRefresh(){
     const pref   = _commPref;
     const cached = _loadCache(scope, pref);
     const limit  = scope === 'national' ? COMM_NATIONAL_DISPLAY : COMM_PREF_DISPLAY;
-    // ── クエリ構築 ──────────────────────────────────
-    // 常にフル取得（orderBy + limit）でIDマージ。
-    // 差分取得のtsフィルターはサーバー時刻とのズレで誤動作するため廃止。
-    // クエリ本数は最大1本で現状以下。
+    // ── クエリ構築（差分取得・30秒バッファ方式）────────
+    // キャッシュあり → 最新ts-30秒以降のみ取得してIDマージ
+    // キャッシュなし → 通常のlimit取得
     const fsScope = scope === 'national' ? 'national' : 'pref';
     let q = _db().collection('posts').where('scope', '==', fsScope);
     if(scope === 'regional') q = q.where('pref', '==', pref);
-    q = q.orderBy('ts', 'desc').limit(limit);
+    const latestTs = _getLatestTs(cached);
+    if(latestTs > 0){
+      q = q.where('ts', '>', new Date(latestTs - 30_000)).orderBy('ts', 'desc');
+    } else {
+      q = q.orderBy('ts', 'desc').limit(limit);
+    }
     const snap = await q.get();
     const fetchedPosts = snap.docs.map(d => _normalizePost(d));
-    // Firestoreを正として直接上書き（削除・更新も反映）
-    _saveCache(scope, pref, fetchedPosts);
+    // IDマージ：既存キャッシュ + 新規取得を重複排除してts降順・limit件数に絞る
+    const merged = _mergePosts(cached, fetchedPosts, limit);
+    _saveCache(scope, pref, merged);
     const newCount = fetchedPosts.filter(fp => !cached.some(cp => cp.id === fp.id)).length;
     _commToast(newCount > 0 ? `${newCount}件の新着を取得しました` : '最新の状態です');
     _renderPostsFromCache();
@@ -302,7 +302,6 @@ function _renderPostsFromCache(){
   const container = document.getElementById('comm-post-list');
   if(!container) return;
   const posts       = _loadCache(_commScope, _commPref);
-  const reactions   = _loadReactions();
   const uid         = firebase.auth().currentUser?.uid || null;
   const hidden      = _loadHidden();
   const hiddenReply = _loadHiddenReply();
@@ -312,7 +311,6 @@ function _renderPostsFromCache(){
     return;
   }
   container.innerHTML = posts.map(p=>{
-    const r = reactions[p.id] || {};
     // Firestore側soft delete\uff08全員非表示\uff09
     if(p.hidden === true) return null;
     // NG uid または個別非表示
@@ -327,7 +325,6 @@ function _renderPostsFromCache(){
   ${unhideBtn}
 </div>`;
     }
-    const likeActive = r.like ? ' active' : '';
     const timeStr    = _formatTime(p.ts);
     const isOwn      = uid && p.uid === uid;
     const replies    = Array.isArray(p.replies) ? p.replies : [];
@@ -346,9 +343,6 @@ function _renderPostsFromCache(){
   </div>
   <div class="comm-post-body">${_escHtml(p.text)}</div>
   <div class="comm-post-footer">
-    <button class="comm-react-btn like${likeActive}" onclick="commReact('${p.id}','like')">
-      👍 <span id="comm-like-${p.id}">${p.like||0}</span>
-    </button>
     <button class="comm-reply-toggle-btn" onclick="commToggleReply('${p.id}')">
       ${replyLabel}
     </button>
@@ -390,7 +384,7 @@ async function commSubmit(){
     const postData = {
       scope: fsScope, nick, text,
       ts:    firebase.firestore.FieldValue.serverTimestamp(),
-      like:  0, report: 0, uid: user.uid,
+      report: 0, uid: user.uid,
     };
     if(fsScope === 'pref') postData.pref = _commPref;
     const ref = await _db().collection('posts').add(postData);
@@ -415,33 +409,6 @@ async function commSubmit(){
 }
 
 
-// ── likeリアクション ─────────────────────────
-const _reactingSet = new Set(); // 連打防止フラグ
-async function commReact(postId, type){
-  const key = `${postId}_${type}`;
-  if(_reactingSet.has(key)) return; // 処理中は弾く
-  _reactingSet.add(key);
-  const reactions = _loadReactions();
-  const r = reactions[postId] || {};
-  const isOn = !!r[type]; const delta = isOn ? -1 : 1;
-  r[type] = !isOn; reactions[postId] = r; _saveReactions(reactions);
-  const scope = _commScope, pref = _commPref;
-  const cached = _loadCache(scope, pref);
-  const post = cached.find(p => p.id === postId);
-  if(post){ post[type] = Math.max(0,(post[type]||0)+delta); _saveCache(scope,pref,cached); _renderPostsFromCache(); }
-  try{
-    await _db().collection('posts').doc(postId).update({
-      [type]: firebase.firestore.FieldValue.increment(delta)
-    });
-  } catch(e){
-    r[type] = isOn; reactions[postId] = r; _saveReactions(reactions);
-    if(post){ post[type] = Math.max(0,(post[type]||0)-delta); _saveCache(scope,pref,cached); _renderPostsFromCache(); }
-    _commToast('操作に失敗しました');
-    console.warn('[comm] react failed', e);
-  } finally {
-    _reactingSet.delete(key);
-  }
-}
 
 // ── バッチ削除（古い順） ─────────────────────
 async function _checkAndBatchDelete(fsScope, pref){

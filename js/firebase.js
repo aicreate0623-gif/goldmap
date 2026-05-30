@@ -56,20 +56,30 @@ function devTogglePremium(){
 //   起動時に1回だけFirestoreリード → セッション中はメモリキャッシュを返す
 //   Firestore失敗時はlocalStorageキャッシュにフォールバック
 // ─────────────────────────────────────────────────────
-const _SK_PREMIUM = 'gm_premium_cache';
+const _SK_PREMIUM    = 'gm_premium_cache';
+const _SK_PREMIUM_TS = 'gm_premium_cache_ts';
+const _PREMIUM_TTL   = 24 * 60 * 60 * 1000; // 24時間
 let _premiumCache = null;  // null=未取得、true/false=取得済み
 
 async function isPremiumUser() {
   if (_devPremium) return true;
   // セッションキャッシュがあれば即返す（Firestoreリードなし）
   if (_premiumCache !== null) return _premiumCache;
+  // localStorageキャッシュが24時間以内なら即返す（Firestoreリードなし）
+  const cachedTs = parseInt(localStorage.getItem(_SK_PREMIUM_TS) || '0', 10);
+  if (Date.now() - cachedTs < _PREMIUM_TTL) {
+    _premiumCache = _getCachedPremium();
+    console.log('[firebase.js] isPremiumUser (24h cache) =', _premiumCache);
+    return _premiumCache;
+  }
   if (!window._fbUid) return _getCachedPremium();
   try {
     const doc = await firebase.firestore()
       .collection('users').doc(window._fbUid).get();
     _premiumCache = doc.exists && doc.data().premium === true;
-    // localStorageにも保存（次回起動時の即時反映用）
+    // localStorageにも保存（TTSとセットで）
     localStorage.setItem(_SK_PREMIUM, _premiumCache ? '1' : '0');
+    localStorage.setItem(_SK_PREMIUM_TS, String(Date.now()));
     console.log('[firebase.js] isPremiumUser fetched =', _premiumCache);
     return _premiumCache;
   } catch (e) {
