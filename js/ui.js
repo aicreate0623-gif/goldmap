@@ -370,7 +370,7 @@ function initHeatLayer(tier) {
     blur:       Math.round(params.blur   * factor),
     minOpacity: params.opacity / 100,
     maxZoom:    18,
-    max:        0.4,
+    max:        0.2,
     gradient:   cfg.gradient,
     pane:       'paneHeat',
   }).addTo(map);
