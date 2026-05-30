@@ -1,9 +1,8 @@
 {
-  "generated_at": "2026-05-29T20:33:56Z",
+  "generated_at": "2026-05-30T19:26:51Z",
   "total_submissions": 301,
   "grid_size_free": 0.1,
   "grid_size_paid": 0.01,
-  "cluster_neighbor_radius": 4,
   "cluster_min_avg_stars": 5.0,
   "free": {
     "type": "FeatureCollection",
@@ -4226,6 +4225,39 @@
   },
   "paid": {
     "type": "FeatureCollection",
-    "features": []
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            140.17628,
+            37.392967
+          ]
+        },
+        "properties": {
+          "weight": 1.0,
+          "count": 1,
+          "avg_stars": 5.0,
+          "is_gold": true
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            140.182676,
+            37.407379
+          ]
+        },
+        "properties": {
+          "weight": 1.0,
+          "count": 1,
+          "avg_stars": 5.0,
+          "is_gold": true
+        }
+      }
+    ]
   }
 }
