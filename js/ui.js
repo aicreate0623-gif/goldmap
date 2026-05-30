@@ -363,7 +363,7 @@ function initHeatLayer(tier) {
   // → zoomMax 時点の見た目のまま地理的に拡大表示される
   const z      = map.getZoom();
   const maxZ   = cfg.zoomMax;
-  const factor = z > maxZ ? Math.pow(2, z - maxZ) : 1;
+  const factor = z > maxZ ? Math.min(Math.pow(2, z - maxZ), 4) : 1;
 
   heatLayer = L.heatLayer(pts, {
     radius:     Math.round(params.radius * factor),
