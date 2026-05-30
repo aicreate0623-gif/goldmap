@@ -200,6 +200,12 @@ function _showOnlineToast(){
 function makeCachedLayer(srcKey){
   return L.TileLayer.extend({
     _sk:srcKey,
+    // LeafletデフォルトのZクランプを無効化。
+    // デフォルトは maxNativeZoom でクランプした値を返すため
+    // createTile に渡る coords.z が常に maxNativeZoom になってしまい、
+    // 自前の拡大補正ロジック（coords.z > maxNative 分岐）が機能しない。
+    // 実ズームをそのまま返すことで createTile 側に補正を一本化する。
+    _getZoomForUrl(){ return this._tileZoom; },
     createTile(coords,done){
       const img=document.createElement('img');
       img.crossOrigin='anonymous';
