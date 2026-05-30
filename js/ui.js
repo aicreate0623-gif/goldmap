@@ -359,9 +359,15 @@ function initHeatLayer(tier) {
   const raw    = buildHeatPoints(tier);
   const pts    = _gridAggregate(raw, cfg.gridDeg);
 
+  // zoomMax を超えている場合はそのズーム差分だけ radius/blur をスケールアップ
+  // → zoomMax 時点の見た目のまま地理的に拡大表示される
+  const z      = map.getZoom();
+  const maxZ   = cfg.zoomMax;
+  const factor = z > maxZ ? Math.pow(2, z - maxZ) : 1;
+
   heatLayer = L.heatLayer(pts, {
-    radius:     params.radius,
-    blur:       params.blur,
+    radius:     Math.round(params.radius * factor),
+    blur:       Math.round(params.blur   * factor),
     minOpacity: params.opacity / 100,
     maxZoom:    18,
     max:        1.0,
@@ -370,19 +376,12 @@ function initHeatLayer(tier) {
   }).addTo(map);
 }
 
-// ── ズーム変化時: zoom制限チェック + layer再描画 ────
+// ── ズーム変化時: zoomMaxを超えたらスケール拡大表示・バナーは非表示 ────
 function _initZoomEvent(){
   map.on('zoomend', () => {
     if(!heatTier) return;
-    const z    = map.getZoom();
-    const maxZ = TIER_CFG[heatTier].zoomMax;
-    if(z > maxZ){
-      if(heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
-      _showHeatZoomBanner(true, heatTier, z);
-    } else {
-      _showHeatZoomBanner(false);
-      initHeatLayer(heatTier);
-    }
+    _showHeatZoomBanner(false);
+    initHeatLayer(heatTier);
   });
 }
 
