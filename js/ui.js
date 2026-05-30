@@ -335,8 +335,8 @@ const HEAT_PARAMS_DEFAULT = {
 
 // 調整域制限
 const HEAT_PARAMS_RANGE = {
-  free:    { radius:[30,70],  blur:[30,80], opacity:[0,80] },
-  premium: { radius:[15,70],  blur:[20,80], opacity:[0,80] },
+  free:    { radius:[30,70],  blur:[30,80], opacity:[50,80] },
+  premium: { radius:[15,70],  blur:[20,80], opacity:[50,80] },
 };
 
 // 現在の調整値（tier別に独立保持）
@@ -370,7 +370,7 @@ function initHeatLayer(tier) {
     blur:       Math.round(params.blur   * factor),
     minOpacity: params.opacity / 100,
     maxZoom:    18,
-    max:        1.0,
+    max:        0.4,
     gradient:   cfg.gradient,
     pane:       'paneHeat',
   }).addTo(map);
