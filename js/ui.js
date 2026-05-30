@@ -310,7 +310,7 @@ function buildHeatPoints(tier) {
 // ── tier設定 ─────────────────────────────────────────
 const TIER_CFG = {
   free: {
-    gridDeg: 0.1,   // 約11km
+    gridDeg: 0.06,  // 約6.7km
     zoomMax: 9,
     gradient: {
       0.00: '#001233', 0.20: '#0a2a6e',
