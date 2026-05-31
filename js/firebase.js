@@ -134,80 +134,106 @@ function _localPostCountFallback() {
 // ─────────────────────────────────────────────────────
 // 課金ゲート表示
 //   type: 'point_limit' | 'offline' | 'mymap' | 'bear_layer' | 'water_level' | 'heatmap_pro'
+//         'heatmap_pro_no_post' | 'heatmap_pro_revoked'
+//
+//   【機能一覧の追加・変更方法】
+//     PREMIUM_FEATURES 配列に1行追加するだけ。
+//     { icon, label } の順。表示順 = 配列順。
+//
+//   【価格表記の変更方法】
+//     PREMIUM_PRICE 定数を変更するだけ。
+// ─────────────────────────────────────────────────────
+
+// ── PRO版機能一覧（追加・並び替え・削除はここだけ編集）──
+const PREMIUM_FEATURES = [
+  { icon: '⬇', label: 'オフライン地図機能'      },
+  { icon: '🐻', label: '熊情報'                 },
+  { icon: '💧', label: '洪水水位情報'            },
+  { icon: '📂', label: 'マイMAP作成機能'         },
+  { icon: '📍', label: 'マイポイント無制限'       },
+  { icon: '🗺', label: '砂金ヒートマップPRO版'   },
+];
+
+// ── 価格表記（変更はここだけ）────────────────────────
+const PREMIUM_PRICE = '月額 ¥390';
+
+// ── ボタンラベル（変更はここだけ）───────────────────
+const PREMIUM_BTN_LABEL = 'PRO版へアップグレード';
+
 // ─────────────────────────────────────────────────────
 function showPremiumGate(type) {
-  // プレミアム機能一覧（共通フッター用）
+  // 機能一覧HTML（PREMIUM_FEATURES 配列から自動生成）
   const PREMIUM_LIST =
     '<div class="gate-premium-list">' +
-    '<div>🗺 高精度ヒートマップPro</div>' +
-    '<div>⬇ オフライン地図ダウンロード</div>' +
-    '<div>📂 マイMAP作成</div>' +
-    '<div>🐻 熊生息ヒートマップ</div>' +
-    '<div>💧 水位・河川警戒情報</div>' +
-    '<div>📍 ポイント記録 無制限</div>' +
+    PREMIUM_FEATURES.map(f => `<div>${f.icon} ${f.label}</div>`).join('') +
     '</div>' +
-    '<div class="gate-price">月額 ¥480 ／ 年額 ¥3,800</div>';
+    `<div class="gate-price">${PREMIUM_PRICE}</div>`;
 
+  // ── 各ゲートのコンテンツ定義 ──────────────────────
+  //   新機能のゲートを追加するときはここにキーを足すだけ
   const GATE_CONTENT = {
     point_limit: {
       icon:  '📍',
       title: 'ポイント上限に達しました',
-      body:  `<p>無料プランでは最大 <b>${FREE_POINT_LIMIT} 件</b>まで保存できます。</p>` +
-             `<p>プレミアムにアップグレードするとポイントを<b>無制限</b>に保存できます。</p>` +
+      body:  `<p>フリー版では最大 <b>${FREE_POINT_LIMIT} 件</b>まで保存できます。</p>` +
+             `<p>PRO版にアップグレードするとポイントを<b>無制限</b>に保存できます。</p>` +
              PREMIUM_LIST,
     },
     offline: {
       icon:  '⬇',
-      title: 'オフライン地図はプレミアム機能です',
-      body:  '<p>地図タイルのダウンロードはプレミアム機能です。<br>' +
-             '電波のない山中でも地図・データを完全に利用できます。</p>' +
+      title: 'オフライン地図はPRO版の機能です',
+      body:  '<p>電波のない山中でも地図・データをそのまま利用できます。</p>' +
              PREMIUM_LIST,
     },
     mymap: {
       icon:  '📂',
-      title: 'マイMAPはプレミアム機能です',
-      body:  '<p>GeoJSON・CSVをインポートして地図上に表示する<b>マイMAP</b>はプレミアム機能です。<br>' +
+      title: 'マイMAPはPRO版の機能です',
+      body:  '<p>GeoJSON・CSVをインポートして地図上に表示する<b>マイMAP</b>はPRO版の機能です。<br>' +
              '最大10セットのデータを端末内に保存・管理できます。</p>' +
              PREMIUM_LIST,
     },
     bear_layer: {
       icon:  '🐻',
-      title: '熊生息ヒートマップはプレミアム機能です',
+      title: '熊情報はPRO版の機能です',
       body:  '<p>全国の熊出没データを集計した<b>生息域ヒートマップ</b>と' +
-             '直近90日の出没ピンはプレミアム機能です。</p>' +
+             '直近90日の出没ピンはPRO版の機能です。</p>' +
              PREMIUM_LIST,
     },
     water_level: {
       icon:  '💧',
-      title: '水位・河川警戒情報はプレミアム機能です',
+      title: '洪水水位情報はPRO版の機能です',
       body:  '<p>国土交通省の河川水位データをリアルタイム取得し、' +
-             '警戒レベルを地図上に表示する機能はプレミアム機能です。</p>' +
+             '警戒レベルを地図上に表示します。</p>' +
              PREMIUM_LIST,
     },
+    heatmap_pro: {
+      icon:  '🗺',
+      title: '砂金ヒートマップPRO版の機能です',
+      body:  '<p>「この町のどこか」から「<b>この川のどこか</b>」へ。</p>' +
+             '<p>フリー版の<b>約10倍の解像度</b>で表示。ユーザー投稿を匿名集計・毎日3時更新。</p>' +
+             '<p class="gate-note"><span class="gate-note-alert">※ ポイント投稿が1件以上必要です。</span><br>' +
+             '※ 採取を保証するものではありません。解約はいつでも可能です。</p>' +
+             PREMIUM_LIST,
+    },
+    // ── 掲示板タブからの勧誘 ──────────────────────────
+    comm: {
+      icon:  '✨',
+      title: 'GOLD MAP PRO版',
+      body:  '<p>砂金採取をもっと本格的に。</p>' +
+             PREMIUM_LIST,
+    },
+    // ── プレミアム済みユーザー向け（PREMIUM_LISTなし）──
     heatmap_pro_no_post: {
       icon:  '📍',
-      title: 'ポイント投稿が必要です',
-      body:  '<p>ヒートマップProを利用するには、採取ポイントを<b>1件以上投稿</b>している必要があります。</p>' +
+      title: 'ポイントを登録してください',
+      body:  '<p>砂金ヒートマップPRO版を利用するには、採取ポイントを<b>1件以上登録</b>する必要があります。</p>' +
              '<p>地図上でポイントを登録し、「ヒートマップに協力」をONにして投稿してください。</p>',
     },
     heatmap_pro_revoked: {
       icon:  '⚠️',
-      title: 'ヒートマップProを停止しました',
-      body:  '<p>投稿済みのポイントが0件になったため、ヒートマップProを停止しました。</p>' +
-             '<p>ポイントを1件以上投稿すると再度ご利用いただけます。</p>',
-    },
-    heatmap_pro: {
-      icon:  '',
-      title: '✨ ヒートマップPro（月額480円）',
-      body:  '<div class="gate-catchcopy">「この町のどこか」から「この川のどこか」へ</div>' +
-             '<div class="gate-section">' +
-             '🗺 フリー版の<b>約10倍の解像度</b>で表示。場所選定の精度を高めます。<br>' +
-             '🔥 ユーザー投稿を匿名集計・毎日3時更新。位置はランダムにずらして使用します。' +
-             '</div>' +
-             '<div class="gate-note">' +
-             '<span class="gate-note-alert">※ ポイント投稿が1件以上必要です。</span><br>' +
-             '※ 採取を保証するものではありません。解約はいつでも可能です。' +
-             '</div>',
+      title: 'ヒートマップPRO版を停止しました',
+      body:  '<p>登録済みのポイントが0件になったためPRO版を停止しました。</p>' +
+             '<p>ポイントを1件以上登録すると再度ご利用いただけます。</p>',
     },
   };
 

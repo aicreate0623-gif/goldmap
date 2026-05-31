@@ -456,17 +456,9 @@ async function openHeatProGate() {
   const TO_SETTINGS_BTN =
     '<button class="dbtn ok" onclick="closeOv();switchTab(\'settings\');setTimeout(()=>{const a=document.getElementById(\'contrib-accordion\');if(a){const h=a.querySelector(\'.cfg-accordion-header\');if(h&&!a.classList.contains(\'open\'))h.click();}},150)">設定で投稿ONにする →</button>';
 
-  // ── ① 非プレミアム（投稿ON/OFF・ポイント問わず）──────
+  // ── ① 非プレミアム → 汎用ゲートに統一 ────────────
   if (!premium) {
-    icon.textContent  = '🔒';
-    title.textContent = '分布PROはプレミアム限定です';
-    body.innerHTML =
-      '<p>匿名投稿を元に集計しAIによってつくられた高精度ヒートマップです。</p>' +
-      '<p>分布PROはプレミアム会員専用コンテンツになります。</p>';
-    btns.innerHTML =
-      CLOSE_BTN +
-      '<button class="dbtn ok premium-cta" onclick="closeOv();startPurchaseFlow()">プレミアムへアップグレード</button>';
-    showDlg('dlg-heatpro-gate');
+    showPremiumGate('heatmap_pro');
     return;
   }
 
@@ -1396,19 +1388,7 @@ function _renderGoldDisplay(d){
 
 // ━━━ プレミアム ━━━
 function commShowPremium(){
-  const body  = document.getElementById('premium-gate-body');
-  const title = document.getElementById('premium-gate-title');
-  const icon  = document.getElementById('premium-gate-icon');
-  icon.textContent = '✨'; title.textContent = 'GOLD MAP プレミアム';
-  body.innerHTML =
-    '<div style="text-align:left;font-size:12px;line-height:2;padding:4px 0;">' +
-    '砂金採取をもっと本格的に。<br><br>' +
-    '<b>🗺 高精度ヒートマップ</b><br>　全国の砂金採取確率をAI解析でマップ表示<br>' +
-    '<b>🐻 熊域リアルタイム警告</b><br>　現在地周辺の熊出没エリアを地図に表示<br>' +
-    '<b>📥 オフライン完全対応</b><br>　圏外エリアでも地図・データを完全使用可能<br>' +
-    '<b>🔓 広告非表示・全機能解放</b><br>　すべてのデータレイヤーを制限なく利用<br><br>' +
-    '<span style="font-size:13px;font-weight:700;color:var(--gold);">月額 ¥480 ／ 年額 ¥3,800</span></div>';
-  showDlg('dlg-premium-gate');
+  showPremiumGate('comm');
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
