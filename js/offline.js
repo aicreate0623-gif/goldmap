@@ -1063,6 +1063,17 @@ function _syncResumeBanner(show, descHTML) {
       el.classList.remove('show');
     }
   });
+  // バナー非表示時: saved-area-menu-sub に再開可能表示を同期
+  if (!show) {
+    const subEl = document.getElementById('saved-area-menu-sub');
+    if (subEl) {
+      const s = loadResume();
+      if (s) {
+        subEl.textContent = '⏸ 再開可能';
+      }
+      // レジュームなし → renderSessionList() の MB表示に任せるため変更しない
+    }
+  }
 }
 
 function clearResume(){
@@ -2018,9 +2029,15 @@ function checkDlSizeLimit(estimatedBytes){
 //  セッション一覧レンダリング
 // ═══════════════════════════════════════════
 // 保存済みエリア一覧ダイアログを開く
+function openAreaTileDlg(){
+  showDlg('dlg-area-tile-dl');
+  if(typeof checkResume === 'function') checkResume();
+}
+
 function openSavedAreaDlg(){
   showDlg('dlg-saved-area');
   if(typeof renderSessionList === 'function') renderSessionList();
+  if(typeof checkResume === 'function') checkResume();
 }
 
 async function renderSessionList(){

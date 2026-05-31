@@ -836,6 +836,7 @@ document.addEventListener('keydown',e=>{
         const wasMap2 = (curTab === 'map');
         _openTab(tab);
         if(wasMap2) _pushHistory();
+        if(typeof checkResume === 'function') checkResume();
       });
       return;
     }
