@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-31T05:45:19Z",
+  "generated_at": "2026-05-31T08:24:17Z",
   "total_submissions": 352,
   "grid_size_free": 0.06,
   "grid_size_paid": 0.01,
@@ -4945,8 +4945,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.146151,
-            37.372129
+            140.134542,
+            37.375602
           ]
         },
         "properties": {
@@ -4961,8 +4961,40 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.148561,
-            37.376252
+            140.129035,
+            37.372896
+          ]
+        },
+        "properties": {
+          "weight": 1.0,
+          "count": 1,
+          "avg_stars": 5.0,
+          "is_gold": true
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            140.137161,
+            37.389678
+          ]
+        },
+        "properties": {
+          "weight": 1.0,
+          "count": 1,
+          "avg_stars": 5.0,
+          "is_gold": true
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            140.166676,
+            35.849438
           ]
         },
         "properties": {
