@@ -200,43 +200,15 @@ function _showOnlineToast(){
 function makeCachedLayer(srcKey){
   return L.TileLayer.extend({
     _sk:srcKey,
-    // LeafletデフォルトのZクランプを無効化。
-    // デフォルトは maxNativeZoom でクランプした値を返すため
-    // createTile に渡る coords.z が常に maxNativeZoom になってしまい、
-    // 自前の拡大補正ロジック（coords.z > maxNative 分岐）が機能しない。
-    // 実ズームをそのまま返すことで createTile 側に補正を一本化する。
-    // maxNativeZoomによるクランプをスキップしつつmaxZoom/minZoomは維持する。
-    // デフォルトの_clampZoomはmaxNativeZoomで頭打ちにするため
-    // createTileに渡るcoords.zが常にmaxNativeZoomになり拡大補正が機能しない。
-    _clampZoom(zoom) {
-      const opts = this.options;
-      // maxZoom/minZoomのみチェック（maxNativeZoomクランプはcreateTile側で処理）
-      if (opts.minZoom !== undefined && zoom < opts.minZoom) return opts.minZoom;
-      if (opts.maxZoom !== undefined && zoom > opts.maxZoom) return opts.maxZoom;
-      return zoom;
-    },
-    _getZoomForUrl(){ return this._tileZoom; },
     createTile(coords,done){
       const img=document.createElement('img');
       img.crossOrigin='anonymous';
+      // LeafletのデフォルトmaxNativeZoom拡大補間に完全に任せる
+      // _clampZoom・_getZoomForUrl・自前拡大補間ロジックは全て削除
       const maxNative=this.options.maxNativeZoom;
-      // zoomSnap:0.1 で coords.z が小数になるため整数化しmaxNativeを上限とする。
-      // ・Math.floorで切り捨て→小数ズームの無駄な404リクエストを防ぐ
-      // ・maxNative上限→z>maxNative分岐で拡大補間が正しく発動する
-      // zoomSnap:0.1の小数ズームを整数化。Math.roundでmaxNative境界を正しく超えさせ拡大補間を発動させる
-      let z=Math.round(coords.z),x=coords.x,y=coords.y;
-      if(z>maxNative){
-        const diff=z-maxNative,factor=Math.pow(2,diff);
-        z=maxNative; x=Math.floor(coords.x/factor); y=Math.floor(coords.y/factor);
-        const size=256*factor;
-        img.style.width=size+'px'; img.style.height=size+'px';
-        img.style.marginLeft=-(coords.x%factor)*256+'px';
-        img.style.marginTop=-(coords.y%factor)*256+'px';
-        img.style.imageRendering='pixelated';
-      }
+      const z=Math.min(Math.round(coords.z), maxNative);
+      const x=coords.x, y=coords.y;
       const key=tileKey(this._sk,z,x,y);
-      // ── fetch/保存/フォールバックすべて補正済み座標(z,x,y)で統一 ──
-      // coords.z > maxNative のとき元座標で叩くと404になる＆DBキーと不一致になるバグを修正
       const netFetch=tileURL(this._sk,z,x,y);
 
       // ── directImgレイヤー：キャッシュ優先・なければ直接読み込み＋自動蓄積 ──
