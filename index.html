@@ -229,7 +229,9 @@
   </div>
 
   <div class="pt-actions">
-    <button class="btn accent" onclick="showDlg('dlg-pt-add')">＋ ポイント追加</button>
+    <button class="btn accent sm" onclick="showDlg('dlg-pt-add')">＋ ポイント追加</button>
+    <button class="btn sm" onclick="exportPts()">📤 書出し</button>
+    <button class="btn sm" onclick="openImpDlg()">📥 読込み</button>
   </div>
   <div class="pt-tip">
     💡 地図を<b>1秒長押し</b>してもポイントを追加できます
@@ -241,6 +243,7 @@
   <div class="cfg-accordion pt-list-accordion">
     <div class="cfg-accordion-header" onclick="toggleCfgAccordion(this)" id="pt-list-accordion-header">
       <span class="cfg-accordion-title" id="pt-list-accordion-title">📋 マイポイント（0件）</span>
+      <button class="pt-list-toggle-btn" onclick="event.stopPropagation(); toggleCfgAccordion(document.getElementById('pt-list-accordion-header'))">一覧</button>
       <span class="cfg-accordion-arrow">▶</span>
     </div>
     <div class="cfg-accordion-body">
@@ -1843,23 +1846,6 @@
         </button>
 
 
-        <button class="cfg-menu-item" onclick="closeOv(); exportPts()">
-          <span class="cfg-menu-icon">📤</span>
-          <span class="cfg-menu-label">
-            <span class="cfg-menu-title">書き出し（エクスポート）</span>
-            <span class="cfg-menu-sub">GeoJSON形式でバックアップ・PC閲覧</span>
-          </span>
-          <span class="cfg-menu-arrow">›</span>
-        </button>
-
-        <button class="cfg-menu-item" onclick="closeOv(); openImpDlg()">
-          <span class="cfg-menu-icon">📥</span>
-          <span class="cfg-menu-label">
-            <span class="cfg-menu-title">読み込み（インポート）</span>
-            <span class="cfg-menu-sub">GeoJSONファイルからポイントを追加</span>
-          </span>
-          <span class="cfg-menu-arrow">›</span>
-        </button>
 
       </div>
     </div>

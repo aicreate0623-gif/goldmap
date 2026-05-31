@@ -5326,3 +5326,15 @@ body.eval-mode #map {
 }
 .sheet-info-btn:hover  { background: rgba(200,168,75,0.18); border-color: rgba(200,168,75,0.6); }
 .sheet-info-btn:active { transform: scale(0.9); }
+
+/* ── マイポイント一覧トグルボタン ───────────────── */
+.pt-list-toggle-btn {
+  font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 10px;
+  border: 1px solid rgba(200,168,75,0.4);
+  background: rgba(200,168,75,0.1);
+  color: var(--gold-lt); cursor: pointer;
+  flex-shrink: 0; transition: all .15s;
+}
+.pt-list-toggle-btn:hover  { background: rgba(200,168,75,0.22); border-color: rgba(200,168,75,0.7); }
+.pt-list-toggle-btn:active { transform: scale(0.93); }
