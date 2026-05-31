@@ -223,7 +223,8 @@ function makeCachedLayer(srcKey){
       // zoomSnap:0.1 で coords.z が小数になるため整数化しmaxNativeを上限とする。
       // ・Math.floorで切り捨て→小数ズームの無駄な404リクエストを防ぐ
       // ・maxNative上限→z>maxNative分岐で拡大補間が正しく発動する
-      let z=Math.min(Math.floor(coords.z),maxNative),x=coords.x,y=coords.y;
+      // zoomSnap:0.1の小数ズームを整数化。Math.roundでmaxNative境界を正しく超えさせ拡大補間を発動させる
+      let z=Math.round(coords.z),x=coords.x,y=coords.y;
       if(z>maxNative){
         const diff=z-maxNative,factor=Math.pow(2,diff);
         z=maxNative; x=Math.floor(coords.x/factor); y=Math.floor(coords.y/factor);
