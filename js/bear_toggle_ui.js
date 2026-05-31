@@ -1,20 +1,19 @@
 // =============================================================================
-// 熊レイヤートグル UI v6 - 動的データ有無判定版
-// kmlフラグ廃止 → getBearAvailPrefs() でデータ実在県を動的取得
+// 熊レイヤートグル UI v7 - 地方2列グリッド＋都道府県サブダイアログ版
 // =============================================================================
 
 const BEAR_REGION_GROUPS = [
-  { label: "北海道・東北", icon: "🌲",
+  { label: "北海道・東北",
     prefs: ["北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県"] },
-  { label: "関東", icon: "🗼",
+  { label: "関東",
     prefs: ["茨城県","栃木県","群馬県","埼玉県","千葉県","東京都","神奈川県"] },
-  { label: "中部", icon: "🏔",
+  { label: "中部",
     prefs: ["新潟県","富山県","石川県","福井県","山梨県","長野県","岐阜県","静岡県","愛知県"] },
-  { label: "近畿", icon: "⛩",
+  { label: "近畿",
     prefs: ["三重県","滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県"] },
-  { label: "中国・四国", icon: "🌊",
+  { label: "中国・四国",
     prefs: ["島根県・鳥取県","岡山県","広島県","山口県","徳島県","香川県","愛媛県","高知県"] },
-  { label: "九州・沖縄", icon: "🌺",
+  { label: "九州・沖縄",
     prefs: ["福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県"] },
 ];
 
@@ -28,13 +27,11 @@ function initBearToggle() {
   const menuItem = document.getElementById("bear-cfg-menu-item");
   if (menuItem) menuItem.style.display = '';
 
-  // データ実在県をpinsから動的取得（kmlフラグ不要）
-  const availSet = getBearAvailPrefs();
-
+  const availSet  = getBearAvailPrefs();
   const current   = getBearPrefFilter();
   const isAllMode = Array.isArray(current) ? current.includes('__all__') : current === '__all__';
   const checkedSet = isAllMode
-    ? new Set(availSet)  // 全データ対応県をチェック済みにする
+    ? new Set(availSet)
     : new Set(Array.isArray(current) ? current : [current]);
 
   let html = `
@@ -46,47 +43,17 @@ function initBearToggle() {
       <button class="bear-filter-all-btn" onclick="_bearSelectAll(false)">全解除</button>
     </div>
 
-    <div class="bear-region-list">`;
+    <div class="bear-region-grid">`;
 
   BEAR_REGION_GROUPS.forEach((group, gi) => {
-    // データが実在する県のみカウント
     const availCount   = group.prefs.filter(p => availSet.has(p)).length;
     const checkedCount = group.prefs.filter(p => availSet.has(p) && checkedSet.has(p)).length;
-    const regionId = `bear-region-${gi}`;
 
     html += `
-      <div class="bear-region-block">
-        <div class="bear-region-header" onclick="_bearToggleRegion(${gi})">
-          <span class="bear-region-icon">${group.icon}</span>
-          <span class="bear-region-label">${group.label}</span>
-          <span class="bear-region-count" id="bear-rcount-${gi}">${checkedCount}/${availCount}</span>
-          <span class="bear-region-arrow" id="bear-rarrow-${gi}">▶</span>
-        </div>
-        <div class="bear-region-body" id="${regionId}" style="display:none">
-          <div class="bear-pref-grid">`;
-
-    group.prefs.forEach(pref => {
-      // データが実在する県のみ有効、それ以外はdisabled
-      const hasData  = availSet.has(pref);
-      const checked  = hasData && checkedSet.has(pref) ? 'checked' : '';
-      const disabled = hasData ? '' : 'disabled';
-      const cls      = hasData ? 'bear-pref-item' : 'bear-pref-item bear-pref-item--disabled';
-      html += `
-            <label class="${cls}">
-              <input type="checkbox" class="bear-pref-ck" data-pref="${pref}" data-gi="${gi}"
-                ${checked} ${disabled} onchange="_bearOnCheck()">
-              <span class="bear-pref-name">${pref}</span>
-            </label>`;
-    });
-
-    html += `
-          </div>
-          <div class="bear-region-btns">
-            <button class="bear-region-toggle-btn" onclick="_bearRegionAll(${gi}, true)">地方全選択</button>
-            <button class="bear-region-toggle-btn" onclick="_bearRegionAll(${gi}, false)">地方解除</button>
-          </div>
-        </div>
-      </div>`;
+      <button class="bear-region-btn" onclick="_bearOpenPrefDlg(${gi})">
+        <span class="bear-region-btn-label">${group.label}</span>
+        <span class="bear-region-btn-badge" id="bear-rcount-${gi}">${checkedCount}/${availCount}</span>
+      </button>`;
   });
 
   html += `
@@ -102,20 +69,54 @@ function initBearToggle() {
   _bearOnCheck();
 }
 
-function _bearToggleRegion(gi) {
-  const body  = document.getElementById(`bear-region-${gi}`);
-  const arrow = document.getElementById(`bear-rarrow-${gi}`);
-  if (!body) return;
-  const open = body.style.display === 'none';
-  body.style.display = open ? 'block' : 'none';
-  if (arrow) arrow.textContent = open ? '▼' : '▶';
+/* ── 都道府県サブダイアログを開く ── */
+function _bearOpenPrefDlg(gi) {
+  const group    = BEAR_REGION_GROUPS[gi];
+  const availSet = getBearAvailPrefs();
+  const current  = getBearPrefFilter();
+  const isAllMode = Array.isArray(current) ? current.includes('__all__') : current === '__all__';
+  const checkedSet = isAllMode
+    ? new Set(availSet)
+    : new Set(Array.isArray(current) ? current : [current]);
+
+  // タイトル
+  document.getElementById('bear-pref-dlg-title').textContent = group.label;
+
+  // 都道府県グリッド生成
+  const grid = document.getElementById('bear-pref-dlg-grid');
+  grid.innerHTML = '';
+  group.prefs.forEach(pref => {
+    const hasData = availSet.has(pref);
+    const label   = document.createElement('label');
+    label.className = hasData ? 'bear-pref-item' : 'bear-pref-item bear-pref-item--disabled';
+    label.innerHTML = `
+      <input type="checkbox" class="bear-pref-ck" data-pref="${pref}" data-gi="${gi}"
+        ${hasData && checkedSet.has(pref) ? 'checked' : ''}
+        ${hasData ? '' : 'disabled'}
+        onchange="_bearOnCheck()">
+      <span class="bear-pref-name">${pref}</span>`;
+    grid.appendChild(label);
+  });
+
+  // 地方全選択／解除ボタンのgi更新
+  document.getElementById('bear-pref-dlg-all').onclick    = () => _bearRegionAll(gi, true);
+  document.getElementById('bear-pref-dlg-none').onclick   = () => _bearRegionAll(gi, false);
+
+  // サブダイアログ表示
+  document.getElementById('dlg-bear-pref').style.display = 'flex';
 }
 
+/* ── サブダイアログを閉じる ── */
+function closeBearPrefDlg() {
+  document.getElementById('dlg-bear-pref').style.display = 'none';
+}
+
+/* ── チェック変更時の処理 ── */
 function _bearOnCheck() {
   const allCks  = document.querySelectorAll('.bear-pref-ck:not(:disabled)');
   const checked = Array.from(allCks).filter(ck => ck.checked).map(ck => ck.dataset.pref);
 
-  // 地方ごとのカウント表示を更新
+  // 地方ボタンのバッジを更新
   const availSet = getBearAvailPrefs();
   BEAR_REGION_GROUPS.forEach((group, gi) => {
     const availCount   = group.prefs.filter(p => availSet.has(p)).length;

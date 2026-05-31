@@ -1935,6 +1935,23 @@
     </div>
   </div>
 
+  <!-- 熊出没：都道府県サブダイアログ -->
+  <div id="dlg-bear-pref" style="display:none" onclick="if(event.target===this)closeBearPrefDlg()">
+    <div id="bear-pref-dlg-box">
+      <div id="bear-pref-dlg-head">
+        <span id="bear-pref-dlg-title" class="bear-pref-dlg-title"></span>
+        <button class="dlg-close" onclick="closeBearPrefDlg()">✕</button>
+      </div>
+      <div id="bear-pref-dlg-body">
+        <div id="bear-pref-dlg-grid" class="bear-pref-dlg-grid"></div>
+        <div class="bear-pref-dlg-btns">
+          <button class="bear-region-toggle-btn" id="bear-pref-dlg-all">地方全選択</button>
+          <button class="bear-region-toggle-btn" id="bear-pref-dlg-none">地方解除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- カスタムレイヤー：セット追加・編集ダイアログ -->
   <div class="dialog" id="dlg-cl-edit" style="display:none">
     <h3 id="cl-dlg-title">新規セット追加</h3>
