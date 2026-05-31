@@ -205,7 +205,12 @@ function makeCachedLayer(srcKey){
     // createTile に渡る coords.z が常に maxNativeZoom になってしまい、
     // 自前の拡大補正ロジック（coords.z > maxNative 分岐）が機能しない。
     // 実ズームをそのまま返すことで createTile 側に補正を一本化する。
-    _getZoomForUrl(){ return this._tileZoom; },
+    // LeafletのmaxNativeZoomクランプを完全無効化。
+    // _clampZoom が maxNativeZoom で coords.z を頭打ちにするため
+    // createTile に実ズームが届かない → z>maxNative 分岐に入れない。
+    // 実ズームをそのまま _tileZoom に通すことで拡大補正を一本化する。
+    _clampZoom(zoom){ return zoom; },
+    _getZoomForUrl(){ return this._map ? this._map.getZoom() : this._tileZoom; },
     createTile(coords,done){
       const img=document.createElement('img');
       img.crossOrigin='anonymous';
@@ -242,7 +247,8 @@ function makeCachedLayer(srcKey){
             } else {
               // キャッシュなし：直接表示しつつautoCacheレイヤーはfetchして蓄積
               img.crossOrigin='';
-              img.onload=()=>done(null,img); img.onerror=e=>done(e,img);
+              img.onload=()=>done(null,img);
+              img.onerror=e=>done(e,img);
               img.src=netFetch;
               if(SRCS[this._sk].autoCache){
                 fetch(netFetch).then(r=>r.ok?r.arrayBuffer():null).then(buf=>{
