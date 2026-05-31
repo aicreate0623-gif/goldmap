@@ -760,6 +760,19 @@ function clJumpToPoint(setId, idx) {
   const s = _clSets.find(s => s.id === setId);
   if (!s || !s.points[idx]) return;
   const p = s.points[idx];
+  // セット表示をONにする
+  if (!s.visible) {
+    s.visible = true;
+    if (!_clLayers[s.id]) _buildLayer(s);
+    else _clLayers[s.id].addTo(map);
+  }
+  // マイMAPフロートボタンをONにする
+  if (!_clMapShown) {
+    _clMapShown = true;
+    _showAllClLayers();
+    _applyClFloatState();
+  }
+  _syncFloatBtn();
   switchTab('map');
   setTimeout(() => {
     map.invalidateSize({pan: false});

@@ -364,6 +364,7 @@ function renderPtList(){
 }
 function jumpPt(id){
   const p=pts.find(q=>q.id===id);if(!p)return;
+  if(!_myPtsVisible) toggleMyPts();
   switchTab('map');
   setTimeout(()=>{
     map.invalidateSize({pan:false});
