@@ -210,12 +210,9 @@ function makeCachedLayer(srcKey){
     // createTileに渡るcoords.zが常にmaxNativeZoomになり拡大補正が機能しない。
     _clampZoom(zoom) {
       const opts = this.options;
+      // maxZoom/minZoomのみチェック（maxNativeZoomクランプはcreateTile側で処理）
       if (opts.minZoom !== undefined && zoom < opts.minZoom) return opts.minZoom;
       if (opts.maxZoom !== undefined && zoom > opts.maxZoom) return opts.maxZoom;
-      // zoomSnap:0.1の小数ズームがmaxNativeZoomを超えた場合はmaxNativeZoomに丸める。
-      // これにより存在しないズームへの無駄な404リクエストを根本から防ぐ。
-      // 拡大補間はcreateTile側のz>maxNative分岐で処理する。
-      if (opts.maxNativeZoom !== undefined && zoom > opts.maxNativeZoom) return opts.maxNativeZoom;
       return zoom;
     },
     _getZoomForUrl(){ return this._tileZoom; },
@@ -223,9 +220,10 @@ function makeCachedLayer(srcKey){
       const img=document.createElement('img');
       img.crossOrigin='anonymous';
       const maxNative=this.options.maxNativeZoom;
-      // zoomSnap:0.1 で coords.z が小数になるため切り捨て整数化（例:11.5→11）
-      // Math.floorで常にサーバーに存在する整数ズームを使う
-      let z=Math.floor(coords.z),x=coords.x,y=coords.y;
+      // zoomSnap:0.1 で coords.z が小数になるため整数化しmaxNativeを上限とする。
+      // ・Math.floorで切り捨て→小数ズームの無駄な404リクエストを防ぐ
+      // ・maxNative上限→z>maxNative分岐で拡大補間が正しく発動する
+      let z=Math.min(Math.floor(coords.z),maxNative),x=coords.x,y=coords.y;
       if(z>maxNative){
         const diff=z-maxNative,factor=Math.pow(2,diff);
         z=maxNative; x=Math.floor(coords.x/factor); y=Math.floor(coords.y/factor);
