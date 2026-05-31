@@ -355,17 +355,13 @@ function renderPtList(){
   el.innerHTML=pts.map(p=>`
     <div class="cl-pt-row" onclick="jumpPt(${p.id})">
       <span class="cl-pt-icon" style="background:${(!p.color||p.color==='transparent')?'rgba(200,160,32,0.2)':p.color}">${p.icon||'⛏'}</span>
-      <div class="cl-pt-info">
-        <div class="cl-pt-name-row">
-          <span class="cl-pt-name">${(p.name||'（無名）').length>10?(p.name||'（無名）').slice(0,10)+'…':(p.name||'（無名）')}</span>
-          <span class="cl-pt-stars">${starsToHtml(p.stars||0)}</span>
-        </div>
-        <div class="cl-pt-meta">📍 ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.memo?` · ${p.memo.slice(0,20)}${p.memo.length>20?'…':''}`:''}</div>
-      </div>
+      <span class="cl-pt-name">${(p.name||'（無名）').length>10?(p.name||'（無名）').slice(0,10)+'…':(p.name||'（無名）')}</span>
+      <span class="cl-pt-stars">${starsToHtml(p.stars||0)}</span>
       <div class="cl-pt-row-btns" onclick="event.stopPropagation()">
         <button class="btn sm" onclick="openDet(${p.id})" title="詳細">📋</button>
         <button class="btn sm red" onclick="ptListDel(${p.id})" title="削除">🗑</button>
       </div>
+      <div class="cl-pt-meta">📍 ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.memo?` · ${p.memo.slice(0,20)}${p.memo.length>20?'…':''}`:''}</div>
     </div>
   `).join('');
 }
