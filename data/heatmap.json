@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-30T19:26:51Z",
+  "generated_at": "2026-05-31T05:39:17Z",
   "total_submissions": 301,
   "grid_size_free": 0.1,
   "grid_size_paid": 0.01,
@@ -4231,8 +4231,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.17628,
-            37.392967
+            140.127794,
+            37.409951
           ]
         },
         "properties": {
@@ -4247,8 +4247,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.182676,
-            37.407379
+            140.160588,
+            37.376758
           ]
         },
         "properties": {
