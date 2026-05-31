@@ -311,7 +311,7 @@ function buildHeatPoints(tier) {
 const TIER_CFG = {
   free: {
     gridDeg: 0.06,  // 約6.7km
-    zoomMax: 9,
+    zoomMax: 11,
     gradient: {
       0.00: '#001233', 0.20: '#0a2a6e',
       0.45: '#b85800', 0.72: '#e0a000', 1.00: '#fff0a0',
@@ -363,7 +363,7 @@ function initHeatLayer(tier) {
   // → zoomMax 時点の見た目のまま地理的に拡大表示される
   const z      = map.getZoom();
   const maxZ   = cfg.zoomMax;
-  const factor = z > maxZ ? Math.min(Math.pow(2, z - maxZ), 4) : 1;
+  const factor = z > maxZ ? Math.min(Math.pow(1.5, z - maxZ), 4) : 1;
 
   heatLayer = L.heatLayer(pts, {
     radius:     Math.round(params.radius * factor),

@@ -39,7 +39,7 @@ from pathlib import Path
 OUTPUT_PATH = Path(__file__).parent.parent / 'data' / 'heatmap.json'
 
 # ── グリッドサイズ定数 ────────────────────────────────────
-GRID_SIZE_FREE = 0.1   # 約10km（無料tier・フィルターなし）
+GRID_SIZE_FREE = 0.06  # 約6.7km（無料tier・ui.jsのgridDegと統一）
 GRID_SIZE_PAID = 0.01  # 約1km （有料tier・クラスタ条件あり）
 
 # ── 座標ジッター設定（プライバシー保護）────────────────────
