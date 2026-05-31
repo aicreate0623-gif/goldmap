@@ -324,7 +324,7 @@ const TIER_CFG = {
   },
   premium: {
     gridDeg: 0.01,  // 約1.1km
-    zoomMax: 13,
+    zoomMax: 18,
     gradient: {
       0.00: '#001a0a', 0.22: '#0a4a1a',
       0.48: '#6a9a00', 0.74: '#d4c800', 1.00: '#fffff0',
@@ -389,43 +389,26 @@ function _initZoomEvent(){
     if(heatTier === 'free' && z >= 10){
       // Z10以上: レイヤー非表示＋PRO誘導バナー表示
       if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
-      _showHeatZoomBanner(true, 'free', z);
+      _showHeatZoomBanner(true);
     } else {
-      // Z9以下に戻った or PRO tier: バナー消して再描画
+      // Z9以下に戻った or PRO tier（Z18まで常時表示）: バナー消して再描画
       _showHeatZoomBanner(false);
       initHeatLayer(heatTier);
     }
   });
 }
 
-// ── プレミアム誘導バナー ──────────────────────────────
-function _showHeatZoomBanner(show, tier, z){
+// ── プレミアム誘導バナー（フリー版専用・Z10以上で表示）──────
+function _showHeatZoomBanner(show){
   let b = document.getElementById('heat-zoom-banner');
   if(show){
-    let msg, btnHtml;
-    if(tier === 'free'){
-      const premiumMax = TIER_CFG.premium.zoomMax; // 13
-      if(z <= premiumMax){
-        // Z10〜13: PRO版なら見れる
-        msg = '🔒 Z' + Math.floor(z) + ' はヒートマップPRO版で閲覧できます';
-        btnHtml = '';
-      } else {
-        // Z14以上: PRO版でも範囲外
-        msg = '⚠ この拡大率はどのプランのヒートマップでも表示範囲外です';
-        btnHtml = '';
-      }
-    } else {
-      // premium tier
-      msg = '⚠ この拡大率は表示範囲外です';
-      btnHtml = '';
-    }
     if(!b){
       b = document.createElement('div');
       b.id = 'heat-zoom-banner';
       b.style.cssText = 'position:fixed;top:calc(var(--sb-h, 30px) + 8px + 89px + 16px);left:50%;transform:translateX(-50%);z-index:1050;background:rgba(0,0,0,0.88);border:1px solid var(--gold);border-radius:20px;padding:7px 16px;font-size:12px;color:var(--txt);white-space:nowrap;pointer-events:auto;display:flex;align-items:center;gap:4px;';
       document.body.appendChild(b);
     }
-    b.innerHTML = msg + btnHtml;
+    b.innerHTML = '🔒 ヒートマップPRO版でZ10以上を表示できます';
     b.style.display = 'flex';
   } else {
     if(b) b.style.display = 'none';
