@@ -220,7 +220,9 @@ function makeCachedLayer(srcKey){
       const img=document.createElement('img');
       img.crossOrigin='anonymous';
       const maxNative=this.options.maxNativeZoom;
-      let z=coords.z,x=coords.x,y=coords.y;
+      // zoomSnap:0.1 で coords.z が小数になるため整数化（例:12.1→12）
+      // 小数のまま diff/factor を計算するとタイル座標がずれて歯抜け・消失が起きる
+      let z=Math.round(coords.z),x=coords.x,y=coords.y;
       if(z>maxNative){
         const diff=z-maxNative,factor=Math.pow(2,diff);
         z=maxNative; x=Math.floor(coords.x/factor); y=Math.floor(coords.y/factor);
