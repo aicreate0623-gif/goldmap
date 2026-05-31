@@ -207,13 +207,13 @@
 <div class="sheet" id="mymap-sheet">
   <div class="sheet-head">
     <h2>📂 マイMAP</h2>
+    <button class="sheet-info-btn" onclick="showDlg('dlg-mymap-about')" title="機能説明">ℹ️</button>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
     <div class="cl-add-row">
       <button class="btn accent sm" onclick="openClAdd()" id="cl-add-btn">＋ 新規セット追加</button>
       <span class="cl-limit-note" id="cl-limit-note"></span>
-      <button class="btn sm" onclick="showDlg('dlg-mymap-about')" style="margin-left:auto;">📖 機能説明</button>
     </div>
     <div id="cl-sets-body">
       <div id="cl-sets-list"></div>
@@ -224,6 +224,7 @@
 <div class="sheet" id="pt-sheet">
   <div class="sheet-head">
     <h2>📍 マイポイント一覧</h2>
+    <button class="sheet-info-btn" onclick="showDlg('dlg-pt-about')" title="機能説明">ℹ️</button>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
 
@@ -255,20 +256,13 @@
 <div class="sheet" id="dl-sheet">
   <div class="sheet-head">
     <h2>⬇ オフライン地図管理</h2>
+    <button class="sheet-info-btn" onclick="showDlg('dlg-offline-rules')" title="説明・ルール">ℹ️</button>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
 
     <!-- ━━━ オフラインメニューリスト ━━━ -->
     <div class="cfg-menu-list">
-
-      <button class="cfg-menu-item" onclick="showDlg('dlg-offline-rules')">
-        <span class="cfg-menu-icon">📋</span>
-        <span class="cfg-menu-label">
-          <span class="cfg-menu-title">ご利用上の説明・ルール</span>
-        </span>
-        <span class="cfg-menu-arrow">›</span>
-      </button>
 
       <button class="cfg-menu-item" onclick="showDlg('dlg-cache-diag')">
         <span class="cfg-menu-icon">🔍</span>
@@ -321,6 +315,7 @@
 <div class="sheet" id="cfg-sheet">
   <div class="sheet-head">
     <h2>⚙ 設定</h2>
+    <button class="sheet-info-btn" onclick="tutorialOpen()" title="使い方ガイド">ℹ️</button>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
@@ -438,16 +433,12 @@
 <div class="sheet" id="comm-sheet">
   <div class="sheet-head">
     <h2>💬 コミュニティ</h2>
+    <button class="sheet-info-btn" onclick="showDlg('dlg-comm-rules')" title="掲示板ルール">ℹ️</button>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
 
     <div class="cfg-menu-list">
-      <button class="cfg-menu-item" onclick="showDlg('dlg-comm-rules')">
-        <span class="cfg-menu-icon">📋</span>
-        <span class="cfg-menu-label">掲示板ルール</span>
-        <span class="cfg-menu-arrow">›</span>
-      </button>
       <button class="cfg-menu-item" onclick="showDlg('dlg-comm-board')">
         <span class="cfg-menu-icon">💬</span>
         <span class="cfg-menu-label">掲示板を開く</span>
@@ -1851,14 +1842,6 @@
           <span class="cfg-menu-arrow">›</span>
         </button>
 
-        <button class="cfg-menu-item" onclick="showDlg('dlg-pt-about')">
-          <span class="cfg-menu-icon">📖</span>
-          <span class="cfg-menu-label">
-            <span class="cfg-menu-title">マイポイント機能について</span>
-            <span class="cfg-menu-sub">登録項目・書出し読込の説明</span>
-          </span>
-          <span class="cfg-menu-arrow">›</span>
-        </button>
 
         <button class="cfg-menu-item" onclick="closeOv(); exportPts()">
           <span class="cfg-menu-icon">📤</span>

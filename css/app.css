@@ -5314,3 +5314,15 @@ body.eval-mode #map {
   border-radius: 3px;
   transition: width .3s ease;
 }
+/* ── sheet-head ℹ️ ボタン ───────────────────────── */
+.sheet-info-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid rgba(200,168,75,0.35);
+  background: rgba(200,168,75,0.08);
+  color: var(--gold-lt); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+.sheet-info-btn:hover  { background: rgba(200,168,75,0.18); border-color: rgba(200,168,75,0.6); }
+.sheet-info-btn:active { transform: scale(0.9); }
