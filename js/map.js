@@ -244,7 +244,7 @@ function toggleGeo(){
       const GeoLayer = makeCachedLayer('geo');
       geoL = new GeoLayer(SRCS['geo'].url, {
         attribution:'産総研シームレス地質図',
-        maxNativeZoom:13, maxZoom:18,
+        maxNativeZoom:12, maxZoom:18,
         opacity:op/100, pane:'paneGeo'
       });
     } else { geoL.setOpacity(op/100); }
@@ -279,7 +279,7 @@ function toggleGeo50k(){
         const CLS = makeCachedLayer(sk);
         return new CLS(SRCS[sk].url, {
           attribution:'産総研 鉱物資源図 1:50万',
-          maxNativeZoom:12, maxZoom:18,
+          maxNativeZoom:11, maxZoom:18,
           opacity: op/100, pane:'paneGeo'
         });
       });
