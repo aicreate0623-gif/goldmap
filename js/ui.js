@@ -376,12 +376,20 @@ function initHeatLayer(tier) {
   }).addTo(map);
 }
 
-// ── ズーム変化時: zoomMaxを超えたらスケール拡大表示・バナーは非表示 ────
+// ── ズーム変化時: FREE版はZ10以上で非表示＋バナー、戻したら再表示 ────
 function _initZoomEvent(){
   map.on('zoomend', () => {
     if(!heatTier) return;
-    _showHeatZoomBanner(false);
-    initHeatLayer(heatTier);
+    const z = map.getZoom();
+    if(heatTier === 'free' && z >= 10){
+      // Z10以上: レイヤー非表示＋PRO誘導バナー表示
+      if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
+      _showHeatZoomBanner(true, 'free', z);
+    } else {
+      // Z9以下に戻った or PRO tier: バナー消して再描画
+      _showHeatZoomBanner(false);
+      initHeatLayer(heatTier);
+    }
   });
 }
 
