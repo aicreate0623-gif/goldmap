@@ -328,6 +328,10 @@ function savePts(){
     fromEval:p.fromEval||false,
     evalScore:p.evalScore||null,
     evalItems:p.evalItems||[],
+    evalGoldItems:p.evalGoldItems||[],
+    evalRiverItems:p.evalRiverItems||[],
+    evalGoldScore:p.evalGoldScore||null,
+    evalRiverScore:p.evalRiverScore||null,
   }))));}catch(e){}
 }
 function loadPts(){
@@ -547,9 +551,13 @@ async function confirmSave(){
     const p={id:nid++,lat:ll.lat,lng:ll.lng,name:n,memo:m,stars:_curStars,icon:_curIcon,color:_curColor};
     // 評価からの登録フラグ・スコアデータを付与
     if(_pendingEvalData){
-      p.fromEval    = true;
-      p.evalScore   = _pendingEvalData.evalScore   || null;
-      p.evalItems   = _pendingEvalData.evalItems   || [];
+      p.fromEval       = true;
+      p.evalScore      = _pendingEvalData.evalScore      || null;
+      p.evalItems      = _pendingEvalData.evalItems      || [];
+      p.evalGoldItems  = _pendingEvalData.evalGoldItems  || [];
+      p.evalRiverItems = _pendingEvalData.evalRiverItems || [];
+      p.evalGoldScore  = _pendingEvalData.evalGoldScore  || null;
+      p.evalRiverScore = _pendingEvalData.evalRiverScore || null;
       _pendingEvalData = null;
     }
     pts.push(p);addMk(p);cancelAdd();
@@ -750,7 +758,7 @@ async function confirmImp2(){
 // ── 評価モジュールからの登録エントリポイント ────────────────
 // evaluate.js の IIFE 内からは tPin/addMode に直接触れないため
 // points.js 側でグローバル関数として公開する
-// opts: { fromEval, stars, memo, evalScore, evalItems }
+// opts: { fromEval, stars, memo, evalScore, evalItems, evalGoldItems, evalRiverItems, evalGoldScore, evalRiverScore }
 window.openEvalFromResult = function(lat, lng, opts) {
   // 既存 tPin があれば除去
   if (tPin) { map.removeLayer(tPin); tPin = null; }

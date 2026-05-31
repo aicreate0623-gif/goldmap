@@ -3019,14 +3019,33 @@ out geom;
       score: it._score,
     }));
 
+    // カテゴリ別ID定義
+    const GOLD_IDS  = ['geology', 'auDensity', 'mineDistance', 'depositElevation', 'valleyShape'];
+    const RIVER_IDS = ['waterDistance', 'riverCurve', 'riverSlope', 'confluence'];
+
+    // 含有率・河川環境の項目データ（id・name・scoreのみ）
+    const itemMap = {};
+    for (const it of items) itemMap[it.id] = it;
+
+    const evalGoldItems  = GOLD_IDS .filter(id => itemMap[id]).map(id => ({ id, name: itemMap[id].name, score: itemMap[id]._score }));
+    const evalRiverItems = RIVER_IDS.filter(id => itemMap[id]).map(id => ({ id, name: itemMap[id].name, score: itemMap[id]._score }));
+
+    // カテゴリ別加重平均スコア
+    const evalGoldScore  = _calcWeightedScore(items.filter(it => GOLD_IDS .includes(it.id)));
+    const evalRiverScore = _calcWeightedScore(items.filter(it => RIVER_IDS.includes(it.id)));
+
     // points.js 側のグローバル関数を呼ぶ（tPin/addMode は points.js のスコープ変数）
     if (typeof window.openEvalFromResult === 'function') {
       window.openEvalFromResult(lat, lng, {
         fromEval:  true,
         stars,
         memo,
-        evalScore: totalScore,
+        evalScore:      totalScore,
         evalItems,
+        evalGoldItems,
+        evalRiverItems,
+        evalGoldScore,
+        evalRiverScore,
       });
     }
   }
