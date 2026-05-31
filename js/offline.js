@@ -1011,26 +1011,21 @@ function checkResume(){
     _bdprogSyncProgress(s.taskIndex||0, s.total||0);
     _bdprogSetPhase('stopped');
   } else if(s.subMode==='addlayer'){
-    // 追加レイヤーDL: resume-bannerを使用
-    const banner=document.getElementById('resume-banner');
+    // 追加レイヤーDL: resume-banner同期
     const layerStr=_layerLabel(s.layers);
     const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
-    // bounds中心座標を表示
     let areaStr = '';
     if(s.bounds){
       const clat = ((s.bounds.n + s.bounds.s) / 2).toFixed(2);
       const clng = ((s.bounds.e + s.bounds.w) / 2).toFixed(2);
       areaStr = `<br>📍 ${clat}, ${clng}`;
     }
-    document.getElementById('resume-desc').innerHTML=
-      `追加レイヤー / ${layerStr}${areaStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
-    banner.classList.add('show');
+    _syncResumeBanner(true,
+      `追加レイヤー / ${layerStr}${areaStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`);
   } else if(s.subMode==='circle'){
-    // 半径エリアDL: resume-banner を使用
-    const banner=document.getElementById('resume-banner');
+    // 半径エリアDL: resume-banner同期
     const layerStr=_layerLabel(s.layers);
     const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
-    // 中心座標・半径を表示
     let areaStr = '';
     if(s.center){
       const clat = s.center.lat.toFixed(2);
@@ -1038,30 +1033,41 @@ function checkResume(){
       const km   = s.radiusKm ? `半径 ${s.radiusKm} km` : '';
       areaStr = `<br>📍 ${clat}, ${clng}${km ? ' / ' + km : ''}`;
     }
-    document.getElementById('resume-desc').innerHTML=
-      `半径エリア / ${layerStr}${areaStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
-    banner.classList.add('show');
+    _syncResumeBanner(true,
+      `半径エリア / ${layerStr}${areaStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`);
   } else {
-    // detail（矩形）: resume-bannerを使用
-    const banner=document.getElementById('resume-banner');
+    // detail（矩形）: resume-banner同期
     const layerStr=_layerLabel(s.layers);
     const pct=s.total>0?Math.round(s.taskIndex/s.total*100):0;
-    // bounds中心座標を表示
     let areaStr = '';
     if(s.bounds){
       const clat = ((s.bounds.n + s.bounds.s) / 2).toFixed(2);
       const clng = ((s.bounds.e + s.bounds.w) / 2).toFixed(2);
       areaStr = `<br>📍 ${clat}, ${clng}`;
     }
-    document.getElementById('resume-desc').innerHTML=
-      `詳細範囲 / ${layerStr}${areaStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`;
-    banner.classList.add('show');
+    _syncResumeBanner(true,
+      `詳細範囲 / ${layerStr}${areaStr}<br>Z${s.zmin}〜Z${s.zmax} / 進捗 <b>${fmt(s.taskIndex)} / ${fmt(s.total)}（${pct}%）</b><br>保存: ${s.savedAt||'—'}`);
   }
+}
+
+// resume-bannerを両ダイアログに同期表示するヘルパー
+function _syncResumeBanner(show, descHTML) {
+  ['resume-banner', 'resume-banner-saved'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (show) {
+      el.classList.add('show');
+      const descEl = el.querySelector('[id^="resume-desc"]');
+      if (descEl && descHTML !== undefined) descEl.innerHTML = descHTML;
+    } else {
+      el.classList.remove('show');
+    }
+  });
 }
 
 function clearResume(){
   deleteResume();
-  document.getElementById('resume-banner').classList.remove('show');
+  _syncResumeBanner(false);
 }
 
 /**
@@ -1095,7 +1101,7 @@ async function resumeDl(){
   const layers=s.layers; if(!layers||!layers.length)return;
   if(!navigator.onLine){ showAlert('オフライン','インターネット接続がありません。\nオンライン時にダウンロードしてください。'); return; }
 
-  document.getElementById('resume-banner').classList.remove('show');
+  _syncResumeBanner(false);
 
   if(s.subMode==='addlayer'){
     // ── 追加レイヤーDL再開: adpパネルを開いてそのまま再開 ──
@@ -1848,7 +1854,7 @@ async function runDl(mode, bounds, zmin, zmax, layers, startIdx, parentSessId=nu
     deleteResume();
     // ベースDLの場合は専用進捗キーも削除
     if(mode==='base') deleteBaseDlProgress();
-    document.getElementById('resume-banner').classList.remove('show');
+    _syncResumeBanner(false);
     log('✅ 完了！ '+fmt(done)+'枚保存（失敗: '+fail+'）');
     // セッション保存
     let _savedSessId = parentSessId || null;
@@ -2011,6 +2017,12 @@ function checkDlSizeLimit(estimatedBytes){
 // ═══════════════════════════════════════════
 //  セッション一覧レンダリング
 // ═══════════════════════════════════════════
+// 保存済みエリア一覧ダイアログを開く
+function openSavedAreaDlg(){
+  showDlg('dlg-saved-area');
+  if(typeof renderSessionList === 'function') renderSessionList();
+}
+
 async function renderSessionList(){
   const container = document.getElementById('session-list');
   if(!container) return;
@@ -2020,13 +2032,21 @@ async function renderSessionList(){
   const cacheMax = getCacheMax();
   const pct      = Math.min(100, Math.round(total/cacheMax*100));
 
-  const bar  = document.getElementById('sess-usage-bar-fill');
-  const info = document.getElementById('sess-usage-info');
-  if(bar){
-    bar.style.width      = pct+'%';
-    bar.style.background = pct>=90?'#ff4444':pct>=70?'#ffaa00':'var(--gold,#c8a84b)';
+  ['sess-usage-bar-fill-saved'].forEach(id => {
+    const bar = document.getElementById(id);
+    if(bar){ bar.style.width=pct+'%'; bar.style.background=pct>=90?'#ff4444':pct>=70?'#ffaa00':'var(--gold,#c8a84b)'; }
+  });
+  ['sess-usage-info-saved'].forEach(id => {
+    const info = document.getElementById(id);
+    if(info) info.textContent = `${(total/1024/1024).toFixed(0)}MB / ${(cacheMax/1024/1024).toFixed(0)}MB 使用中`;
+  });
+
+  // 保存済みエリアメニューのサブテキスト更新
+  const subEl = document.getElementById('saved-area-menu-sub');
+  if(subEl){
+    const mb = (total/1024/1024).toFixed(0);
+    subEl.textContent = `${(total/1024/1024).toFixed(0)}MB使用中`;
   }
-  if(info) info.textContent = `${(total/1024/1024).toFixed(0)}MB / ${(cacheMax/1024/1024).toFixed(0)}MB 使用中`;
 
   // ベースDL状況UIを更新（refreshBaseDlStatus で管理）
   const detailSessions = sessions.filter(s => s.mode !== 'base');
