@@ -2730,9 +2730,15 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   border: 1px solid rgba(255,255,255,0.2);
 }
 .cl-pt-info { flex: 1; min-width: 0; }
+.cl-pt-name-row {
+  display: flex; align-items: center; gap: 6px;
+}
 .cl-pt-name {
   font-size: 12px; font-weight: 600; color: var(--txt);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; flex-shrink: 0;
+}
+.cl-pt-stars {
+  font-size: 11px; flex-shrink: 0;
 }
 .cl-pt-meta {
   font-size: 10px; color: var(--txt-dim); margin-top: 2px;
