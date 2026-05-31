@@ -232,7 +232,10 @@ function _clSetHTML(s){
     ${s.points.length > 0 ? `
     <div class="cl-pt-accordion-header" onclick="clTogglePointList('${s.id}')" id="cl-pt-acc-${s.id}">
       <span>📍 ${s.points.length}件のポイント</span>
-      <span class="cl-pt-acc-arrow" id="cl-pt-arrow-${s.id}">▶</span>
+      <button class="cl-pt-list-btn" id="cl-pt-list-btn-${s.id}" onclick="event.stopPropagation();clTogglePointList('${s.id}')">
+        一覧を表示
+        <span class="cl-pt-list-btn-arrow">▶</span>
+      </button>
     </div>
     <div class="cl-pt-list" id="cl-pt-list-${s.id}" style="display:none;">
       ${s.points.map((p, i) => {
@@ -572,12 +575,12 @@ function clExport(id){
 
 // ── 個別ポイント アコーディオン開閉 ────────────────
 function clTogglePointList(setId) {
-  const list  = document.getElementById(`cl-pt-list-${setId}`);
-  const arrow = document.getElementById(`cl-pt-arrow-${setId}`);
-  if (!list || !arrow) return;
+  const list = document.getElementById(`cl-pt-list-${setId}`);
+  const btn  = document.getElementById(`cl-pt-list-btn-${setId}`);
+  if (!list) return;
   const isOpen = list.style.display !== 'none';
-  list.style.display  = isOpen ? 'none' : 'block';
-  arrow.textContent   = isOpen ? '▶' : '▼';
+  list.style.display = isOpen ? 'none' : 'block';
+  if (btn) btn.classList.toggle('open', !isOpen);
 }
 
 // ── 個別ポイント編集ダイアログ用ピッカー ────────────────

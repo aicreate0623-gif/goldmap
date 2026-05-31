@@ -2649,11 +2649,45 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
 .cl-set-hd-arrow { font-size: 10px; color: var(--txt-dim); flex-shrink: 0; }
 .cl-filter-badge {
   font-size: 10px; color: var(--gold);
-  background: rgba(200,170,80,0.12);
-  border-radius: 8px; padding: 1px 5px;
+  background: rgba(200,170,80,0.15);
+  border: 1px solid rgba(200,170,80,0.45);
+  border-radius: 8px; padding: 2px 7px;
   flex-shrink: 0; white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  user-select: none;
+}
+.cl-filter-badge:hover,
+.cl-filter-badge:active {
+  background: rgba(200,170,80,0.28);
+  border-color: rgba(200,170,80,0.75);
 }
 .cl-action-btn { flex-shrink: 0; }
+
+/* ── 一覧を表示ボタン（cl-pt-accordion-header 右端） ── */
+.cl-pt-list-btn {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--txt-sub);
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 6px; padding: 3px 9px;
+  cursor: pointer; flex-shrink: 0;
+  transition: background .15s, border-color .15s, color .15s;
+  user-select: none;
+}
+.cl-pt-list-btn:hover,
+.cl-pt-list-btn:active {
+  background: rgba(255,255,255,0.13);
+  border-color: rgba(255,255,255,0.35);
+  color: var(--txt);
+}
+.cl-pt-list-btn .cl-pt-list-btn-arrow {
+  font-size: 9px; color: var(--txt-dim);
+  transition: transform .2s;
+}
+.cl-pt-list-btn.open .cl-pt-list-btn-arrow {
+  transform: rotate(90deg);
+}
 
 .cl-pt-accordion-header {
   display: flex; align-items: center; justify-content: space-between;
