@@ -282,14 +282,19 @@ function _gridAggregate(rawPts, gridDeg) {
 // ── Firebaseから取得したヒートポイントの蓄積バッファ ──
 // initHeatLayer()が呼ばれるたびに再合成される
 let _firebaseHeatPts = [];  // [{lat, lng, weight, is_gold, avg_stars}]
-let _heatFilter = 'all'; // 'all'=全て / 'gold'=★5投稿のみ / 'base'=ベースのみ
+// tier別に独立管理（PROの変更がフリー版に影響しないよう分離）
+const _heatFilter = {
+  free:    'all',  // 'all'=全て / 'gold'=★5投稿のみ / 'base'=ベースのみ
+  premium: 'all',
+};
 
 // ── 生データ生成 ─────────────────────────────────────
 function buildHeatPoints(tier) {
   const pts = [];
+  const filter = _heatFilter[tier];
   // 'all'=全て / 'base'=ベースのみ → GSJ・MINESを追加
   // 'gold'=★5投稿のみ → GSJ・MINESをスキップ
-  if (_heatFilter !== 'gold') {
+  if (filter !== 'gold') {
     for (const d of GSJ_MINE_DATA) {
       if (d.mat !== 'Au_Ag') continue;
       pts.push([d.lat, d.lng, d.trace ? 0.3 : 0.5]);
@@ -298,8 +303,8 @@ function buildHeatPoints(tier) {
   }
   // PRO tierのみFirebaseデータを合成（フリー版には混入させない）
   // 'base'=ベースのみ → Firebaseデータをスキップ
-  if (tier === 'premium' && _heatFilter !== 'base') {
-    const src = _heatFilter === 'gold'
+  if (tier === 'premium' && filter !== 'base') {
+    const src = filter === 'gold'
       ? _firebaseHeatPts.filter(p => p.is_gold)
       : _firebaseHeatPts;
     for (const p of src) pts.push([p.lat, p.lng, p.weight ?? 1.0]);
@@ -573,11 +578,11 @@ function _renderHeatPanel(tier) {
     const filterRow = tier === 'premium' ? `
       <div class="heat-param-row heat-filter-row">
         <span class="heat-param-label">表示</span>
-        <button class="heat-filter-btn${_heatFilter === 'all'  ? ' active' : ''}"
+        <button class="heat-filter-btn${_heatFilter[tier] === 'all'  ? ' active' : ''}"
           onclick="_setHeatFilter('${tier}', 'all')">全て</button>
-        <button class="heat-filter-btn${_heatFilter === 'gold' ? ' active' : ''}"
+        <button class="heat-filter-btn${_heatFilter[tier] === 'gold' ? ' active' : ''}"
           onclick="_setHeatFilter('${tier}', 'gold')">★5投稿のみ</button>
-        <button class="heat-filter-btn${_heatFilter === 'base' ? ' active' : ''}"
+        <button class="heat-filter-btn${_heatFilter[tier] === 'base' ? ' active' : ''}"
           onclick="_setHeatFilter('${tier}', 'base')">ベースのみ</button>
       </div>` : '';
     body.innerHTML = filterRow + ['radius','blur','opacity'].map(key => {
@@ -608,7 +613,7 @@ function _renderHeatPanel(tier) {
 
 // ── フィルター切り替え ────────────────────────────────
 function _setHeatFilter(tier, mode) {
-  _heatFilter = mode; // 'all' / 'gold' / 'base'
+  _heatFilter[tier] = mode; // 'all' / 'gold' / 'base'
   _renderHeatPanel(tier);
   if(heatTier === tier) initHeatLayer(tier);
 }
