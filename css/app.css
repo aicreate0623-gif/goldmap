@@ -2262,15 +2262,15 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
 /* 都道府県グリッド */
 .bear-pref-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 4px 6px;
-  margin-bottom: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px 4px;
+  margin-bottom: 6px;
 }
 .bear-pref-item {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 6px;
+  gap: 4px;
+  padding: 3px 4px;
   border-radius: 5px;
   cursor: pointer;
   font-size: 11px;
