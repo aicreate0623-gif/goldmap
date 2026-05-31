@@ -564,7 +564,7 @@ function _renderHeatPanel(tier) {
         <button class="heat-filter-btn${_heatFilter[tier] === 'all'  ? ' active' : ''}"
           onclick="_setHeatFilter('${tier}', 'all')">全て</button>
         <button class="heat-filter-btn${_heatFilter[tier] === 'gold' ? ' active' : ''}"
-          onclick="_setHeatFilter('${tier}', 'gold')">★5投稿のみ</button>
+          onclick="_setHeatFilter('${tier}', 'gold')">ユーザー評価投稿のみ</button>
         <button class="heat-filter-btn${_heatFilter[tier] === 'base' ? ' active' : ''}"
           onclick="_setHeatFilter('${tier}', 'base')">ベースのみ</button>
       </div>` : '';
