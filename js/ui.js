@@ -375,32 +375,8 @@ function initHeatLayer(tier) {
   let radiusPx = params.radius * factor;
   let blurPx   = params.blur   * factor;
 
-  // PRO版で投稿ポイントを含む表示（「全て」「ユーザー評価投稿のみ」）：
-  // プライバシー保護のため固定ピクセル下限を保証する。
-  // スライダーでradius/blurをどれだけ下げても、この下限より小さくはならない（抜け道防止）。
-  // 「ベースのみ」（GSJ公式データのみ・ユーザー投稿を含まない）とfreeは対象外。
-  const includesUserPosts = tier === 'premium' && _heatFilter.premium !== 'base';
-  if (includesUserPosts) {
-    radiusPx = Math.max(radiusPx, 45);
-    blurPx   = Math.max(blurPx, 25);
-  }
-
-  // PRO版「ユーザー評価投稿のみ」表示時はさらに、地理的に最低5km相当を下回らないよう
-  // 下限ガードをかける（上の45/25px下限と二重で保証）。
-  // ズームインするほど「1pxが表す実距離」は縮むため、下限pxは毎回そのズームで再計算する。
-  const isGoldOnlyMode = tier === 'premium' && _heatFilter.premium === 'gold';
-  if (isGoldOnlyMode) {
-    const MIN_GEO_RADIUS_M = 5000;
-    const lat = map.getCenter().lat;
-    // z10で頭打ち：これを超えて計算すると下限pxが際限なく膨らみ、
-    // 大きすぎるradius/blur値によるcanvas描画バグが発生するため。
-    // z10以降の「狭くならない」担保は上のズームスケーリング(factor)側が引き続き受け持つ。
-    const effectiveZ = Math.min(z, 10);
-    const metersPerPixel = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, effectiveZ);
-    const floorPx = MIN_GEO_RADIUS_M / metersPerPixel;
-    radiusPx = Math.max(radiusPx, floorPx);
-    blurPx   = Math.max(blurPx, floorPx * (params.blur / params.radius));
-  }
+  // PRO版「ユーザー投稿」表示時はZ10以上で非表示化されるため（_heatHiddenAtZoom）、
+  // 従来の45/25px固定下限・5km地理下限による位置秘匿ガードは不要になった（削除済み）。
 
   heatLayer = L.heatLayer(pts, {
     radius:     Math.round(radiusPx),
@@ -413,25 +389,40 @@ function initHeatLayer(tier) {
   }).addTo(map);
 }
 
-// ── ズーム変化時: FREE版はZ10以上で非表示＋バナー、戻したら再表示 ────
-function _initZoomEvent(){
-  map.on('zoomend', () => {
-    if(!heatTier) return;
-    const z = map.getZoom();
-    if(heatTier === 'free' && z >= 10){
-      // Z10以上: レイヤー非表示＋PRO誘導バナー表示
-      if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
-      _showHeatZoomBanner(true);
-    } else {
-      // Z9以下に戻った or PRO tier（Z18まで常時表示）: バナー消して再描画
-      _showHeatZoomBanner(false);
-      initHeatLayer(heatTier);
-    }
-  });
+// ── Z10以上で非表示にすべきか判定 ──────────────────────
+// free版: 常にZ10以上で非表示（PRO誘導）
+// premium版: 「ユーザー投稿」フィルター時のみZ10以上で非表示（位置秘匿）
+//            「全て」「ベースのみ」はZ18までそのまま表示
+function _heatHiddenAtZoom(tier, z) {
+  if (tier === 'free')    return z >= 10;
+  if (tier === 'premium') return _heatFilter.premium === 'gold' && z >= 10;
+  return false;
 }
 
-// ── プレミアム誘導バナー（フリー版専用・Z10以上で表示）──────
-function _showHeatZoomBanner(show){
+// ── ヒートレイヤーの表示/非表示を現在のズーム・フィルターに合わせて更新 ──
+// zoomend・フィルター切替・パラメーター調整・データ追加など、
+// 表示状態が変わりうるすべての箇所からこの関数経由で呼び出す。
+function _updateHeatVisibility() {
+  if (!heatTier) return;
+  const z = map.getZoom();
+  if (_heatHiddenAtZoom(heatTier, z)) {
+    // 非表示対象: レイヤー削除＋バナー表示
+    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+    _showHeatZoomBanner(true, heatTier);
+  } else {
+    // 表示対象: バナー消してレイヤー再描画
+    _showHeatZoomBanner(false);
+    initHeatLayer(heatTier);
+  }
+}
+
+// ── ズーム変化時: _updateHeatVisibility()に委譲 ─────────
+function _initZoomEvent(){
+  map.on('zoomend', _updateHeatVisibility);
+}
+
+// ── 非表示中バナー（tierに応じて文言を出し分け）──────────
+function _showHeatZoomBanner(show, tier){
   let b = document.getElementById('heat-zoom-banner');
   if(show){
     if(!b){
@@ -440,7 +431,9 @@ function _showHeatZoomBanner(show){
       b.style.cssText = 'position:fixed;top:calc(var(--sb-h, 30px) + 8px + 89px + 16px);left:50%;transform:translateX(-50%);z-index:1050;background:rgba(0,0,0,0.88);border:1px solid var(--gold);border-radius:20px;padding:7px 16px;font-size:12px;color:var(--txt);white-space:nowrap;pointer-events:auto;display:flex;align-items:center;gap:4px;';
       document.body.appendChild(b);
     }
-    b.innerHTML = '🔒 ヒートマップPRO版でZ10以上を表示できます';
+    b.innerHTML = tier === 'premium'
+      ? '🔒 位置特定を防ぐため詳細表示を制限中'
+      : '🔒 ヒートマップPRO版でZ10以上を表示できます';
     b.style.display = 'flex';
   } else {
     if(b) b.style.display = 'none';
@@ -461,7 +454,7 @@ function toggleHeatFree() {
   _renderHeatPanel('free');
   // パネルは自動で開かない（調整ボタンから手動で開く）
   _showHeatAdjBtn(true);
-  initHeatLayer('free');
+  _updateHeatVisibility();
 }
 
 // ── 分布PRO フロートボタン → 全ての入り口 ──────────────
@@ -525,7 +518,7 @@ async function openHeatProGate() {
   _applyHeatParamsSaved('premium');
   _renderHeatPanel('premium');
   _showHeatAdjBtn(true);
-  initHeatLayer('premium');
+  _updateHeatVisibility();
   // heatmap.json未取得の場合のみfetch（重複取得防止）
   if (_firebaseHeatPts.length === 0) {
     fetchHeatPoints().catch(e => console.warn('[heatpro] fetchHeatPoints失敗', e));
@@ -588,7 +581,7 @@ function _renderHeatPanel(tier) {
         <button class="heat-filter-btn${_heatFilter[tier] === 'all'  ? ' active' : ''}"
           onclick="_setHeatFilter('${tier}', 'all')">全て</button>
         <button class="heat-filter-btn${_heatFilter[tier] === 'gold' ? ' active' : ''}"
-          onclick="_setHeatFilter('${tier}', 'gold')">ユーザー評価投稿のみ</button>
+          onclick="_setHeatFilter('${tier}', 'gold')">ユーザー投稿</button>
         <button class="heat-filter-btn${_heatFilter[tier] === 'base' ? ' active' : ''}"
           onclick="_setHeatFilter('${tier}', 'base')">ベースのみ</button>
       </div>` : '';
@@ -622,7 +615,7 @@ function _renderHeatPanel(tier) {
 function _setHeatFilter(tier, mode) {
   _heatFilter[tier] = mode; // 'all' / 'gold' / 'base'
   _renderHeatPanel(tier);
-  if(heatTier === tier) initHeatLayer(tier);
+  if(heatTier === tier) _updateHeatVisibility();
 }
 
 // ── ←→ 1刻み調整 ────────────────────────────────────
@@ -634,7 +627,7 @@ function _adjHeat(tier, key, delta) {
   if(el) el.textContent = next;
   const sl = document.getElementById(`hps-${tier}-${key}`);
   if(sl) sl.value = next;
-  if(heatTier === tier) initHeatLayer(tier);
+  if(heatTier === tier) _updateHeatVisibility();
 }
 
 // ── シークバー入力 ───────────────────────────────────
@@ -644,7 +637,7 @@ function _adjHeatSlider(tier, key, val) {
   _heatParams[tier][key] = next;
   const el = document.getElementById(`hpv-${tier}-${key}`);
   if(el) el.textContent = next;
-  if(heatTier === tier) initHeatLayer(tier);
+  if(heatTier === tier) _updateHeatVisibility();
 }
 
 // ── 💾 記憶（localStorage保存）──────────────────────
@@ -676,7 +669,7 @@ function _loadHeatParams(tier) {
     if(!saved) return;
     _heatParams[tier] = { ..._heatParams[tier], ...saved };
     _renderHeatPanel(tier);
-    if(heatTier === tier) initHeatLayer(tier);
+    if(heatTier === tier) _updateHeatVisibility();
   } catch(e) { console.warn('[heat] load failed', e); }
 }
 
@@ -684,7 +677,7 @@ function _loadHeatParams(tier) {
 function _resetHeatParams(tier) {
   _heatParams[tier] = { ...HEAT_PARAMS_DEFAULT[tier] };
   _renderHeatPanel(tier);
-  if(heatTier === tier) initHeatLayer(tier);
+  if(heatTier === tier) _updateHeatVisibility();
 }
 
 // ── Firestore連携用（外部からデータ追加）─────────────
@@ -694,7 +687,7 @@ function _resetHeatParams(tier) {
 function addHeatPoints(points) {
   // concatではなく上書き代入（fetchが複数回走っても重複しない）
   _firebaseHeatPts = points;
-  if(heatTier) initHeatLayer(heatTier);
+  if(heatTier) _updateHeatVisibility();
 }
 
 
