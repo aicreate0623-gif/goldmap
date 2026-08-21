@@ -365,26 +365,42 @@ function initHeatLayer(tier) {
   const pts    = _gridAggregate(raw, cfg.gridDeg);
 
   const z = map.getZoom();
-  let factor;
 
-  // PRO版「ユーザー評価投稿のみ」表示時のみ：
-  // 基準ズーム7・上限ズーム8で地理的サイズを固定（それ以上ズームしても縮小させない＝場所のぼかしを維持）
+  // zoomMax を超えている場合はそのズーム差分だけ radius/blur をスケールアップ
+  // → zoomMax 時点の見た目のまま地理的に一定サイズを維持する。
+  // 底=2はWeb Mercatorの「ズーム1段階で1pxの実距離が半分になる」性質と正確に相殺するため。
+  // キャップ8倍＝zoomMaxから3段階ズームインした時点で頭打ち（それ以上は拡大しない）。
+  const maxZ   = cfg.zoomMax;
+  const factor = z > maxZ ? Math.min(Math.pow(2, z - maxZ), 8) : 1;
+  let radiusPx = params.radius * factor;
+  let blurPx   = params.blur   * factor;
+
+  // PRO版で投稿ポイントを含む表示（「全て」「ユーザー評価投稿のみ」）：
+  // プライバシー保護のため固定ピクセル下限を保証する。
+  // スライダーでradius/blurをどれだけ下げても、この下限より小さくはならない（抜け道防止）。
+  // 「ベースのみ」（GSJ公式データのみ・ユーザー投稿を含まない）とfreeは対象外。
+  const includesUserPosts = tier === 'premium' && _heatFilter.premium !== 'base';
+  if (includesUserPosts) {
+    radiusPx = Math.max(radiusPx, 45);
+    blurPx   = Math.max(blurPx, 25);
+  }
+
+  // PRO版「ユーザー評価投稿のみ」表示時はさらに、地理的に最低5km相当を下回らないよう
+  // 下限ガードをかける（上の45/25px下限と二重で保証）。
+  // ズームインするほど「1pxが表す実距離」は縮むため、下限pxは毎回そのズームで再計算する。
   const isGoldOnlyMode = tier === 'premium' && _heatFilter.premium === 'gold';
   if (isGoldOnlyMode) {
-    const BASE_ZOOM = 7;
-    const CAP_ZOOM  = 8;
-    const zc = Math.max(z, BASE_ZOOM);
-    factor = Math.pow(1.5, Math.min(zc, CAP_ZOOM) - BASE_ZOOM);
-  } else {
-    // zoomMax を超えている場合はそのズーム差分だけ radius/blur をスケールアップ
-    // → zoomMax 時点の見た目のまま地理的に拡大表示される
-    const maxZ = cfg.zoomMax;
-    factor = z > maxZ ? Math.min(Math.pow(1.5, z - maxZ), 4) : 1;
+    const MIN_GEO_RADIUS_M = 5000;
+    const lat = map.getCenter().lat;
+    const metersPerPixel = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z);
+    const floorPx = MIN_GEO_RADIUS_M / metersPerPixel;
+    radiusPx = Math.max(radiusPx, floorPx);
+    blurPx   = Math.max(blurPx, floorPx * (params.blur / params.radius));
   }
 
   heatLayer = L.heatLayer(pts, {
-    radius:     Math.round(params.radius * factor),
-    blur:       Math.round(params.blur   * factor),
+    radius:     Math.round(radiusPx),
+    blur:       Math.round(blurPx),
     minOpacity: params.opacity / 100,
     maxZoom:    18,
     max:        0.2,
