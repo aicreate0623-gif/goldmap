@@ -284,16 +284,16 @@ function _gridAggregate(rawPts, gridDeg) {
 let _firebaseHeatPts = [];  // [{lat, lng, weight, is_gold, avg_stars}]
 // tier別に独立管理（PROの変更がフリー版に影響しないよう分離）
 const _heatFilter = {
-  free:    'all',  // 'all'=全て / 'gold'=★5投稿のみ / 'base'=ベースのみ
-  premium: 'all',
+  free:    'all',   // free版は常に'all'固定
+  premium: 'base',  // 'gold'=ユーザー投稿(★5)のみ / 'base'=ベースのみ（'all'は廃止）
 };
 
 // ── 生データ生成 ─────────────────────────────────────
 function buildHeatPoints(tier) {
   const pts = [];
   const filter = _heatFilter[tier];
-  // 'all'=全て / 'base'=ベースのみ → GSJ・MINESを追加
-  // 'gold'=★5投稿のみ → GSJ・MINESをスキップ
+  // free版('all'固定)・premium版'base' → GSJ・MINESを追加
+  // premium版'gold'(ユーザー投稿のみ) → GSJ・MINESをスキップ
   if (filter !== 'gold') {
     for (const d of GSJ_MINE_DATA) {
       if (d.mat !== 'Au_Ag') continue;
@@ -301,13 +301,12 @@ function buildHeatPoints(tier) {
     }
     for (const m of MINES) pts.push([m.lat, m.lng, 0.8]);
   }
-  // PRO tierのみFirebaseデータを合成（フリー版には混入させない）
-  // 'base'=ベースのみ → Firebaseデータをスキップ
-  if (tier === 'premium' && filter !== 'base') {
-    const src = filter === 'gold'
-      ? _firebaseHeatPts.filter(p => p.is_gold)
-      : _firebaseHeatPts;
-    for (const p of src) pts.push([p.lat, p.lng, p.weight ?? 1.0]);
+  // PRO tierかつ'gold'(ユーザー投稿のみ)の場合のみFirebaseデータ(★5)を合成
+  // （フリー版には混入させない。'base'はFirebaseデータをスキップ）
+  if (tier === 'premium' && filter === 'gold') {
+    for (const p of _firebaseHeatPts.filter(p => p.is_gold)) {
+      pts.push([p.lat, p.lng, p.weight ?? 1.0]);
+    }
   }
   return pts;
 }
@@ -392,7 +391,7 @@ function initHeatLayer(tier) {
 // ── Z10以上で非表示にすべきか判定 ──────────────────────
 // free版: 常にZ10以上で非表示（PRO誘導）
 // premium版: 「ユーザー投稿」フィルター時のみZ10以上で非表示（位置秘匿）
-//            「全て」「ベースのみ」はZ18までそのまま表示
+//            「ベースのみ」はZ18までそのまま表示
 function _heatHiddenAtZoom(tier, z) {
   if (tier === 'free')    return z >= 10;
   if (tier === 'premium') return _heatFilter.premium === 'gold' && z >= 10;
@@ -578,8 +577,6 @@ function _renderHeatPanel(tier) {
     const filterRow = tier === 'premium' ? `
       <div class="heat-param-row heat-filter-row">
         <span class="heat-param-label">表示</span>
-        <button class="heat-filter-btn${_heatFilter[tier] === 'all'  ? ' active' : ''}"
-          onclick="_setHeatFilter('${tier}', 'all')">全て</button>
         <button class="heat-filter-btn${_heatFilter[tier] === 'gold' ? ' active' : ''}"
           onclick="_setHeatFilter('${tier}', 'gold')">ユーザー投稿</button>
         <button class="heat-filter-btn${_heatFilter[tier] === 'base' ? ' active' : ''}"
@@ -613,7 +610,7 @@ function _renderHeatPanel(tier) {
 
 // ── フィルター切り替え ────────────────────────────────
 function _setHeatFilter(tier, mode) {
-  _heatFilter[tier] = mode; // 'all' / 'gold' / 'base'
+  _heatFilter[tier] = mode; // 'gold' / 'base'（premium用。free版はこの関数を使わない）
   _renderHeatPanel(tier);
   if(heatTier === tier) _updateHeatVisibility();
 }

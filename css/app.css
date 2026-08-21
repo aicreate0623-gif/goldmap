@@ -549,9 +549,16 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   border-bottom: 1px solid rgba(200,170,80,0.15);
   background: rgba(200,170,80,0.07);
 }
+#heat-panel-title-wrap {
+  display: flex; flex-direction: column; gap: 2px;
+}
 #heat-panel-title {
   font-size: 10px; font-weight: 700;
   color: var(--gold-lt); letter-spacing: .06em;
+}
+#heat-panel-note {
+  font-size: 9px; font-weight: 400;
+  color: var(--txt-sub); letter-spacing: 0;
 }
 #heat-panel-close {
   width: 22px; height: 22px; border-radius: 50%;
