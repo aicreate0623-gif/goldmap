@@ -392,7 +392,11 @@ function initHeatLayer(tier) {
   if (isGoldOnlyMode) {
     const MIN_GEO_RADIUS_M = 5000;
     const lat = map.getCenter().lat;
-    const metersPerPixel = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z);
+    // z10で頭打ち：これを超えて計算すると下限pxが際限なく膨らみ、
+    // 大きすぎるradius/blur値によるcanvas描画バグが発生するため。
+    // z10以降の「狭くならない」担保は上のズームスケーリング(factor)側が引き続き受け持つ。
+    const effectiveZ = Math.min(z, 10);
+    const metersPerPixel = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, effectiveZ);
     const floorPx = MIN_GEO_RADIUS_M / metersPerPixel;
     radiusPx = Math.max(radiusPx, floorPx);
     blurPx   = Math.max(blurPx, floorPx * (params.blur / params.radius));
