@@ -4634,6 +4634,8 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
 .dlg-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  row-gap: 4px;
   justify-content: space-between;
   padding: 14px 18px 13px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -4644,6 +4646,23 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   font-weight: 700;
   color: var(--txt);
   letter-spacing: .02em;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.dlg-title-note {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold, #d4af37);
+  letter-spacing: 0;
+  margin-left: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: rgba(212,175,55,0.12);
+  border: 1px solid rgba(212,175,55,0.35);
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 .dlg-close {
   width: 28px; height: 28px;
@@ -4938,6 +4957,8 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
 .legend-panel-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  row-gap: 4px;
   justify-content: space-between;
   padding: 8px 12px 6px;
   flex-shrink: 0;
@@ -4947,6 +4968,23 @@ input[type=range].gold { width: 90px; accent-color: var(--gold); cursor: pointer
   font-size: 13px;
   font-weight: bold;
   color: var(--txt, #e2e8f0);
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.legend-title-note {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold, #d4af37);
+  letter-spacing: 0;
+  margin-left: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: rgba(212,175,55,0.12);
+  border: 1px solid rgba(212,175,55,0.35);
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 .legend-panel-close {
   background: none;
