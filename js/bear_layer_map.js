@@ -163,12 +163,15 @@ function _renderBearHeat() {
   if (isAll) {
     // 全データ対応県：全件表示
     filteredLatLngs = bearHeatData;
+  } else if (bearFilteredPrefs.length === 0) {
+    // 県が1つも選択されていない場合は全非表示（フォールバックしない）
+    filteredLatLngs = [];
   } else {
     // 選択県のpinsデータから座標を取得してheatに使う
     const prefSet = new Set(bearFilteredPrefs);
     const filtered = bearPinsData.filter(r => prefSet.has(r.pref));
     filteredLatLngs = filtered.map(r => [r.lat, r.lng]);
-    // 選択県にpinsデータがない場合は全件にフォールバック
+    // 選択県にpinsデータがない場合のみ全件にフォールバック
     if (filteredLatLngs.length === 0) filteredLatLngs = bearHeatData;
   }
 
@@ -184,15 +187,18 @@ function _renderBearPins() {
   if (!bearVisible) return;
 
   const isAll = bearFilteredPrefs.includes(BEAR_PREF_ALL_VALUE);
-  let records = bearPinsData;
+  let records;
 
   if (isAll) {
     // __all__ の場合はpinsに実在する全県を表示
-    records = records.filter(r => _bearAvailPrefs.has(r.pref));
+    records = bearPinsData.filter(r => _bearAvailPrefs.has(r.pref));
+  } else if (bearFilteredPrefs.length === 0) {
+    // 県が1つも選択されていない場合は全非表示
+    records = [];
   } else {
     // 選択県のみ表示（複数可）
     const prefSet = new Set(bearFilteredPrefs);
-    records = records.filter(r => prefSet.has(r.pref));
+    records = bearPinsData.filter(r => prefSet.has(r.pref));
   }
 
   records.forEach(r => {
@@ -294,17 +300,20 @@ function setBearPrefFilter(prefValues) {
   if (typeof prefValues === 'string') {
     bearFilteredPrefs = [prefValues];
   } else {
-    bearFilteredPrefs = prefValues.length > 0 ? prefValues : [BEAR_PREF_ALL_VALUE];
+    // 空配列（全解除）もそのまま許容する（'__all__'へのフォールバックはしない）
+    bearFilteredPrefs = Array.isArray(prefValues) ? prefValues : [BEAR_PREF_ALL_VALUE];
   }
 
   const isAll = bearFilteredPrefs.includes(BEAR_PREF_ALL_VALUE);
-  let records = bearPinsData;
+  let records;
 
   if (isAll) {
-    records = records.filter(r => _bearAvailPrefs.has(r.pref));
+    records = bearPinsData.filter(r => _bearAvailPrefs.has(r.pref));
+  } else if (bearFilteredPrefs.length === 0) {
+    records = [];
   } else {
     const prefSet = new Set(bearFilteredPrefs);
-    records = records.filter(r => prefSet.has(r.pref));
+    records = bearPinsData.filter(r => prefSet.has(r.pref));
   }
 
   const counter = document.getElementById('bear-count-badge');
