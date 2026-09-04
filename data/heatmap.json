@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-03T20:50:10Z",
+  "generated_at": "2026-09-04T20:37:22Z",
   "total_submissions": 352,
   "grid_size_free": 0.06,
   "grid_size_paid": 0.01,
@@ -4945,8 +4945,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.160488,
-            36.574099
+            140.186823,
+            36.551134
           ]
         },
         "properties": {
@@ -4961,8 +4961,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.402009,
-            36.864513
+            140.352437,
+            36.880853
           ]
         },
         "properties": {
@@ -4977,8 +4977,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            139.564693,
-            37.413716
+            139.538976,
+            37.451175
           ]
         },
         "properties": {
@@ -4993,8 +4993,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.182896,
-            37.409897
+            140.163673,
+            37.372032
           ]
         },
         "properties": {
@@ -5009,8 +5009,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.465092,
-            37.491008
+            140.445065,
+            37.482229
           ]
         },
         "properties": {
@@ -5025,8 +5025,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.206017,
-            37.371045
+            140.23254,
+            37.356847
           ]
         },
         "properties": {
@@ -5041,8 +5041,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.172671,
-            37.373094
+            140.16095,
+            37.373716
           ]
         },
         "properties": {
@@ -5057,8 +5057,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            139.755215,
-            35.510314
+            139.730477,
+            35.540004
           ]
         },
         "properties": {
@@ -5073,8 +5073,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.111406,
-            37.397225
+            140.163198,
+            37.393938
           ]
         },
         "properties": {
@@ -5089,8 +5089,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.161535,
-            37.379395
+            140.142229,
+            37.384206
           ]
         },
         "properties": {
@@ -5105,8 +5105,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.129332,
-            37.366498
+            140.127532,
+            37.367031
           ]
         },
         "properties": {
@@ -5121,8 +5121,8 @@
         "geometry": {
           "type": "Point",
           "coordinates": [
-            140.170287,
-            35.810556
+            140.147732,
+            35.850017
           ]
         },
         "properties": {
