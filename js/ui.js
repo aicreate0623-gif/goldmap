@@ -478,7 +478,7 @@ async function openHeatProGate() {
 
   const CLOSE_BTN = '<button class="dbtn" onclick="closeOv()">閉じる</button>';
   const TO_SETTINGS_BTN =
-    '<button class="dbtn ok" onclick="closeOv();switchTab(\'settings\');setTimeout(()=>{const a=document.getElementById(\'contrib-accordion\');if(a){const h=a.querySelector(\'.cfg-accordion-header\');if(h&&!a.classList.contains(\'open\'))h.click();}},150)">設定で投稿ONにする →</button>';
+    '<button class="dbtn ok" onclick="closeOv();switchTab(\'cfg\');setTimeout(()=>showDlg(\'dlg-cfg-heatmap\'),150)">設定で投稿ONにする →</button>';
 
   // ── ① 非プレミアム → 汎用ゲートに統一 ────────────
   if (!premium) {
@@ -729,7 +729,7 @@ function _openTab(tab){
   });
   curTab=tab;
   // タブボタンのアクティブ状態
-  ['map','pts','offline','cfg','community'].forEach(t=>{
+  ['map','pts','offline','cfg','community','mymap'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('active',t===tab);
   });
   // シートを開く / mapタブは地図サイズを再計算
@@ -744,7 +744,7 @@ function _openTab(tab){
 // ═══════════════════════════════════════════
 //  ダイアログ
 // ═══════════════════════════════════════════
-const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp2','dlg-alr','dlg-contrib-off','dlg-premium-gate','dlg-heatpro-gate','dlg-gps-lost','dlg-cl-edit','dlg-cl-delete','dlg-cl-point-edit','dlg-cl-point-del','dlg-gold','dlg-cfg-heatmap','dlg-cfg-mine','dlg-cfg-wiki','dlg-cfg-kinno','dlg-cfg-geology','dlg-cfg-mineral','dlg-cfg-disclaimer','dlg-cfg-bear','dlg-mymap-about','dlg-pt-add','dlg-pt-about','dlg-offline-rules','dlg-cache-diag','dlg-cache-mgmt','dlg-base-dl','dlg-area-tile-dl','dlg-saved-area','dlg-comm-rules','dlg-comm-board','dlg-hide-post','dlg-cfg-float-btns','dlg-eval-detail'];
+const DLGS=['dlg-edit','dlg-savecf','dlg-detail','dlg-del','dlg-imp2','dlg-alr','dlg-contrib-off','dlg-premium-gate','dlg-heatpro-gate','dlg-gps-lost','dlg-cl-edit','dlg-cl-delete','dlg-cl-point-edit','dlg-cl-point-del','dlg-gold','dlg-cfg-heatmap','dlg-cfg-mine','dlg-cfg-wiki','dlg-cfg-kinno','dlg-cfg-geology','dlg-cfg-mineral','dlg-cfg-disclaimer','dlg-cfg-bear','dlg-mymap-about','dlg-pt-add','dlg-pt-about','dlg-offline-rules','dlg-cache-diag','dlg-cache-mgmt','dlg-base-dl','dlg-area-tile-dl','dlg-saved-area','dlg-comm-rules','dlg-comm-board','dlg-hide-post','dlg-cfg-float-btns','dlg-eval-detail','dlg-mpg-log','dlg-mpg-cand','dlg-mpg-logdel'];
 function showDlg(id){
   DLGS.forEach(d=>document.getElementById(d).style.display='none');
   const el = document.getElementById(id);
@@ -873,6 +873,7 @@ document.addEventListener('keydown',e=>{
     }
     const wasMap = (curTab === 'map');
     _orig(tab);
+    if(curTab === 'pts' && typeof mpgOnTabOpen === 'function') mpgOnTabOpen(); // マイページを開いた時に最新化
     if(tab === 'community'){
       if(typeof initCommunity === 'function') initCommunity();
       if(typeof _buildTagSelector === 'function') _buildTagSelector();

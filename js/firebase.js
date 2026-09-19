@@ -134,7 +134,7 @@ function _localPostCountFallback() {
 // ─────────────────────────────────────────────────────
 // 課金ゲート表示
 //   type: 'point_limit' | 'offline' | 'mymap' | 'bear_layer' | 'water_level' | 'heatmap_pro'
-//         'heatmap_pro_no_post' | 'heatmap_pro_revoked'
+//         'heatmap_pro_no_post' | 'heatmap_pro_revoked' | 'log_limit'
 //
 //   【機能一覧の追加・変更方法】
 //     PREMIUM_FEATURES 配列に1行追加するだけ。
@@ -151,6 +151,7 @@ const PREMIUM_FEATURES = [
   { icon: '💧', label: '洪水水位情報'            },
   { icon: '📂', label: 'マイMAP作成機能'         },
   { icon: '📍', label: 'マイポイント無制限'       },
+  { icon: '📒', label: '探索記録（マイページ）無制限' },
   { icon: '🗺', label: '砂金ヒートマップPRO版'   },
 ];
 
@@ -177,6 +178,13 @@ function showPremiumGate(type) {
       title: 'ポイント上限に達しました',
       body:  `<p>フリー版では最大 <b>${FREE_POINT_LIMIT} 件</b>まで保存できます。</p>` +
              `<p>PRO版にアップグレードするとポイントを<b>無制限</b>に保存できます。</p>` +
+             PREMIUM_LIST,
+    },
+    log_limit: {
+      icon:  '📒',
+      title: '探索記録の上限に達しました',
+      body:  `<p>フリー版では探索記録を最大 <b>${(typeof MpgStore !== 'undefined') ? MpgStore.FREE_LOG_LIMIT : 3} 件</b>まで保存できます。</p>` +
+             `<p>PRO版にアップグレードすると探索記録を<b>無制限</b>に保存できます。</p>` +
              PREMIUM_LIST,
     },
     offline: {

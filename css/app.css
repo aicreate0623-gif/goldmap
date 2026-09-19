@@ -5484,3 +5484,331 @@ body.eval-mode #map {
 }
 .pt-list-toggle-btn:hover  { background: rgba(200,168,75,0.22); border-color: rgba(200,168,75,0.7); }
 .pt-list-toggle-btn:active { transform: scale(0.93); }
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   マイページ（探索記録・集計）  接頭辞: mpg-
+   既存の .btn / .dbtn / .dialog / .cfg-info-dlg / .stat-grid / .stat-card を再利用
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* サブタブ */
+.mpg-subtabs {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(200,170,80,0.18);
+  background: rgba(8,8,6,0.5);
+}
+.mpg-subtab {
+  flex: 1;
+  padding: 10px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--txt-sub);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color .15s, background .15s, border-color .15s;
+  white-space: nowrap;
+}
+.mpg-subtab:active { background: rgba(255,255,255,0.05); }
+.mpg-subtab.active {
+  color: var(--gold-lt);
+  border-bottom-color: var(--gold);
+  background: rgba(200,170,80,0.07);
+}
+.mpg-pane { display: none; flex: 1; min-height: 0; flex-direction: column; }
+.mpg-pane.active { display: flex; }
+
+/* 探索記録タブ: 操作バー */
+.mpg-log-actions { flex-wrap: wrap; }
+.mpg-logbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.mpg-limit { margin-left: auto; font-size: 10px; color: var(--txt-dim); }
+.mpg-limit.full { color: #ff8070; font-weight: 700; }
+.mpg-seg {
+  display: inline-flex;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.mpg-seg button {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--txt-sub);
+  background: rgba(255,255,255,0.04);
+  border: none;
+  border-right: 1px solid rgba(255,255,255,0.1);
+  cursor: pointer;
+}
+.mpg-seg button:last-child { border-right: none; }
+.mpg-seg button.on { background: rgba(200,170,80,0.28); color: var(--txt); }
+
+#mpg-log-list, #mpg-stats { padding: 10px 14px 6px; }
+.mpg-empty {
+  padding: 36px 12px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--txt-dim);
+}
+.mpg-dim { color: var(--txt-dim); font-size: 11px; }
+.mpg-pad { padding: 4px 2px; }
+
+/* 記録カード */
+.mpg-log {
+  border: 1px solid rgba(200,170,80,0.2);
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.03);
+  padding: 10px 12px 6px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.mpg-log:active { background: rgba(200,170,80,0.08); }
+.mpg-grp { cursor: default; }
+.mpg-log-head, .mpg-grp-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.mpg-log-date { font-size: 13px; font-weight: 700; color: var(--gold-lt); }
+.mpg-log-sum { margin-left: auto; font-size: 11px; color: var(--txt-sub); }
+.mpg-log-memo {
+  font-size: 11px;
+  color: var(--txt-sub);
+  line-height: 1.6;
+  margin: 2px 0 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.mpg-ent { border-top: 1px dashed rgba(255,255,255,0.09); padding: 6px 0 7px; font-size: 12px; }
+.mpg-ent-click { cursor: pointer; }
+.mpg-ent-click:active { background: rgba(200,170,80,0.08); }
+.mpg-ent-main { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mpg-ent-pt { font-weight: 700; color: var(--txt); }
+.mpg-ent-pt.del { color: var(--txt-dim); }
+.mpg-ent-date { font-weight: 700; color: var(--gold-lt); }
+.mpg-ent-val { margin-left: auto; color: var(--txt-sub); font-size: 11px; }
+.mpg-del-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ff9a8a;
+  border: 1px solid rgba(255,90,71,0.4);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.mpg-tags { margin-top: 3px; }
+.mpg-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 7px;
+  margin: 2px 4px 0 0;
+  border-radius: 999px;
+  border: 1px solid rgba(200,170,80,0.3);
+  background: rgba(200,170,80,0.12);
+  color: var(--gold-lt);
+}
+.mpg-tag.t-t { border-color: rgba(74,142,232,0.4); background: rgba(74,142,232,0.12); color: #9cc4f5; }
+.mpg-tag.t-p { border-color: rgba(120,200,140,0.4); background: rgba(120,200,140,0.12); color: #a5e0b3; }
+.mpg-tag.t-o { border-color: rgba(200,120,220,0.4); background: rgba(200,120,220,0.12); color: #dcaaf0; }
+
+/* 記録の追加/編集ダイアログ */
+.mpg-dlg { width: min(460px, 96vw); max-height: 92vh; }
+.mpg-dlg .dlg-body { padding-bottom: 12px; }
+.mpg-dlg-foot {
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 10px 18px 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.mpg-sec-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--txt);
+}
+.mpg-entry {
+  border: 1px solid rgba(200,170,80,0.28);
+  border-radius: var(--radius-md);
+  background: rgba(200,170,80,0.04);
+  padding: 4px 10px 10px;
+  margin-bottom: 10px;
+}
+.mpg-entry-head { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+.mpg-entry-no { font-size: 12px; font-weight: 700; color: var(--gold-lt); }
+.mpg-entry-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.mpg-select {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-sm);
+  color: var(--txt);
+  padding: 9px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+.mpg-select option { background: #141210; color: var(--txt); }
+.mpg-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.mpg-row3 input { padding: 9px 8px; }
+
+/* 候補チップ */
+.mpg-cat-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--txt);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.mpg-cat-lbl { font-weight: 700; white-space: nowrap; }
+.mpg-cat-sel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--gold-lt);
+}
+.mpg-cat-arw { font-size: 10px; color: var(--txt-dim); flex-shrink: 0; }
+.mpg-chips { display: none; padding: 6px 2px 2px; }
+.mpg-chips.open { display: block; }
+.mpg-chip-grp { font-size: 10px; color: var(--txt-dim); margin: 8px 0 4px; letter-spacing: .04em; }
+.mpg-chip {
+  display: inline-block;
+  padding: 5px 10px;
+  margin: 0 5px 6px 0;
+  font-size: 12px;
+  color: var(--txt-sub);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.mpg-chip.sel {
+  color: var(--txt);
+  font-weight: 700;
+  background: rgba(200,170,80,0.3);
+  border-color: var(--gold);
+}
+.mpg-chip.hid { opacity: .55; border-style: dashed; }
+.mpg-chip-add { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.mpg-chip-add input { flex: 1; min-width: 0; width: auto; padding: 7px 10px; }
+
+/* 候補管理ダイアログ */
+.mpg-cand-tabs { display: flex; flex-shrink: 0; border-bottom: 1px solid rgba(200,170,80,0.18); }
+.mpg-note { font-size: 10px; line-height: 1.7; color: var(--txt-dim); margin-bottom: 8px; }
+.mpg-cand-add { margin: 4px 0 6px; }
+.mpg-cand-grp {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-bottom: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+  border-bottom: 1px solid rgba(200,170,80,0.25);
+}
+.mpg-cand-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.mpg-cand-name { flex: 1; min-width: 0; font-size: 13px; color: var(--txt); word-break: break-all; }
+.mpg-cand-name.off { color: var(--txt-dim); text-decoration: line-through; }
+.dialog input.mpg-cand-edit { flex: 1; min-width: 0; width: auto; padding: 6px 8px; }
+.mpg-mini {
+  padding: 3px 8px;
+  margin-left: 4px;
+  font-size: 10px;
+  color: var(--txt-sub);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.mpg-sw {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.mpg-sw::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #aaa;
+  transition: left .15s, background .15s;
+}
+.mpg-sw.on { background: rgba(200,170,80,0.45); border-color: var(--gold); }
+.mpg-sw.on::after { left: 20px; background: var(--gold-lt); }
+
+/* 集計 */
+.mpg-sec {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 16px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--txt);
+}
+.mpg-chart-unit { font-size: 10px; color: var(--txt-dim); margin-bottom: 2px; }
+.mpg-chart { width: 100%; height: auto; display: block; }
+.mpg-axis { stroke: rgba(255,255,255,0.18); stroke-width: 1; }
+.mpg-bar  { fill: var(--gold); }
+.mpg-bar0 { fill: rgba(255,255,255,0.12); }
+.mpg-val  { fill: var(--txt-sub); font-size: 8px; }
+.mpg-ax   { fill: var(--txt-dim); font-size: 8.5px; }
+.mpg-ax-y { fill: var(--gold); font-size: 8px; }
+.mpg-strow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: linear-gradient(90deg, rgba(200,170,80,0.16) var(--p, 0%), transparent var(--p, 0%));
+}
+.mpg-strow .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--txt); }
+.mpg-strow .nm.dim { color: var(--txt-dim); }
+.mpg-strow .v { width: 52px; flex-shrink: 0; text-align: right; color: var(--txt-sub); font-variant-numeric: tabular-nums; }
+.mpg-strow.head { background: none; font-size: 10px; color: var(--txt-dim); }
+.mpg-strow.head .v { color: var(--txt-dim); }

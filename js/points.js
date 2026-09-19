@@ -4,6 +4,12 @@
 const MAX_PT = 1000;
 let pts = [], nid = 1;
 
+// 安定ID: 探索記録(マイページ)やFirebase移行から参照する。数値id(nid)は起動時に再採番されうるため別に持つ。
+function _genPtUid(){
+  try{ return 'pt_'+crypto.randomUUID().replace(/-/g,'').slice(0,20); }
+  catch(e){ return 'pt_'+Date.now().toString(36)+Math.random().toString(36).slice(2,10); }
+}
+
 // ── マーカーアイコン・カラー ──────────────────
 const PT_ICONS = [
   '⛏','📍','📌','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪',
@@ -322,7 +328,7 @@ function updPtCnt(){
 }
 function savePts(){
   try{localStorage.setItem('gm_pts',JSON.stringify(pts.map(p=>({
-    id:p.id,lat:p.lat,lng:p.lng,name:p.name,memo:p.memo,
+    id:p.id,uid:p.uid||(p.uid=_genPtUid()),lat:p.lat,lng:p.lng,name:p.name,memo:p.memo,
     stars:p.stars||0,icon:p.icon||PT_DEFAULT_ICON,
     color:p.color||PT_DEFAULT_COLOR,fsId:p.fsId||null,
     fromEval:p.fromEval||false,
@@ -333,13 +339,16 @@ function savePts(){
     evalGoldScore:p.evalGoldScore||null,
     evalRiverScore:p.evalRiverScore||null,
   }))));}catch(e){}
+  if(typeof mpgOnPtsSaved==='function')mpgOnPtsSaved(); // マイページの明細コピーを更新
 }
 function loadPts(){
   // clusterGroup初期化（map依存のためloadPts内で生成）
   _initPtClusterGroup();
   try{
     const d=JSON.parse(localStorage.getItem('gm_pts')||'[]');
-    d.forEach(p=>{if(p.id>=nid)nid=p.id+1;pts.push(p);addMk(p);});
+    let _uidAdded=false;
+    d.forEach(p=>{if(!p.uid){p.uid=_genPtUid();_uidAdded=true;}if(p.id>=nid)nid=p.id+1;pts.push(p);addMk(p);});
+    if(_uidAdded)savePts(); // 既存ポイントに安定IDを付与（初回のみ）
     updPtCnt();
   }catch(e){}
   applyContribUI();
@@ -547,7 +556,7 @@ async function confirmSave(){
       if(!premium){showPremiumGate('point_limit');return;}
     }
     const ll=tPin.getLatLng();
-    const p={id:nid++,lat:ll.lat,lng:ll.lng,name:n,memo:m,stars:_curStars,icon:_curIcon,color:_curColor};
+    const p={id:nid++,uid:_genPtUid(),lat:ll.lat,lng:ll.lng,name:n,memo:m,stars:_curStars,icon:_curIcon,color:_curColor};
     // 評価からの登録フラグ・スコアデータを付与
     if(_pendingEvalData){
       p.fromEval       = true;
@@ -740,6 +749,7 @@ async function confirmImp2(){
     }
     const p = {
       id:    nid++,
+      uid:   _genPtUid(),
       lat:   f.geometry.coordinates[1],
       lng:   f.geometry.coordinates[0],
       name:  f.properties?.name || '',

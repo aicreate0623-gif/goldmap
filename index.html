@@ -197,7 +197,7 @@
     <span class="t-ico">💬</span>コミュニティ
   </button>
   <button class="tab-btn"        id="tab-pts"       onclick="switchTab('pts')">
-    <span class="t-ico">📍</span>マイポイント
+    <span class="t-ico">📒</span>マイページ
   </button>
   <button class="tab-btn"        id="tab-cfg"       onclick="switchTab('cfg')">
     <span class="t-ico">⚙</span>設定
@@ -223,11 +223,20 @@
 
 <div class="sheet" id="pt-sheet">
   <div class="sheet-head">
-    <h2>📍 マイポイント一覧</h2>
+    <h2>📒 マイページ</h2>
     <button class="sheet-info-btn" onclick="showDlg('dlg-pt-about')" title="機能説明">ℹ️</button>
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
 
+  <!-- マイページ サブタブ -->
+  <div class="mpg-subtabs" id="mpg-subtabs">
+    <button class="mpg-subtab active" id="mpg-st-pts"   onclick="mpgSwitchSub('pts')">📍 ポイント</button>
+    <button class="mpg-subtab"        id="mpg-st-logs"  onclick="mpgSwitchSub('logs')">📝 探索記録</button>
+    <button class="mpg-subtab"        id="mpg-st-stats" onclick="mpgSwitchSub('stats')">📊 集計</button>
+  </div>
+
+  <!-- サブタブ①: ポイント（既存の内容をそのまま格納） -->
+  <div class="mpg-pane active" id="mpg-pane-pts">
   <div class="pt-actions">
     <button class="btn accent sm" onclick="showDlg('dlg-pt-add')">＋ ポイント追加</button>
     <button class="btn sm" onclick="exportPts()">📤 書出し</button>
@@ -254,6 +263,36 @@
   </div>
 
   </div><!-- /sheet-body -->
+  </div><!-- /mpg-pane-pts -->
+
+  <!-- サブタブ②: 探索記録 -->
+  <div class="mpg-pane" id="mpg-pane-logs">
+    <div class="pt-actions mpg-log-actions">
+      <button class="btn accent sm" onclick="mpgOpenLogEdit()">＋ 記録追加</button>
+      <button class="btn sm" onclick="mpgOpenCand()">🗂 候補管理</button>
+      <button class="btn sm" onclick="mpgExport()">📤 書出し</button>
+      <button class="btn sm" onclick="mpgImportPick()">📥 読込み</button>
+    </div>
+    <div class="mpg-logbar">
+      <div class="mpg-seg">
+        <button type="button" id="mpg-sort-date" class="on" onclick="mpgSetSort('date')">日付順</button>
+        <button type="button" id="mpg-sort-point" onclick="mpgSetSort('point')">ポイント別</button>
+      </div>
+      <button type="button" class="btn sm" id="mpg-date-dir" onclick="mpgToggleDateDir()">新しい順 ▼</button>
+      <span class="mpg-limit" id="mpg-log-limit"></span>
+    </div>
+    <div class="sheet-body">
+      <div id="mpg-log-list"></div>
+    </div>
+    <input type="file" id="mpg-imp-file" accept="application/json,.json" style="display:none" onchange="mpgImportFile(event)">
+  </div>
+
+  <!-- サブタブ③: 集計 -->
+  <div class="mpg-pane" id="mpg-pane-stats">
+    <div class="sheet-body">
+      <div id="mpg-stats"></div>
+    </div>
+  </div>
 </div>
 
 <div class="sheet" id="dl-sheet">
@@ -1876,7 +1915,7 @@
   <!-- マイポイント機能説明ダイアログ -->
   <div class="dialog cfg-info-dlg" id="dlg-pt-about" style="display:none">
     <div class="dlg-head">
-      <span class="dlg-title">📖 マイポイント機能について</span>
+      <span class="dlg-title">📖 マイページ機能について</span>
       <button class="dlg-close" onclick="closeOv()">✕</button>
     </div>
     <div class="dlg-body cfg-dlg-body">
@@ -1892,7 +1931,7 @@
           </tr>
           <tr>
             <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">採取評価 ★</td>
-            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">採取の手応えを★1〜3で記録。★3が最高評価</td>
+            <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);">採取の手応えを★1〜5で記録。★5が最高評価</td>
           </tr>
           <tr style="background:rgba(255,255,255,0.05);">
             <td style="padding:5px 6px;border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-weight:700;white-space:nowrap;">メモ</td>
@@ -1920,9 +1959,61 @@
         <p style="margin:0 0 6px;">ポイントデータを <b>GeoJSON</b> 形式でエクスポート・インポートできます。PCでの閲覧やバックアップ、機種変更時のデータ移行に使えます。</p>
         <p style="margin:0 0 10px;color:rgba(200,170,80,0.7);font-size:11px;">⚠️ アイコン・マーカーカラーの設定はアプリ内管理のみのため、書き出したJSONには含まれません。</p>
 
+        <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">📝 探索記録（マイページ）</p>
+        <p style="margin:0 0 6px;">日付・ポイントごとに<b>取得量（重量g・粒数）、所要時間、採取方法、道具、処理方法、探索目的</b>を記録できます。1回の探索に複数のポイントを記録できます。</p>
+        <p style="margin:0 0 6px;">「🗂 候補管理」で、採取方法・道具などの候補を追加・名前変更・表示ON/OFFできます。OFFにしても過去の記録・集計には残ります。</p>
+        <p style="margin:0 0 6px;">「📊 集計」では累計・月別グラフ・ポイント別・採取方法/道具/処理方法/探索目的別の回数と取得量を確認できます。</p>
+        <p style="margin:0 0 10px;">探索記録は<b>端末内（ローカル）</b>に保存されます。フリー版は<b>3件まで</b>、プレミアムは無制限です。「📤 書出し / 📥 読込み」でJSONにバックアップできます（ポイントのGeoJSONとは別ファイルです）。</p>
+
         <p style="margin:0 0 6px;color:var(--txt);font-weight:600;">🗺️ ヒートマップに協力（プレミアム）</p>
         <p style="margin:0;">ポイントを1件以上登録するとONにできます。位置情報を約1km²単位に丸めて匿名で収集し、砂金分布ヒートマップの精度向上に活用します。個人を特定する情報は収集しません。</p>
       </div>
+    </div>
+  </div>
+
+  <!-- 探索記録 追加/編集ダイアログ -->
+  <div class="dialog cfg-info-dlg mpg-dlg" id="dlg-mpg-log" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title" id="mpg-log-ttl">📝 探索記録を追加</span>
+      <button class="dlg-close" onclick="closeOv()">✕</button>
+    </div>
+    <div class="dlg-body cfg-dlg-body" id="mpg-log-body">
+      <label style="margin-top:0;">日付</label>
+      <input type="date" id="mpg-log-date">
+      <label>メモ（水量・砂の様子・天気など）</label>
+      <textarea id="mpg-log-memo" maxlength="500" placeholder="自由記述"></textarea>
+      <div class="mpg-sec-title">ポイント明細 <span class="mpg-dim" id="mpg-entry-sum"></span></div>
+      <div id="mpg-entries"></div>
+      <div class="mpg-entry-btns">
+        <button type="button" class="btn sm accent" onclick="mpgAddEntry(false)">＋ 明細を追加</button>
+        <button type="button" class="btn sm" onclick="mpgAddEntry(true)">📋 直前の明細をコピーして追加</button>
+      </div>
+      <div class="mpg-note" style="margin-top:8px;">候補の名前変更・表示ON/OFFは、探索記録タブの「🗂 候補管理」から行えます。</div>
+    </div>
+    <div class="dlg-btns mpg-dlg-foot">
+      <button class="dbtn del" id="mpg-log-del-btn" onclick="mpgReqDelLog()" style="display:none">削除</button>
+      <button class="dbtn" onclick="closeOv()">キャンセル</button>
+      <button class="dbtn ok" onclick="mpgSaveLog()">保存する</button>
+    </div>
+  </div>
+
+  <!-- 候補管理ダイアログ -->
+  <div class="dialog cfg-info-dlg mpg-dlg" id="dlg-mpg-cand" style="display:none">
+    <div class="dlg-head">
+      <span class="dlg-title">🗂 候補管理</span>
+      <button class="dlg-close" onclick="closeOv()">✕</button>
+    </div>
+    <div class="mpg-cand-tabs" id="mpg-cand-tabs"></div>
+    <div class="dlg-body cfg-dlg-body" id="mpg-cand-body"></div>
+  </div>
+
+  <!-- 探索記録 削除確認ダイアログ -->
+  <div class="dialog" id="dlg-mpg-logdel" style="display:none">
+    <h3>探索記録の削除</h3>
+    <p class="dlg-msg" id="mpg-logdel-msg"></p>
+    <div class="dlg-btns">
+      <button class="dbtn" onclick="mpgCancelDelLog()">キャンセル</button>
+      <button class="dbtn del" onclick="mpgConfirmDelLog()">削除する</button>
     </div>
   </div>
 
@@ -2704,6 +2795,8 @@
   <script src="js/firebase.js"></script>
   <script src="js/community.js"></script>
   <script src="js/custom_layer.js"></script>
+  <script src="js/mypage_store.js"></script>
+  <script src="js/mypage.js"></script>
   <script src="js/map.js"></script>
   <script src="js/evaluate.js"></script>
   <script>
