@@ -228,6 +228,14 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
 
+  <!-- 金相場（設定タブから移動）: 3つのサブタブの上に常時表示 -->
+  <div class="mpg-goldbar">
+    <div class="comm-gold-row" id="comm-gold-row">
+      <button class="btn accent comm-gold-btn" id="comm-gold-btn" onclick="commShowGoldPrice()">💰 金相場</button>
+      <span class="comm-gold-hint">取得時点の参考価格・円/g換算</span>
+    </div>
+  </div>
+
   <!-- マイページ サブタブ -->
   <div class="mpg-subtabs" id="mpg-subtabs">
     <button class="mpg-subtab active" id="mpg-st-pts"   onclick="mpgSwitchSub('pts')">📍 ポイント</button>
@@ -361,11 +369,6 @@
     <button class="sheet-close" onclick="switchTab('map')">✕</button>
   </div>
   <div class="sheet-body">
-    <div class="comm-gold-row" id="comm-gold-row">
-      <button class="btn accent comm-gold-btn" id="comm-gold-btn" onclick="commShowGoldPrice()">💰 金相場</button>
-      <span class="comm-gold-hint">前日LBMA終値ベース・円/g換算</span>
-    </div>
-
     <div class="comm-premium-banner" onclick="commShowPremium()">
       <span class="comm-premium-icon">✨</span>
       <div class="comm-premium-text">
@@ -1187,7 +1190,8 @@
       <div id="dlg-gold-content" class="cfg-gold-content">
         <div class="cfg-gold-loading">取得中…</div>
       </div>
-      <div class="cfg-gold-note-row">前日LBMA終値ベース・円/g換算</div>
+      <div class="cfg-gold-note-row">取得時点の参考価格・円/g換算</div>
+      <div class="cfg-gold-src">金: gold-api.com ／ 為替: <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer">ExchangeRate-API</a>（1日1回更新）</div>
     </div>
   </div>
 

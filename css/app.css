@@ -5812,3 +5812,19 @@ body.eval-mode #map {
 .mpg-strow .v { width: 52px; flex-shrink: 0; text-align: right; color: var(--txt-sub); font-variant-numeric: tabular-nums; }
 .mpg-strow.head { background: none; font-size: 10px; color: var(--txt-dim); }
 .mpg-strow.head .v { color: var(--txt-dim); }
+
+/* ━━━ マイページ上部: 金相場バー（設定タブから移動） ━━━ */
+.mpg-goldbar {
+  flex-shrink: 0;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(200,170,80,0.18);
+}
+.mpg-goldbar .comm-gold-row { padding: 8px 0; }
+.cfg-gold-src {
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--txt-dim);
+  text-align: center;
+}
+.cfg-gold-src a { color: var(--gold); text-decoration: underline; }

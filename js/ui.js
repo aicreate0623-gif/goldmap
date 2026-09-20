@@ -1372,7 +1372,22 @@ if (document.readyState === 'loading') {
 
 // ━━━ 金相場 ━━━
 const SK_GOLD_UI = 'comm_gold_cache';
+const GOLD_COOLDOWN_MS = 5 * 60 * 1000; // 取得成功後のクールタイム（この間はAPIを呼ばず保存済みの結果を表示）
+// 直近5分以内に取得成功した保存済みの結果を返す（なければnull）。
+// 失敗時はキャッシュを更新しないため、失敗後はクールタイムなしで再取得できる。
+function _goldCooldownCache(){
+  try{
+    const c = JSON.parse(localStorage.getItem(SK_GOLD_UI) || 'null');
+    if(!c || typeof c.ts !== 'number' || typeof c.date !== 'string') return null;
+    const age = Date.now() - c.ts;
+    if(age < 0 || age >= GOLD_COOLDOWN_MS) return null;
+    if(![c.price_usd, c.rate_jpy, c.price_jpy_g].every(v => typeof v === 'number' && isFinite(v) && v > 0)) return null;
+    return c;
+  }catch(e){ return null; }
+}
 async function commShowGoldPrice(){
+  const cached = _goldCooldownCache();
+  if(cached){ _renderGoldDisplay(cached); return; }
   const btn = document.getElementById('comm-gold-btn');
   btn.disabled = true; btn.textContent = '取得中…';
   const dlgContent = document.getElementById('dlg-gold-content');
