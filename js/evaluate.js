@@ -959,6 +959,15 @@ const GoldEvaluator = (() => {
   }
 
   /**
+   * Overpass API 呼び出し用のリクエストヘッダーを返す。
+   * 現状はブラウザ標準のUA/Refererに任せるため Content-Type のみ。
+   * ※アプリ化（ネイティブHTTP等）の際は、ここだけを差し替えてUser-Agentを付与する。
+   */
+  function _overpassHeaders() {
+    return { 'Content-Type': 'application/x-www-form-urlencoded' };
+  }
+
+  /**
    * Overpass API: 指定座標の半径3km以内の河川・道路データを一括取得
    * キャッシュTTL: 7日（IndexedDB永続化）
    * 返却: { streams: Way[], rivers: Way[], roads: Way[], tracks: Way[] }
@@ -989,7 +998,7 @@ out geom;
     async function _doFetch() {
       const res = await fetch(OVERPASS_API, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: _overpassHeaders(),
         body:    'data=' + encodeURIComponent(query),
       });
       if (res.status === 429) throw Object.assign(new Error('overpass_429'), { is429: true });
@@ -2830,7 +2839,7 @@ out geom;
       center:             [lat, lng],
       zoom:               14,
       zoomControl:        false,
-      attributionControl: false,
+      attributionControl: true,
       dragging:           false,
       touchZoom:          false,
       scrollWheelZoom:    false,
@@ -2841,7 +2850,9 @@ out geom;
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
     }).addTo(mini);
+    mini.attributionControl.setPrefix(false); // 「Leaflet」プレフィックスは非表示（小さいミニマップ用）
 
     // ── Overpassキャッシュからトレース描画 ────────────────────
     // 評価済み座標のキャッシュが必ず存在するのでキーで直接参照

@@ -5828,3 +5828,49 @@ body.eval-mode #map {
   text-align: center;
 }
 .cfg-gold-src a { color: var(--gold); text-decoration: underline; }
+
+/* ─── 利用規約・出典一覧ダイアログ (dlg-cfg-terms) ─────────────── */
+.terms-body {
+  font-size: 11px;
+  color: var(--txt-sub);
+  line-height: 1.9;
+  padding: 4px 0 8px;
+}
+.terms-lead {
+  margin: 0 0 10px;
+}
+.terms-sec {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 6px;
+  padding: 8px 11px;
+  margin-bottom: 10px;
+}
+.terms-sec-title {
+  display: block;
+  color: var(--txt);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.terms-list {
+  margin: 4px 0 0;
+  padding-left: 1.3em;
+}
+.terms-list li {
+  margin-bottom: 6px;
+}
+.terms-src-name {
+  color: var(--txt);
+  font-weight: 600;
+}
+.terms-link {
+  color: #4a90d9;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ─── ev-minimap: OSM帰属表示（評価ポップアップ内ミニマップ） ─────── */
+.ev-minimap .leaflet-control-attribution {
+  max-width: 100% !important;
+  white-space: nowrap;
+}
